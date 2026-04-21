@@ -289,3 +289,72 @@ export const PrekeyBundleSchemaV2 = z.object({
   oneTimePreKey: OneTimePreKeyInput.nullable(),
 });
 export type PrekeyBundleV2 = z.infer<typeof PrekeyBundleSchemaV2>;
+
+/* ─────────── Phase 4: Phone Auth (Firebase) ─────────── */
+
+export const VerifyFirebasePhoneInput = z.object({
+  /** Firebase ID token obtained from the client after reCAPTCHA + SMS OTP. */
+  firebaseIdToken: z.string().min(1).max(4096),
+  purpose: OtpPurposeSchema,
+  /** Required on signup. Base64 Ed25519 public key. */
+  identityPublicKey: IdentityPublicKeySchema.optional(),
+});
+export type VerifyFirebasePhoneInput = z.infer<typeof VerifyFirebasePhoneInput>;
+
+/* ─────────── Phase 4: Random ID Auth ─────────── */
+
+/** veil_ prefix + 8 random lowercase hex chars. */
+export const RandomIdSchema = z
+  .string()
+  .regex(/^veil_[0-9a-f]{8}$/, "Must be a valid Veil random ID");
+export type RandomId = z.infer<typeof RandomIdSchema>;
+
+export const SignupRandomInput = z.object({
+  randomId: RandomIdSchema,
+  identityPublicKey: IdentityPublicKeySchema,
+});
+export type SignupRandomInput = z.infer<typeof SignupRandomInput>;
+
+export const RequestRandomChallengeInput = z.object({
+  randomId: RandomIdSchema,
+});
+export type RequestRandomChallengeInput = z.infer<typeof RequestRandomChallengeInput>;
+
+export const RandomChallengeResult = z.object({
+  /** Short-lived JWT the client must sign with their identity key. */
+  challenge: z.string(),
+  expiresInSeconds: z.number().int().positive(),
+});
+export type RandomChallengeResult = z.infer<typeof RandomChallengeResult>;
+
+export const LoginRandomInput = z.object({
+  randomId: RandomIdSchema,
+  /** The challenge JWT string returned by requestRandomChallenge. */
+  challenge: z.string().min(1),
+  /** Base64 Ed25519 signature over the raw challenge string bytes. */
+  signature: z.string().regex(/^[A-Za-z0-9+/]+=*$/).min(80).max(100),
+});
+export type LoginRandomInput = z.infer<typeof LoginRandomInput>;
+
+/* ─────────── Phase 4: Contact Discovery ─────────── */
+
+export const GetDiscoverySaltResult = z.object({
+  saltId: z.string().uuid(),
+  /** Base64 HMAC-SHA256 salt to use for hashing phone numbers. */
+  salt: z.string(),
+  expiresInSeconds: z.number().int().positive(),
+});
+export type GetDiscoverySaltResult = z.infer<typeof GetDiscoverySaltResult>;
+
+export const DiscoverContactsInput = z.object({
+  saltId: z.string().uuid(),
+  /** Array of Base64 HMAC-SHA256 hashes of E.164 phone numbers. */
+  hashes: z.array(z.string().min(1).max(64)).max(500),
+});
+export type DiscoverContactsInput = z.infer<typeof DiscoverContactsInput>;
+
+export const DiscoverContactsResult = z.object({
+  /** Maps each hash that matched to the Veil user ID. */
+  matches: z.record(z.string(), UserIdSchema),
+});
+export type DiscoverContactsResult = z.infer<typeof DiscoverContactsResult>;

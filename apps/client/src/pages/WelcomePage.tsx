@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { Logo } from "../components/Layout";
 import { fetchHealth } from "../api";
+import { isFirebaseConfigured } from "../lib/firebase";
 
 type ServerStatus =
   | { kind: "loading" }
@@ -10,6 +11,8 @@ type ServerStatus =
 
 export function WelcomePage() {
   const [status, setStatus] = useState<ServerStatus>({ kind: "loading" });
+  const firebaseReady = isFirebaseConfigured();
+
   useEffect(() => {
     let cancelled = false;
     fetchHealth()
@@ -46,14 +49,21 @@ export function WelcomePage() {
             available
           />
           <SignupOption
-            to="#"
+            to="/signup/phone"
             title="Phone"
-            sub="SMS verification (coming in Phase 4)"
+            sub={
+              firebaseReady
+                ? "SMS verification"
+                : "SMS verification · requires Firebase setup"
+            }
+            available={firebaseReady}
+            comingSoon={!firebaseReady}
           />
           <SignupOption
-            to="#"
+            to="/signup/random"
             title="Random ID + recovery phrase"
-            sub="No email, no phone (coming in Phase 4)"
+            sub="No email, no phone — maximum privacy"
+            available
           />
         </div>
 
@@ -76,21 +86,31 @@ function SignupOption({
   title,
   sub,
   available,
+  comingSoon,
 }: {
   to: string;
   title: string;
   sub: string;
   available?: boolean;
+  comingSoon?: boolean;
 }) {
   const inner = (
     <div className="w-full text-left rounded-xl border border-white/10 bg-white/5 px-4 py-3 hover:bg-white/10 transition flex items-center justify-between">
       <div>
-        <div className="font-medium">{title}</div>
+        <div className="font-medium flex items-center gap-2">
+          {title}
+          {comingSoon && (
+            <span className="text-[10px] bg-amber-400/20 text-amber-300 px-1.5 py-0.5 rounded-full">
+              setup needed
+            </span>
+          )}
+        </div>
         <div className="text-xs text-white/50">{sub}</div>
       </div>
       <span className="text-white/40">→</span>
     </div>
   );
+
   if (!available) {
     return (
       <div className="opacity-50 pointer-events-none select-none">{inner}</div>

@@ -1,5 +1,7 @@
 import { ed25519 } from "@noble/curves/ed25519.js";
 import { argon2id } from "hash-wasm";
+import { generateMnemonic, mnemonicToSeedSync, validateMnemonic } from "@scure/bip39";
+import { wordlist as englishWordlist } from "@scure/bip39/wordlists/english.js";
 
 /** Copy a Uint8Array into a fresh ArrayBuffer-backed view (safe for Web Crypto). */
 function bs(a: Uint8Array): Uint8Array<ArrayBuffer> {
@@ -136,4 +138,57 @@ export function base64ToBytes(s: string): Uint8Array {
   const out = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
   return out;
+}
+
+/* ─────────── BIP-39 Recovery Phrase (Phase 4 — Random ID accounts) ─────────── */
+
+/** Generate a 12-word BIP-39 mnemonic. */
+export function generateRecoveryPhrase(): string {
+  return generateMnemonic(englishWordlist, 128); // 128 bits → 12 words
+}
+
+/** Check a mnemonic is valid BIP-39. */
+export function isValidRecoveryPhrase(phrase: string): boolean {
+  return validateMnemonic(phrase.trim().toLowerCase(), englishWordlist);
+}
+
+/**
+ * Deterministically derive an Ed25519 identity keypair from a BIP-39 mnemonic.
+ * The private key is the first 32 bytes of the BIP-39 seed (PBKDF2-SHA512).
+ * Same phrase → same keypair, always.
+ */
+export function deriveIdentityFromPhrase(phrase: string): IdentityKeyPair {
+  const seed = mnemonicToSeedSync(phrase.trim().toLowerCase());
+  const privateKey = seed.slice(0, 32);
+  const publicKey = ed25519.getPublicKey(privateKey);
+  return {
+    privateKey: Uint8Array.from(privateKey),
+    publicKey: Uint8Array.from(publicKey),
+  };
+}
+
+/**
+ * Deterministically derive an X25519 keypair from a BIP-39 mnemonic.
+ * Uses bytes 32-63 of the BIP-39 seed as the private key.
+ */
+export function deriveX25519FromPhrase(phrase: string): { privateKey: Uint8Array; publicKey: Uint8Array } {
+  const seed = mnemonicToSeedSync(phrase.trim().toLowerCase());
+  const privateKey = Uint8Array.from(seed.slice(32, 64));
+  return { privateKey, publicKey: new Uint8Array(0) }; // publicKey computed by caller
+}
+
+/** Sign a string message with an Ed25519 private key. Returns base64 signature. */
+export function signMessage(privateKey: Uint8Array, message: string): string {
+  const msgBytes = new TextEncoder().encode(message);
+  const sig = ed25519.sign(msgBytes, privateKey);
+  return bytesToBase64(sig);
+}
+
+/** Generate a random veil_xxxxxxxx user ID. */
+export function generateRandomId(): string {
+  const bytes = randomBytes(4);
+  const hex = Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+  return `veil_${hex}`;
 }

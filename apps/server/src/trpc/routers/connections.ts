@@ -1,5 +1,6 @@
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq, or } from "drizzle-orm";
+import { and, desc, eq, inArray, or } from "drizzle-orm";
+import { createHmac, randomUUID } from "node:crypto";
 import {
   IncomingRequestSchema,
   OutgoingRequestSchema,
@@ -7,6 +8,9 @@ import {
   PeerIdInput,
   RequestIdInput,
   OkSchema,
+  GetDiscoverySaltResult,
+  DiscoverContactsInput,
+  DiscoverContactsResult,
   type IncomingRequest,
   type OutgoingRequest,
   type Connection,
@@ -16,6 +20,17 @@ import { z } from "zod";
 import { protectedProcedure, router } from "../init.js";
 import { getDb, schema } from "../../db/index.js";
 import { fingerprintForPublicKey } from "../../lib/fingerprint.js";
+import { env } from "../../env.js";
+
+const SALT_TTL_MS = 5 * 60 * 1000;
+const discoverySalts = new Map<string, { salt: string; expiresAt: number }>();
+
+function pruneExpiredSalts() {
+  const now = Date.now();
+  for (const [id, s] of discoverySalts) {
+    if (s.expiresAt <= now) discoverySalts.delete(id);
+  }
+}
 
 function peer(u: {
   id: string;
@@ -242,5 +257,77 @@ export const connectionsRouter = router({
         });
       }
       return { ok: true as const };
+    }),
+
+  /* ─────────── Contact Discovery (Phase 4 — phone accounts) ─────────── */
+
+  getDiscoverySalt: protectedProcedure
+    .output(GetDiscoverySaltResult)
+    .query(() => {
+      pruneExpiredSalts();
+      if (!env.IDENTIFIER_HMAC_PEPPER) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "IDENTIFIER_HMAC_PEPPER is not configured.",
+        });
+      }
+      const saltId = randomUUID();
+      const salt = createHmac("sha256", env.IDENTIFIER_HMAC_PEPPER)
+        .update(`discovery-salt:${saltId}`)
+        .digest("base64");
+      discoverySalts.set(saltId, {
+        salt,
+        expiresAt: Date.now() + SALT_TTL_MS,
+      });
+      return {
+        saltId,
+        salt,
+        expiresInSeconds: Math.floor(SALT_TTL_MS / 1000),
+      };
+    }),
+
+  discoverContacts: protectedProcedure
+    .input(DiscoverContactsInput)
+    .output(DiscoverContactsResult)
+    .mutation(async ({ input }) => {
+      pruneExpiredSalts();
+      const saltEntry = discoverySalts.get(input.saltId);
+      if (!saltEntry || saltEntry.expiresAt <= Date.now()) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Discovery salt expired or not found. Fetch a new one.",
+        });
+      }
+
+      if (input.hashes.length === 0) {
+        return { matches: {} };
+      }
+
+      const db = getDb();
+      const phoneUsers = await db
+        .select({
+          id: schema.users.id,
+          phoneHash: schema.users.phoneHash,
+        })
+        .from(schema.users)
+        .where(
+          and(
+            eq(schema.users.accountType, "phone"),
+          ),
+        );
+
+      const matches: Record<string, string> = {};
+
+      for (const user of phoneUsers) {
+        if (!user.phoneHash) continue;
+        const rederived = createHmac("sha256", saltEntry.salt)
+          .update(user.phoneHash)
+          .digest("base64");
+        if (input.hashes.includes(rederived)) {
+          matches[rederived] = user.id;
+        }
+      }
+
+      return { matches };
     }),
 });

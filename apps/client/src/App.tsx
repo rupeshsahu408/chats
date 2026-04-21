@@ -5,7 +5,11 @@ import { trpc, makeTrpcClient } from "./lib/trpc";
 import { useAuthStore } from "./lib/store";
 import { WelcomePage } from "./pages/WelcomePage";
 import { EmailSignupPage } from "./pages/EmailSignupPage";
+import { PhoneSignupPage } from "./pages/PhoneSignupPage";
+import { RandomIdSignupPage } from "./pages/RandomIdSignupPage";
 import { LoginPage } from "./pages/LoginPage";
+import { RandomLoginPage } from "./pages/RandomLoginPage";
+import { PhoneLoginPage } from "./pages/PhoneLoginPage";
 import { ChatsPage } from "./pages/ChatsPage";
 import { ChatThreadPage } from "./pages/ChatThreadPage";
 import { InvitePage } from "./pages/InvitePage";
@@ -30,7 +34,11 @@ export function App() {
         <Routes>
           <Route path="/" element={<WelcomePage />} />
           <Route path="/signup/email" element={<EmailSignupPage />} />
+          <Route path="/signup/phone" element={<PhoneSignupPage />} />
+          <Route path="/signup/random" element={<RandomIdSignupPage />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/login/phone" element={<PhoneLoginPage />} />
+          <Route path="/login/random" element={<RandomLoginPage />} />
           <Route path="/chats" element={<ChatsPage />} />
           <Route path="/chats/:peerId" element={<ChatThreadPage />} />
           <Route path="/invite" element={<InvitePage />} />
@@ -43,11 +51,6 @@ export function App() {
   );
 }
 
-/**
- * On app start, attempt to silently refresh the session via the
- * httpOnly refresh-token cookie. If it succeeds, we get a fresh access
- * token without the user re-entering anything.
- */
 function SessionBootstrap() {
   const setAuth = useAuthStore((s) => s.setAuth);
   const refresh = trpc.auth.refresh.useMutation();
@@ -60,8 +63,6 @@ function SessionBootstrap() {
       .mutateAsync()
       .then((r) => {
         setAuth({ accessToken: r.accessToken, user: r.user });
-        // If the user landed on `/?invite=…` while logged out, hop them
-        // back to the redeem page now that they have a session.
         const params = new URLSearchParams(window.location.search);
         const inviteFromQuery = params.get("invite");
         const inviteFromStorage = (() => {
@@ -73,17 +74,18 @@ function SessionBootstrap() {
         })();
         const pending = inviteFromQuery ?? inviteFromStorage;
         if (pending && window.location.pathname === "/") {
-          window.history.replaceState({}, "", `/i/${encodeURIComponent(pending)}`);
+          window.history.replaceState(
+            {},
+            "",
+            `/i/${encodeURIComponent(pending)}`,
+          );
           window.dispatchEvent(new PopStateEvent("popstate"));
         }
       })
-      .catch(() => {
-        // No valid refresh cookie → stay logged out.
-      });
+      .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   return null;
 }
 
-// Keep navigate utility in case we need it elsewhere.
 export { useNavigate };

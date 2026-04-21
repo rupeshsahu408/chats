@@ -3,6 +3,8 @@ import {
   bytesToBase64,
   decryptWithPin,
   encryptWithPin,
+  deriveIdentityFromPhrase,
+  deriveX25519FromPhrase,
 } from "./crypto";
 import { ed25519 } from "@noble/curves/ed25519.js";
 import { loadIdentity, saveIdentity } from "./db";
@@ -13,6 +15,58 @@ import {
 import { trpcClientProxy } from "./trpcClientProxy";
 import { buildPrekeyBundle } from "./prekeys";
 import type { UnlockedIdentity } from "./signal/session";
+
+/**
+ * True when the stored identity record was derived from a BIP-39 recovery
+ * phrase (random ID accounts) rather than encrypted with a PIN.
+ */
+export function isPhraseDerived(rec: { iv: string }): boolean {
+  return rec.iv === "phrase-derived";
+}
+
+/**
+ * Unlock for random-ID accounts: derive keys deterministically from the
+ * recovery phrase, no decryption step needed.
+ */
+export async function unlockIdentityFromPhrase(
+  phrase: string,
+): Promise<UnlockedIdentity> {
+  const rec = await loadIdentity();
+  if (!rec) {
+    throw new Error("No on-device identity found. Please sign in first.");
+  }
+  if (!isPhraseDerived(rec)) {
+    throw new Error(
+      "This account uses a PIN, not a recovery phrase. Use the PIN unlock instead.",
+    );
+  }
+
+  const ed = deriveIdentityFromPhrase(phrase);
+
+  // Verify the derived public key matches what we stored.
+  const storedPub = base64ToBytes(rec.publicKey);
+  if (!storedPub.every((v, i) => v === ed.publicKey[i])) {
+    throw new Error(
+      "Recovery phrase doesn't match this account. Check your words.",
+    );
+  }
+
+  const { privateKey: x25519Priv } = deriveX25519FromPhrase(phrase);
+  const x25519Pub = x25519PublicKeyFromPrivate(x25519Priv);
+
+  if (rec.x25519PublicKey) {
+    const storedX25519 = base64ToBytes(rec.x25519PublicKey);
+    if (!storedX25519.every((v, i) => v === x25519Pub[i])) {
+      throw new Error("X25519 key mismatch — recovery phrase may be wrong.");
+    }
+  }
+
+  return {
+    userId: rec.userId,
+    ed25519: ed,
+    x25519: { privateKey: x25519Priv, publicKey: x25519Pub },
+  };
+}
 
 /**
  * Unlock the on-device identity using the user's PIN.
@@ -34,6 +88,12 @@ export async function unlockIdentity(pin: string): Promise<UnlockedIdentity> {
     throw new Error("No on-device identity found. Please sign up first.");
   }
 
+  if (isPhraseDerived(rec)) {
+    throw new Error(
+      "This is a Random ID account. Use your recovery phrase instead.",
+    );
+  }
+
   // Decrypt Ed25519 identity.
   const edPriv = await decryptWithPin(pin, {
     ciphertext: base64ToBytes(rec.encPrivateKey),
@@ -53,7 +113,6 @@ export async function unlockIdentity(pin: string): Promise<UnlockedIdentity> {
       salt: base64ToBytes(rec.salt2),
     });
     x25519Pub = base64ToBytes(rec.x25519PublicKey);
-    // Sanity check.
     const derived = x25519PublicKeyFromPrivate(x25519Priv);
     if (
       derived.length !== x25519Pub.length ||
@@ -81,16 +140,12 @@ export async function unlockIdentity(pin: string): Promise<UnlockedIdentity> {
         publicKey: bytesToBase64(x25519Pub),
       });
     } catch (err) {
-      // If upload fails (e.g. offline), the local state still has the
-      // key; the next unlock will try the upload again? No — we'll skip
-      // the migration branch next time. So bubble up.
       throw new Error(
         `Couldn't register your chat key with the server: ${
           err instanceof Error ? err.message : String(err)
         }. Try again when you're online.`,
       );
     }
-    // Re-upload prekeys as X25519 (replacing any Ed25519 placeholders).
     try {
       const bundle = await buildPrekeyBundle({
         identityPrivateKey: edPriv,

@@ -133,20 +133,31 @@ After PIN setup at signup, the client generates 1 signed prekey + 20 one-time pr
 
 ## Current phase
 
-**Phase 3 — 1:1 Signal Protocol chat (complete).**
+**Phase 4 — Phone (SMS OTP via Firebase) + Random-ID account types (complete).**
+
+### Phase 3 (1:1 Signal Protocol chat — complete)
 - Server: `users.identity_x25519_pubkey` column added; new `messages` table; routers `me.setX25519Identity` (idempotent), `messages.{send,fetchAndConsume}` (connection-gated, delete-on-fetch), `prekeys.upload` extended with `replaceOneTime`, `prekeys.claimBundleFor` is now a mutation returning `identityX25519PublicKey`.
 - Shared: `SetX25519IdentityInput`, `SendMessageInput`, `InboxMessageSchema`, `UploadPrekeysInputV2`, `PrekeyBundleSchemaV2`.
 - Client crypto: `lib/signal/{x25519,kdf,aead,x3dh,ratchet,session}.ts` — full X3DH + Double Ratchet implementation built on `@noble/curves` + WebCrypto.
 - Client storage: Dexie v3 adds `chat_sessions` (per-peer serialized ratchet state) + `chat_messages` (per-peer plaintext log). `IdentityRecord` gains `encX25519PrivateKey`/`iv2`/`salt2`/`x25519PublicKey`.
 - Client unlock: `lib/unlock.ts` decrypts both privates and runs the X25519 migration when needed; `useUnlockStore` keeps them in memory only.
 - Client UI: `UnlockGate`, `ChatThreadPage` at `/chats/:peerId` with composer + 3-second poll, `ChatsPage` hub now lists conversations (per-peer last-message preview) + unlock pill.
+
+### Phase 4 (Phone + Random ID auth — complete)
+- **Phone auth (Firebase SMS):** server `auth.verifyFirebasePhone` verifies Firebase ID tokens using `firebase-admin` (conditionally initialised from `FIREBASE_PROJECT_ID/CLIENT_EMAIL/PRIVATE_KEY`). Client `PhoneSignupPage` and `PhoneLoginPage` use Firebase JS SDK reCAPTCHA verifier + `signInWithPhoneNumber`. Both show a clear "Firebase not configured" fallback when env vars are absent.
+- **Random ID auth:** `auth.signupRandom` registers a `veil_xxxxxxxx` ID + Ed25519 public key. Challenge-response login: `auth.requestRandomChallenge` issues a short-lived JWT; `auth.loginRandom` verifies the client's Ed25519 signature against the stored public key. Server uses `@noble/curves/ed25519.js`.
+- **BIP-39 recovery phrase:** `@scure/bip39` (browser-native ESM) generates 12-word mnemonics. `crypto.ts` derives Ed25519 (bytes 0-31) + X25519 (bytes 32-63) keypairs deterministically from seed via `mnemonicToSeedSync`. Phrase-derived accounts skip PIN entry; `iv: "phrase-derived"` marker in `IdentityRecord` distinguishes them.
+- **UnlockGate** detects account type and shows either PIN input or 12-word recovery phrase textarea.
+- **Contact discovery:** `connections.getDiscoverySalt` + `connections.discoverContacts` implement double-HMAC scheme with 5-minute rotating in-memory salts.
+- **New routes:** `/signup/phone`, `/signup/random`, `/login/phone`, `/login/random`. Welcome + Login pages show all three options (Phone option shows "setup needed" badge when Firebase vars are absent).
+- **Packages added:** `firebase` (client), `firebase-admin` (server), `@scure/bip39` (client; replaced CJS `bip39`).
 - Typecheck (`pnpm -r typecheck`): green across `shared`, `server`, `client`.
 
-> **Action needed after pulling:** run `pnpm --filter @veil/server db:push` to apply the new `identity_x25519_pubkey` column + `messages` table.
+> **Server env vars added in Phase 4:** `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY` (all optional — omitting disables phone auth with clear errors). Client: `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`.
 
 ## Next phase
 
-**Phase 4 — Phone (SMS OTP) + Random-ID account types**, then **Phase 5 — WebSocket transport + push notifications + media attachments**.
+**Phase 5 — WebSocket transport + push notifications + media attachments.**
 
 ## User preferences
 

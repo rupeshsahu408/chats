@@ -1,8 +1,16 @@
 import { TRPCError } from "@trpc/server";
 import { and, eq, desc, gt, lt } from "drizzle-orm";
+import { SignJWT, jwtVerify } from "jose";
+import { randomBytes } from "node:crypto";
+import { ed25519 } from "@noble/curves/ed25519.js";
 import {
   RequestEmailOtpInput,
   VerifyEmailOtpInput,
+  VerifyFirebasePhoneInput,
+  SignupRandomInput,
+  RequestRandomChallengeInput,
+  RandomChallengeResult,
+  LoginRandomInput,
   AuthResultSchema,
   RequestEmailOtpResult,
   type AuthResult,
@@ -25,6 +33,17 @@ import {
   TOKEN_TTL,
 } from "../../lib/jwt.js";
 import { env } from "../../env.js";
+import {
+  isFirebaseConfigured,
+  verifyFirebaseIdToken,
+} from "../../lib/firebase.js";
+
+const CHALLENGE_TTL_SECONDS = 2 * 60;
+
+function challengeKey(): Uint8Array {
+  if (!env.JWT_SECRET) throw new Error("JWT_SECRET missing");
+  return new TextEncoder().encode(`challenge:${env.JWT_SECRET}`);
+}
 
 function setRefreshCookie(
   res: { setCookie: (name: string, value: string, opts: object) => void },
@@ -45,26 +64,58 @@ function clearRefreshCookie(res: {
   res.clearCookie("veil_refresh", { path: "/" });
 }
 
+async function issueSession(
+  ctx: {
+    req: { headers: Record<string, string | string[] | undefined> };
+    res: unknown;
+  },
+  userId: string,
+  accountType: "email" | "phone" | "random",
+  accountCreatedAt: Date,
+): Promise<AuthResult> {
+  const db = getDb();
+  const accessToken = await signAccessToken({ sub: userId });
+  const refreshToken = generateRefreshToken();
+  const refreshExpires = new Date(
+    Date.now() + TOKEN_TTL.refreshSeconds * 1000,
+  );
+  await db.insert(schema.sessions).values({
+    userId,
+    refreshTokenHash: sha256Hex(refreshToken),
+    deviceLabel:
+      (ctx.req.headers["user-agent"] as string | undefined)?.slice(0, 200) ??
+      null,
+    expiresAt: refreshExpires,
+  });
+  await db
+    .update(schema.users)
+    .set({ lastSeenAt: new Date() })
+    .where(eq(schema.users.id, userId));
+
+  setRefreshCookie(ctx.res as never, refreshToken);
+
+  return {
+    user: { id: userId, accountType, createdAt: accountCreatedAt.toISOString() },
+    accessToken,
+    expiresIn: TOKEN_TTL.accessSeconds,
+  };
+}
+
 export const authRouter = router({
-  /**
-   * Send a 6-digit OTP to the given email. Rate-limited per-email and per-IP.
-   * Always succeeds with `delivered: true` from the user's perspective when
-   * input is valid (we don't leak whether the account exists).
-   */
+  /* ─────────── Email OTP ─────────── */
+
   requestEmailOtp: configuredProcedure
     .input(RequestEmailOtpInput)
-    .output(RateLimitedResultShape())
+    .output(RequestEmailOtpResult)
     .mutation(async ({ input, ctx }) => {
       const db = getDb();
       const identifierHash = hashIdentifier(input.email);
 
-      // Per-email throttle: 3 OTP requests per hour.
       const emailLimit = rateLimit({
         key: `otp:email:${identifierHash}`,
         limit: 3,
         windowSeconds: 60 * 60,
       });
-      // Per-IP throttle: 10 OTP requests per 10 minutes.
       const ipLimit = rateLimit({
         key: `otp:ip:${ctx.ip}`,
         limit: 10,
@@ -81,8 +132,6 @@ export const authRouter = router({
         });
       }
 
-      // For login, only proceed if a user with this email actually exists.
-      // We still return a generic "delivered" response to avoid enumeration.
       if (input.purpose === "login") {
         const existing = await db
           .select({ id: schema.users.id })
@@ -90,25 +139,16 @@ export const authRouter = router({
           .where(eq(schema.users.emailHash, identifierHash))
           .limit(1);
         if (existing.length === 0) {
-          // Pretend we sent it.
-          return {
-            delivered: true,
-            expiresInSeconds: OTP_TTL_SECONDS,
-          };
+          return { delivered: true, expiresInSeconds: OTP_TTL_SECONDS };
         }
-      } else if (input.purpose === "signup") {
-        // For signup, refuse if the email is already registered (with a
-        // generic message to keep enumeration cost the same as login).
+      } else {
         const existing = await db
           .select({ id: schema.users.id })
           .from(schema.users)
           .where(eq(schema.users.emailHash, identifierHash))
           .limit(1);
         if (existing.length > 0) {
-          return {
-            delivered: true,
-            expiresInSeconds: OTP_TTL_SECONDS,
-          };
+          return { delivered: true, expiresInSeconds: OTP_TTL_SECONDS };
         }
       }
 
@@ -116,7 +156,6 @@ export const authRouter = router({
       const codeHash = await hashOtp(code);
       const expiresAt = new Date(Date.now() + OTP_TTL_SECONDS * 1000);
 
-      // Invalidate previous unconsumed codes for this identifier+purpose.
       await db
         .update(schema.otpCodes)
         .set({ consumed: true })
@@ -149,11 +188,6 @@ export const authRouter = router({
       };
     }),
 
-  /**
-   * Verify the OTP. On signup: create the user, store identity public key.
-   * On login: ensure user exists. In both cases, issue an access JWT and
-   * an opaque refresh token (set as an HTTP-only cookie).
-   */
   verifyEmailOtp: configuredProcedure
     .input(VerifyEmailOtpInput)
     .output(AuthResultSchema)
@@ -173,7 +207,6 @@ export const authRouter = router({
         });
       }
 
-      // Pull the latest unconsumed, unexpired code for this identifier+purpose.
       const now = new Date();
       const candidates = await db
         .select()
@@ -219,7 +252,6 @@ export const authRouter = router({
         });
       }
 
-      // Mark consumed.
       await db
         .update(schema.otpCodes)
         .set({ consumed: true })
@@ -227,7 +259,96 @@ export const authRouter = router({
 
       let userId: string;
       let accountCreatedAt: Date;
-      let accountType: "email";
+
+      if (input.purpose === "signup") {
+        if (!input.identityPublicKey) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "identityPublicKey is required for signup.",
+          });
+        }
+        const pubkeyBytes = Buffer.from(input.identityPublicKey, "base64");
+        if (pubkeyBytes.length !== 32) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "identityPublicKey must be a 32-byte Ed25519 key.",
+          });
+        }
+        try {
+          const inserted = await db
+            .insert(schema.users)
+            .values({
+              accountType: "email",
+              emailHash: identifierHash,
+              identityPubkey: pubkeyBytes,
+            })
+            .returning({
+              id: schema.users.id,
+              createdAt: schema.users.createdAt,
+            });
+          const row = inserted[0]!;
+          userId = row.id;
+          accountCreatedAt = row.createdAt;
+        } catch {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "Account already exists for this email. Please log in.",
+          });
+        }
+      } else {
+        const found = await db
+          .select({ id: schema.users.id, createdAt: schema.users.createdAt })
+          .from(schema.users)
+          .where(eq(schema.users.emailHash, identifierHash))
+          .limit(1);
+        if (found.length === 0) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "No account found for this email.",
+          });
+        }
+        const row = found[0]!;
+        userId = row.id;
+        accountCreatedAt = row.createdAt;
+      }
+
+      return issueSession(ctx, userId, "email", accountCreatedAt);
+    }),
+
+  /* ─────────── Phone Auth (Firebase) ─────────── */
+
+  verifyFirebasePhone: configuredProcedure
+    .input(VerifyFirebasePhoneInput)
+    .output(AuthResultSchema)
+    .mutation(async ({ input, ctx }): Promise<AuthResult> => {
+      if (!isFirebaseConfigured()) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message:
+            "Firebase is not configured. Set FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, and FIREBASE_PRIVATE_KEY.",
+        });
+      }
+
+      let phoneNumber: string;
+      try {
+        const decoded = await verifyFirebaseIdToken(input.firebaseIdToken);
+        if (!decoded.phone_number) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Firebase token does not contain a phone number.",
+          });
+        }
+        phoneNumber = decoded.phone_number;
+      } catch (err) {
+        if (err instanceof TRPCError) throw err;
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "Invalid or expired Firebase ID token.",
+        });
+      }
+
+      const db = getDb();
+      const identifierHash = hashIdentifier(phoneNumber);
 
       if (input.purpose === "signup") {
         if (!input.identityPublicKey) {
@@ -244,14 +365,26 @@ export const authRouter = router({
           });
         }
 
-        // Race-safe insert: if email already exists, this will fail on the
-        // partial unique index. Treat that as "fall through to login".
+        const existing = await db
+          .select({ id: schema.users.id, createdAt: schema.users.createdAt })
+          .from(schema.users)
+          .where(eq(schema.users.phoneHash, identifierHash))
+          .limit(1);
+
+        if (existing.length > 0) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message:
+              "Account already exists for this phone number. Please log in.",
+          });
+        }
+
         try {
           const inserted = await db
             .insert(schema.users)
             .values({
-              accountType: "email",
-              emailHash: identifierHash,
+              accountType: "phone",
+              phoneHash: identifierHash,
               identityPubkey: pubkeyBytes,
             })
             .returning({
@@ -259,88 +392,180 @@ export const authRouter = router({
               createdAt: schema.users.createdAt,
             });
           const row = inserted[0]!;
-          userId = row.id;
-          accountCreatedAt = row.createdAt;
-          accountType = "email";
+          return issueSession(ctx, row.id, "phone", row.createdAt);
         } catch {
           throw new TRPCError({
             code: "CONFLICT",
-            message: "Account already exists for this email. Please log in.",
+            message:
+              "Account already exists for this phone number. Please log in.",
           });
         }
       } else {
         const found = await db
-          .select({
-            id: schema.users.id,
-            createdAt: schema.users.createdAt,
-            accountType: schema.users.accountType,
-          })
+          .select({ id: schema.users.id, createdAt: schema.users.createdAt })
           .from(schema.users)
-          .where(eq(schema.users.emailHash, identifierHash))
+          .where(eq(schema.users.phoneHash, identifierHash))
           .limit(1);
+
         if (found.length === 0) {
           throw new TRPCError({
             code: "NOT_FOUND",
-            message: "No account found for this email.",
+            message:
+              "No account found for this phone number. Please sign up first.",
           });
         }
         const row = found[0]!;
-        userId = row.id;
-        accountCreatedAt = row.createdAt;
-        accountType = "email";
+        return issueSession(ctx, row.id, "phone", row.createdAt);
       }
-
-      // Issue tokens.
-      const accessToken = await signAccessToken({ sub: userId });
-      const refreshToken = generateRefreshToken();
-      const refreshExpires = new Date(
-        Date.now() + TOKEN_TTL.refreshSeconds * 1000,
-      );
-      await db.insert(schema.sessions).values({
-        userId,
-        refreshTokenHash: sha256Hex(refreshToken),
-        deviceLabel: ctx.req.headers["user-agent"]?.slice(0, 200) ?? null,
-        expiresAt: refreshExpires,
-      });
-
-      await db
-        .update(schema.users)
-        .set({ lastSeenAt: new Date() })
-        .where(eq(schema.users.id, userId));
-
-      setRefreshCookie(ctx.res as never, refreshToken);
-
-      return {
-        user: {
-          id: userId,
-          accountType,
-          createdAt: accountCreatedAt.toISOString(),
-        },
-        accessToken,
-        expiresIn: TOKEN_TTL.accessSeconds,
-      };
     }),
 
-  /** Exchange the refresh-token cookie for a new access token. */
+  /* ─────────── Random ID Auth ─────────── */
+
+  signupRandom: configuredProcedure
+    .input(SignupRandomInput)
+    .output(AuthResultSchema)
+    .mutation(async ({ input, ctx }): Promise<AuthResult> => {
+      const db = getDb();
+
+      const pubkeyBytes = Buffer.from(input.identityPublicKey, "base64");
+      if (pubkeyBytes.length !== 32) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "identityPublicKey must be a 32-byte Ed25519 key.",
+        });
+      }
+
+      const existing = await db
+        .select({ id: schema.users.id })
+        .from(schema.users)
+        .where(eq(schema.users.randomId, input.randomId))
+        .limit(1);
+
+      if (existing.length > 0) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "This random ID is already taken. Please generate a new one.",
+        });
+      }
+
+      const inserted = await db
+        .insert(schema.users)
+        .values({
+          accountType: "random",
+          randomId: input.randomId,
+          identityPubkey: pubkeyBytes,
+        })
+        .returning({ id: schema.users.id, createdAt: schema.users.createdAt });
+
+      const row = inserted[0]!;
+      return issueSession(ctx, row.id, "random", row.createdAt);
+    }),
+
+  requestRandomChallenge: configuredProcedure
+    .input(RequestRandomChallengeInput)
+    .output(RandomChallengeResult)
+    .mutation(async ({ input }) => {
+      const db = getDb();
+      const found = await db
+        .select({ id: schema.users.id })
+        .from(schema.users)
+        .where(eq(schema.users.randomId, input.randomId))
+        .limit(1);
+
+      if (found.length === 0) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "No account found for this ID.",
+        });
+      }
+
+      const nonce = randomBytes(16).toString("base64url");
+      const challenge = await new SignJWT({
+        randomId: input.randomId,
+        nonce,
+      })
+        .setProtectedHeader({ alg: "HS256" })
+        .setIssuedAt()
+        .setExpirationTime(`${CHALLENGE_TTL_SECONDS}s`)
+        .sign(challengeKey());
+
+      return { challenge, expiresInSeconds: CHALLENGE_TTL_SECONDS };
+    }),
+
+  loginRandom: configuredProcedure
+    .input(LoginRandomInput)
+    .output(AuthResultSchema)
+    .mutation(async ({ input, ctx }): Promise<AuthResult> => {
+      const db = getDb();
+
+      let challengePayload: { randomId?: string };
+      try {
+        const { payload } = await jwtVerify(input.challenge, challengeKey());
+        challengePayload = payload as { randomId?: string };
+      } catch {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "Challenge expired or invalid. Please request a new one.",
+        });
+      }
+
+      if (challengePayload.randomId !== input.randomId) {
+        throw new TRPCError({ code: "UNAUTHORIZED", message: "Challenge mismatch." });
+      }
+
+      const found = await db
+        .select({
+          id: schema.users.id,
+          identityPubkey: schema.users.identityPubkey,
+          createdAt: schema.users.createdAt,
+        })
+        .from(schema.users)
+        .where(eq(schema.users.randomId, input.randomId))
+        .limit(1);
+
+      if (found.length === 0) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "No account found for this ID." });
+      }
+
+      const user = found[0]!;
+
+      let valid = false;
+      try {
+        valid = ed25519.verify(
+          Uint8Array.from(Buffer.from(input.signature, "base64")),
+          new TextEncoder().encode(input.challenge),
+          Uint8Array.from(user.identityPubkey),
+        );
+      } catch {
+        valid = false;
+      }
+
+      if (!valid) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "Signature verification failed. Check your recovery phrase.",
+        });
+      }
+
+      return issueSession(ctx, user.id, "random", user.createdAt);
+    }),
+
+  /* ─────────── Session management ─────────── */
+
   refresh: configuredProcedure
     .output(AuthResultSchema)
     .mutation(async ({ ctx }): Promise<AuthResult> => {
-      const cookies = (ctx.req as unknown as { cookies?: Record<string, string> })
-        .cookies;
+      const cookies = (
+        ctx.req as unknown as { cookies?: Record<string, string> }
+      ).cookies;
       const token = cookies?.["veil_refresh"];
       if (!token) {
-        throw new TRPCError({
-          code: "UNAUTHORIZED",
-          message: "No refresh token.",
-        });
+        throw new TRPCError({ code: "UNAUTHORIZED", message: "No refresh token." });
       }
       const db = getDb();
       const tokenHash = sha256Hex(token);
       const found = await db
-        .select({
-          session: schema.sessions,
-          user: schema.users,
-        })
+        .select({ session: schema.sessions, user: schema.users })
         .from(schema.sessions)
         .innerJoin(schema.users, eq(schema.users.id, schema.sessions.userId))
         .where(eq(schema.sessions.refreshTokenHash, tokenHash))
@@ -354,7 +579,6 @@ export const authRouter = router({
         });
       }
 
-      // Rotate.
       const newRefresh = generateRefreshToken();
       const newExpires = new Date(
         Date.now() + TOKEN_TTL.refreshSeconds * 1000,
@@ -382,10 +606,10 @@ export const authRouter = router({
       };
     }),
 
-  /** Invalidate the current refresh token. */
   logout: configuredProcedure.mutation(async ({ ctx }) => {
-    const cookies = (ctx.req as unknown as { cookies?: Record<string, string> })
-      .cookies;
+    const cookies = (
+      ctx.req as unknown as { cookies?: Record<string, string> }
+    ).cookies;
     const token = cookies?.["veil_refresh"];
     if (token) {
       const db = getDb();
@@ -397,7 +621,6 @@ export const authRouter = router({
     return { ok: true as const };
   }),
 
-  /** Periodic cleanup helper (callable manually, e.g. from a cron). */
   housekeeping: configuredProcedure.mutation(async () => {
     const db = getDb();
     const now = new Date();
@@ -406,7 +629,3 @@ export const authRouter = router({
     return { ok: true as const };
   }),
 });
-
-function RateLimitedResultShape() {
-  return RequestEmailOtpResult;
-}

@@ -27,6 +27,10 @@ export const env = {
   RESEND_API_KEY: str(process.env.RESEND_API_KEY),
   RESEND_FROM: str(process.env.RESEND_FROM) ?? "Veil <onboarding@resend.dev>",
 
+  FIREBASE_PROJECT_ID: str(process.env.FIREBASE_PROJECT_ID),
+  FIREBASE_CLIENT_EMAIL: str(process.env.FIREBASE_CLIENT_EMAIL),
+  FIREBASE_PRIVATE_KEY: str(process.env.FIREBASE_PRIVATE_KEY),
+
   COOKIE_SECURE: process.env.COOKIE_SECURE
     ? process.env.COOKIE_SECURE === "true"
     : process.env.NODE_ENV === "production",
