@@ -1,0 +1,20 @@
+node_modules
+dist
+build
+.cache
+.turbo
+.vite
+*.log
+.DS_Store
+
+# Env files
+.env
+.env.local
+.env.*.local
+
+# Editor
+.vscode
+.idea
+
+# Replit
+.replit.lock
