@@ -18,3 +18,11 @@ build
 
 # Replit
 .replit.lock
+
+# Block accidental commits of credentials
+attached_assets/*service*.json
+attached_assets/*adminsdk*.json
+attached_assets/*firebase*.json
+attached_assets/*credentials*
+attached_assets/Pasted*service*
+attached_assets/Pasted*private_key*
