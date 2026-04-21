@@ -1,0 +1,495 @@
+Veil — Complete Finalized Plan (Summary)
+🎯 Product Vision
+A Progressive Web App (PWA) messaging platform that is more private and secure than WhatsApp — no ads, no tracking, no compromises. Open-source, fully transparent, end-to-end encrypted, and accessible on web, Android, and iOS.
+
+Name: Veil
+Tagline: Private by design. Visible to no one but you.
+
+🔐 Core Principles (Non-Negotiable)
+End-to-end encrypted — server cannot read messages, ever
+No ads, no tracking, no third-party analytics
+No public search — connections only by invite/QR/mutual approval
+Open-source client for full transparency
+Minimal metadata, encrypted backups, user-held keys
+Performance must match or beat WhatsApp
+👤 Three Signup Options (User Chooses)
+Option A — Email
+Enter email → 6-digit OTP via Resend → verify
+Set Backup PIN (protects encrypted history)
+Connect via invite link, QR code, or by entering someone's email
+Mutual approval required before chat
+Option B — Phone (WhatsApp-style)
+Enter phone → SMS OTP via Firebase → verify
+Set Backup PIN
+Optional contact sync (only hashed numbers sent to server)
+Auto-discover contacts who are also on Veil
+Mutual approval required before chat
+Can invite non-users via SMS link
+Option C — Random ID + Recovery Phrase
+App generates random user ID + 12-word BIP-39 recovery phrase
+No PIN needed (recovery phrase is the backup key)
+No email/phone collected
+Connect only via invite link or QR code
+Most private option
+🤝 Connection Model
+No public directory or search
+Connect via: invite link, QR code, or direct request (email/phone)
+Mutual approval required before any messaging
+Other user sees: "Accept chat with [User]?" popup
+💾 Data & Backup Model (WhatsApp-like, but stronger)
+Server stores encrypted ciphertext of chat history (cannot decrypt)
+Logout → only session removed, data stays on server
+Re-login on new device → enter OTP + Backup PIN (or recovery phrase) → encrypted history restored & decrypted on device
+Tradeoff accepted: Lose Backup PIN + lose all devices = chat history lost forever (no backdoor)
+✨ Feature List
+Phase 1 — MVP
+All 3 signup flows
+1:1 encrypted text chat (Signal Protocol)
+Invite/QR/approval connection flow
+Encrypted server history + restore on re-login
+WhatsApp-inspired responsive UI (mobile-first)
+Installable PWA (web + Android)
+Phase 2 — Feature Parity+
+Encrypted media: images, videos, voice notes
+Disappearing messages (24h / 7d / 30d / off)
+View-once photos/videos
+Read receipts & typing indicators (with privacy toggles)
+Stealth mode (disable read receipts, last-seen, typing)
+Push notifications (Web Push, FCM, APNs)
+Safety numbers (verify no MITM, Signal-style)
+Anonymous link previews (server-proxied so recipient IP isn't leaked)
+Per-chat biometric lock
+Screenshot blur in app switcher
+Phase 3 — Groups
+MLS-based encrypted group chats
+Phase 4 — iOS & App Stores
+Capacitor wrapper for iOS
+Secure Enclave / StrongBox key storage
+App Store submission
+Play Store submission via TWA
+Phase 5 — Trust & Advanced
+Open-source client repository (public on GitHub)
+Reproducible builds
+Third-party security audit
+Companion device linking via QR
+❌ Not Included (For Now)
+Voice calls
+Video calls
+Group calls
+Stories/status
+(May be added later based on demand)
+🛠️ Technology Stack (Final)
+Frontend
+React 18 + Vite + TypeScript + Tailwind CSS
+shadcn/ui (UI components) + Radix + lucide-react icons
+Zustand (state), Dexie (IndexedDB), react-router-dom
+react-hook-form + zod (forms)
+framer-motion (animations)
+vite-plugin-pwa (service worker / manifest)
+qrcode + qr-scanner
+Backend
+Node.js + Fastify + TypeScript
+Drizzle ORM
+WebSocket relay for real-time messaging
+tRPC for typed API contract
+Cryptography (all device-side)
+@signalapp/libsignal-client (Signal Protocol, 1:1)
+MLS library (group chats, Phase 3)
+Web Crypto API (AES-GCM, key derivation)
+argon2-browser (Backup PIN → key)
+bip39 (recovery phrase)
+Database & Storage
+Neon Postgres (free tier) — accounts, public keys, encrypted blobs metadata
+Upstash Redis (free tier) — presence, typing, prekey cache, rate limiting
+Cloudflare R2 (10 GB free, zero egress fees) — encrypted media blobs
+Auth & Notifications
+Resend — email OTP (free tier: 3,000/mo)
+Firebase Auth — SMS OTP (free tier: 10,000/mo)
+Web Push + FCM + APNs — notifications (all free)
+Hosting & Deployment
+Vercel — frontend PWA (free tier)
+Render — backend Node service (free tier → $7/mo when scaled)
+GitHub — source + open-source repo
+GitHub Actions — CI/CD → auto-deploy to Vercel & Render
+Mobile Wrappers
+Capacitor for iOS (App Store)
+Bubblewrap / TWA for Android (Play Store)
+Dev Tooling
+pnpm workspaces (monorepo: apps/client + apps/server + packages/shared)
+ESLint + Prettier + Husky
+Vitest (unit tests) + Playwright (E2E tests)
+🌐 What Server Sees vs. Doesn't See
+Server CAN See	Server CANNOT See
+Account ID	Plaintext phone/email (hashed before storage)
+Public keys, prekey bundles	Private keys (device-only)
+Encrypted ciphertext blobs	Message content (ever)
+Push tokens (wake-up only)	Media content
+Last-seen (if user enables)	Who you talk to (sealed sender, Phase 2+)
+💰 Cost at Launch
+~$0/month at small scale (all free tiers)
+~$7/month when backend needs always-on
+~$50/month at ~10,000 active users
+Domain: ~$12/year
+🎨 Design Direction
+WhatsApp-inspired layout (chat list, conversation view, settings)
+Mobile-first, fully responsive
+Color palette: deep midnight blue + soft white + single accent (distinct from WhatsApp green, signals security/privacy)
+Logo: to be designed
+
+
+
+📋 Phase 0 — Foundation Setup
+Goal: Get the empty project skeleton running locally and deployable, so every later phase just adds features.
+Estimated effort: Small (1 working session)
+
+What gets built
+Monorepo structure with pnpm workspaces:
+
+veil/
+├── apps/
+│   ├── client/        ← React + Vite PWA
+│   └── server/        ← Node + Fastify backend
+├── packages/
+│   └── shared/        ← Shared TypeScript types, zod schemas
+├── package.json
+├── pnpm-workspace.yaml
+└── tsconfig.base.json
+
+Client setup (apps/client):
+
+Vite + React 18 + TypeScript
+Tailwind CSS configured
+shadcn/ui initialized
+vite-plugin-pwa configured (manifest, service worker, install prompt)
+React Router with placeholder routes: /, /signup, /login, /chats
+Empty "Hello Veil" landing page that proves PWA installability
+Theme set up: midnight blue + soft white + accent
+Server setup (apps/server):
+
+Fastify + TypeScript
+Health check endpoint GET /health
+CORS configured for the client domain
+Environment variable loader (.env for local, secrets for prod)
+Logging with pino (privacy-aware: no PII in logs)
+Shared package (packages/shared):
+
+Common zod schemas placeholder (UserId, OTPRequest, etc.)
+Will grow as we add features
+Tooling:
+
+ESLint + Prettier across the monorepo
+Husky + lint-staged pre-commit hook
+.gitignore, README.md, license file (MIT or similar)
+Local development:
+
+pnpm dev runs both client and server concurrently
+Client on port 5000, server on port 3001
+Vite proxy: /api/* → server
+Done when
+Running pnpm dev shows the Veil landing page in the browser
+GET /health returns { "status": "ok" }
+PWA can be installed on Android Chrome
+Repo pushed to GitHub
+Deployed: client on Vercel, server on Render — both live with public URLs
+Deliverable for review
+Working monorepo + a deployed empty Veil shell you can open on your phone.
+
+📋 Phase 1 — Email Signup + Account System
+Goal: A user can create an account using email + OTP and log back in. No chat yet.
+Estimated effort: Medium
+
+What gets built
+Database (Neon Postgres)
+Schema (Drizzle ORM):
+
+users
+  id              uuid PK
+  account_type    enum('email','phone','random')
+  email_hash      text NULL (HMAC of email, for lookup)
+  phone_hash      text NULL (HMAC of phone, for lookup)
+  random_id       text NULL (for Option C)
+  identity_pubkey bytea (Signal identity public key)
+  created_at      timestamp
+  last_seen_at    timestamp NULL
+otp_codes
+  id              uuid PK
+  identifier_hash text (HMAC of email/phone)
+  code_hash       text (bcrypt of OTP)
+  purpose         enum('signup','login')
+  expires_at      timestamp (5 min)
+  consumed        boolean
+  attempts        int
+sessions
+  id              uuid PK
+  user_id         uuid FK
+  refresh_token_hash text
+  device_label    text
+  created_at      timestamp
+  expires_at      timestamp
+
+Backend endpoints (Fastify + tRPC)
+auth.requestEmailOTP({ email }) → sends OTP via Resend, stores hashed
+auth.verifyEmailOTP({ email, code, identityPubkey, isSignup }) →
+On signup: creates user, returns JWT + refresh token
+On login: validates user exists, returns JWT + refresh token
+auth.refresh({ refreshToken }) → new JWT
+auth.logout() → invalidates session
+me() → returns current user info
+Security:
+
+OTPs: 6 digits, 5-min expiry, max 5 attempts per identifier
+Rate limiting: 3 OTP requests per email per hour (Upstash Redis)
+All identifiers hashed with HMAC-SHA256 using a server pepper before storage
+JWTs short-lived (15 min), refresh tokens HTTP-only cookies (30 days)
+Frontend screens
+Welcome screen — "Choose your signup method" (Email / Phone / Random ID)
+Phone & Random ID disabled with "Coming in next phase" badge
+Email entry screen — input + "Send code" button
+OTP entry screen — 6-digit input, resend timer
+Backup PIN setup — set 6-digit PIN, confirm twice, warning about loss
+Account ready screen — "Welcome to Veil"
+Login flow — email → OTP → land on (empty) chats screen
+Crypto on device (Phase 1 scope)
+On signup: generate Signal identity keypair using libsignal-client
+Store private key in IndexedDB encrypted with key derived from Backup PIN (Argon2id)
+Upload only public identity key to server
+Done when
+New user can sign up with email, set PIN, see welcome screen
+User can log out and log back in with OTP + PIN
+Identity private key never leaves the device
+All endpoints have rate limiting and zod validation
+Deliverable for review
+You can sign up with your real email, get a real OTP, and successfully log in/out.
+
+📋 Phase 2 — Connections (Invite + Approval)
+Goal: Two users can connect with each other via invite link. Still no messaging yet — just the connection graph.
+Estimated effort: Medium
+
+What gets built
+Database additions
+prekey_bundles
+  user_id         uuid FK
+  signed_prekey   bytea
+  signed_prekey_signature bytea
+  one_time_prekeys bytea[] (replenishable pool)
+  updated_at      timestamp
+invites
+  id              uuid PK
+  inviter_id      uuid FK
+  token           text UNIQUE (URL-safe random)
+  expires_at      timestamp (7 days)
+  used_by         uuid FK NULL
+connection_requests
+  id              uuid PK
+  from_user       uuid FK
+  to_user         uuid FK
+  status          enum('pending','accepted','declined','blocked')
+  created_at      timestamp
+  responded_at    timestamp NULL
+  UNIQUE(from_user, to_user)
+connections
+  id              uuid PK
+  user_a          uuid FK
+  user_b          uuid FK (lower id is always user_a, for uniqueness)
+  established_at  timestamp
+  UNIQUE(user_a, user_b)
+
+Backend endpoints
+keys.uploadPrekeys({ signedPrekey, signature, oneTimePrekeys[] })
+keys.fetchBundle({ userId }) → returns recipient's bundle (consumes one prekey)
+invites.create() → returns https://veil.app/invite/<token>
+invites.accept({ token }) → creates pending connection request
+connections.requestByEmail({ email }) → looks up hashed email, sends request
+connections.list() → my pending + accepted connections
+connections.respond({ requestId, accept }) → accept or decline
+connections.list() returns the connection list
+Frontend screens
+Chats / Home screen — empty state with "Add a connection" button
+Add connection sheet — three options: share invite link, scan QR, enter email
+QR code screen — shows my invite QR, can scan others'
+Pending requests screen — accept/decline incoming requests
+Connection landing page — /invite/:token shows "Sign up to connect with [name]" or "Accept connection" if logged in
+Contacts list — accepted connections (the eventual chat list)
+UX flow
+User A taps "Add" → "Share link" → system share sheet with URL
+User B taps link → if not signed up, taken to signup (with token preserved); if signed up, sees "Accept chat with User A?" → on yes, both see each other in contacts
+Done when
+Two real test accounts can find each other via invite link
+Approval is mutual (no chat possible until both accept)
+Prekey bundles are uploaded and fetchable
+Cannot connect to anyone you haven't been invited by/approved by
+Deliverable for review
+Two devices, two accounts, successful mutual connection visible on both sides.
+
+📋 Phase 3 — 1:1 Encrypted Messaging (the heart of Veil)
+Goal: Two connected users can send each other encrypted text messages in real time, with history persisted (encrypted) on the server.
+Estimated effort: Large (the most important phase)
+
+What gets built
+Database additions
+encrypted_messages
+  id              uuid PK
+  conversation_id uuid (deterministic from connection)
+  sender_id       uuid
+  recipient_id    uuid
+  ciphertext      bytea (Signal-encrypted, server can't read)
+  message_type    enum('prekey','whisper')  ← Signal Protocol message types
+  created_at      timestamp
+  delivered_at    timestamp NULL
+  -- NO plaintext, NO subject, NO preview, NO size hints beyond ciphertext length
+
+Backend
+WebSocket endpoint /ws (authenticated via JWT in query/header on connect)
+WebSocket events:
+Client → Server: send_message, mark_delivered, fetch_history
+Server → Client: new_message, delivery_receipt, presence_update
+messages.sendOffline({ recipientId, ciphertext, type }) — REST fallback if WS not connected
+messages.fetchHistory({ conversationId, before, limit }) — paginated ciphertext
+Crypto on device (Signal Protocol via libsignal-WASM)
+First message to a contact: fetch their prekey bundle, run X3DH, establish session
+All messages: Double Ratchet encryption per message
+Sessions persisted in encrypted IndexedDB
+On message receive: decrypt, store plaintext locally only
+Frontend screens
+Chat list (the home screen, now functional) — shows last message preview (decrypted locally), timestamp, unread badge
+Conversation screen:
+Message bubbles (sent right, received left, WhatsApp-style)
+Text input + send button
+Delivered/sent ticks (single ✓ sent, double ✓✓ delivered)
+Auto-scroll, infinite scroll up for history
+Real-time arrival via WebSocket
+Connection state indicator — "Connecting..." when WS reconnecting
+Offline support:
+Service worker queues outgoing messages when offline
+Local Dexie cache shows full history without network
+Sync on reconnect
+History restore on re-login
+After login, client fetches all encrypted messages for user from server
+Decrypts locally using restored Signal sessions (sessions also backed up encrypted)
+Populates local Dexie store
+Subsequent loads use local cache only
+Done when
+Two users on different devices can chat in real time
+Messages survive logout/login (encrypted history restored)
+Server only sees ciphertext (verifiable in DB)
+Offline messages queue and send on reconnect
+Conversation history paginates smoothly
+Deliverable for review
+A real, working private messenger. You and a friend can have a complete conversation, log out, log back in, and see the history. This is the moment Veil becomes usable.
+
+📋 Phase 4 — Phone Signup + Random ID Signup
+Goal: Add the other two signup methods so all 3 options are live.
+Estimated effort: Medium
+
+What gets built
+Firebase Phone Auth integration:
+Client: Firebase JS SDK, reCAPTCHA flow, phone number entry, OTP entry
+Server: verify Firebase ID token, create Veil account linked to phone hash
+Random ID signup (Option C):
+Generate random user ID (veil_xxxxxxxx)
+Generate 12-word BIP-39 recovery phrase using bip39 library
+Force user to confirm phrase by re-entering
+Recovery phrase = backup key (no separate PIN)
+Login flow: enter recovery phrase → derive key → restore session
+Contact discovery for phone users (privacy-safe):
+Client hashes user's contact list (HMAC with server-rotated salt fetched per request)
+Sends hashes in batches
+Server returns matching user IDs only
+Client never sees server's full user list, server never sees plaintext numbers
+Welcome screen update — all 3 options enabled
+Done when
+All 3 signup paths fully working
+Phone users can find existing Veil contacts privately
+Recovery phrase users can lose device and restore from phrase
+📋 Phase 5 — Encrypted Media + Push Notifications
+Goal: Users can send images, videos, voice notes, and receive push notifications.
+Estimated effort: Medium-Large
+
+What gets built
+Cloudflare R2 integration:
+Server issues short-lived presigned upload URLs
+Client encrypts media on device with per-file AES-GCM key
+Uploads ciphertext directly to R2
+Sends the file key (encrypted with Signal session) as a normal message
+Recipient flow:
+Receive message containing R2 URL + decryption key
+Download ciphertext, decrypt, render
+Voice notes: browser MediaRecorder API → Opus → encrypt → upload
+Image/video preview: thumbnails generated on device pre-encryption
+Web Push notifications:
+VAPID keys generated, public key shipped to client
+Service worker handles push event
+Notification payload contains only "New message" — actual content fetched after app opens
+FCM and APNs wired up server-side for when wrappers exist
+Done when
+Send/receive photos, videos, voice notes — all end-to-end encrypted via R2
+Real push notifications arrive on Android PWA and desktop browsers
+Notification content never leaks message text
+📋 Phase 6 — Privacy & Polish Features
+Goal: Add the privacy features that make Veil distinctly better than WhatsApp.
+Estimated effort: Medium
+
+What gets built
+Disappearing messages — per-chat timer (24h / 7d / 30d / off), auto-deleted client and server
+View-once media — recipient can open once, then deleted from R2 + local
+Read receipts & typing indicators with global privacy toggles (stealth mode)
+Last-seen privacy (everyone / contacts / nobody)
+Safety numbers — show fingerprint + QR for verifying no MITM
+Anonymous link previews — server-side proxy fetches OG metadata, client gets it without leaking IP
+Per-chat biometric lock (uses WebAuthn for PWA, native biometric for iOS later)
+Screenshot blur when app backgrounded (web visibility API + native API later)
+Block & report flows
+Done when
+Settings screen lets user toggle every privacy feature
+Disappearing messages truly disappear from server too
+Safety number screen verifies session correctness
+📋 Phase 7 — Group Chats (MLS)
+Goal: Encrypted group conversations.
+Estimated effort: Large
+
+What gets built
+Integrate MLS library (RFC 9420 implementation in WASM)
+Group creation, invite, member list, leave/remove
+Group-specific UI (member avatars, group name, group settings)
+Encrypted group history with same backup model
+Admin roles, group descriptions
+Done when
+Up to 100-member encrypted group works smoothly
+Member changes (add/remove) trigger correct key rotation
+📋 Phase 8 — iOS App + App Store
+Goal: Native iOS app via Capacitor.
+Estimated effort: Medium-Large
+
+What gets built
+Capacitor wrapper around the existing PWA
+Native plugins: Secure Enclave for keys, APNs push, native biometric, screenshot detection
+iOS-specific UI tweaks (safe areas, native gestures)
+App Store assets, privacy nutrition labels, submission
+Done when
+App is installable on iOS via TestFlight, then submitted to App Store
+📋 Phase 9 — Android Play Store + Hardening
+Goal: Play Store presence + final security hardening.
+Estimated effort: Medium
+
+What gets built
+Bubblewrap → TWA → Play Store submission
+StrongBox-backed key storage on Android via native plugin
+Certificate pinning on native wrappers
+Final security audit prep — open-source the client repo publicly with reproducible build instructions
+Done when
+Veil is on both major app stores
+Codebase is public on GitHub with audit-ready documentation
+🛣️ Roadmap Summary
+Phase	Theme	Scope
+0	Foundation	Empty deployable shell
+1	Email signup	Account creation, login
+2	Connections	Invite/QR/approval graph
+3	1:1 Messaging	The actual messenger ✨
+4	Phone + Random ID	All 3 signup options live
+5	Media + Push	Files, voice, notifications
+6	Privacy features	Disappearing, view-once, stealth
+7	Group chats	MLS groups
+8	iOS app	App Store
+9	Android store + hardening	Play Store + audit-ready
+After Phase 3, Veil is already a real, working private messenger you can use daily. Everything after that is making it richer, more private, and available everywhere.
+
