@@ -1,9 +1,15 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
-import { env, isDev } from "./env.js";
+import cookie from "@fastify/cookie";
+import { fastifyTRPCPlugin } from "@trpc/server/adapters/fastify";
+import type { FastifyTRPCPluginOptions } from "@trpc/server/adapters/fastify";
+import { env, isDev, missingAuthConfig } from "./env.js";
 import type { HealthResponse } from "@veil/shared";
+import { appRouter, type AppRouter } from "./trpc/routers/index.js";
+import { createContext } from "./trpc/context.js";
 
 const app = Fastify({
+  trustProxy: true,
   logger: isDev
     ? {
         level: "info",
@@ -11,7 +17,6 @@ const app = Fastify({
           target: "pino-pretty",
           options: { colorize: true, translateTime: "HH:MM:ss" },
         },
-        // Privacy-aware: never log request bodies/headers by default.
         redact: {
           paths: ["req.headers.authorization", "req.headers.cookie"],
           remove: true,
@@ -24,36 +29,36 @@ const app = Fastify({
           remove: true,
         },
       },
-  disableRequestLogging: false,
 });
 
 await app.register(cors, {
   origin: (origin, cb) => {
-    // No origin (curl, server-to-server) → allow.
     if (!origin) return cb(null, true);
-
-    // Allow configured origins.
     const allowList = env.CORS_ORIGIN.split(",")
       .map((s) => s.trim())
       .filter(Boolean);
     if (allowList.includes(origin)) return cb(null, true);
-
-    // In dev, allow all Replit dev domains and localhost.
     if (isDev) {
-      if (
-        /\.replit\.dev$/.test(new URL(origin).hostname) ||
-        /\.repl\.co$/.test(new URL(origin).hostname) ||
-        /^localhost$/.test(new URL(origin).hostname) ||
-        /^127\.0\.0\.1$/.test(new URL(origin).hostname)
-      ) {
-        return cb(null, true);
+      try {
+        const host = new URL(origin).hostname;
+        if (
+          /\.replit\.dev$/.test(host) ||
+          /\.repl\.co$/.test(host) ||
+          host === "localhost" ||
+          host === "127.0.0.1"
+        ) {
+          return cb(null, true);
+        }
+      } catch {
+        // fall through
       }
     }
-
     cb(new Error(`Origin not allowed: ${origin}`), false);
   },
   credentials: true,
 });
+
+await app.register(cookie);
 
 app.get("/health", async (): Promise<HealthResponse> => {
   return {
@@ -63,6 +68,30 @@ app.get("/health", async (): Promise<HealthResponse> => {
     timestamp: new Date().toISOString(),
   };
 });
+
+await app.register(fastifyTRPCPlugin, {
+  prefix: "/trpc",
+  trpcOptions: {
+    router: appRouter,
+    createContext,
+    onError({ path, error }) {
+      app.log.error({ path, code: error.code, msg: error.message }, "tRPC error");
+    },
+  } satisfies FastifyTRPCPluginOptions<AppRouter>["trpcOptions"],
+});
+
+const missing = missingAuthConfig();
+if (missing.length > 0) {
+  app.log.warn(
+    `Auth endpoints disabled until you set: ${missing.join(", ")}. ` +
+      `See apps/server/.env.example.`,
+  );
+}
+if (!env.RESEND_API_KEY && isDev) {
+  app.log.warn(
+    "RESEND_API_KEY not set — OTP codes will be logged to this console (dev only).",
+  );
+}
 
 try {
   await app.listen({ host: env.HOST, port: env.PORT });

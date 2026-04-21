@@ -7,18 +7,33 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
+    "@fastify/cookie": "^11.0.2",
     "@fastify/cors": "^10.0.1",
+    "@trpc/server": "^11.16.0",
     "@veil/shared": "workspace:*",
+    "bcryptjs": "^3.0.3",
     "dotenv": "^16.4.5",
+    "drizzle-orm": "^0.45.2",
     "fastify": "^5.1.0",
+    "jose": "^6.2.2",
+    "nanoid": "^5.1.9",
     "pino": "^9.5.0",
-    "pino-pretty": "^11.3.0"
+    "pino-pretty": "^11.3.0",
+    "postgres": "^3.4.9",
+    "resend": "^6.12.2",
+    "superjson": "^2.2.6",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^3.0.0",
     "@types/node": "^22.9.0",
+    "drizzle-kit": "^0.31.10",
     "tsx": "^4.19.2",
     "typescript": "^5.6.3"
   }
