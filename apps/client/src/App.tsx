@@ -7,6 +7,7 @@ import { WelcomePage } from "./pages/WelcomePage";
 import { EmailSignupPage } from "./pages/EmailSignupPage";
 import { LoginPage } from "./pages/LoginPage";
 import { ChatsPage } from "./pages/ChatsPage";
+import { ChatThreadPage } from "./pages/ChatThreadPage";
 import { InvitePage } from "./pages/InvitePage";
 import { InviteRedeemPage } from "./pages/InviteRedeemPage";
 import { ConnectionsPage } from "./pages/ConnectionsPage";
@@ -31,6 +32,7 @@ export function App() {
           <Route path="/signup/email" element={<EmailSignupPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/chats" element={<ChatsPage />} />
+          <Route path="/chats/:peerId" element={<ChatThreadPage />} />
           <Route path="/invite" element={<InvitePage />} />
           <Route path="/connections" element={<ConnectionsPage />} />
           <Route path="/i/:token" element={<InviteRedeemPage />} />

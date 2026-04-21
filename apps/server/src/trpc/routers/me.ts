@@ -1,6 +1,11 @@
 import { TRPCError } from "@trpc/server";
 import { eq } from "drizzle-orm";
-import { PublicUserSchema, type PublicUser } from "@veil/shared";
+import {
+  PublicUserSchema,
+  SetX25519IdentityInput,
+  OkSchema,
+  type PublicUser,
+} from "@veil/shared";
 import { protectedProcedure, router } from "../init.js";
 import { getDb, schema } from "../../db/index.js";
 
@@ -25,5 +30,48 @@ export const meRouter = router({
         accountType: row.accountType,
         createdAt: row.createdAt.toISOString(),
       };
+    }),
+
+  /**
+   * Phase 3: register the X25519 identity public key for X3DH.
+   *
+   * Idempotent: setting the same key again is a no-op. Once set, it
+   * cannot be changed via this endpoint (would break existing sessions);
+   * key rotation will need a separate flow in a later phase.
+   */
+  setX25519Identity: protectedProcedure
+    .input(SetX25519IdentityInput)
+    .output(OkSchema)
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      const pub = Buffer.from(input.publicKey, "base64");
+      if (pub.length !== 32) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "X25519 identity key must be 32 bytes.",
+        });
+      }
+      const found = await db
+        .select({ x: schema.users.identityX25519Pubkey })
+        .from(schema.users)
+        .where(eq(schema.users.id, ctx.userId))
+        .limit(1);
+      const row = found[0];
+      if (!row) throw new TRPCError({ code: "NOT_FOUND" });
+      if (row.x) {
+        if (Buffer.compare(row.x, pub) !== 0) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message:
+              "X25519 identity key is already set and differs from the one provided.",
+          });
+        }
+        return { ok: true as const };
+      }
+      await db
+        .update(schema.users)
+        .set({ identityX25519Pubkey: pub })
+        .where(eq(schema.users.id, ctx.userId));
+      return { ok: true as const };
     }),
 });

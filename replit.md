@@ -63,16 +63,17 @@ Only `VITE_API_BASE_URL` if you ever need to point the client at a non-default A
 - **Data:** Neon Postgres, Upstash Redis (Phase 5+), Cloudflare R2 (Phase 5).
 - **Auth/notifications:** Resend (email OTP), Firebase (SMS OTP, Phase 4), Web Push / FCM / APNs (Phase 5).
 
-## Database schema (Phases 1–2)
+## Database schema (Phases 1–3)
 
-- `users` — id, account_type, email_hash (HMAC), phone_hash, random_id, identity_pubkey (bytea), timestamps. Partial unique indexes on each identifier column.
+- `users` — id, account_type, email_hash (HMAC), phone_hash, random_id, identity_pubkey (bytea, Ed25519), **identity_x25519_pubkey (bytea, nullable, Phase 3)**, timestamps. Partial unique indexes on each identifier column.
 - `otp_codes` — bcrypt-hashed code, identifier_hash, purpose enum, expires_at, attempts, consumed.
 - `sessions` — sha256(refresh_token), user_id, device_label (UA), expires_at.
-- `signed_prekeys` — one per user (replaceable): keyId, public key (32 B), Ed25519 signature (64 B).
-- `one_time_prekeys` — many per user, capped at 100 unclaimed: keyId (unique per user), public key, claimed_at, claimed_by_user_id. Partial index on `claimed_at IS NULL` for fast unclaimed lookups.
+- `signed_prekeys` — one per user (replaceable): keyId, public key (32 B X25519 in Phase 3), Ed25519 signature (64 B).
+- `one_time_prekeys` — many per user, capped at 100 unclaimed: keyId (unique per user), public key (32 B X25519 in Phase 3), claimed_at, claimed_by_user_id. Partial index on `claimed_at IS NULL` for fast unclaimed lookups.
 - `invites` — inviter_user_id, sha256(token) only, label, max_uses, used_count, expires_at, revoked_at. Raw token never stored.
 - `connection_requests` — from_user_id → to_user_id, status (pending/accepted/rejected/canceled/expired), optional ≤140-char note, invite_id (nullable), decided_at. Partial unique index ensures only one pending request per (from, to) pair.
 - `connections` — canonical (user_a_id < user_b_id) so a single row represents the bidirectional link. Unique on (user_a, user_b).
+- **`messages` (Phase 3)** — opaque encrypted mailbox: sender_user_id, recipient_user_id, header (bytea, plaintext JSON header), ciphertext (bytea, AES-GCM), created_at. Index on (recipient, created_at). Rows are deleted by `messages.fetchAndConsume` so the server doesn't retain ciphertext long-term.
 
 ## Auth flow (Phase 1)
 
@@ -111,18 +112,41 @@ Only `VITE_API_BASE_URL` if you ever need to point the client at a non-default A
 
 After PIN setup at signup, the client generates 1 signed prekey + 20 one-time prekeys (Ed25519 placeholders — Phase 3 swaps to X25519 for X3DH; the wire shape stays). The signed prekey is signed by the identity key. Public halves are uploaded; private halves stay in IndexedDB. The Chats hub shows current prekey status. `prekeys.claimBundleFor` is wired and gated to connected peers; Phase 3 will exercise it.
 
+## Chat flow (Phase 3)
+
+1. **Identity setup.** Each account has two long-term keypairs:
+   - **Ed25519** — used for signatures (signed-prekey signature) and the displayed fingerprint.
+   - **X25519** — used for X3DH ECDH. Public key uploaded via `me.setX25519Identity`, private key encrypted on-device with the same Backup PIN.
+   New signups generate both up-front. Existing Phase 1/2 accounts auto-migrate the first time they unlock chats: a fresh X25519 identity is generated, encrypted with the PIN, persisted, and uploaded; prekeys are re-uploaded as X25519 with `replaceOneTime: true`.
+
+2. **Unlock.** Chat features are gated behind a PIN-entry `UnlockGate`. Decrypted private keys live only in a non-persisted Zustand store (`useUnlockStore`); refresh = re-locked.
+
+3. **X3DH (initiator).** First outbound message in a session calls `prekeys.claimBundleFor` (now a mutation since it consumes a one-time prekey). Client verifies the signed-prekey signature against the peer's Ed25519 identity, runs four DHs (`IK_A·SPK_B`, `EK_A·IK_B`, `EK_A·SPK_B`, `EK_A·OPK_B`), then HKDFs a 32-byte shared secret with a `0xFF*32` prefix.
+
+4. **Double Ratchet.** Alice initialises with the shared secret + Bob's signed-prekey pub as `DHr`. Bob initialises lazily on first inbound message using his own SPK as `DHs`. Each direction switch performs a DH ratchet step; chain keys advance per-message via HMAC. Skipped-message keys are cached per-DH-pub up to 100 entries to tolerate out-of-order delivery.
+
+5. **Wire format.** Header is a small JSON blob (UTF-8 → base64): `{ v, init?, dh, n, pn }`. The optional `init` block (`ek`, `ikX`, `spkId`, `opkId`) is present only on the first message of a session and triggers the responder X3DH on receive. AEAD is AES-GCM-256 with `AD = our_IK_X || peer_IK_X || header_bytes`.
+
+6. **Transport.** `messages.send` writes the opaque ciphertext + header for the recipient (gated to connected peers). `messages.fetchAndConsume` (atomic SELECT + DELETE) is polled every 3–5 s while unlocked; decrypted plaintexts are appended to a Dexie `chat_messages` log on this device only.
+
+7. **Forward secrecy.** Server stores ciphertext just long enough for the recipient to fetch it. One-time prekey privates are deleted from local storage immediately after the X3DH responder consumes them. Lost session state cannot be recovered from the server.
+
 ## Current phase
 
-**Phase 2 — Connections (complete).**
-- Drizzle schema for prekeys, invites, connection_requests, canonical connections.
-- tRPC routers: `prekeys` (upload/status/claimBundleFor with `FOR UPDATE SKIP LOCKED`), `invites` (create/list/revoke/preview/redeem), `connections` (listIncoming/listOutgoing/list/accept/reject/cancel/remove).
-- Client pages: `/invite` (generate + QR + revoke), `/i/:token` (preview + redeem with pending-invite session handoff), `/connections` (3-tab People/Pending/Sent), `/chats` redesigned as hub.
-- Privacy: invite tokens are stored as `sha256(token)`; preview reveals only fingerprint + account type, never PII.
-- Typecheck + build: green.
+**Phase 3 — 1:1 Signal Protocol chat (complete).**
+- Server: `users.identity_x25519_pubkey` column added; new `messages` table; routers `me.setX25519Identity` (idempotent), `messages.{send,fetchAndConsume}` (connection-gated, delete-on-fetch), `prekeys.upload` extended with `replaceOneTime`, `prekeys.claimBundleFor` is now a mutation returning `identityX25519PublicKey`.
+- Shared: `SetX25519IdentityInput`, `SendMessageInput`, `InboxMessageSchema`, `UploadPrekeysInputV2`, `PrekeyBundleSchemaV2`.
+- Client crypto: `lib/signal/{x25519,kdf,aead,x3dh,ratchet,session}.ts` — full X3DH + Double Ratchet implementation built on `@noble/curves` + WebCrypto.
+- Client storage: Dexie v3 adds `chat_sessions` (per-peer serialized ratchet state) + `chat_messages` (per-peer plaintext log). `IdentityRecord` gains `encX25519PrivateKey`/`iv2`/`salt2`/`x25519PublicKey`.
+- Client unlock: `lib/unlock.ts` decrypts both privates and runs the X25519 migration when needed; `useUnlockStore` keeps them in memory only.
+- Client UI: `UnlockGate`, `ChatThreadPage` at `/chats/:peerId` with composer + 3-second poll, `ChatsPage` hub now lists conversations (per-peer last-message preview) + unlock pill.
+- Typecheck (`pnpm -r typecheck`): green across `shared`, `server`, `client`.
+
+> **Action needed after pulling:** run `pnpm --filter @veil/server db:push` to apply the new `identity_x25519_pubkey` column + `messages` table.
 
 ## Next phase
 
-**Phase 3 — 1:1 Signal Protocol chat.** Swap Ed25519 prekey placeholders for X25519, run X3DH using `prekeys.claimBundleFor`, layer Double Ratchet on top, ship message storage + send/receive UI.
+**Phase 4 — Phone (SMS OTP) + Random-ID account types**, then **Phase 5 — WebSocket transport + push notifications + media attachments**.
 
 ## User preferences
 

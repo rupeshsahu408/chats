@@ -228,3 +228,64 @@ export const RequestIdInput = z.object({
 export const PeerIdInput = z.object({ peerId: UserIdSchema });
 
 export const OkSchema = z.object({ ok: z.literal(true) });
+
+/* ─────────── X25519 identity (Phase 3) ─────────── */
+
+export const SetX25519IdentityInput = z.object({
+  publicKey: IdentityPublicKeySchema,
+});
+export type SetX25519IdentityInput = z.infer<typeof SetX25519IdentityInput>;
+
+/* ─────────── Messages (Phase 3) ─────────── */
+
+export const Base64BytesSchema = z
+  .string()
+  .regex(/^[A-Za-z0-9+/]+=*$/)
+  .max(64 * 1024); // 48 KB raw cap; plenty for text + small media metadata.
+
+export const SendMessageInput = z.object({
+  recipientUserId: UserIdSchema,
+  /** Base64-encoded plaintext header (ratchet pub + counters + X3DH metadata). */
+  header: Base64BytesSchema,
+  /** Base64-encoded AES-GCM ciphertext (≤ ~30 KB plaintext). */
+  ciphertext: Base64BytesSchema,
+});
+export type SendMessageInput = z.infer<typeof SendMessageInput>;
+
+export const SendMessageResult = z.object({
+  id: z.string().uuid(),
+  createdAt: z.string(),
+});
+
+export const InboxMessageSchema = z.object({
+  id: z.string().uuid(),
+  senderUserId: UserIdSchema,
+  header: Base64BytesSchema,
+  ciphertext: Base64BytesSchema,
+  createdAt: z.string(),
+});
+export type InboxMessage = z.infer<typeof InboxMessageSchema>;
+
+export const FetchInboxResult = z.object({
+  messages: z.array(InboxMessageSchema),
+});
+
+/* ─────────── Prekeys (Phase 3 extensions) ─────────── */
+
+export const UploadPrekeysInputV2 = z.object({
+  signedPreKey: SignedPreKeyInput,
+  oneTimePreKeys: z.array(OneTimePreKeyInput).max(100),
+  /** When true, server clears all existing one-time prekeys before inserting the new batch. */
+  replaceOneTime: z.boolean().default(false),
+});
+export type UploadPrekeysInputV2 = z.infer<typeof UploadPrekeysInputV2>;
+
+export const PrekeyBundleSchemaV2 = z.object({
+  userId: UserIdSchema,
+  identityPublicKey: IdentityPublicKeySchema,
+  /** May be null for accounts that haven't migrated to X25519 yet. */
+  identityX25519PublicKey: IdentityPublicKeySchema.nullable(),
+  signedPreKey: SignedPreKeyInput,
+  oneTimePreKey: OneTimePreKeyInput.nullable(),
+});
+export type PrekeyBundleV2 = z.infer<typeof PrekeyBundleSchemaV2>;

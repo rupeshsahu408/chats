@@ -16,8 +16,10 @@ import {
   encryptWithPin,
   generateIdentityKeyPair,
 } from "../lib/crypto";
+import { generateX25519KeyPair } from "../lib/signal/x25519";
 import { saveIdentity } from "../lib/db";
 import { buildPrekeyBundle } from "../lib/prekeys";
+import { useUnlockStore } from "../lib/unlockStore";
 
 type Step = "email" | "code" | "pin" | "done";
 
@@ -33,14 +35,16 @@ export function EmailSignupPage() {
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [pendingIdentity, setPendingIdentity] = useState<{
-    privateKey: Uint8Array;
-    publicKey: Uint8Array;
+    ed25519: { privateKey: Uint8Array; publicKey: Uint8Array };
+    x25519: { privateKey: Uint8Array; publicKey: Uint8Array };
   } | null>(null);
   const [pendingUserId, setPendingUserId] = useState<string | null>(null);
 
+  const setUnlocked = useUnlockStore((s) => s.setIdentity);
   const requestOtp = trpc.auth.requestEmailOtp.useMutation();
   const verifyOtp = trpc.auth.verifyEmailOtp.useMutation();
   const uploadPrekeys = trpc.prekeys.upload.useMutation();
+  const setX25519 = trpc.me.setX25519Identity.useMutation();
 
   async function onSendCode() {
     setError(null);
@@ -63,14 +67,15 @@ export function EmailSignupPage() {
   async function onVerifyCode() {
     setError(null);
     try {
-      // Generate identity keypair locally, upload pubkey only.
-      const kp = generateIdentityKeyPair();
-      setPendingIdentity(kp);
+      // Generate Ed25519 (signing/identity) + X25519 (X3DH ECDH) locally.
+      const ed = generateIdentityKeyPair();
+      const x = generateX25519KeyPair();
+      setPendingIdentity({ ed25519: ed, x25519: x });
       const r = await verifyOtp.mutateAsync({
         email,
         code,
         purpose: "signup",
-        identityPublicKey: bytesToBase64(kp.publicKey),
+        identityPublicKey: bytesToBase64(ed.publicKey),
       });
       setAuth({ accessToken: r.accessToken, user: r.user });
       setPendingUserId(r.user.id);
@@ -95,29 +100,52 @@ export function EmailSignupPage() {
       return;
     }
     try {
-      const blob = await encryptWithPin(pin, pendingIdentity.privateKey);
+      // Encrypt both private keys with the PIN (separate blobs / salts).
+      const edBlob = await encryptWithPin(pin, pendingIdentity.ed25519.privateKey);
+      const xBlob = await encryptWithPin(pin, pendingIdentity.x25519.privateKey);
       await saveIdentity({
         id: "self",
         userId: pendingUserId,
-        encPrivateKey: bytesToBase64(blob.ciphertext),
-        iv: bytesToBase64(blob.iv),
-        salt: bytesToBase64(blob.salt),
-        publicKey: bytesToBase64(pendingIdentity.publicKey),
+        encPrivateKey: bytesToBase64(edBlob.ciphertext),
+        iv: bytesToBase64(edBlob.iv),
+        salt: bytesToBase64(edBlob.salt),
+        publicKey: bytesToBase64(pendingIdentity.ed25519.publicKey),
+        encX25519PrivateKey: bytesToBase64(xBlob.ciphertext),
+        iv2: bytesToBase64(xBlob.iv),
+        salt2: bytesToBase64(xBlob.salt),
+        x25519PublicKey: bytesToBase64(pendingIdentity.x25519.publicKey),
         createdAt: new Date().toISOString(),
       });
 
-      // Phase 2: generate + upload an initial prekey bundle so other users
-      // can start sessions with us in Phase 3 without further setup.
+      // Register the X25519 identity public key with the server so peers
+      // can run X3DH against us.
+      try {
+        await setX25519.mutateAsync({
+          publicKey: bytesToBase64(pendingIdentity.x25519.publicKey),
+        });
+      } catch (e) {
+        console.warn("Failed to register X25519 identity", e);
+      }
+
+      // Phase 3: generate + upload an X25519 prekey bundle.
       try {
         const bundle = await buildPrekeyBundle({
-          identityPrivateKey: pendingIdentity.privateKey,
+          identityPrivateKey: pendingIdentity.ed25519.privateKey,
           numOneTime: 20,
+          freshStart: true,
         });
         await uploadPrekeys.mutateAsync(bundle);
       } catch (e) {
-        // Non-fatal: account is created, prekeys can be retried later.
         console.warn("Prekey bootstrap failed", e);
       }
+
+      // We just had the PIN, so we can keep the identity unlocked in
+      // memory — saves the user from re-entering it immediately.
+      setUnlocked({
+        userId: pendingUserId,
+        ed25519: pendingIdentity.ed25519,
+        x25519: pendingIdentity.x25519,
+      });
 
       setStep("done");
     } catch (e: unknown) {

@@ -1,10 +1,10 @@
 import { TRPCError } from "@trpc/server";
 import { and, eq, isNull, sql, or } from "drizzle-orm";
 import {
-  UploadPrekeysInput,
+  UploadPrekeysInputV2,
   PrekeyStatusSchema,
-  PrekeyBundleSchema,
-  type PrekeyBundle,
+  PrekeyBundleSchemaV2,
+  type PrekeyBundleV2,
   type PrekeyStatus,
   UserIdSchema,
 } from "@veil/shared";
@@ -27,11 +27,19 @@ export const prekeysRouter = router({
    * Total OTPKs per user are capped at 100.
    */
   upload: protectedProcedure
-    .input(UploadPrekeysInput)
+    .input(UploadPrekeysInputV2)
     .output(PrekeyStatusSchema)
     .mutation(async ({ ctx, input }): Promise<PrekeyStatus> => {
       const db = getDb();
       const userId = ctx.userId;
+
+      // If we're swapping curves (Phase 2 → Phase 3 migration), wipe
+      // existing one-time prekeys before inserting the new batch.
+      if (input.replaceOneTime) {
+        await db
+          .delete(schema.oneTimePrekeys)
+          .where(eq(schema.oneTimePrekeys.userId, userId));
+      }
 
       // Validate raw lengths.
       const spkPub = b64ToBuffer(input.signedPreKey.publicKey);
@@ -78,15 +86,17 @@ export const prekeysRouter = router({
 
       if (input.oneTimePreKeys.length > 0) {
         // Refuse if it would push the total above the cap.
-        const existing = await db
-          .select({ c: sql<number>`count(*)::int` })
-          .from(schema.oneTimePrekeys)
-          .where(
-            and(
-              eq(schema.oneTimePrekeys.userId, userId),
-              isNull(schema.oneTimePrekeys.claimedAt),
-            ),
-          );
+        const existing = input.replaceOneTime
+          ? [{ c: 0 }]
+          : await db
+              .select({ c: sql<number>`count(*)::int` })
+              .from(schema.oneTimePrekeys)
+              .where(
+                and(
+                  eq(schema.oneTimePrekeys.userId, userId),
+                  isNull(schema.oneTimePrekeys.claimedAt),
+                ),
+              );
         const have = existing[0]?.c ?? 0;
         if (have + input.oneTimePreKeys.length > MAX_OTPK_PER_USER) {
           throw new TRPCError({
@@ -128,8 +138,8 @@ export const prekeysRouter = router({
    */
   claimBundleFor: protectedProcedure
     .input(z.object({ peerId: UserIdSchema }))
-    .output(PrekeyBundleSchema)
-    .query(async ({ ctx, input }): Promise<PrekeyBundle> => {
+    .output(PrekeyBundleSchemaV2)
+    .mutation(async ({ ctx, input }): Promise<PrekeyBundleV2> => {
       const db = getDb();
       const me = ctx.userId;
       const peer = input.peerId;
@@ -157,6 +167,7 @@ export const prekeysRouter = router({
         .select({
           id: schema.users.id,
           identityPubkey: schema.users.identityPubkey,
+          identityX25519Pubkey: schema.users.identityX25519Pubkey,
         })
         .from(schema.users)
         .where(eq(schema.users.id, peer))
@@ -199,6 +210,9 @@ export const prekeysRouter = router({
       return {
         userId: pr.id,
         identityPublicKey: bufferToB64(pr.identityPubkey),
+        identityX25519PublicKey: pr.identityX25519Pubkey
+          ? bufferToB64(pr.identityX25519Pubkey)
+          : null,
         signedPreKey: {
           keyId: spkRow.keyId,
           publicKey: bufferToB64(spkRow.publicKey),

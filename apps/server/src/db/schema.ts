@@ -45,8 +45,10 @@ export const users = pgTable(
     phoneHash: text("phone_hash"),
     /** Random user ID for Option C accounts. */
     randomId: text("random_id"),
-    /** Raw Ed25519 identity public key (32 bytes). */
+    /** Raw Ed25519 identity public key (32 bytes). Used for signatures + fingerprint. */
     identityPubkey: bytea("identity_pubkey").notNull(),
+    /** Raw X25519 identity public key (32 bytes). Used for X3DH ECDH. Phase 3+. */
+    identityX25519Pubkey: bytea("identity_x25519_pubkey"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -252,7 +254,42 @@ export const connections = pgTable(
   }),
 );
 
+/* ─────────── messages ─────────── */
+/*
+ * Server-side encrypted message mailbox. Server only ever sees opaque
+ * ciphertext + an opaque header. `fetchAndConsume` deletes the row
+ * after returning it, so we don't keep messages around long-term —
+ * forward secrecy lives client-side (in the ratchet state).
+ */
+
+export const messages = pgTable(
+  "messages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    senderUserId: uuid("sender_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    recipientUserId: uuid("recipient_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    /** Plaintext header bytes (typed JSON: ratchet pub, counters, X3DH metadata). */
+    header: bytea("header").notNull(),
+    /** AES-GCM ciphertext. */
+    ciphertext: bytea("ciphertext").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => ({
+    recipientIdx: index("messages_recipient_idx").on(
+      t.recipientUserId,
+      t.createdAt,
+    ),
+  }),
+);
+
 export type UserRow = typeof users.$inferSelect;
 export type InviteRow = typeof invites.$inferSelect;
 export type ConnectionRequestRow = typeof connectionRequests.$inferSelect;
 export type ConnectionRow = typeof connections.$inferSelect;
+export type MessageRow = typeof messages.$inferSelect;
