@@ -20,9 +20,19 @@ export const accountType = pgEnum("account_type", [
 
 export const otpPurpose = pgEnum("otp_purpose", ["signup", "login"]);
 
+export const connectionRequestStatus = pgEnum("connection_request_status", [
+  "pending",
+  "accepted",
+  "rejected",
+  "canceled",
+  "expired",
+]);
+
 const bytea = customType<{ data: Buffer; default: false }>({
   dataType: () => "bytea",
 });
+
+/* ─────────── users ─────────── */
 
 export const users = pgTable(
   "users",
@@ -55,6 +65,8 @@ export const users = pgTable(
   }),
 );
 
+/* ─────────── otp_codes ─────────── */
+
 export const otpCodes = pgTable(
   "otp_codes",
   {
@@ -75,6 +87,8 @@ export const otpCodes = pgTable(
     identifierIdx: index("otp_identifier_idx").on(t.identifierHash),
   }),
 );
+
+/* ─────────── sessions ─────────── */
 
 export const sessions = pgTable(
   "sessions",
@@ -99,4 +113,146 @@ export const sessions = pgTable(
   }),
 );
 
+/* ─────────── signed_prekeys ─────────── */
+/*
+ * Phase 2 placeholder shape. In Phase 3 we'll switch to X25519 + the
+ * full Signal Protocol; the wire format (id + 32-byte public key +
+ * 64-byte Ed25519 signature) stays the same.
+ *
+ * One signed prekey per user; uploading a new one replaces the old.
+ */
+
+export const signedPrekeys = pgTable("signed_prekeys", {
+  userId: uuid("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  keyId: integer("key_id").notNull(),
+  publicKey: bytea("public_key").notNull(),
+  /** Ed25519 signature over publicKey by the identity key. */
+  signature: bytea("signature").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+/* ─────────── one_time_prekeys ─────────── */
+
+export const oneTimePrekeys = pgTable(
+  "one_time_prekeys",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    keyId: integer("key_id").notNull(),
+    publicKey: bytea("public_key").notNull(),
+    /** Set when a peer claims this key for an X3DH handshake. */
+    claimedAt: timestamp("claimed_at", { withTimezone: true }),
+    claimedByUserId: uuid("claimed_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => ({
+    userIdx: index("otpk_user_idx").on(t.userId),
+    userKeyIdx: uniqueIndex("otpk_user_key_idx").on(t.userId, t.keyId),
+    /** For "give me an unclaimed key for this user" lookups. */
+    unclaimedIdx: index("otpk_unclaimed_idx")
+      .on(t.userId)
+      .where(sql`${t.claimedAt} IS NULL`),
+  }),
+);
+
+/* ─────────── invites ─────────── */
+
+export const invites = pgTable(
+  "invites",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    inviterUserId: uuid("inviter_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    /** SHA-256 hash of the URL-safe invite token. The raw token is never stored. */
+    tokenHash: text("token_hash").notNull().unique(),
+    label: text("label"),
+    maxUses: integer("max_uses").notNull().default(1),
+    usedCount: integer("used_count").notNull().default(0),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => ({
+    inviterIdx: index("invites_inviter_idx").on(t.inviterUserId),
+  }),
+);
+
+/* ─────────── connection_requests ─────────── */
+
+export const connectionRequests = pgTable(
+  "connection_requests",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    /** The user who clicked the invite and is asking to connect. */
+    fromUserId: uuid("from_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    /** The user who created the invite. */
+    toUserId: uuid("to_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    inviteId: uuid("invite_id").references(() => invites.id, {
+      onDelete: "set null",
+    }),
+    status: connectionRequestStatus("status").notNull().default("pending"),
+    /** Optional one-line note from the requester (≤140 chars). */
+    note: text("note"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    decidedAt: timestamp("decided_at", { withTimezone: true }),
+  },
+  (t) => ({
+    toIdx: index("connreq_to_idx").on(t.toUserId, t.status),
+    fromIdx: index("connreq_from_idx").on(t.fromUserId, t.status),
+    /** Only one pending request per (from, to) pair at a time. */
+    pendingPairIdx: uniqueIndex("connreq_pending_pair_idx")
+      .on(t.fromUserId, t.toUserId)
+      .where(sql`${t.status} = 'pending'`),
+  }),
+);
+
+/* ─────────── connections ─────────── */
+/*
+ * Canonical representation: we always store with userAId < userBId
+ * (lexicographic), so a single row represents the bidirectional link.
+ */
+
+export const connections = pgTable(
+  "connections",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userAId: uuid("user_a_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    userBId: uuid("user_b_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => ({
+    pairIdx: uniqueIndex("connections_pair_idx").on(t.userAId, t.userBId),
+    aIdx: index("connections_a_idx").on(t.userAId),
+    bIdx: index("connections_b_idx").on(t.userBId),
+  }),
+);
+
 export type UserRow = typeof users.$inferSelect;
+export type InviteRow = typeof invites.$inferSelect;
+export type ConnectionRequestRow = typeof connectionRequests.$inferSelect;
+export type ConnectionRow = typeof connections.$inferSelect;

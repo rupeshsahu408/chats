@@ -63,11 +63,16 @@ Only `VITE_API_BASE_URL` if you ever need to point the client at a non-default A
 - **Data:** Neon Postgres, Upstash Redis (Phase 5+), Cloudflare R2 (Phase 5).
 - **Auth/notifications:** Resend (email OTP), Firebase (SMS OTP, Phase 4), Web Push / FCM / APNs (Phase 5).
 
-## Database schema (Phase 1)
+## Database schema (Phases 1–2)
 
 - `users` — id, account_type, email_hash (HMAC), phone_hash, random_id, identity_pubkey (bytea), timestamps. Partial unique indexes on each identifier column.
 - `otp_codes` — bcrypt-hashed code, identifier_hash, purpose enum, expires_at, attempts, consumed.
 - `sessions` — sha256(refresh_token), user_id, device_label (UA), expires_at.
+- `signed_prekeys` — one per user (replaceable): keyId, public key (32 B), Ed25519 signature (64 B).
+- `one_time_prekeys` — many per user, capped at 100 unclaimed: keyId (unique per user), public key, claimed_at, claimed_by_user_id. Partial index on `claimed_at IS NULL` for fast unclaimed lookups.
+- `invites` — inviter_user_id, sha256(token) only, label, max_uses, used_count, expires_at, revoked_at. Raw token never stored.
+- `connection_requests` — from_user_id → to_user_id, status (pending/accepted/rejected/canceled/expired), optional ≤140-char note, invite_id (nullable), decided_at. Partial unique index ensures only one pending request per (from, to) pair.
+- `connections` — canonical (user_a_id < user_b_id) so a single row represents the bidirectional link. Unique on (user_a, user_b).
 
 ## Auth flow (Phase 1)
 
@@ -92,18 +97,32 @@ Only `VITE_API_BASE_URL` if you ever need to point the client at a non-default A
 - Identity private key is generated, encrypted, and stored entirely on-device.
 - Server logs redact `Authorization` and `Cookie` headers.
 
+## Connection flow (Phase 2)
+
+1. **Alice** opens `/invite`, picks max-uses (1/5/10) and expiry (1h–30d), and clicks Create. Server returns the raw token **once**; Alice copies the link or screenshots the QR. Server only ever stores `sha256(token)`.
+2. **Bob** opens the link `/i/:token` (signed in or not). The public **preview** shows Alice's account type, the short identity-key fingerprint (`xxxx-xxxx`), her join date, and her user ID — **never email or phone**.
+3. If Bob isn't signed in, the token is stashed in `sessionStorage`; signup/login redirects him back to the redeem page automatically.
+4. Bob taps **Send connection request** with an optional ≤140-char note. Server creates a `connection_requests` row, increments `used_count`, refuses self-redeem and duplicate pending requests.
+5. **Alice** sees the request in `Connections → Pending`, with Bob's fingerprint + note, and Accepts or Rejects. Accepting inserts a canonical `connections` row in a transaction with the request status update.
+6. Either side can later **Disconnect** from `Connections → People`, which deletes the connection row.
+7. Pending outgoing requests are visible in `Connections → Sent`, where the requester can Cancel.
+
+### Prekey bootstrap
+
+After PIN setup at signup, the client generates 1 signed prekey + 20 one-time prekeys (Ed25519 placeholders — Phase 3 swaps to X25519 for X3DH; the wire shape stays). The signed prekey is signed by the identity key. Public halves are uploaded; private halves stay in IndexedDB. The Chats hub shows current prekey status. `prekeys.claimBundleFor` is wired and gated to connected peers; Phase 3 will exercise it.
+
 ## Current phase
 
-**Phase 1 — Email signup + accounts (complete).**
-- Drizzle schema + tRPC routers (auth + me) wired through Fastify with cookies and CORS.
-- Email OTP via Resend with dev console fallback.
-- Backup PIN UI with Argon2id-derived AES-GCM encryption of the identity key.
-- Welcome / Email signup (3-step wizard) / Login / Chats (post-auth landing) screens.
-- Server gracefully degrades when env vars are missing — tells the user exactly what's missing.
+**Phase 2 — Connections (complete).**
+- Drizzle schema for prekeys, invites, connection_requests, canonical connections.
+- tRPC routers: `prekeys` (upload/status/claimBundleFor with `FOR UPDATE SKIP LOCKED`), `invites` (create/list/revoke/preview/redeem), `connections` (listIncoming/listOutgoing/list/accept/reject/cancel/remove).
+- Client pages: `/invite` (generate + QR + revoke), `/i/:token` (preview + redeem with pending-invite session handoff), `/connections` (3-tab People/Pending/Sent), `/chats` redesigned as hub.
+- Privacy: invite tokens are stored as `sha256(token)`; preview reveals only fingerprint + account type, never PII.
+- Typecheck + build: green.
 
 ## Next phase
 
-**Phase 2 — Connections (invite + approval).** Adds prekey bundles, invites, connection_requests, connections tables; QR + invite-link flow; mutual approval.
+**Phase 3 — 1:1 Signal Protocol chat.** Swap Ed25519 prekey placeholders for X25519, run X3DH using `prekeys.claimBundleFor`, layer Double Ratchet on top, ship message storage + send/receive UI.
 
 ## User preferences
 

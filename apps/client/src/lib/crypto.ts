@@ -28,6 +28,38 @@ export function generateIdentityKeyPair(): IdentityKeyPair {
   return { privateKey, publicKey };
 }
 
+/** Sign a message with the identity Ed25519 private key. Returns 64-byte signature. */
+export function signWithIdentity(
+  privateKey: Uint8Array,
+  message: Uint8Array,
+): Uint8Array {
+  return ed25519.sign(message, privateKey);
+}
+
+/** Verify an Ed25519 signature. */
+export function verifyWithIdentity(
+  publicKey: Uint8Array,
+  message: Uint8Array,
+  signature: Uint8Array,
+): boolean {
+  try {
+    return ed25519.verify(signature, message, publicKey);
+  } catch {
+    return false;
+  }
+}
+
+/** Short fingerprint of a 32-byte public key: 8 hex chars formatted xxxx-xxxx. */
+export async function publicKeyFingerprint(
+  publicKey: Uint8Array,
+): Promise<string> {
+  const hash = await crypto.subtle.digest("SHA-256", bs(publicKey));
+  const bytes = new Uint8Array(hash);
+  let hex = "";
+  for (let i = 0; i < 4; i++) hex += bytes[i]!.toString(16).padStart(2, "0");
+  return `${hex.slice(0, 4)}-${hex.slice(4, 8)}`;
+}
+
 /* ─────────── PIN-derived key for at-rest encryption ─────────── */
 
 const ARGON2_OPTS = {

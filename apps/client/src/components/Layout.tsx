@@ -122,3 +122,79 @@ export function InfoMessage({ children }: { children: ReactNode }) {
     </div>
   );
 }
+
+/** A clickable card with title, sub, and a chevron. Used for hub navigation. */
+export function NavCard({
+  to,
+  title,
+  sub,
+  badge,
+  onClick,
+}: {
+  to?: string;
+  title: string;
+  sub?: string;
+  badge?: ReactNode;
+  onClick?: () => void;
+}) {
+  const inner = (
+    <div className="w-full text-left rounded-xl border border-white/10 bg-white/5 px-4 py-3 hover:bg-white/10 transition flex items-center justify-between gap-3">
+      <div className="min-w-0">
+        <div className="font-medium flex items-center gap-2">
+          <span className="truncate">{title}</span>
+          {badge}
+        </div>
+        {sub && (
+          <div className="text-xs text-white/50 truncate">{sub}</div>
+        )}
+      </div>
+      <span className="text-white/40 shrink-0">→</span>
+    </div>
+  );
+  if (to) {
+    return <Link to={to}>{inner}</Link>;
+  }
+  return (
+    <button onClick={onClick} className="w-full text-left">
+      {inner}
+    </button>
+  );
+}
+
+export function Pill({
+  children,
+  tone = "neutral",
+}: {
+  children: ReactNode;
+  tone?: "neutral" | "accent" | "warn" | "danger" | "ok";
+}) {
+  const tones = {
+    neutral: "bg-white/10 text-white/70",
+    accent: "bg-accent/20 text-accent-soft",
+    warn: "bg-amber-500/15 text-amber-200",
+    danger: "bg-red-500/15 text-red-200",
+    ok: "bg-emerald-500/15 text-emerald-200",
+  };
+  return (
+    <span
+      className={`inline-block text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full ${tones[tone]}`}
+    >
+      {children}
+    </span>
+  );
+}
+
+export function Divider({ children }: { children?: ReactNode }) {
+  if (!children) {
+    return <div className="border-t border-white/10 my-2" />;
+  }
+  return (
+    <div className="flex items-center gap-3 my-2">
+      <div className="flex-1 border-t border-white/10" />
+      <span className="text-[10px] uppercase tracking-widest text-white/40">
+        {children}
+      </span>
+      <div className="flex-1 border-t border-white/10" />
+    </div>
+  );
+}

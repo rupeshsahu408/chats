@@ -7,6 +7,9 @@ import {
   Logo,
   SecondaryButton,
   ErrorMessage,
+  NavCard,
+  Pill,
+  Divider,
 } from "../components/Layout";
 import { clearIdentity } from "../lib/db";
 
@@ -17,6 +20,18 @@ export function ChatsPage() {
   const clearAuth = useAuthStore((s) => s.clearAuth);
   const logout = trpc.auth.logout.useMutation();
   const meQuery = trpc.me.get.useQuery(undefined, {
+    enabled: !!accessToken,
+    retry: false,
+  });
+  const incoming = trpc.connections.listIncoming.useQuery(undefined, {
+    enabled: !!accessToken,
+    retry: false,
+  });
+  const connections = trpc.connections.list.useQuery(undefined, {
+    enabled: !!accessToken,
+    retry: false,
+  });
+  const prekeyStatus = trpc.prekeys.status.useQuery(undefined, {
     enabled: !!accessToken,
     retry: false,
   });
@@ -32,8 +47,6 @@ export function ChatsPage() {
       /* ignore */
     }
     clearAuth();
-    // Note: we DO NOT clear local identity on logout — that's the WhatsApp
-    // model. Encrypted history & identity stay; only the session is gone.
     navigate("/");
   }
 
@@ -43,21 +56,42 @@ export function ChatsPage() {
     navigate("/");
   }
 
+  const incomingCount = incoming.data?.length ?? 0;
+  const connCount = connections.data?.length ?? 0;
+  const otpkCount = prekeyStatus.data?.oneTimePreKeyCount ?? 0;
+  const hasSpk = prekeyStatus.data?.hasSignedPreKey ?? false;
+
   return (
-    <ScreenShell back="/" phase="Phase 1 · Account">
+    <ScreenShell phase="Phase 2 · Hub">
       <div className="flex flex-col items-center gap-3">
         <Logo />
         <h2 className="text-2xl font-semibold">You're in.</h2>
         <p className="text-sm text-white/60 text-center max-w-sm">
-          Your account is created. Connections (Phase 2) and 1:1 encrypted
-          chat (Phase 3) ship next.
+          1:1 encrypted chat ships in Phase 3. For now, invite someone and
+          build your contact graph.
         </p>
       </div>
 
+      <div className="flex flex-col gap-2">
+        <NavCard
+          to="/connections"
+          title="People"
+          sub={`${connCount} connection${connCount === 1 ? "" : "s"}${
+            incomingCount ? ` · ${incomingCount} pending` : ""
+          }`}
+          badge={
+            incomingCount > 0 ? <Pill tone="accent">{incomingCount}</Pill> : null
+          }
+        />
+        <NavCard
+          to="/invite"
+          title="Invite someone"
+          sub="Generate a private link or QR code"
+        />
+      </div>
+
+      <Divider>Account</Divider>
       <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-sm">
-        <div className="text-xs uppercase tracking-wider text-white/40 mb-2">
-          Account
-        </div>
         <div className="flex justify-between gap-2">
           <span className="text-white/60">User ID</span>
           <span className="font-mono text-xs text-white/80 truncate max-w-[60%]">
@@ -76,6 +110,16 @@ export function ChatsPage() {
             </span>
           </div>
         )}
+        <div className="flex justify-between gap-2 mt-1">
+          <span className="text-white/60">Prekeys</span>
+          <span className="text-white/80">
+            {hasSpk ? (
+              <Pill tone="ok">signed · {otpkCount} one-time</Pill>
+            ) : (
+              <Pill tone="warn">none uploaded</Pill>
+            )}
+          </span>
+        </div>
         {meQuery.error && (
           <div className="mt-2">
             <ErrorMessage>{meQuery.error.message}</ErrorMessage>

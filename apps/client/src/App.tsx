@@ -7,6 +7,9 @@ import { WelcomePage } from "./pages/WelcomePage";
 import { EmailSignupPage } from "./pages/EmailSignupPage";
 import { LoginPage } from "./pages/LoginPage";
 import { ChatsPage } from "./pages/ChatsPage";
+import { InvitePage } from "./pages/InvitePage";
+import { InviteRedeemPage } from "./pages/InviteRedeemPage";
+import { ConnectionsPage } from "./pages/ConnectionsPage";
 
 export function App() {
   const [queryClient] = useState(
@@ -28,6 +31,9 @@ export function App() {
           <Route path="/signup/email" element={<EmailSignupPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/chats" element={<ChatsPage />} />
+          <Route path="/invite" element={<InvitePage />} />
+          <Route path="/connections" element={<ConnectionsPage />} />
+          <Route path="/i/:token" element={<InviteRedeemPage />} />
           <Route path="*" element={<WelcomePage />} />
         </Routes>
       </QueryClientProvider>
@@ -52,6 +58,22 @@ function SessionBootstrap() {
       .mutateAsync()
       .then((r) => {
         setAuth({ accessToken: r.accessToken, user: r.user });
+        // If the user landed on `/?invite=…` while logged out, hop them
+        // back to the redeem page now that they have a session.
+        const params = new URLSearchParams(window.location.search);
+        const inviteFromQuery = params.get("invite");
+        const inviteFromStorage = (() => {
+          try {
+            return sessionStorage.getItem("veil:pending_invite");
+          } catch {
+            return null;
+          }
+        })();
+        const pending = inviteFromQuery ?? inviteFromStorage;
+        if (pending && window.location.pathname === "/") {
+          window.history.replaceState({}, "", `/i/${encodeURIComponent(pending)}`);
+          window.dispatchEvent(new PopStateEvent("popstate"));
+        }
       })
       .catch(() => {
         // No valid refresh cookie → stay logged out.

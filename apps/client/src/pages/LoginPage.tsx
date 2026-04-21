@@ -51,7 +51,22 @@ export function LoginPage() {
         purpose: "login",
       });
       setAuth({ accessToken: r.accessToken, user: r.user });
-      navigate("/chats");
+      let pending: string | null = null;
+      try {
+        pending = sessionStorage.getItem("veil:pending_invite");
+      } catch {
+        /* ignore */
+      }
+      if (pending) {
+        try {
+          sessionStorage.removeItem("veil:pending_invite");
+        } catch {
+          /* ignore */
+        }
+        navigate(`/i/${encodeURIComponent(pending)}`);
+      } else {
+        navigate("/chats");
+      }
     } catch (e: unknown) {
       setError(messageOf(e));
     }

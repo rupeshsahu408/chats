@@ -1,0 +1,242 @@
+import { TRPCError } from "@trpc/server";
+import { and, eq, isNull, sql, or } from "drizzle-orm";
+import {
+  UploadPrekeysInput,
+  PrekeyStatusSchema,
+  PrekeyBundleSchema,
+  type PrekeyBundle,
+  type PrekeyStatus,
+  UserIdSchema,
+} from "@veil/shared";
+import { z } from "zod";
+import { protectedProcedure, router } from "../init.js";
+import { getDb, schema } from "../../db/index.js";
+
+const MAX_OTPK_PER_USER = 100;
+
+function b64ToBuffer(s: string): Buffer {
+  return Buffer.from(s, "base64");
+}
+function bufferToB64(b: Buffer | Uint8Array): string {
+  return Buffer.from(b).toString("base64");
+}
+
+export const prekeysRouter = router({
+  /**
+   * Upload (replace) the signed prekey and append one-time prekeys.
+   * Total OTPKs per user are capped at 100.
+   */
+  upload: protectedProcedure
+    .input(UploadPrekeysInput)
+    .output(PrekeyStatusSchema)
+    .mutation(async ({ ctx, input }): Promise<PrekeyStatus> => {
+      const db = getDb();
+      const userId = ctx.userId;
+
+      // Validate raw lengths.
+      const spkPub = b64ToBuffer(input.signedPreKey.publicKey);
+      const spkSig = b64ToBuffer(input.signedPreKey.signature);
+      if (spkPub.length !== 32) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "signedPreKey.publicKey must be 32 bytes.",
+        });
+      }
+      if (spkSig.length !== 64) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "signedPreKey.signature must be 64 bytes.",
+        });
+      }
+      for (const otpk of input.oneTimePreKeys) {
+        if (b64ToBuffer(otpk.publicKey).length !== 32) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Each one-time prekey must be 32 bytes.",
+          });
+        }
+      }
+
+      // Replace the signed prekey atomically.
+      await db
+        .insert(schema.signedPrekeys)
+        .values({
+          userId,
+          keyId: input.signedPreKey.keyId,
+          publicKey: spkPub,
+          signature: spkSig,
+        })
+        .onConflictDoUpdate({
+          target: schema.signedPrekeys.userId,
+          set: {
+            keyId: input.signedPreKey.keyId,
+            publicKey: spkPub,
+            signature: spkSig,
+            createdAt: new Date(),
+          },
+        });
+
+      if (input.oneTimePreKeys.length > 0) {
+        // Refuse if it would push the total above the cap.
+        const existing = await db
+          .select({ c: sql<number>`count(*)::int` })
+          .from(schema.oneTimePrekeys)
+          .where(
+            and(
+              eq(schema.oneTimePrekeys.userId, userId),
+              isNull(schema.oneTimePrekeys.claimedAt),
+            ),
+          );
+        const have = existing[0]?.c ?? 0;
+        if (have + input.oneTimePreKeys.length > MAX_OTPK_PER_USER) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `Too many one-time prekeys; cap is ${MAX_OTPK_PER_USER}.`,
+          });
+        }
+
+        await db
+          .insert(schema.oneTimePrekeys)
+          .values(
+            input.oneTimePreKeys.map((k) => ({
+              userId,
+              keyId: k.keyId,
+              publicKey: b64ToBuffer(k.publicKey),
+            })),
+          )
+          .onConflictDoNothing({
+            target: [
+              schema.oneTimePrekeys.userId,
+              schema.oneTimePrekeys.keyId,
+            ],
+          });
+      }
+
+      return await getStatus(db, userId);
+    }),
+
+  /** How many keys does the server currently hold for me? */
+  status: protectedProcedure
+    .output(PrekeyStatusSchema)
+    .query(async ({ ctx }): Promise<PrekeyStatus> => {
+      return await getStatus(getDb(), ctx.userId);
+    }),
+
+  /**
+   * Claim a prekey bundle for a peer. Caller must be already connected
+   * to the peer. One one-time prekey is consumed atomically.
+   */
+  claimBundleFor: protectedProcedure
+    .input(z.object({ peerId: UserIdSchema }))
+    .output(PrekeyBundleSchema)
+    .query(async ({ ctx, input }): Promise<PrekeyBundle> => {
+      const db = getDb();
+      const me = ctx.userId;
+      const peer = input.peerId;
+
+      // Must be connected.
+      const [a, b] = me < peer ? [me, peer] : [peer, me];
+      const conn = await db
+        .select({ id: schema.connections.id })
+        .from(schema.connections)
+        .where(
+          and(
+            eq(schema.connections.userAId, a),
+            eq(schema.connections.userBId, b),
+          ),
+        )
+        .limit(1);
+      if (conn.length === 0) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Not connected to this user.",
+        });
+      }
+
+      const peerRow = await db
+        .select({
+          id: schema.users.id,
+          identityPubkey: schema.users.identityPubkey,
+        })
+        .from(schema.users)
+        .where(eq(schema.users.id, peer))
+        .limit(1);
+      const pr = peerRow[0];
+      if (!pr) {
+        throw new TRPCError({ code: "NOT_FOUND" });
+      }
+
+      const spk = await db
+        .select()
+        .from(schema.signedPrekeys)
+        .where(eq(schema.signedPrekeys.userId, peer))
+        .limit(1);
+      const spkRow = spk[0];
+      if (!spkRow) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "Peer has not uploaded a signed prekey yet.",
+        });
+      }
+
+      // Atomically claim one OTPK if available.
+      const claimed = await db.execute(sql`
+        UPDATE ${schema.oneTimePrekeys}
+        SET claimed_at = NOW(), claimed_by_user_id = ${me}
+        WHERE id = (
+          SELECT id FROM ${schema.oneTimePrekeys}
+          WHERE user_id = ${peer} AND claimed_at IS NULL
+          ORDER BY created_at ASC
+          LIMIT 1
+          FOR UPDATE SKIP LOCKED
+        )
+        RETURNING key_id, public_key
+      `);
+      const otpkRow = (claimed as unknown as {
+        rows?: Array<{ key_id: number; public_key: Buffer }>;
+      }).rows?.[0];
+
+      return {
+        userId: pr.id,
+        identityPublicKey: bufferToB64(pr.identityPubkey),
+        signedPreKey: {
+          keyId: spkRow.keyId,
+          publicKey: bufferToB64(spkRow.publicKey),
+          signature: bufferToB64(spkRow.signature),
+        },
+        oneTimePreKey: otpkRow
+          ? {
+              keyId: otpkRow.key_id,
+              publicKey: bufferToB64(otpkRow.public_key),
+            }
+          : null,
+      };
+    }),
+});
+
+async function getStatus(
+  db: ReturnType<typeof getDb>,
+  userId: string,
+): Promise<PrekeyStatus> {
+  const [spk] = await db
+    .select({ keyId: schema.signedPrekeys.keyId })
+    .from(schema.signedPrekeys)
+    .where(eq(schema.signedPrekeys.userId, userId))
+    .limit(1);
+  const [count] = await db
+    .select({ c: sql<number>`count(*)::int` })
+    .from(schema.oneTimePrekeys)
+    .where(
+      and(
+        eq(schema.oneTimePrekeys.userId, userId),
+        isNull(schema.oneTimePrekeys.claimedAt),
+      ),
+    );
+  // Avoid unused-import warnings if we later prune helpers.
+  void or;
+  return {
+    hasSignedPreKey: !!spk,
+    signedPreKeyId: spk?.keyId ?? null,
+    oneTimePreKeyCount: count?.c ?? 0,
+  };
+}

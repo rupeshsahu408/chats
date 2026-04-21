@@ -17,6 +17,7 @@ import {
   generateIdentityKeyPair,
 } from "../lib/crypto";
 import { saveIdentity } from "../lib/db";
+import { buildPrekeyBundle } from "../lib/prekeys";
 
 type Step = "email" | "code" | "pin" | "done";
 
@@ -39,6 +40,7 @@ export function EmailSignupPage() {
 
   const requestOtp = trpc.auth.requestEmailOtp.useMutation();
   const verifyOtp = trpc.auth.verifyEmailOtp.useMutation();
+  const uploadPrekeys = trpc.prekeys.upload.useMutation();
 
   async function onSendCode() {
     setError(null);
@@ -103,9 +105,44 @@ export function EmailSignupPage() {
         publicKey: bytesToBase64(pendingIdentity.publicKey),
         createdAt: new Date().toISOString(),
       });
+
+      // Phase 2: generate + upload an initial prekey bundle so other users
+      // can start sessions with us in Phase 3 without further setup.
+      try {
+        const bundle = await buildPrekeyBundle({
+          identityPrivateKey: pendingIdentity.privateKey,
+          numOneTime: 20,
+        });
+        await uploadPrekeys.mutateAsync(bundle);
+      } catch (e) {
+        // Non-fatal: account is created, prekeys can be retried later.
+        console.warn("Prekey bootstrap failed", e);
+      }
+
       setStep("done");
     } catch (e: unknown) {
       setError(messageOf(e));
+    }
+  }
+
+  // If the user arrived via /i/:token while logged out, bring them back
+  // there after they finish signup.
+  function continueAfterSignup() {
+    let pending: string | null = null;
+    try {
+      pending = sessionStorage.getItem("veil:pending_invite");
+    } catch {
+      /* ignore */
+    }
+    if (pending) {
+      try {
+        sessionStorage.removeItem("veil:pending_invite");
+      } catch {
+        /* ignore */
+      }
+      navigate(`/i/${encodeURIComponent(pending)}`);
+    } else {
+      navigate("/chats");
     }
   }
 
@@ -238,9 +275,7 @@ export function EmailSignupPage() {
           Your account is ready. Connections and messaging arrive in the next
           phases.
         </p>
-        <PrimaryButton onClick={() => navigate("/chats")}>
-          Continue
-        </PrimaryButton>
+        <PrimaryButton onClick={continueAfterSignup}>Continue</PrimaryButton>
       </div>
     </ScreenShell>
   );
