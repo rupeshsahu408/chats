@@ -2,7 +2,9 @@ import { useEffect, useRef } from "react";
 import { useAuthStore } from "./store";
 import { useUnlockStore } from "./unlockStore";
 import { wsClient } from "./wsClient";
-import { ingestInboxMessage, pollAndDecrypt, restorePeerHistory } from "./messageSync";
+import { applyReadReceipt, ingestInboxMessage, pollAndDecrypt, restorePeerHistory } from "./messageSync";
+import { useStealthPrefs } from "./stealthPrefs";
+import { deleteExpiredChatMessages } from "./db";
 import { trpcClientProxy } from "./trpcClientProxy";
 
 /**
@@ -42,9 +44,25 @@ export function SessionSync() {
     const unsub = wsClient.subscribe((event) => {
       if (event.type === "new_message") {
         void ingestInboxMessage(identity, event.message);
+      } else if (event.type === "read_receipt") {
+        void applyReadReceipt(event.messageId, event.at).catch(() => undefined);
       }
     });
     return unsub;
+  }, [identity]);
+
+  // Hydrate global privacy/stealth prefs once.
+  useEffect(() => {
+    void useStealthPrefs.getState().hydrate();
+  }, []);
+
+  // Reap locally-expired messages on a 60s tick (also runs on inbox poll).
+  useEffect(() => {
+    if (!identity) return;
+    const t = setInterval(() => {
+      void deleteExpiredChatMessages().catch(() => undefined);
+    }, 60_000);
+    return () => clearInterval(t);
   }, [identity]);
 
   // Drain the inbox + restore history once after unlock.

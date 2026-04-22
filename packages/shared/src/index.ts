@@ -258,6 +258,19 @@ export const SendMessageInput = z.object({
   header: Base64BytesSchema,
   /** Base64-encoded AES-GCM ciphertext (≤ ~30 KB plaintext). */
   ciphertext: Base64BytesSchema,
+  /**
+   * Optional disappearing-message TTL. If set, server stamps
+   * `expires_at = now + this` and a periodic sweep hard-deletes the
+   * row. Cap is 30 days. The actual semantics (text vs media,
+   * view-once etc.) live inside the encrypted envelope; the server
+   * never inspects them.
+   */
+  expiresInSeconds: z
+    .number()
+    .int()
+    .positive()
+    .max(60 * 60 * 24 * 30)
+    .optional(),
 });
 export type SendMessageInput = z.infer<typeof SendMessageInput>;
 
@@ -272,6 +285,8 @@ export const InboxMessageSchema = z.object({
   header: Base64BytesSchema,
   ciphertext: Base64BytesSchema,
   createdAt: z.string(),
+  /** ISO timestamp after which the server will hard-delete this row. */
+  expiresAt: z.string().nullable().optional(),
 });
 export type InboxMessage = z.infer<typeof InboxMessageSchema>;
 
@@ -293,8 +308,14 @@ export const HistoryMessageSchema = z.object({
   header: Base64BytesSchema,
   ciphertext: Base64BytesSchema,
   createdAt: z.string(),
+  expiresAt: z.string().nullable().optional(),
 });
 export type HistoryMessage = z.infer<typeof HistoryMessageSchema>;
+
+export const MarkReadInput = z.object({
+  ids: z.array(z.string().uuid()).max(500),
+});
+export type MarkReadInput = z.infer<typeof MarkReadInput>;
 
 export const FetchHistoryInput = z.object({
   peerId: UserIdSchema,
@@ -322,6 +343,19 @@ export const WsServerEventSchema = z.discriminatedUnion("type", [
     by: UserIdSchema,
     at: z.string(),
   }),
+  z.object({
+    type: z.literal("read_receipt"),
+    messageId: z.string().uuid(),
+    by: UserIdSchema,
+    at: z.string(),
+  }),
+  z.object({
+    /** Ephemeral typing indicator from a peer. Never persisted. */
+    type: z.literal("typing"),
+    from: UserIdSchema,
+    /** True = started typing, false = stopped. */
+    typing: z.boolean(),
+  }),
   z.object({ type: z.literal("pong"), t: z.number() }),
 ]);
 export type WsServerEvent = z.infer<typeof WsServerEventSchema>;
@@ -331,6 +365,16 @@ export const WsClientEventSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("mark_delivered"),
     ids: z.array(z.string().uuid()).max(500),
+  }),
+  z.object({
+    type: z.literal("mark_read"),
+    ids: z.array(z.string().uuid()).max(500),
+  }),
+  z.object({
+    type: z.literal("typing"),
+    /** The peer to notify. */
+    to: UserIdSchema,
+    typing: z.boolean(),
   }),
 ]);
 export type WsClientEvent = z.infer<typeof WsClientEventSchema>;
@@ -504,3 +548,28 @@ export const UnsubscribePushInput = z.object({
   endpoint: z.string().url().max(2048),
 });
 export type UnsubscribePushInput = z.infer<typeof UnsubscribePushInput>;
+
+/* ─────────── Phase 2: Link Previews ─────────── */
+/*
+ * Server fetches OG metadata anonymously on the sender's behalf so the
+ * recipient never reveals their IP to third-party sites by hot-loading
+ * URLs out of an incoming chat. The preview travels inside the
+ * encrypted envelope.
+ */
+
+export const LinkPreviewInput = z.object({
+  url: z.string().url().max(2048),
+});
+export type LinkPreviewInput = z.infer<typeof LinkPreviewInput>;
+
+export const LinkPreviewSchema = z.object({
+  url: z.string().url(),
+  /** Final canonical URL after redirects. */
+  resolvedUrl: z.string().url().nullable(),
+  title: z.string().nullable(),
+  description: z.string().nullable(),
+  siteName: z.string().nullable(),
+  /** Absolute URL of the OG image, if one was found. */
+  imageUrl: z.string().url().nullable(),
+});
+export type LinkPreview = z.infer<typeof LinkPreviewSchema>;

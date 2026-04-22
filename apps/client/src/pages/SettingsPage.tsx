@@ -14,6 +14,7 @@ import { MainShell } from "../components/MainShell";
 import { useThemeStore, type ThemeMode } from "../lib/themeStore";
 import { ensurePushSubscription, disablePushSubscription } from "../lib/push";
 import { clearIdentity } from "../lib/db";
+import { useStealthPrefs } from "../lib/stealthPrefs";
 
 export function SettingsPage() {
   const navigate = useNavigate();
@@ -91,6 +92,9 @@ export function SettingsPage() {
 
         <SectionHeader>Appearance</SectionHeader>
         <ThemeRow />
+
+        <SectionHeader>Privacy</SectionHeader>
+        <PrivacyRows />
 
         <SectionHeader>Notifications</SectionHeader>
         <PushRow />
@@ -252,6 +256,91 @@ function PushRow() {
         )}
       </div>
       {msg && <div className="text-[11px] text-text-muted mt-2">{msg}</div>}
+    </div>
+  );
+}
+
+function PrivacyRows() {
+  const prefs = useStealthPrefs((s) => s.prefs);
+  const setPrefs = useStealthPrefs((s) => s.set);
+  const hydrate = useStealthPrefs((s) => s.hydrate);
+  useEffect(() => {
+    void hydrate();
+  }, [hydrate]);
+  if (!prefs) {
+    return (
+      <div className="px-4 py-3 bg-panel text-xs text-text-muted">Loading…</div>
+    );
+  }
+  const rows: {
+    key: keyof typeof prefs;
+    label: string;
+    sub: string;
+  }[] = [
+    {
+      key: "readReceiptsEnabled",
+      label: "Read receipts",
+      sub: "Let people see when you've opened their messages.",
+    },
+    {
+      key: "typingIndicatorsEnabled",
+      label: "Typing indicators",
+      sub: "Show others when you're composing a reply.",
+    },
+    {
+      key: "screenshotBlurEnabled",
+      label: "Blur on app switch",
+      sub: "Hide content when this tab loses focus, so screenshots and app-switcher previews show only a blur.",
+    },
+  ];
+  return (
+    <>
+      {rows.map((r) => (
+        <ToggleRow
+          key={r.key}
+          label={r.label}
+          sub={r.sub}
+          value={Boolean(prefs[r.key])}
+          onChange={(v) => void setPrefs({ [r.key]: v } as Partial<typeof prefs>)}
+        />
+      ))}
+    </>
+  );
+}
+
+function ToggleRow({
+  label,
+  sub,
+  value,
+  onChange,
+}: {
+  label: string;
+  sub: string;
+  value: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <div className="px-4 py-3 bg-panel border-b border-line/60 flex items-start justify-between gap-3">
+      <div className="min-w-0">
+        <div className="text-text font-medium">{label}</div>
+        <div className="text-xs text-text-muted">{sub}</div>
+      </div>
+      <button
+        role="switch"
+        aria-checked={value}
+        onClick={() => onChange(!value)}
+        className={
+          "shrink-0 mt-0.5 inline-flex h-6 w-11 items-center rounded-full transition wa-tap " +
+          (value ? "bg-wa-green" : "bg-line")
+        }
+      >
+        <span
+          className={
+            "inline-block size-5 rounded-full bg-white shadow transform transition " +
+            (value ? "translate-x-5" : "translate-x-0.5")
+          }
+        />
+      </button>
     </div>
   );
 }

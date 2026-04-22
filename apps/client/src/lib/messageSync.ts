@@ -7,32 +7,52 @@ import {
   setChatMessageStatus,
   hasChatMessageWithServerId,
   getEarliestChatMessageTime,
+  markChatMessageRead,
+  deleteExpiredChatMessages,
+  db,
 } from "./db";
 import { decryptFromPeer, encryptToPeer } from "./signal/session";
 import { base64ToBytes } from "./crypto";
-import { wsMarkDelivered } from "./wsClient";
+import { wsMarkDelivered, wsMarkRead } from "./wsClient";
 import type { UnlockedIdentity } from "./signal/session";
 import type { InboxMessage, HistoryMessage } from "@veil/shared";
 import { decodeEnvelope, encodeEnvelope, type ChatEnvelope } from "./messageEnvelope";
 import type { ChatMessageRecord } from "./db";
+import { getCachedStealthPrefs } from "./stealthPrefs";
 
 function envelopeToRecordFields(
   env: ChatEnvelope,
-): Pick<ChatMessageRecord, "plaintext" | "attachment"> {
+  serverExpiresAt?: string | null,
+): Pick<ChatMessageRecord, "plaintext" | "attachment" | "viewOnce" | "linkPreview" | "expiresAt"> {
+  const expiresAt = serverExpiresAt ?? deriveExpiry(env);
+  const extras: Pick<ChatMessageRecord, "viewOnce" | "linkPreview" | "expiresAt"> = {};
+  if (env.vo) extras.viewOnce = true;
+  if (env.lp) extras.linkPreview = env.lp;
+  if (expiresAt) extras.expiresAt = expiresAt;
+
   if (env.t === "text") {
-    return { plaintext: env.body };
+    return { plaintext: env.body, ...extras };
   }
   if (env.t === "image") {
     return {
       plaintext: env.body ?? "",
       attachment: { ...env.media, kind: "image" },
+      ...extras,
     };
   }
   // voice
   return {
     plaintext: "",
     attachment: { ...env.media, kind: "voice" },
+    ...extras,
   };
+}
+
+function deriveExpiry(env: ChatEnvelope): string | undefined {
+  if (env.ttl && env.ttl > 0) {
+    return new Date(Date.now() + env.ttl * 1000).toISOString();
+  }
+  return undefined;
 }
 
 /* ────────────────────────── Inbox / live ────────────────────────── */
@@ -79,7 +99,6 @@ export async function ingestInboxMessage(
   m: InboxMessage,
 ): Promise<"new" | "duplicate" | "failed"> {
   if (await hasChatMessageWithServerId(m.id)) {
-    // Already stored — still re-ack so the server clears it.
     if (!wsMarkDelivered([m.id])) {
       void trpcClientProxy()
         .messages.markDelivered.mutate({ ids: [m.id] })
@@ -94,7 +113,7 @@ export async function ingestInboxMessage(
       peerId: m.senderUserId,
       serverId: m.id,
       direction: "in",
-      ...envelopeToRecordFields(env),
+      ...envelopeToRecordFields(env, m.expiresAt),
       createdAt: m.createdAt,
       status: "received",
     });
@@ -118,6 +137,10 @@ export async function ingestInboxMessage(
 export async function pollAndDecrypt(
   identity: UnlockedIdentity,
 ): Promise<{ added: number; failed: number }> {
+  // Reap any locally-expired messages first so the UI never lingers on
+  // a disappearing message past its TTL.
+  await deleteExpiredChatMessages().catch(() => undefined);
+
   const { messages } = await trpcClientProxy().messages.fetchInbox.mutate();
   let added = 0;
   let failed = 0;
@@ -135,7 +158,7 @@ export async function pollAndDecrypt(
         peerId: m.senderUserId,
         serverId: m.id,
         direction: "in",
-        ...envelopeToRecordFields(env),
+        ...envelopeToRecordFields(env, m.expiresAt),
         createdAt: m.createdAt,
         status: "received",
       });
@@ -165,8 +188,12 @@ export async function sendChatMessage(
   identity: UnlockedIdentity,
   peerId: string,
   plaintext: string,
+  opts: { ttlSeconds?: number; linkPreview?: ChatEnvelope["lp"] } = {},
 ): Promise<number> {
-  return sendChatEnvelope(identity, peerId, { v: 1, t: "text", body: plaintext });
+  const env: ChatEnvelope = { v: 2, t: "text", body: plaintext };
+  if (opts.ttlSeconds && opts.ttlSeconds > 0) env.ttl = opts.ttlSeconds;
+  if (opts.linkPreview) env.lp = opts.linkPreview;
+  return sendChatEnvelope(identity, peerId, env);
 }
 
 /**
@@ -179,6 +206,8 @@ export async function sendChatEnvelope(
   peerId: string,
   envelope: ChatEnvelope,
 ): Promise<number> {
+  // Stamp v2 if any of the new fields are present.
+  if (envelope.ttl || envelope.vo || envelope.lp) envelope.v = 2;
   const localFields = envelopeToRecordFields(envelope);
   const localId = await appendChatMessage({
     peerId,
@@ -200,6 +229,7 @@ export async function sendChatEnvelope(
       recipientUserId: peerId,
       header: headerB64,
       ciphertext: ciphertextB64,
+      ...(envelope.ttl && envelope.ttl > 0 ? { expiresInSeconds: envelope.ttl } : {}),
     });
     await setChatMessageStatus(localId, "sent", sent.id);
   } catch (err) {
@@ -207,6 +237,32 @@ export async function sendChatEnvelope(
     throw err;
   }
   return localId;
+}
+
+/* ─────────────────────── Read receipts ─────────────────────── */
+
+/**
+ * Mark a batch of inbound messages as read on the server. Caller is
+ * responsible for honouring the user's stealth preferences.
+ */
+export async function reportRead(serverIds: string[]): Promise<void> {
+  if (serverIds.length === 0) return;
+  if (!getCachedStealthPrefs().readReceiptsEnabled) return;
+  if (!wsMarkRead(serverIds)) {
+    try {
+      await trpcClientProxy().messages.markRead.mutate({ ids: serverIds });
+    } catch (e) {
+      console.warn("markRead HTTP fallback failed", e);
+    }
+  }
+}
+
+/** Apply an inbound read_receipt event to the local outbox. */
+export async function applyReadReceipt(
+  messageId: string,
+  at: string,
+): Promise<void> {
+  await markChatMessageRead(messageId, at);
 }
 
 /* ─────────────────────── History restore ─────────────────────── */
@@ -228,7 +284,6 @@ export async function restorePeerHistory(
   let pages = 0;
   let before = await getEarliestChatMessageTime(peerId);
   let hasMore = true;
-  // Cap to 5 pages per call so a giant history doesn't lock the UI.
   while (hasMore && pages < 5) {
     const page = await trpcClientProxy().messages.fetchHistory.query({
       peerId,
@@ -240,7 +295,6 @@ export async function restorePeerHistory(
       hasMore = page.hasMore;
       break;
     }
-    // Server returns newest-first; persist oldest-first so order is stable.
     const ordered = [...page.messages].reverse();
     for (const m of ordered) {
       if (await hasChatMessageWithServerId(m.id)) continue;
@@ -263,8 +317,6 @@ async function persistHistoryEntry(
   const otherPeer = isOutbound ? m.recipientUserId : m.senderUserId;
 
   if (isOutbound) {
-    // We can't decrypt our own ciphertext (ratchet state has rolled
-    // forward); surface a placeholder so the timeline isn't blank.
     await appendChatMessage({
       peerId: otherPeer,
       serverId: m.id,
@@ -272,6 +324,7 @@ async function persistHistoryEntry(
       plaintext: "[sent on another device]",
       createdAt: m.createdAt,
       status: "sent",
+      ...(m.expiresAt ? { expiresAt: m.expiresAt } : {}),
     });
     return true;
   }
@@ -289,7 +342,7 @@ async function persistHistoryEntry(
       peerId: otherPeer,
       serverId: m.id,
       direction: "in",
-      ...envelopeToRecordFields(env),
+      ...envelopeToRecordFields(env, m.expiresAt),
       createdAt: m.createdAt,
       status: "received",
     });
@@ -305,4 +358,18 @@ async function persistHistoryEntry(
     });
     return true;
   }
+}
+
+/* ─────────────────────── View-once handling ─────────────────────── */
+
+/**
+ * Called once the recipient actually opens a view-once message. Wipes
+ * the local row + tries to delete the underlying media blob from R2.
+ */
+export async function consumeViewOnce(localId: number): Promise<void> {
+  const row = await db.chatMessages.get(localId);
+  if (!row) return;
+  // Wipe the local copy. R2 blobs are reaped server-side by the
+  // mediaSweeper on their normal TTL.
+  await db.chatMessages.delete(localId);
 }

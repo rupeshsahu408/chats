@@ -291,6 +291,14 @@ export const messages = pgTable(
     ciphertext: bytea("ciphertext").notNull(),
     /** When the recipient acknowledged delivery on at least one device. */
     deliveredAt: timestamp("delivered_at", { withTimezone: true }),
+    /** When the recipient opened/read the message (Phase 2). */
+    readAt: timestamp("read_at", { withTimezone: true }),
+    /**
+     * Optional server-side TTL (Phase 2: disappearing messages). When
+     * set, the row will be hard-deleted by the message sweeper after
+     * this timestamp.
+     */
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -308,6 +316,9 @@ export const messages = pgTable(
       t.conversationId,
       t.createdAt,
     ),
+    expiryIdx: index("messages_expires_idx")
+      .on(t.expiresAt)
+      .where(sql`${t.expiresAt} IS NOT NULL`),
   }),
 );
 

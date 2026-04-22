@@ -10,6 +10,7 @@ import { createContext } from "./trpc/context.js";
 import { registerWebSocketRoutes } from "./lib/wsServer.js";
 import { initPush } from "./lib/push.js";
 import { startMediaSweeper } from "./lib/mediaSweeper.js";
+import { startMessageSweeper } from "./lib/messageSweeper.js";
 
 const app = Fastify({
   trustProxy: true,
@@ -103,6 +104,7 @@ if (!env.RESEND_API_KEY && isDev) {
 
 initPush(app.log);
 startMediaSweeper(app.log);
+startMessageSweeper(app.log);
 
 try {
   await app.listen({ host: env.HOST, port: env.PORT });

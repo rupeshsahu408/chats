@@ -66,8 +66,36 @@ export interface ChatMessageRecord {
   /** Text body (or caption for media). Empty string for media-only. */
   plaintext: string;
   createdAt: string;
-  /** For outbound: 'pending' | 'sent' | 'failed'. For inbound: 'received'. */
-  status: "pending" | "sent" | "failed" | "received";
+  /**
+   * For outbound: 'pending' | 'sent' | 'failed' | 'read'.
+   * For inbound: 'received'.
+   * 'read' = peer has reported they've opened the message.
+   */
+  status: "pending" | "sent" | "failed" | "received" | "read";
+  /** When the recipient (or for outbound: us) read it. */
+  readAt?: string;
+  /**
+   * Disappearing-message expiry. Both ends compute the same value from
+   * the envelope. Once it's in the past the row is deleted locally and
+   * the server-side row is reaped by the sweeper.
+   */
+  expiresAt?: string;
+  /**
+   * View-once: client deletes the message + media as soon as the
+   * recipient opens it.
+   */
+  viewOnce?: boolean;
+  /** Set when the recipient has opened a view-once item. */
+  viewedAt?: string;
+  /** Optional in-envelope link preview (Phase 2). */
+  linkPreview?: {
+    url: string;
+    resolvedUrl?: string | null;
+    title?: string | null;
+    description?: string | null;
+    siteName?: string | null;
+    imageUrl?: string | null;
+  };
   /** Optional media attachment (Phase 5). */
   attachment?: {
     kind: "image" | "voice";
@@ -82,6 +110,36 @@ export interface ChatMessageRecord {
     /** Inline thumbnail (base64 JPEG). Images only. */
     thumbB64?: string;
   };
+}
+
+/** Per-peer chat preferences (TTL, view-once default, biometric lock). */
+export interface ChatPrefRecord {
+  peerId: string;
+  /**
+   * Default TTL applied to outgoing messages, in seconds. 0 / undefined = off.
+   */
+  ttlSeconds?: number;
+  /** Whether new images default to view-once. */
+  viewOnceDefault?: boolean;
+  /** WebAuthn credential id (base64url) required to open this thread. */
+  biometricCredentialId?: string;
+  updatedAt: string;
+}
+
+/**
+ * Global preferences (key = "self"). Stealth toggles + screenshot blur.
+ */
+export interface UserPrefRecord {
+  id: "self";
+  /** Send read receipts when we open a message. Default true. */
+  readReceiptsEnabled: boolean;
+  /** Send typing indicators while composing. Default true. */
+  typingIndicatorsEnabled: boolean;
+  /** Blur the entire app when the tab loses focus. Default true. */
+  screenshotBlurEnabled: boolean;
+  /** Require biometric/passkey on app launch. Default false. */
+  appLockEnabled: boolean;
+  updatedAt: string;
 }
 
 /**
@@ -110,6 +168,8 @@ export class VeilDB extends Dexie {
   chatSessions!: Table<ChatSessionRecord, string>;
   chatMessages!: Table<ChatMessageRecord, number>;
   unlocked!: Table<UnlockedIdentityRecord, "self">;
+  chatPrefs!: Table<ChatPrefRecord, string>;
+  userPrefs!: Table<UserPrefRecord, "self">;
 
   constructor() {
     super("veil");
@@ -140,6 +200,17 @@ export class VeilDB extends Dexie {
       chatMessages: "++id, peerId, createdAt, serverId",
       unlocked: "id",
     });
+    // v6 — Phase 2: TTL/read/view-once on chatMessages (no new indices)
+    // + per-peer chatPrefs + global userPrefs.
+    this.version(6).stores({
+      identity: "id",
+      prekeys: "id, kind, keyId",
+      chatSessions: "peerId, updatedAt",
+      chatMessages: "++id, peerId, createdAt, serverId, expiresAt",
+      unlocked: "id",
+      chatPrefs: "peerId, updatedAt",
+      userPrefs: "id",
+    });
   }
 }
 
@@ -159,6 +230,72 @@ export async function clearIdentity(): Promise<void> {
   await db.chatSessions.clear();
   await db.chatMessages.clear();
   await db.unlocked.clear();
+  await db.chatPrefs.clear();
+  await db.userPrefs.clear();
+}
+
+/* ─────────── Chat prefs (per-peer) ─────────── */
+
+export async function getChatPref(peerId: string): Promise<ChatPrefRecord | undefined> {
+  return await db.chatPrefs.get(peerId);
+}
+
+export async function setChatPref(
+  peerId: string,
+  patch: Partial<Omit<ChatPrefRecord, "peerId" | "updatedAt">>,
+): Promise<void> {
+  const existing = (await db.chatPrefs.get(peerId)) ?? { peerId, updatedAt: new Date().toISOString() };
+  const next: ChatPrefRecord = { ...existing, ...patch, peerId, updatedAt: new Date().toISOString() };
+  await db.chatPrefs.put(next);
+}
+
+/* ─────────── User prefs (global) ─────────── */
+
+const DEFAULT_USER_PREFS: UserPrefRecord = {
+  id: "self",
+  readReceiptsEnabled: true,
+  typingIndicatorsEnabled: true,
+  screenshotBlurEnabled: true,
+  appLockEnabled: false,
+  updatedAt: new Date(0).toISOString(),
+};
+
+export async function getUserPrefs(): Promise<UserPrefRecord> {
+  const r = await db.userPrefs.get("self");
+  return r ?? DEFAULT_USER_PREFS;
+}
+
+export async function setUserPrefs(patch: Partial<Omit<UserPrefRecord, "id" | "updatedAt">>): Promise<UserPrefRecord> {
+  const existing = await getUserPrefs();
+  const next: UserPrefRecord = { ...existing, ...patch, id: "self", updatedAt: new Date().toISOString() };
+  await db.userPrefs.put(next);
+  return next;
+}
+
+/* ─────────── Disappearing-message helpers ─────────── */
+
+export async function deleteExpiredChatMessages(): Promise<number> {
+  const now = new Date().toISOString();
+  const expired = await db.chatMessages
+    .where("expiresAt")
+    .below(now)
+    .toArray();
+  if (expired.length === 0) return 0;
+  await db.chatMessages.bulkDelete(expired.map((m) => m.id!).filter((x) => x !== undefined));
+  return expired.length;
+}
+
+export async function markChatMessageRead(
+  serverId: string,
+  readAt: string,
+): Promise<void> {
+  const row = await db.chatMessages.where("serverId").equals(serverId).first();
+  if (!row || row.id === undefined) return;
+  await db.chatMessages.update(row.id, { status: "read", readAt });
+}
+
+export async function deleteChatMessageById(id: number): Promise<void> {
+  await db.chatMessages.delete(id);
 }
 
 export async function saveUnlockedIdentity(

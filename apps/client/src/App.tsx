@@ -24,6 +24,7 @@ import { InviteRedeemPage } from "./pages/InviteRedeemPage";
 import { ConnectionsPage } from "./pages/ConnectionsPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { SessionSync } from "./lib/SessionSync";
+import { useStealthPrefs } from "./lib/stealthPrefs";
 
 export function App() {
   const [queryClient] = useState(
@@ -38,6 +39,11 @@ export function App() {
 
   // System theme listener — keeps "system" mode in sync with OS toggle.
   useEffect(() => installSystemThemeListener(), []);
+
+  // Privacy: blur the entire app when the tab loses focus or is hidden,
+  // making screenshots / app-switcher previews far less useful to a
+  // shoulder-surfer. Honours the user's `screenshotBlurEnabled` toggle.
+  usePrivacyBlur();
 
   return (
     <trpc.Provider client={trpcClient} queryClient={queryClient}>
@@ -125,3 +131,35 @@ function SessionBootstrap() {
 }
 
 export { useNavigate };
+
+/**
+ * Apply a heavy CSS blur (and optional black overlay) to the whole app
+ * whenever the tab is hidden / window is blurred. Cleared the moment
+ * the user comes back. Disable via Settings → Privacy.
+ */
+function usePrivacyBlur() {
+  const enabled = useStealthPrefs(
+    (s) => s.prefs?.screenshotBlurEnabled ?? true,
+  );
+  useEffect(() => {
+    const cls = "veil-privacy-blur";
+    function update() {
+      if (!enabled) {
+        document.documentElement.classList.remove(cls);
+        return;
+      }
+      const hidden = document.visibilityState === "hidden" || !document.hasFocus();
+      document.documentElement.classList.toggle(cls, hidden);
+    }
+    update();
+    window.addEventListener("blur", update);
+    window.addEventListener("focus", update);
+    document.addEventListener("visibilitychange", update);
+    return () => {
+      window.removeEventListener("blur", update);
+      window.removeEventListener("focus", update);
+      document.removeEventListener("visibilitychange", update);
+      document.documentElement.classList.remove(cls);
+    };
+  }, [enabled]);
+}

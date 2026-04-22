@@ -5,6 +5,7 @@ import {
   SendMessageResult,
   FetchInboxResult,
   MarkDeliveredInput,
+  MarkReadInput,
   FetchHistoryInput,
   FetchHistoryResult,
   OkSchema,
@@ -61,6 +62,9 @@ export const messagesRouter = router({
 
       const headerBuf = Buffer.from(input.header, "base64");
       const ctBuf = Buffer.from(input.ciphertext, "base64");
+      const expiresAt = input.expiresInSeconds
+        ? new Date(Date.now() + input.expiresInSeconds * 1000)
+        : null;
       const inserted = await db
         .insert(schema.messages)
         .values({
@@ -69,10 +73,12 @@ export const messagesRouter = router({
           conversationId: conversationIdFor(me, peer),
           header: headerBuf,
           ciphertext: ctBuf,
+          expiresAt,
         })
         .returning({
           id: schema.messages.id,
           createdAt: schema.messages.createdAt,
+          expiresAt: schema.messages.expiresAt,
         });
       const row = inserted[0]!;
 
@@ -84,6 +90,7 @@ export const messagesRouter = router({
           header: input.header,
           ciphertext: input.ciphertext,
           createdAt: row.createdAt.toISOString(),
+          expiresAt: row.expiresAt ? row.expiresAt.toISOString() : null,
         },
       });
 
@@ -111,6 +118,7 @@ export const messagesRouter = router({
     .output(FetchInboxResult)
     .mutation(async ({ ctx }): Promise<{ messages: InboxMessage[] }> => {
       const db = getDb();
+      const now = new Date();
       const rows = await db
         .select()
         .from(schema.messages)
@@ -118,6 +126,10 @@ export const messagesRouter = router({
           and(
             eq(schema.messages.recipientUserId, ctx.userId),
             isNull(schema.messages.deliveredAt),
+            or(
+              isNull(schema.messages.expiresAt),
+              gt(schema.messages.expiresAt, now),
+            ),
           ),
         )
         .orderBy(asc(schema.messages.createdAt))
@@ -129,6 +141,7 @@ export const messagesRouter = router({
           header: bufToB64(r.header),
           ciphertext: bufToB64(r.ciphertext),
           createdAt: r.createdAt.toISOString(),
+          expiresAt: r.expiresAt ? r.expiresAt.toISOString() : null,
         })),
       };
     }),
@@ -151,6 +164,10 @@ export const messagesRouter = router({
           and(
             eq(schema.messages.recipientUserId, ctx.userId),
             isNull(schema.messages.deliveredAt),
+            or(
+              isNull(schema.messages.expiresAt),
+              gt(schema.messages.expiresAt, now),
+            ),
           ),
         )
         .orderBy(asc(schema.messages.createdAt))
@@ -179,6 +196,7 @@ export const messagesRouter = router({
           header: bufToB64(r.header),
           ciphertext: bufToB64(r.ciphertext),
           createdAt: r.createdAt.toISOString(),
+          expiresAt: r.expiresAt ? r.expiresAt.toISOString() : null,
         })),
       };
     }),
@@ -208,6 +226,42 @@ export const messagesRouter = router({
       for (const row of updated) {
         publish(row.sender, {
           type: "delivery_receipt",
+          messageId: row.id,
+          by: ctx.userId,
+          at: now.toISOString(),
+        });
+      }
+      return { ok: true as const };
+    }),
+
+  /**
+   * Mark inbox messages as read + notify the sender.
+   * Stealth-mode clients simply never call this.
+   */
+  markRead: protectedProcedure
+    .input(MarkReadInput)
+    .output(OkSchema)
+    .mutation(async ({ ctx, input }) => {
+      if (input.ids.length === 0) return { ok: true as const };
+      const db = getDb();
+      const now = new Date();
+      const updated = await db
+        .update(schema.messages)
+        .set({ readAt: now })
+        .where(
+          and(
+            inArray(schema.messages.id, input.ids),
+            eq(schema.messages.recipientUserId, ctx.userId),
+            isNull(schema.messages.readAt),
+          ),
+        )
+        .returning({
+          id: schema.messages.id,
+          sender: schema.messages.senderUserId,
+        });
+      for (const row of updated) {
+        publish(row.sender, {
+          type: "read_receipt",
           messageId: row.id,
           by: ctx.userId,
           at: now.toISOString(),
@@ -256,8 +310,15 @@ export const messagesRouter = router({
       const convId = conversationIdFor(me, peer);
       const limit = input.limit;
       const before = input.before ? new Date(input.before) : null;
+      const now = new Date();
 
-      const whereClauses = [eq(schema.messages.conversationId, convId)];
+      const whereClauses = [
+        eq(schema.messages.conversationId, convId),
+        or(
+          isNull(schema.messages.expiresAt),
+          gt(schema.messages.expiresAt, now),
+        )!,
+      ];
       if (before) whereClauses.push(lt(schema.messages.createdAt, before));
 
       const rows = await db
@@ -278,13 +339,12 @@ export const messagesRouter = router({
           header: bufToB64(r.header),
           ciphertext: bufToB64(r.ciphertext),
           createdAt: r.createdAt.toISOString(),
+          expiresAt: r.expiresAt ? r.expiresAt.toISOString() : null,
         })),
         hasMore,
       };
     }),
 });
 
-// Avoid unused-import warnings for helpers we may want later (e.g. or, gt, sql).
-void or;
-void gt;
+// Avoid unused-import warnings for helpers we may want later.
 void sql;

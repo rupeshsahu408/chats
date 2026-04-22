@@ -183,3 +183,14 @@ export function wsMarkDelivered(ids: string[]): boolean {
   if (ids.length === 0) return true;
   return wsClient.send({ type: "mark_delivered", ids });
 }
+
+/** Notify the server that the listed messages have been opened (read). */
+export function wsMarkRead(ids: string[]): boolean {
+  if (ids.length === 0) return true;
+  return wsClient.send({ type: "mark_read", ids });
+}
+
+/** Send an ephemeral typing indicator to a peer. Best-effort; not retried. */
+export function wsTyping(to: string, typing: boolean): boolean {
+  return wsClient.send({ type: "typing", to, typing });
+}

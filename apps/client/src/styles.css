@@ -90,3 +90,10 @@
     -webkit-tap-highlight-color: transparent;
   }
 }
+
+/* Privacy: blur the entire viewport when the tab is hidden / blurred. */
+html.veil-privacy-blur body {
+  filter: blur(24px) saturate(0.8) brightness(0.7);
+  pointer-events: none;
+  user-select: none;
+}

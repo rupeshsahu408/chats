@@ -1,11 +1,24 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
 import { trpc } from "../lib/trpc";
 import { useAuthStore } from "../lib/store";
 import { useUnlockStore } from "../lib/unlockStore";
-import { db, type ChatMessageRecord } from "../lib/db";
-import { pollAndDecrypt, sendChatEnvelope, sendChatMessage } from "../lib/messageSync";
+import {
+  db,
+  type ChatMessageRecord,
+  getChatPref,
+  setChatPref,
+  type ChatPrefRecord,
+} from "../lib/db";
+import {
+  consumeViewOnce,
+  pollAndDecrypt,
+  reportRead,
+  sendChatEnvelope,
+  sendChatMessage,
+} from "../lib/messageSync";
+import { wsClient, wsTyping } from "../lib/wsClient";
 import {
   AppBar,
   Avatar,
@@ -32,10 +45,25 @@ import {
   uploadEncryptedMedia,
   type MediaAttachment,
 } from "../lib/media";
+import { firstUrl, type EnvelopeLinkPreview } from "../lib/messageEnvelope";
+import { trpcClientProxy } from "../lib/trpcClientProxy";
+import { useStealthPrefs } from "../lib/stealthPrefs";
+import { safetyNumberFromB64 } from "../lib/safetyNumber";
+import {
+  biometricSupported,
+  registerBiometricCredential,
+  verifyBiometric,
+} from "../lib/biometric";
 
 const POLL_MS = 3000;
-const MAX_IMAGE_BYTES = 8 * 1024 * 1024; // 8 MB upload ceiling
-const MAX_VOICE_MS = 2 * 60 * 1000; // 2-minute voice notes
+const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
+const MAX_VOICE_MS = 2 * 60 * 1000;
+const TTL_OPTIONS: { label: string; seconds: number }[] = [
+  { label: "Off", seconds: 0 },
+  { label: "24 hours", seconds: 60 * 60 * 24 },
+  { label: "7 days", seconds: 60 * 60 * 24 * 7 },
+  { label: "30 days", seconds: 60 * 60 * 24 * 30 },
+];
 
 export function ChatThreadPage() {
   const { peerId } = useParams<{ peerId: string }>();
@@ -76,6 +104,7 @@ export function ChatThreadPage() {
 
 function ChatThreadInner({ peerId }: { peerId: string }) {
   const identity = useUnlockStore((s) => s.identity)!;
+  const myId = useAuthStore((s) => s.user?.id) ?? "";
   const connections = trpc.connections.list.useQuery(undefined, {
     retry: false,
   });
@@ -86,6 +115,32 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
   const fingerprint = peer?.peer.fingerprint ?? "";
   const displayName = fingerprint || `${peerId.slice(0, 8)}…`;
 
+  // Per-peer prefs (TTL, biometric, view-once default).
+  const chatPref = useLiveQuery(
+    () => db.chatPrefs.get(peerId),
+    [peerId],
+    undefined as ChatPrefRecord | undefined,
+  );
+  const ttlSeconds = chatPref?.ttlSeconds ?? 0;
+  const viewOnceDefault = chatPref?.viewOnceDefault ?? false;
+  const biometricCredentialId = chatPref?.biometricCredentialId;
+
+  // Biometric gate — must verify per visit if a credential is registered.
+  const [unlocked, setUnlocked] = useState<boolean>(!biometricCredentialId);
+  const [bioError, setBioError] = useState<string | null>(null);
+  useEffect(() => {
+    if (!biometricCredentialId) {
+      setUnlocked(true);
+      return;
+    }
+    setUnlocked(false);
+    setBioError(null);
+    void verifyBiometric(biometricCredentialId).then((ok) => {
+      if (ok) setUnlocked(true);
+      else setBioError("Authentication required to open this chat.");
+    });
+  }, [biometricCredentialId, peerId]);
+
   const messages = useLiveQuery(
     () => db.chatMessages.where("peerId").equals(peerId).sortBy("createdAt"),
     [peerId],
@@ -95,7 +150,63 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [menuOpen, setMenuOpen] = useState<null | "main" | "ttl" | "safety">(null);
+  const [pendingPreview, setPendingPreview] = useState<EnvelopeLinkPreview | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Typing indicator (peer → us).
+  const [peerTyping, setPeerTyping] = useState(false);
+  useEffect(() => {
+    let clear: ReturnType<typeof setTimeout> | null = null;
+    const unsub = wsClient.subscribe((event) => {
+      if (event.type === "typing" && event.from === peerId) {
+        if (event.typing) {
+          setPeerTyping(true);
+          if (clear) clearTimeout(clear);
+          clear = setTimeout(() => setPeerTyping(false), 5000);
+        } else {
+          setPeerTyping(false);
+        }
+      }
+    });
+    return () => {
+      unsub();
+      if (clear) clearTimeout(clear);
+    };
+  }, [peerId]);
+
+  // Outgoing typing indicator (debounced).
+  const typingPrefs = useStealthPrefs((s) => s.prefs?.typingIndicatorsEnabled);
+  const lastTypingRef = useRef(0);
+  const stopTypingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sendTyping = useCallback(
+    (typing: boolean) => {
+      if (!typingPrefs) return;
+      wsTyping(peerId, typing);
+    },
+    [peerId, typingPrefs],
+  );
+  function onDraftChange(v: string) {
+    setDraft(v);
+    if (!typingPrefs) return;
+    const now = Date.now();
+    if (now - lastTypingRef.current > 2500) {
+      lastTypingRef.current = now;
+      sendTyping(true);
+    }
+    if (stopTypingTimer.current) clearTimeout(stopTypingTimer.current);
+    stopTypingTimer.current = setTimeout(() => {
+      lastTypingRef.current = 0;
+      sendTyping(false);
+    }, 3500);
+  }
+  useEffect(() => {
+    return () => {
+      if (stopTypingTimer.current) clearTimeout(stopTypingTimer.current);
+      sendTyping(false);
+    };
+  }, [sendTyping]);
 
   // Poll for new messages while we're on this thread.
   useEffect(() => {
@@ -116,11 +227,75 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
     };
   }, [identity]);
 
+  // Mark inbound messages as read whenever the thread is open + visible.
+  // View-once messages are NOT marked read here — they're acked when the
+  // user actually opens them, which also wipes them locally.
+  useEffect(() => {
+    if (!unlocked || !messages || messages.length === 0) return;
+    if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+    const unread = messages
+      .filter((m) => m.direction === "in" && m.serverId && m.status !== "read" && !m.viewOnce)
+      .map((m) => m.serverId!) as string[];
+    if (unread.length === 0) return;
+    void reportRead(unread).catch(() => undefined);
+    // Also flip local status so the UI doesn't keep retrying.
+    void db.chatMessages
+      .where("peerId").equals(peerId)
+      .modify((rec) => {
+        if (rec.direction === "in" && rec.status !== "read" && !rec.viewOnce && rec.serverId && unread.includes(rec.serverId)) {
+          rec.status = "read";
+          rec.readAt = new Date().toISOString();
+        }
+      })
+      .catch(() => undefined);
+  }, [messages, peerId, unlocked]);
+
   // Auto-scroll to bottom on new messages.
   useEffect(() => {
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [messages]);
+  }, [messages, peerTyping]);
+
+  // Tick every 30s so TTL countdown labels refresh.
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setTick((n) => n + 1), 30_000);
+    return () => clearInterval(t);
+  }, []);
+
+  // Detect URL in draft → fetch link preview lazily.
+  useEffect(() => {
+    const url = firstUrl(draft);
+    if (!url) {
+      setPendingPreview(null);
+      return;
+    }
+    if (pendingPreview && pendingPreview.url === url) return;
+    setPreviewLoading(true);
+    let cancelled = false;
+    void (async () => {
+      try {
+        const lp = await trpcClientProxy().linkPreview.fetch.mutate({ url });
+        if (cancelled) return;
+        setPendingPreview({
+          url: lp.url,
+          resolvedUrl: lp.resolvedUrl,
+          title: lp.title,
+          description: lp.description,
+          siteName: lp.siteName,
+          imageUrl: lp.imageUrl,
+        });
+      } catch {
+        if (!cancelled) setPendingPreview(null);
+      } finally {
+        if (!cancelled) setPreviewLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft]);
 
   async function onSendText() {
     const text = draft.trim();
@@ -128,8 +303,13 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
     setSending(true);
     setError(null);
     try {
-      await sendChatMessage(identity, peerId, text);
+      await sendChatMessage(identity, peerId, text, {
+        ttlSeconds: ttlSeconds || undefined,
+        linkPreview: pendingPreview ?? undefined,
+      });
       setDraft("");
+      setPendingPreview(null);
+      sendTyping(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't send.");
     } finally {
@@ -161,10 +341,12 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
         thumbB64: thumb?.thumbB64,
       };
       await sendChatEnvelope(identity, peerId, {
-        v: 1,
+        v: 2,
         t: "image",
         ...(caption ? { body: caption } : {}),
         media,
+        ...(ttlSeconds ? { ttl: ttlSeconds } : {}),
+        ...(viewOnceDefault ? { vo: true } : {}),
       });
       setDraft("");
     } catch (e) {
@@ -187,12 +369,76 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
         sizeBytes: upload.sizeBytes,
         durationMs,
       };
-      await sendChatEnvelope(identity, peerId, { v: 1, t: "voice", media });
+      await sendChatEnvelope(identity, peerId, {
+        v: 2,
+        t: "voice",
+        media,
+        ...(ttlSeconds ? { ttl: ttlSeconds } : {}),
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't send voice note.");
     } finally {
       setSending(false);
     }
+  }
+
+  async function onToggleBiometric() {
+    if (biometricCredentialId) {
+      if (!confirm("Remove biometric lock from this chat?")) return;
+      await setChatPref(peerId, { biometricCredentialId: undefined });
+      return;
+    }
+    if (!biometricSupported()) {
+      alert("Biometric unlock isn't supported on this device.");
+      return;
+    }
+    try {
+      const credId = await registerBiometricCredential(`veil:${peerId}`, displayName);
+      await setChatPref(peerId, { biometricCredentialId: credId });
+      alert("Biometric lock enabled for this chat.");
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Could not enable biometric lock.");
+    }
+  }
+
+  const ttlLabel = TTL_OPTIONS.find((o) => o.seconds === ttlSeconds)?.label ?? "Off";
+
+  if (!unlocked) {
+    return (
+      <div className="flex flex-col flex-1 min-h-0">
+        <AppBar
+          title={
+            <div className="flex items-center gap-2">
+              <Avatar seed={peerId} label={displayName.slice(0, 2)} size={36} />
+              <div className="font-semibold text-base truncate font-mono">
+                {displayName}
+              </div>
+            </div>
+          }
+          back="/chats"
+        />
+        <div className="flex-1 flex flex-col items-center justify-center gap-4 p-6 text-center">
+          <LockIcon className="w-12 h-12 text-text-muted" />
+          <div className="text-text font-semibold">Chat is locked</div>
+          <div className="text-sm text-text-muted max-w-xs">
+            Use your device biometrics or passkey to view this conversation.
+          </div>
+          {bioError && <ErrorMessage>{bioError}</ErrorMessage>}
+          <button
+            onClick={async () => {
+              if (!biometricCredentialId) return;
+              setBioError(null);
+              const ok = await verifyBiometric(biometricCredentialId);
+              if (ok) setUnlocked(true);
+              else setBioError("Authentication failed.");
+            }}
+            className="px-4 py-2 rounded-full bg-wa-green text-text-oncolor font-medium"
+          >
+            Unlock
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -206,14 +452,26 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
                 <span className="font-mono">{displayName}</span>
               </div>
               <div className="text-[11px] text-text-oncolor/80 truncate inline-flex items-center gap-1">
-                <LockIcon className="w-3 h-3" /> end-to-end encrypted
+                {peerTyping ? (
+                  <span>typing…</span>
+                ) : (
+                  <>
+                    <LockIcon className="w-3 h-3" /> end-to-end encrypted
+                    {ttlSeconds > 0 && <span>· ⏱ {ttlLabel}</span>}
+                    {biometricCredentialId && <span>· 🔒</span>}
+                  </>
+                )}
               </div>
             </div>
           </div>
         }
         back="/chats"
         right={
-          <IconButton label="More" className="text-text-oncolor">
+          <IconButton
+            label="More"
+            className="text-text-oncolor"
+            onClick={() => setMenuOpen("main")}
+          >
             <MoreVerticalIcon />
           </IconButton>
         }
@@ -231,6 +489,13 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
         ) : (
           messages.map((m) => <MessageRow key={m.id} m={m} />)
         )}
+        {peerTyping && (
+          <div className="self-start text-xs text-text-muted bg-wa-bubble-in px-3 py-2 rounded-2xl shadow-bubble">
+            <span className="inline-flex gap-0.5 items-end">
+              <Dot d={0} /><Dot d={150} /><Dot d={300} />
+            </span>
+          </div>
+        )}
       </div>
 
       {error && (
@@ -239,16 +504,83 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
         </div>
       )}
 
+      {pendingPreview && (
+        <LinkPreviewCard
+          preview={pendingPreview}
+          loading={previewLoading}
+          onDismiss={() => setPendingPreview(null)}
+        />
+      )}
+
       <Composer
         draft={draft}
-        setDraft={setDraft}
+        setDraft={onDraftChange}
         sending={sending}
         onSendText={onSendText}
         onPickImage={onPickImage}
         onSendVoice={onSendVoice}
+        viewOnceDefault={viewOnceDefault}
       />
+
+      {menuOpen === "main" && (
+        <ChatMenu
+          onClose={() => setMenuOpen(null)}
+          ttlLabel={ttlLabel}
+          onTTL={() => setMenuOpen("ttl")}
+          onSafety={() => setMenuOpen("safety")}
+          onToggleBiometric={onToggleBiometric}
+          biometricEnabled={!!biometricCredentialId}
+          viewOnceDefault={viewOnceDefault}
+          onToggleViewOnce={() =>
+            void setChatPref(peerId, { viewOnceDefault: !viewOnceDefault })
+          }
+        />
+      )}
+      {menuOpen === "ttl" && (
+        <TTLPicker
+          current={ttlSeconds}
+          onClose={() => setMenuOpen(null)}
+          onPick={(secs) => {
+            void setChatPref(peerId, { ttlSeconds: secs });
+            setMenuOpen(null);
+          }}
+        />
+      )}
+      {menuOpen === "safety" && peer && (
+        <SafetyNumberDialog
+          myId={myId}
+          peerId={peerId}
+          peerLabel={displayName}
+          onClose={() => setMenuOpen(null)}
+        />
+      )}
     </div>
   );
+}
+
+/* ────────────────────────── Helpers ────────────────────────── */
+
+function Dot({ d }: { d: number }) {
+  return (
+    <span
+      className="size-1.5 rounded-full bg-text-muted animate-bounce"
+      style={{ animationDelay: `${d}ms` }}
+    />
+  );
+}
+
+function ttlRemainingLabel(iso?: string): string | null {
+  if (!iso) return null;
+  const ms = new Date(iso).getTime() - Date.now();
+  if (ms <= 0) return "expired";
+  const sec = Math.round(ms / 1000);
+  if (sec < 60) return `${sec}s`;
+  const min = Math.round(sec / 60);
+  if (min < 60) return `${min}m`;
+  const hr = Math.round(min / 60);
+  if (hr < 24) return `${hr}h`;
+  const d = Math.round(hr / 24);
+  return `${d}d`;
 }
 
 /* ────────────────────────── Bubble row ────────────────────────── */
@@ -258,11 +590,22 @@ function MessageRow({ m }: { m: ChatMessageRecord }) {
     hour: "2-digit",
     minute: "2-digit",
   });
+  const ttlLabel = ttlRemainingLabel(m.expiresAt);
+  const ttlBadge = ttlLabel ? (
+    <span className="ml-1 text-[10px] text-text-muted">⏱ {ttlLabel}</span>
+  ) : null;
+
+  if (m.viewOnce) {
+    return (
+      <ViewOnceBubble m={m} time={time} />
+    );
+  }
   if (m.attachment?.kind === "image") {
     return (
       <MessageBubble direction={m.direction} status={m.status} time={time}>
         <ImageAttachment att={m.attachment} />
         {m.plaintext && <div className="mt-1">{m.plaintext}</div>}
+        {ttlBadge}
       </MessageBubble>
     );
   }
@@ -270,13 +613,107 @@ function MessageRow({ m }: { m: ChatMessageRecord }) {
     return (
       <MessageBubble direction={m.direction} status={m.status} time={time}>
         <VoiceAttachment att={m.attachment} />
+        {ttlBadge}
       </MessageBubble>
     );
   }
   return (
     <MessageBubble direction={m.direction} status={m.status} time={time}>
       {m.plaintext}
+      {m.linkPreview && <LinkPreviewBlock preview={m.linkPreview} />}
+      {ttlBadge}
     </MessageBubble>
+  );
+}
+
+function ViewOnceBubble({ m, time }: { m: ChatMessageRecord; time: string }) {
+  const [opened, setOpened] = useState(false);
+  const [url, setUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const isOut = m.direction === "out";
+
+  async function open() {
+    if (loading) return;
+    setLoading(true);
+    try {
+      if (m.attachment) {
+        const u = await fetchAndDecryptMedia({ ...m.attachment });
+        setUrl(u);
+      }
+      setOpened(true);
+      // Inbound: ack + delete locally after a brief view window.
+      if (!isOut && m.serverId) {
+        void reportRead([m.serverId]).catch(() => undefined);
+      }
+      if (!isOut && m.id !== undefined) {
+        setTimeout(() => {
+          void consumeViewOnce(m.id!).catch(() => undefined);
+        }, 8000);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <MessageBubble direction={m.direction} status={m.status} time={time}>
+      {!opened ? (
+        <button
+          onClick={open}
+          className="flex items-center gap-2 text-sm text-text-muted"
+        >
+          <span>👁</span>
+          <span>{loading ? "Opening…" : isOut ? "View-once sent" : "Tap to open · disappears after viewing"}</span>
+        </button>
+      ) : url ? (
+        <img
+          src={url}
+          alt=""
+          className="rounded-md max-w-[240px] max-h-[320px] object-contain"
+        />
+      ) : (
+        <div className="text-sm text-text-muted">View-once · {m.plaintext || "media"}</div>
+      )}
+    </MessageBubble>
+  );
+}
+
+function LinkPreviewBlock({
+  preview,
+}: {
+  preview: NonNullable<ChatMessageRecord["linkPreview"]>;
+}) {
+  return (
+    <a
+      href={preview.resolvedUrl ?? preview.url}
+      target="_blank"
+      rel="noopener noreferrer nofollow"
+      className="mt-2 -mx-1 block rounded-md overflow-hidden bg-black/20 border border-white/5"
+    >
+      {preview.imageUrl && (
+        <img
+          src={preview.imageUrl}
+          alt=""
+          className="w-full max-h-40 object-cover"
+          loading="lazy"
+        />
+      )}
+      <div className="p-2">
+        {preview.siteName && (
+          <div className="text-[10px] uppercase tracking-wide text-text-muted">
+            {preview.siteName}
+          </div>
+        )}
+        {preview.title && (
+          <div className="text-sm text-text font-medium line-clamp-2">{preview.title}</div>
+        )}
+        {preview.description && (
+          <div className="text-xs text-text-muted line-clamp-2 mt-0.5">
+            {preview.description}
+          </div>
+        )}
+      </div>
+    </a>
   );
 }
 
@@ -300,14 +737,12 @@ function ImageAttachment({ att }: { att: NonNullable<ChatMessageRecord["attachme
     }
   }
 
-  // Auto-load if no thumb is available; otherwise wait for tap.
   useEffect(() => {
     if (!att.thumbB64) void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const aspect =
-    att.width && att.height ? att.width / att.height : 1;
+  const aspect = att.width && att.height ? att.width / att.height : 1;
   const widthCSS = aspect >= 1 ? "min(260px, 70vw)" : "min(180px, 50vw)";
 
   return (
@@ -458,6 +893,228 @@ function fmtTime(sec: number): string {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
+/* ────────────────────────── Link preview card (compose) ────────────────────────── */
+
+function LinkPreviewCard({
+  preview,
+  loading,
+  onDismiss,
+}: {
+  preview: EnvelopeLinkPreview;
+  loading: boolean;
+  onDismiss: () => void;
+}) {
+  return (
+    <div className="px-3 pb-2">
+      <div className="flex gap-2 bg-surface border border-line rounded-md overflow-hidden">
+        {preview.imageUrl && (
+          <img
+            src={preview.imageUrl}
+            alt=""
+            className="w-16 h-16 object-cover"
+          />
+        )}
+        <div className="flex-1 p-2 min-w-0">
+          <div className="text-[10px] uppercase tracking-wide text-text-muted truncate">
+            {preview.siteName ?? new URL(preview.url).host}
+          </div>
+          <div className="text-sm text-text font-medium truncate">
+            {loading ? "Loading preview…" : preview.title ?? preview.url}
+          </div>
+          {preview.description && (
+            <div className="text-xs text-text-muted line-clamp-1">
+              {preview.description}
+            </div>
+          )}
+        </div>
+        <button
+          onClick={onDismiss}
+          className="px-2 text-text-muted hover:text-text"
+          aria-label="Dismiss preview"
+        >
+          ×
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ────────────────────────── Menus ────────────────────────── */
+
+function ChatMenu({
+  onClose,
+  ttlLabel,
+  onTTL,
+  onSafety,
+  onToggleBiometric,
+  biometricEnabled,
+  viewOnceDefault,
+  onToggleViewOnce,
+}: {
+  onClose: () => void;
+  ttlLabel: string;
+  onTTL: () => void;
+  onSafety: () => void;
+  onToggleBiometric: () => void;
+  biometricEnabled: boolean;
+  viewOnceDefault: boolean;
+  onToggleViewOnce: () => void;
+}) {
+  return (
+    <Sheet onClose={onClose}>
+      <MenuItem label={`Disappearing messages · ${ttlLabel}`} onClick={onTTL} />
+      <MenuItem
+        label={`View-once images: ${viewOnceDefault ? "On" : "Off"}`}
+        onClick={() => {
+          onToggleViewOnce();
+          onClose();
+        }}
+      />
+      <MenuItem label="Verify safety number" onClick={onSafety} />
+      <MenuItem
+        label={biometricEnabled ? "Remove biometric lock" : "Lock chat with biometrics"}
+        onClick={() => {
+          onClose();
+          onToggleBiometric();
+        }}
+        danger={biometricEnabled}
+      />
+    </Sheet>
+  );
+}
+
+function TTLPicker({
+  current,
+  onClose,
+  onPick,
+}: {
+  current: number;
+  onClose: () => void;
+  onPick: (secs: number) => void;
+}) {
+  return (
+    <Sheet onClose={onClose} title="Disappearing messages">
+      <div className="text-xs text-text-muted px-4 pb-2">
+        New messages you send will be deleted from both devices and the server
+        after the chosen time.
+      </div>
+      {TTL_OPTIONS.map((o) => (
+        <MenuItem
+          key={o.seconds}
+          label={o.label}
+          checked={o.seconds === current}
+          onClick={() => onPick(o.seconds)}
+        />
+      ))}
+    </Sheet>
+  );
+}
+
+function SafetyNumberDialog({
+  myId,
+  peerId,
+  peerLabel,
+  onClose,
+}: {
+  myId: string;
+  peerId: string;
+  peerLabel: string;
+  onClose: () => void;
+}) {
+  const [number, setNumber] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const myKey = trpc.prekeys.identityKeyFor.useQuery({ userId: myId }, {
+    enabled: !!myId,
+    retry: false,
+  });
+  const peerKey = trpc.prekeys.identityKeyFor.useQuery({ userId: peerId }, {
+    retry: false,
+  });
+
+  useEffect(() => {
+    const myPub = myKey.data?.identityPublicKey;
+    const peerPub = peerKey.data?.identityPublicKey;
+    if (!myPub || !peerPub) return;
+    void safetyNumberFromB64(myPub, peerPub)
+      .then(setNumber)
+      .catch((e: unknown) =>
+        setErr(e instanceof Error ? e.message : "Could not derive number."),
+      );
+  }, [myKey.data, peerKey.data]);
+
+  return (
+    <Sheet onClose={onClose} title="Verify safety number">
+      <div className="px-4 pb-4">
+        <div className="text-xs text-text-muted mb-3">
+          Compare these 60 digits with {peerLabel} in person or over a trusted
+          channel. If they match, your conversation has not been intercepted.
+        </div>
+        {err ? (
+          <ErrorMessage>{err}</ErrorMessage>
+        ) : !number ? (
+          <div className="text-sm text-text-muted">Computing…</div>
+        ) : (
+          <div className="font-mono text-sm leading-7 tracking-wider bg-surface rounded-md p-3 break-words">
+            {number}
+          </div>
+        )}
+      </div>
+    </Sheet>
+  );
+}
+
+function Sheet({
+  children,
+  onClose,
+  title,
+}: {
+  children: React.ReactNode;
+  onClose: () => void;
+  title?: string;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-40 bg-black/40 flex items-end sm:items-center justify-center"
+      onClick={onClose}
+    >
+      <div
+        className="bg-panel w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl border border-line overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {title && (
+          <div className="px-4 pt-4 pb-2 font-semibold text-text">{title}</div>
+        )}
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function MenuItem({
+  label,
+  onClick,
+  checked,
+  danger,
+}: {
+  label: string;
+  onClick: () => void;
+  checked?: boolean;
+  danger?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={
+        "w-full text-left px-4 py-3 border-b border-line/40 text-sm flex items-center justify-between hover:bg-white/5 " +
+        (danger ? "text-red-400" : "text-text")
+      }
+    >
+      <span>{label}</span>
+      {checked && <span className="text-wa-green">✓</span>}
+    </button>
+  );
+}
+
 /* ────────────────────────── Composer ────────────────────────── */
 
 function Composer({
@@ -467,6 +1124,7 @@ function Composer({
   onSendText,
   onPickImage,
   onSendVoice,
+  viewOnceDefault,
 }: {
   draft: string;
   setDraft: (v: string) => void;
@@ -474,6 +1132,7 @@ function Composer({
   onSendText: () => void;
   onPickImage: (f: File) => void;
   onSendVoice: (bytes: Uint8Array, mime: string, durationMs: number) => void;
+  viewOnceDefault: boolean;
 }) {
   const fileInput = useRef<HTMLInputElement>(null);
   const [recording, setRecording] = useState<RecordingState | null>(null);
@@ -514,9 +1173,10 @@ function Composer({
           onClick={() => fileInput.current?.click()}
           disabled={sending}
           className="size-9 rounded-full text-text-muted hover:text-text hover:bg-white/10 flex items-center justify-center shrink-0 disabled:opacity-50"
-          aria-label="Attach image"
+          aria-label={viewOnceDefault ? "Attach view-once image" : "Attach image"}
+          title={viewOnceDefault ? "View-once image" : "Image"}
         >
-          <PaperclipIcon className="w-5 h-5" />
+          {viewOnceDefault ? <span>👁</span> : <PaperclipIcon className="w-5 h-5" />}
         </button>
         <textarea
           value={draft}
@@ -706,3 +1366,5 @@ function pickAudioMime(): string | null {
   }
   return null;
 }
+
+void getChatPref;

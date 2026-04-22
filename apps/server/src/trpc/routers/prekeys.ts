@@ -136,6 +136,47 @@ export const prekeysRouter = router({
    * Claim a prekey bundle for a peer. Caller must be already connected
    * to the peer. One one-time prekey is consumed atomically.
    */
+  /**
+   * Return just the identity public key for a connected peer. Used by
+   * the safety-number screen so we don't have to claim a OTPK every time
+   * the user wants to verify a fingerprint.
+   */
+  identityKeyFor: protectedProcedure
+    .input(z.object({ userId: UserIdSchema }))
+    .output(z.object({ identityPublicKey: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const db = getDb();
+      const me = ctx.userId;
+      const peer = input.userId;
+      if (peer !== me) {
+        const [a, b] = me < peer ? [me, peer] : [peer, me];
+        const conn = await db
+          .select({ id: schema.connections.id })
+          .from(schema.connections)
+          .where(
+            and(
+              eq(schema.connections.userAId, a),
+              eq(schema.connections.userBId, b),
+            ),
+          )
+          .limit(1);
+        if (conn.length === 0) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Not connected to this user.",
+          });
+        }
+      }
+      const rows = await db
+        .select({ identityPubkey: schema.users.identityPubkey })
+        .from(schema.users)
+        .where(eq(schema.users.id, peer))
+        .limit(1);
+      const r = rows[0];
+      if (!r) throw new TRPCError({ code: "NOT_FOUND" });
+      return { identityPublicKey: bufferToB64(r.identityPubkey) };
+    }),
+
   claimBundleFor: protectedProcedure
     .input(z.object({ peerId: UserIdSchema }))
     .output(PrekeyBundleSchemaV2)

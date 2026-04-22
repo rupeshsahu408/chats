@@ -382,7 +382,7 @@ export function MessageBubble({
   direction: "in" | "out";
   children: ReactNode;
   time?: string;
-  status?: "pending" | "sent" | "failed" | "received";
+  status?: "pending" | "sent" | "failed" | "received" | "read";
 }) {
   const isOut = direction === "out";
   return (
@@ -411,13 +411,14 @@ export function MessageBubble({
 function StatusTicks({
   status,
 }: {
-  status: "pending" | "sent" | "failed" | "received";
+  status: "pending" | "sent" | "failed" | "received" | "read";
 }) {
   if (status === "pending")
     return <span className="opacity-70" aria-label="Sending">⏱</span>;
   if (status === "failed")
     return <span className="text-red-500" aria-label="Failed">!</span>;
-  // For our app, "sent" or "received" both render the double-tick.
+  if (status === "read")
+    return <DoubleTickIcon className="text-sky-400" />;
   return <DoubleTickIcon className="text-wa-tick" />;
 }
 

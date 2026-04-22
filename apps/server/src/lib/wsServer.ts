@@ -16,8 +16,10 @@ import {
  * header (browsers can only set the latter via the `protocols` array).
  *
  * On connect we send `{type:"hello", userId}`. The client may then send
- * `ping` (responded with `pong`) or `mark_delivered` (marks server rows
- * delivered and notifies the original sender).
+ *   - `ping` (responded with `pong`)
+ *   - `mark_delivered` (records delivery receipts + notifies sender)
+ *   - `mark_read` (records read receipts + notifies sender)
+ *   - `typing` (relayed ephemerally to the named peer; never persisted)
  *
  * Outbound `new_message` events are published from `messages.send`.
  */
@@ -111,6 +113,46 @@ export async function registerWebSocketRoutes(
             at: now.toISOString(),
           });
         }
+        return;
+      }
+
+      if (event.type === "mark_read") {
+        if (event.ids.length === 0) return;
+        const db = getDb();
+        const now = new Date();
+        const updated = await db
+          .update(schema.messages)
+          .set({ readAt: now })
+          .where(
+            and(
+              inArray(schema.messages.id, event.ids),
+              eq(schema.messages.recipientUserId, userId),
+              isNull(schema.messages.readAt),
+            ),
+          )
+          .returning({
+            id: schema.messages.id,
+            sender: schema.messages.senderUserId,
+          });
+        for (const row of updated) {
+          publish(row.sender, {
+            type: "read_receipt",
+            messageId: row.id,
+            by: userId,
+            at: now.toISOString(),
+          });
+        }
+        return;
+      }
+
+      if (event.type === "typing") {
+        if (event.to === userId) return;
+        publish(event.to, {
+          type: "typing",
+          from: userId,
+          typing: event.typing,
+        });
+        return;
       }
     });
 
