@@ -15,6 +15,7 @@
   "dependencies": {
     "@fastify/cookie": "^11.0.2",
     "@fastify/cors": "^10.0.1",
+    "@fastify/websocket": "^11.2.0",
     "@noble/curves": "^2.2.0",
     "@trpc/server": "^11.16.0",
     "@veil/shared": "workspace:*",

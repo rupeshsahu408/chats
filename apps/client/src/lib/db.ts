@@ -186,6 +186,29 @@ export async function listChatMessages(
     .sortBy("createdAt");
 }
 
+export async function hasChatMessageWithServerId(
+  serverId: string,
+): Promise<boolean> {
+  const found = await db.chatMessages
+    .where("serverId")
+    .equals(serverId)
+    .first();
+  return !!found;
+}
+
+export async function getEarliestChatMessageTime(
+  peerId: string,
+): Promise<string | null> {
+  const earliest = await db.chatMessages
+    .where("peerId")
+    .equals(peerId)
+    .toArray();
+  if (earliest.length === 0) return null;
+  let min = earliest[0]!.createdAt;
+  for (const m of earliest) if (m.createdAt < min) min = m.createdAt;
+  return min;
+}
+
 export async function setChatMessageStatus(
   id: number,
   status: ChatMessageRecord["status"],

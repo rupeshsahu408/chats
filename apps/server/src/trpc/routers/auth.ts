@@ -17,7 +17,7 @@ import {
 } from "@veil/shared";
 import { configuredProcedure, router } from "../init.js";
 import { getDb, schema } from "../../db/index.js";
-import { hashIdentifier, sha256Hex } from "../../lib/hash.js";
+import { hashIdentifier, phoneDiscoverySha, sha256Hex } from "../../lib/hash.js";
 import {
   generateOtpCode,
   hashOtp,
@@ -385,6 +385,7 @@ export const authRouter = router({
             .values({
               accountType: "phone",
               phoneHash: identifierHash,
+              phoneSha: phoneDiscoverySha(phoneNumber),
               identityPubkey: pubkeyBytes,
             })
             .returning({

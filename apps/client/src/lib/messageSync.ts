@@ -4,53 +4,110 @@ import {
   consumeOneTimePrekey,
   getOneTimePrekey,
   getSignedPrekey,
+  setChatMessageStatus,
+  hasChatMessageWithServerId,
+  getEarliestChatMessageTime,
 } from "./db";
 import { decryptFromPeer, encryptToPeer } from "./signal/session";
 import { base64ToBytes } from "./crypto";
+import { wsMarkDelivered } from "./wsClient";
 import type { UnlockedIdentity } from "./signal/session";
+import type { InboxMessage, HistoryMessage } from "@veil/shared";
+
+/* ────────────────────────── Inbox / live ────────────────────────── */
+
+async function decryptIncoming(
+  identity: UnlockedIdentity,
+  m: InboxMessage,
+): Promise<string> {
+  return decryptFromPeer(
+    identity,
+    m.senderUserId,
+    m.header,
+    m.ciphertext,
+    {
+      spk: async (id) => {
+        const rec = await getSignedPrekey(id);
+        return rec
+          ? {
+              privateKey: base64ToBytes(rec.privateKey),
+              publicKey: base64ToBytes(rec.publicKey),
+            }
+          : null;
+      },
+      opk: async (id) => {
+        const rec = await getOneTimePrekey(id);
+        return rec
+          ? {
+              privateKey: base64ToBytes(rec.privateKey),
+              publicKey: base64ToBytes(rec.publicKey),
+            }
+          : null;
+      },
+      consumeOpk: consumeOneTimePrekey,
+    },
+  );
+}
 
 /**
- * Fetch all pending messages from the server, decrypt each one, and
- * append it to the local chat log. Server deletes them as part of the
- * `fetchAndConsume` mutation, so this should only be called when the
- * client has the keys (i.e. unlocked) and is ready to persist results.
+ * Persist a single live (WS) inbox message and ack delivery to the server.
+ * Idempotent: drops messages we've already stored.
+ */
+export async function ingestInboxMessage(
+  identity: UnlockedIdentity,
+  m: InboxMessage,
+): Promise<"new" | "duplicate" | "failed"> {
+  if (await hasChatMessageWithServerId(m.id)) {
+    // Already stored — still re-ack so the server clears it.
+    if (!wsMarkDelivered([m.id])) {
+      void trpcClientProxy()
+        .messages.markDelivered.mutate({ ids: [m.id] })
+        .catch(() => undefined);
+    }
+    return "duplicate";
+  }
+  try {
+    const plaintext = await decryptIncoming(identity, m);
+    await appendChatMessage({
+      peerId: m.senderUserId,
+      serverId: m.id,
+      direction: "in",
+      plaintext,
+      createdAt: m.createdAt,
+      status: "received",
+    });
+    if (!wsMarkDelivered([m.id])) {
+      void trpcClientProxy()
+        .messages.markDelivered.mutate({ ids: [m.id] })
+        .catch(() => undefined);
+    }
+    return "new";
+  } catch (err) {
+    console.error("Failed to decrypt live message", m.id, err);
+    return "failed";
+  }
+}
+
+/**
+ * Pull every undelivered message from the server, decrypt, persist, and
+ * ack the batch. Used as a fallback when the WebSocket is disconnected
+ * and as a one-shot drain when the user unlocks.
  */
 export async function pollAndDecrypt(
   identity: UnlockedIdentity,
 ): Promise<{ added: number; failed: number }> {
-  const { messages } = await trpcClientProxy().messages.fetchAndConsume.mutate();
+  const { messages } = await trpcClientProxy().messages.fetchInbox.mutate();
   let added = 0;
   let failed = 0;
+  const acked: string[] = [];
 
   for (const m of messages) {
+    if (await hasChatMessageWithServerId(m.id)) {
+      acked.push(m.id);
+      continue;
+    }
     try {
-      const plaintext = await decryptFromPeer(
-        identity,
-        m.senderUserId,
-        m.header,
-        m.ciphertext,
-        {
-          spk: async (id) => {
-            const rec = await getSignedPrekey(id);
-            return rec
-              ? {
-                  privateKey: base64ToBytes(rec.privateKey),
-                  publicKey: base64ToBytes(rec.publicKey),
-                }
-              : null;
-          },
-          opk: async (id) => {
-            const rec = await getOneTimePrekey(id);
-            return rec
-              ? {
-                  privateKey: base64ToBytes(rec.privateKey),
-                  publicKey: base64ToBytes(rec.publicKey),
-                }
-              : null;
-          },
-          consumeOpk: consumeOneTimePrekey,
-        },
-      );
+      const plaintext = await decryptIncoming(identity, m);
       await appendChatMessage({
         peerId: m.senderUserId,
         serverId: m.id,
@@ -59,16 +116,28 @@ export async function pollAndDecrypt(
         createdAt: m.createdAt,
         status: "received",
       });
+      acked.push(m.id);
       added += 1;
     } catch (err) {
       console.error("Failed to decrypt message", m.id, err);
       failed += 1;
     }
   }
+
+  if (acked.length > 0) {
+    if (!wsMarkDelivered(acked)) {
+      try {
+        await trpcClientProxy().messages.markDelivered.mutate({ ids: acked });
+      } catch (e) {
+        console.warn("markDelivered HTTP fallback failed", e);
+      }
+    }
+  }
   return { added, failed };
 }
 
-/** Encrypt + send a single outbound message. Returns the local message id. */
+/* ─────────────────────────── Send ─────────────────────────── */
+
 export async function sendChatMessage(
   identity: UnlockedIdentity,
   peerId: string,
@@ -94,8 +163,103 @@ export async function sendChatMessage(
     ciphertext: ciphertextB64,
   });
 
-  // Update the local row to mark it sent.
-  const { setChatMessageStatus } = await import("./db");
   await setChatMessageStatus(localId, "sent", sent.id);
   return localId;
+}
+
+/* ─────────────────────── History restore ─────────────────────── */
+
+const HISTORY_PAGE = 100;
+
+/**
+ * Load older history for a single peer back from the server. We only
+ * persist entries we don't already have locally; ciphertexts we can't
+ * decrypt (e.g. older ratchet state from another device) are surfaced
+ * as a "[encrypted]" placeholder so the user at least sees the gap.
+ */
+export async function restorePeerHistory(
+  identity: UnlockedIdentity,
+  peerId: string,
+  myUserId: string,
+): Promise<{ loaded: number; pages: number; hasMore: boolean }> {
+  let loaded = 0;
+  let pages = 0;
+  let before = await getEarliestChatMessageTime(peerId);
+  let hasMore = true;
+  // Cap to 5 pages per call so a giant history doesn't lock the UI.
+  while (hasMore && pages < 5) {
+    const page = await trpcClientProxy().messages.fetchHistory.query({
+      peerId,
+      before: before ?? undefined,
+      limit: HISTORY_PAGE,
+    });
+    pages += 1;
+    if (page.messages.length === 0) {
+      hasMore = page.hasMore;
+      break;
+    }
+    // Server returns newest-first; persist oldest-first so order is stable.
+    const ordered = [...page.messages].reverse();
+    for (const m of ordered) {
+      if (await hasChatMessageWithServerId(m.id)) continue;
+      const result = await persistHistoryEntry(identity, m, myUserId);
+      if (result) loaded += 1;
+    }
+    const oldest = ordered[0];
+    if (oldest) before = oldest.createdAt;
+    hasMore = page.hasMore;
+  }
+  return { loaded, pages, hasMore };
+}
+
+async function persistHistoryEntry(
+  identity: UnlockedIdentity,
+  m: HistoryMessage,
+  myUserId: string,
+): Promise<boolean> {
+  const isOutbound = m.senderUserId === myUserId;
+  const otherPeer = isOutbound ? m.recipientUserId : m.senderUserId;
+
+  if (isOutbound) {
+    // We can't decrypt our own ciphertext (ratchet state has rolled
+    // forward); surface a placeholder so the timeline isn't blank.
+    await appendChatMessage({
+      peerId: otherPeer,
+      serverId: m.id,
+      direction: "out",
+      plaintext: "[sent on another device]",
+      createdAt: m.createdAt,
+      status: "sent",
+    });
+    return true;
+  }
+
+  try {
+    const plaintext = await decryptIncoming(identity, {
+      id: m.id,
+      senderUserId: m.senderUserId,
+      header: m.header,
+      ciphertext: m.ciphertext,
+      createdAt: m.createdAt,
+    });
+    await appendChatMessage({
+      peerId: otherPeer,
+      serverId: m.id,
+      direction: "in",
+      plaintext,
+      createdAt: m.createdAt,
+      status: "received",
+    });
+    return true;
+  } catch {
+    await appendChatMessage({
+      peerId: otherPeer,
+      serverId: m.id,
+      direction: "in",
+      plaintext: "[encrypted — couldn't decrypt on this device]",
+      createdAt: m.createdAt,
+      status: "received",
+    });
+    return true;
+  }
 }

@@ -19,3 +19,16 @@ export function hashIdentifier(identifier: string): string {
 export function sha256Hex(value: string): string {
   return createHash("sha256").update(value).digest("hex");
 }
+
+/**
+ * Pepper-free discovery hash for a phone number. The client computes the
+ * same value (without needing access to the server pepper), so we can do
+ * `HMAC(rotating_salt, phoneShaHex)` on both sides and compare.
+ *
+ *   phoneSha = SHA256("phone:" + lowercase(E.164)) (hex)
+ */
+export function phoneDiscoverySha(phoneE164: string): string {
+  return createHash("sha256")
+    .update(`phone:${phoneE164.trim().toLowerCase()}`)
+    .digest("hex");
+}

@@ -15,6 +15,7 @@ import { ChatThreadPage } from "./pages/ChatThreadPage";
 import { InvitePage } from "./pages/InvitePage";
 import { InviteRedeemPage } from "./pages/InviteRedeemPage";
 import { ConnectionsPage } from "./pages/ConnectionsPage";
+import { SessionSync } from "./lib/SessionSync";
 
 export function App() {
   const [queryClient] = useState(
@@ -31,6 +32,7 @@ export function App() {
     <trpc.Provider client={trpcClient} queryClient={queryClient}>
       <QueryClientProvider client={queryClient}>
         <SessionBootstrap />
+        <SessionSync />
         <Routes>
           <Route path="/" element={<WelcomePage />} />
           <Route path="/signup/email" element={<EmailSignupPage />} />

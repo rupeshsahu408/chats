@@ -28,6 +28,21 @@ veil/
 - DB: `pnpm --filter @veil/server db:push` to sync schema to Neon.
   Optional: `db:generate` to write SQL migration files; `db:studio` for the Drizzle Studio UI.
 
+## Phase 3 — real-time chat (current)
+
+- `messages` table now stores `conversationId` (`min(uid):max(uid)`) and `deliveredAt` so the server keeps history (encrypted) and tracks per-message delivery instead of deleting on fetch.
+- Server endpoints: `messages.send` (publishes to WS), `messages.fetchInbox` (undelivered only), `messages.markDelivered`, `messages.fetchHistory` (paginated, both directions). `messages.fetchAndConsume` is kept as a back-compat alias.
+- WebSocket relay at `/ws` (`@fastify/websocket`). JWT auth via `?token=…` query string. Server pushes `new_message` and `delivery_receipt`; client sends `ping` and `mark_delivered`.
+- Client `lib/wsClient.ts` runs a single tab connection with exponential-backoff reconnect; `lib/SessionSync.tsx` manages WS lifecycle, subscribes to `new_message`, drains the inbox on unlock, and restores per-peer history (5 pages × 100). Polling falls back to a 10s interval whenever the WS is closed.
+
+## Phase 4 — phone signup + contact discovery (current)
+
+- `users.phoneSha` is a pepper-free SHA-256 of `"phone:<+E.164>"` populated at phone signup. The pre-existing `phoneHash` (HMAC w/ pepper) still gates account uniqueness; `phoneSha` is the only thing used for discovery.
+- `connections.getDiscoverySalt` rotates a base64 salt every 5 minutes (in-memory).
+- `connections.discoverContacts` compares `HMAC(salt, user.phoneSha)` for each phone account against the client-supplied hashes.
+- `connections.requestByPeerId` lets a discovered peer be turned into a pending connection request (idempotent).
+- Client UI: a "Find" tab on `/connections` accepts a textarea of E.164 numbers, hashes them locally, runs the lookup, and offers a one-tap "Connect" per match.
+
 ## Workflow
 
 A single Replit workflow named **`Start application`** runs `pnpm dev` and waits on port 5000 (webview).

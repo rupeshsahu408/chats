@@ -43,6 +43,13 @@ export const users = pgTable(
     emailHash: text("email_hash"),
     /** HMAC-SHA256 of E.164 phone (hex). NULL for non-phone accounts. */
     phoneHash: text("phone_hash"),
+    /**
+     * Pepper-free SHA-256 of the canonical phone string ("phone:+E164", lower-cased).
+     * Used only for contact discovery, where the client cannot know the
+     * server pepper. Discovery does HMAC(salt, phoneSha) so neither party
+     * learns the actual address book.
+     */
+    phoneSha: text("phone_sha"),
     /** Random user ID for Option C accounts. */
     randomId: text("random_id"),
     /** Raw Ed25519 identity public key (32 bytes). Used for signatures + fingerprint. */
@@ -272,10 +279,18 @@ export const messages = pgTable(
     recipientUserId: uuid("recipient_user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
+    /**
+     * Canonical conversation id: lower(userId) || ':' || higher(userId).
+     * Lets us paginate history for one peer across both directions
+     * without OR-joins.
+     */
+    conversationId: text("conversation_id").notNull(),
     /** Plaintext header bytes (typed JSON: ratchet pub, counters, X3DH metadata). */
     header: bytea("header").notNull(),
     /** AES-GCM ciphertext. */
     ciphertext: bytea("ciphertext").notNull(),
+    /** When the recipient acknowledged delivery on at least one device. */
+    deliveredAt: timestamp("delivered_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -283,6 +298,14 @@ export const messages = pgTable(
   (t) => ({
     recipientIdx: index("messages_recipient_idx").on(
       t.recipientUserId,
+      t.createdAt,
+    ),
+    /** For "give me undelivered messages for this user". */
+    inboxIdx: index("messages_inbox_idx")
+      .on(t.recipientUserId, t.createdAt)
+      .where(sql`${t.deliveredAt} IS NULL`),
+    conversationIdx: index("messages_conversation_idx").on(
+      t.conversationId,
       t.createdAt,
     ),
   }),

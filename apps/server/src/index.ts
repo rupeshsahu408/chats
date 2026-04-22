@@ -7,6 +7,7 @@ import { env, isDev, missingAuthConfig } from "./env.js";
 import type { HealthResponse } from "@veil/shared";
 import { appRouter, type AppRouter } from "./trpc/routers/index.js";
 import { createContext } from "./trpc/context.js";
+import { registerWebSocketRoutes } from "./lib/wsServer.js";
 
 const app = Fastify({
   trustProxy: true,
@@ -59,6 +60,8 @@ await app.register(cors, {
 });
 
 await app.register(cookie);
+
+await registerWebSocketRoutes(app);
 
 app.get("/health", async (): Promise<HealthResponse> => {
   return {

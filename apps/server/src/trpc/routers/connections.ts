@@ -233,6 +233,84 @@ export const connectionsRouter = router({
       return { ok: true as const };
     }),
 
+  /**
+   * Send a connection request to a peer by user id (no invite token).
+   * Used by the contact-discovery flow after a phone-hash match.
+   * Idempotent: re-sending while a request is already pending returns ok
+   * and reuses the existing row.
+   */
+  requestByPeerId: protectedProcedure
+    .input(
+      PeerIdInput.extend({
+        note: z.string().trim().max(140).optional(),
+      }),
+    )
+    .output(z.object({ ok: z.literal(true), requestId: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      const me = ctx.userId;
+      const peer = input.peerId;
+      if (peer === me) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "You can't connect to yourself.",
+        });
+      }
+
+      const peerExists = await db
+        .select({ id: schema.users.id })
+        .from(schema.users)
+        .where(eq(schema.users.id, peer))
+        .limit(1);
+      if (peerExists.length === 0) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "No such user." });
+      }
+
+      const [a, b] = me < peer ? [me, peer] : [peer, me];
+      const already = await db
+        .select({ id: schema.connections.id })
+        .from(schema.connections)
+        .where(
+          and(
+            eq(schema.connections.userAId, a),
+            eq(schema.connections.userBId, b),
+          ),
+        )
+        .limit(1);
+      if (already.length > 0) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "Already connected to this user.",
+        });
+      }
+
+      const existingPending = await db
+        .select({ id: schema.connectionRequests.id })
+        .from(schema.connectionRequests)
+        .where(
+          and(
+            eq(schema.connectionRequests.fromUserId, me),
+            eq(schema.connectionRequests.toUserId, peer),
+            eq(schema.connectionRequests.status, "pending"),
+          ),
+        )
+        .limit(1);
+      if (existingPending[0]) {
+        return { ok: true as const, requestId: existingPending[0].id };
+      }
+
+      const inserted = await db
+        .insert(schema.connectionRequests)
+        .values({
+          fromUserId: me,
+          toUserId: peer,
+          inviteId: null,
+          note: input.note ?? null,
+        })
+        .returning({ id: schema.connectionRequests.id });
+      return { ok: true as const, requestId: inserted[0]!.id };
+    }),
+
   remove: protectedProcedure
     .input(PeerIdInput)
     .output(OkSchema)
@@ -307,23 +385,20 @@ export const connectionsRouter = router({
       const phoneUsers = await db
         .select({
           id: schema.users.id,
-          phoneHash: schema.users.phoneHash,
+          phoneSha: schema.users.phoneSha,
         })
         .from(schema.users)
-        .where(
-          and(
-            eq(schema.users.accountType, "phone"),
-          ),
-        );
+        .where(eq(schema.users.accountType, "phone"));
 
+      const wanted = new Set(input.hashes);
       const matches: Record<string, string> = {};
 
       for (const user of phoneUsers) {
-        if (!user.phoneHash) continue;
+        if (!user.phoneSha) continue;
         const rederived = createHmac("sha256", saltEntry.salt)
-          .update(user.phoneHash)
+          .update(user.phoneSha)
           .digest("base64");
-        if (input.hashes.includes(rederived)) {
+        if (wanted.has(rederived)) {
           matches[rederived] = user.id;
         }
       }

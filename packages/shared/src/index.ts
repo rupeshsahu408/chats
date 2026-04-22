@@ -270,6 +270,62 @@ export const FetchInboxResult = z.object({
   messages: z.array(InboxMessageSchema),
 });
 
+export const MarkDeliveredInput = z.object({
+  ids: z.array(z.string().uuid()).max(500),
+});
+export type MarkDeliveredInput = z.infer<typeof MarkDeliveredInput>;
+
+/* History (full record incl. own outbound, for restore on a fresh device). */
+
+export const HistoryMessageSchema = z.object({
+  id: z.string().uuid(),
+  senderUserId: UserIdSchema,
+  recipientUserId: UserIdSchema,
+  header: Base64BytesSchema,
+  ciphertext: Base64BytesSchema,
+  createdAt: z.string(),
+});
+export type HistoryMessage = z.infer<typeof HistoryMessageSchema>;
+
+export const FetchHistoryInput = z.object({
+  peerId: UserIdSchema,
+  /** ISO timestamp; only return messages created strictly before this. */
+  before: z.string().optional(),
+  limit: z.number().int().min(1).max(200).default(100),
+});
+export type FetchHistoryInput = z.infer<typeof FetchHistoryInput>;
+
+export const FetchHistoryResult = z.object({
+  messages: z.array(HistoryMessageSchema),
+  /** True if there are more older messages beyond this page. */
+  hasMore: z.boolean(),
+});
+export type FetchHistoryResult = z.infer<typeof FetchHistoryResult>;
+
+/* WebSocket envelope (used by /ws). */
+
+export const WsServerEventSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("hello"), userId: UserIdSchema }),
+  z.object({ type: z.literal("new_message"), message: InboxMessageSchema }),
+  z.object({
+    type: z.literal("delivery_receipt"),
+    messageId: z.string().uuid(),
+    by: UserIdSchema,
+    at: z.string(),
+  }),
+  z.object({ type: z.literal("pong"), t: z.number() }),
+]);
+export type WsServerEvent = z.infer<typeof WsServerEventSchema>;
+
+export const WsClientEventSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("ping"), t: z.number() }),
+  z.object({
+    type: z.literal("mark_delivered"),
+    ids: z.array(z.string().uuid()).max(500),
+  }),
+]);
+export type WsClientEvent = z.infer<typeof WsClientEventSchema>;
+
 /* ─────────── Prekeys (Phase 3 extensions) ─────────── */
 
 export const UploadPrekeysInputV2 = z.object({
