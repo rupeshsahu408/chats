@@ -34,6 +34,15 @@ export const env = {
   COOKIE_SECURE: process.env.COOKIE_SECURE
     ? process.env.COOKIE_SECURE === "true"
     : process.env.NODE_ENV === "production",
+
+  /* Web Push (VAPID). Auto-generated for dev if missing. */
+  VAPID_PUBLIC_KEY: str(process.env.VAPID_PUBLIC_KEY),
+  VAPID_PRIVATE_KEY: str(process.env.VAPID_PRIVATE_KEY),
+  VAPID_SUBJECT: str(process.env.VAPID_SUBJECT) ?? "mailto:noreply@veil.local",
+
+  /* Encrypted media (server-side blob store). */
+  MEDIA_MAX_BYTES: num(process.env.MEDIA_MAX_BYTES, 8 * 1024 * 1024),
+  MEDIA_TTL_HOURS: num(process.env.MEDIA_TTL_HOURS, 24),
 } as const;
 
 export const isDev = env.NODE_ENV !== "production";

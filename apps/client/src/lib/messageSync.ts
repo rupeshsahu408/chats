@@ -13,6 +13,27 @@ import { base64ToBytes } from "./crypto";
 import { wsMarkDelivered } from "./wsClient";
 import type { UnlockedIdentity } from "./signal/session";
 import type { InboxMessage, HistoryMessage } from "@veil/shared";
+import { decodeEnvelope, encodeEnvelope, type ChatEnvelope } from "./messageEnvelope";
+import type { ChatMessageRecord } from "./db";
+
+function envelopeToRecordFields(
+  env: ChatEnvelope,
+): Pick<ChatMessageRecord, "plaintext" | "attachment"> {
+  if (env.t === "text") {
+    return { plaintext: env.body };
+  }
+  if (env.t === "image") {
+    return {
+      plaintext: env.body ?? "",
+      attachment: { ...env.media, kind: "image" },
+    };
+  }
+  // voice
+  return {
+    plaintext: "",
+    attachment: { ...env.media, kind: "voice" },
+  };
+}
 
 /* ────────────────────────── Inbox / live ────────────────────────── */
 
@@ -68,11 +89,12 @@ export async function ingestInboxMessage(
   }
   try {
     const plaintext = await decryptIncoming(identity, m);
+    const env = decodeEnvelope(plaintext);
     await appendChatMessage({
       peerId: m.senderUserId,
       serverId: m.id,
       direction: "in",
-      plaintext,
+      ...envelopeToRecordFields(env),
       createdAt: m.createdAt,
       status: "received",
     });
@@ -108,11 +130,12 @@ export async function pollAndDecrypt(
     }
     try {
       const plaintext = await decryptIncoming(identity, m);
+      const env = decodeEnvelope(plaintext);
       await appendChatMessage({
         peerId: m.senderUserId,
         serverId: m.id,
         direction: "in",
-        plaintext,
+        ...envelopeToRecordFields(env),
         createdAt: m.createdAt,
         status: "received",
       });
@@ -143,27 +166,46 @@ export async function sendChatMessage(
   peerId: string,
   plaintext: string,
 ): Promise<number> {
+  return sendChatEnvelope(identity, peerId, { v: 1, t: "text", body: plaintext });
+}
+
+/**
+ * Send any envelope (text, image, voice). Persists locally as `pending`
+ * first so the UI can show it instantly, then encrypts + uploads, then
+ * flips the status to `sent`.
+ */
+export async function sendChatEnvelope(
+  identity: UnlockedIdentity,
+  peerId: string,
+  envelope: ChatEnvelope,
+): Promise<number> {
+  const localFields = envelopeToRecordFields(envelope);
   const localId = await appendChatMessage({
     peerId,
     serverId: null,
     direction: "out",
-    plaintext,
+    ...localFields,
     createdAt: new Date().toISOString(),
     status: "pending",
   });
 
-  const { headerB64, ciphertextB64 } = await encryptToPeer(
-    identity,
-    peerId,
-    plaintext,
-  );
-  const sent = await trpcClientProxy().messages.send.mutate({
-    recipientUserId: peerId,
-    header: headerB64,
-    ciphertext: ciphertextB64,
-  });
-
-  await setChatMessageStatus(localId, "sent", sent.id);
+  try {
+    const wire = encodeEnvelope(envelope);
+    const { headerB64, ciphertextB64 } = await encryptToPeer(
+      identity,
+      peerId,
+      wire,
+    );
+    const sent = await trpcClientProxy().messages.send.mutate({
+      recipientUserId: peerId,
+      header: headerB64,
+      ciphertext: ciphertextB64,
+    });
+    await setChatMessageStatus(localId, "sent", sent.id);
+  } catch (err) {
+    await setChatMessageStatus(localId, "failed");
+    throw err;
+  }
   return localId;
 }
 
@@ -242,11 +284,12 @@ async function persistHistoryEntry(
       ciphertext: m.ciphertext,
       createdAt: m.createdAt,
     });
+    const env = decodeEnvelope(plaintext);
     await appendChatMessage({
       peerId: otherPeer,
       serverId: m.id,
       direction: "in",
-      plaintext,
+      ...envelopeToRecordFields(env),
       createdAt: m.createdAt,
       status: "received",
     });

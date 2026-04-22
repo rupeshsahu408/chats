@@ -311,7 +311,76 @@ export const messages = pgTable(
   }),
 );
 
+/* ─────────── media_blobs ─────────── */
+/*
+ * Opaque encrypted media (images, voice notes, ...). The server only
+ * sees ciphertext + an opaque MIME hint chosen by the uploader; the
+ * AES-GCM key is never sent to the server — it travels to the
+ * recipient inside a Signal-encrypted chat message envelope.
+ *
+ * Rows expire after `expiresAt` (24 h by default) and are pruned by
+ * the periodic sweep. The owner can also delete on demand.
+ */
+
+export const mediaBlobs = pgTable(
+  "media_blobs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ownerUserId: uuid("owner_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    /** Client-supplied MIME hint (e.g. "image/jpeg", "audio/webm"). */
+    mime: text("mime").notNull(),
+    /** AES-GCM ciphertext bytes. Includes the 12-byte IV prefix. */
+    ciphertext: bytea("ciphertext").notNull(),
+    /** Plaintext byte count, for UI preallocation hints. */
+    sizeBytes: integer("size_bytes").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  },
+  (t) => ({
+    ownerIdx: index("media_owner_idx").on(t.ownerUserId, t.createdAt),
+    expiryIdx: index("media_expiry_idx").on(t.expiresAt),
+  }),
+);
+
+/* ─────────── push_subscriptions ─────────── */
+/*
+ * Web Push (VAPID) subscriptions per user/device. Server keeps these
+ * to dispatch generic "New message" notifications when a chat arrives
+ * and the recipient is offline. Notification payload never contains
+ * the message text.
+ */
+
+export const pushSubscriptions = pgTable(
+  "push_subscriptions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    endpoint: text("endpoint").notNull(),
+    p256dh: text("p256dh").notNull(),
+    auth: text("auth").notNull(),
+    userAgent: text("user_agent"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => ({
+    userIdx: index("push_user_idx").on(t.userId),
+    endpointIdx: uniqueIndex("push_endpoint_idx").on(t.endpoint),
+  }),
+);
+
 export type UserRow = typeof users.$inferSelect;
+export type MediaBlobRow = typeof mediaBlobs.$inferSelect;
+export type PushSubscriptionRow = typeof pushSubscriptions.$inferSelect;
 export type InviteRow = typeof invites.$inferSelect;
 export type ConnectionRequestRow = typeof connectionRequests.$inferSelect;
 export type ConnectionRow = typeof connections.$inferSelect;

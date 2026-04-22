@@ -8,9 +8,15 @@ import type { HealthResponse } from "@veil/shared";
 import { appRouter, type AppRouter } from "./trpc/routers/index.js";
 import { createContext } from "./trpc/context.js";
 import { registerWebSocketRoutes } from "./lib/wsServer.js";
+import { initPush } from "./lib/push.js";
+import { startMediaSweeper } from "./lib/mediaSweeper.js";
 
 const app = Fastify({
   trustProxy: true,
+  // Phase 5 needs to ship encrypted media (images, voice notes) inline
+  // through tRPC as base64. ~12 MB body covers an 8 MB ciphertext after
+  // base64 inflation plus envelope overhead.
+  bodyLimit: 12 * 1024 * 1024,
   logger: isDev
     ? {
         level: "info",
@@ -95,6 +101,9 @@ if (!env.RESEND_API_KEY && isDev) {
     "RESEND_API_KEY not set — OTP codes will be logged to this console (dev only).",
   );
 }
+
+initPush(app.log);
+startMediaSweeper(app.log);
 
 try {
   await app.listen({ host: env.HOST, port: env.PORT });

@@ -423,3 +423,70 @@ export const DiscoverContactsResult = z.object({
   matches: z.record(z.string(), UserIdSchema),
 });
 export type DiscoverContactsResult = z.infer<typeof DiscoverContactsResult>;
+
+/* ─────────── Phase 5: Encrypted media ─────────── */
+
+/**
+ * Generous base64 cap for an encrypted media blob (8 MB plaintext →
+ * ~10.7 MB base64). Server enforces the underlying byte cap separately.
+ */
+export const LargeBase64Schema = z
+  .string()
+  .regex(/^[A-Za-z0-9+/]+=*$/)
+  .max(12 * 1024 * 1024);
+
+/** MIME hints we accept for end-to-end encrypted media. */
+export const MediaMimeSchema = z
+  .string()
+  .min(1)
+  .max(64)
+  .regex(/^(image|audio|video|application)\/[a-z0-9.+\-]+$/i);
+
+export const UploadMediaInput = z.object({
+  /** Base64 of AES-GCM ciphertext (12-byte IV prefix + ciphertext + tag). */
+  ciphertext: LargeBase64Schema,
+  mime: MediaMimeSchema,
+});
+export type UploadMediaInput = z.infer<typeof UploadMediaInput>;
+
+export const UploadMediaResult = z.object({
+  blobId: z.string().uuid(),
+  sizeBytes: z.number().int().nonnegative(),
+  expiresAt: z.string(),
+});
+export type UploadMediaResult = z.infer<typeof UploadMediaResult>;
+
+export const DownloadMediaInput = z.object({
+  blobId: z.string().uuid(),
+});
+export type DownloadMediaInput = z.infer<typeof DownloadMediaInput>;
+
+export const DownloadMediaResult = z.object({
+  ciphertext: LargeBase64Schema,
+  mime: MediaMimeSchema,
+  sizeBytes: z.number().int().nonnegative(),
+});
+export type DownloadMediaResult = z.infer<typeof DownloadMediaResult>;
+
+/* ─────────── Phase 5: Web Push ─────────── */
+
+export const PushPublicKeyResult = z.object({
+  /** URL-safe base64 VAPID public key, or null if push isn't configured. */
+  publicKey: z.string().nullable(),
+});
+export type PushPublicKeyResult = z.infer<typeof PushPublicKeyResult>;
+
+export const SubscribePushInput = z.object({
+  endpoint: z.string().url().max(2048),
+  /** URL-safe base64 of the subscription's p256dh public key. */
+  p256dh: z.string().min(20).max(200),
+  /** URL-safe base64 of the subscription's auth secret. */
+  auth: z.string().min(8).max(200),
+  userAgent: z.string().max(512).optional(),
+});
+export type SubscribePushInput = z.infer<typeof SubscribePushInput>;
+
+export const UnsubscribePushInput = z.object({
+  endpoint: z.string().url().max(2048),
+});
+export type UnsubscribePushInput = z.infer<typeof UnsubscribePushInput>;

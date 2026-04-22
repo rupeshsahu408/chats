@@ -68,12 +68,18 @@ export function ChatsPage() {
   // Build "last message" map per peer.
   const lastByPeer = new Map<
     string,
-    { plaintext: string; createdAt: string; direction: "in" | "out" }
+    { preview: string; createdAt: string; direction: "in" | "out" }
   >();
   for (const m of allMessages ?? []) {
     if (!lastByPeer.has(m.peerId)) {
+      let preview = m.plaintext;
+      if (m.attachment?.kind === "image") {
+        preview = m.plaintext ? `📷 ${m.plaintext}` : "📷 Photo";
+      } else if (m.attachment?.kind === "voice") {
+        preview = "🎤 Voice message";
+      }
       lastByPeer.set(m.peerId, {
-        plaintext: m.plaintext,
+        preview,
         createdAt: m.createdAt,
         direction: m.direction,
       });
@@ -170,7 +176,7 @@ export function ChatsPage() {
                       {last.direction === "out" && (
                         <DoubleTickIcon className="text-wa-tick" />
                       )}
-                      <span className="truncate">{last.plaintext}</span>
+                      <span className="truncate">{last.preview}</span>
                     </span>
                   ) : undefined
                 }

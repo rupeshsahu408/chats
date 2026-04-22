@@ -8,6 +8,7 @@ import {
   useUnlockStore,
 } from "./lib/unlockStore";
 import { installSystemThemeListener } from "./lib/themeStore";
+import { ensurePushSubscription } from "./lib/push";
 import { readPendingInvite, clearPendingInvite } from "./lib/inviteRedirect";
 import { WelcomePage } from "./pages/WelcomePage";
 import { EmailSignupPage } from "./pages/EmailSignupPage";
@@ -88,6 +89,11 @@ function SessionBootstrap() {
     void loadCachedUnlockedIdentity().then((id) => {
       if (id) hydrate(id);
     });
+
+    // Silently re-bind any pre-existing push subscription. We never
+    // prompt for permission here — that happens on user action (a
+    // dedicated toggle on the Settings screen).
+    void ensurePushSubscription({ requestPermission: false });
 
     // Use the long-lived refresh cookie to mint a new access token.
     refresh

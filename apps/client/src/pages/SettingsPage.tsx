@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { trpc } from "../lib/trpc";
 import { useAuthStore } from "../lib/store";
@@ -12,6 +12,7 @@ import {
 } from "../components/Layout";
 import { MainShell } from "../components/MainShell";
 import { useThemeStore, type ThemeMode } from "../lib/themeStore";
+import { ensurePushSubscription, disablePushSubscription } from "../lib/push";
 import { clearIdentity } from "../lib/db";
 
 export function SettingsPage() {
@@ -91,6 +92,9 @@ export function SettingsPage() {
         <SectionHeader>Appearance</SectionHeader>
         <ThemeRow />
 
+        <SectionHeader>Notifications</SectionHeader>
+        <PushRow />
+
         <SectionHeader>Account</SectionHeader>
         <SettingsRow
           icon={<LockIcon />}
@@ -151,6 +155,103 @@ function SectionHeader({ children }: { children: React.ReactNode }) {
   return (
     <div className="px-4 pt-5 pb-1 text-[11px] uppercase tracking-widest text-text-muted bg-panel">
       {children}
+    </div>
+  );
+}
+
+function PushRow() {
+  const supported =
+    typeof window !== "undefined" &&
+    "serviceWorker" in navigator &&
+    "PushManager" in window &&
+    "Notification" in window;
+  const [perm, setPerm] = useState<NotificationPermission | "unknown">(
+    supported ? Notification.permission : "unknown",
+  );
+  const [subscribed, setSubscribed] = useState<boolean | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!supported) return;
+    void (async () => {
+      try {
+        const reg = await navigator.serviceWorker.getRegistration();
+        const sub = reg ? await reg.pushManager.getSubscription() : null;
+        setSubscribed(!!sub);
+      } catch {
+        setSubscribed(false);
+      }
+    })();
+  }, [supported]);
+
+  async function enable() {
+    setBusy(true);
+    setMsg(null);
+    const r = await ensurePushSubscription({ requestPermission: true });
+    setPerm(supported ? Notification.permission : "unknown");
+    if (r.state === "ok") {
+      setSubscribed(true);
+      setMsg("Notifications enabled.");
+    } else if (r.state === "denied") {
+      setMsg("Notification permission was denied. Enable it in your browser settings.");
+    } else if (r.state === "not_configured") {
+      setMsg("Push isn't configured on the server yet.");
+    } else if (r.state === "unsupported") {
+      setMsg("Your browser doesn't support web push.");
+    } else {
+      setMsg(r.message);
+    }
+    setBusy(false);
+  }
+  async function disable() {
+    setBusy(true);
+    setMsg(null);
+    await disablePushSubscription();
+    setSubscribed(false);
+    setMsg("Notifications disabled.");
+    setBusy(false);
+  }
+
+  if (!supported) {
+    return (
+      <div className="px-4 py-3 bg-panel">
+        <div className="text-text font-medium">Push notifications</div>
+        <div className="text-xs text-text-muted">
+          Not supported by this browser.
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="px-4 py-3 bg-panel">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-text font-medium">Push notifications</div>
+          <div className="text-xs text-text-muted">
+            Generic alerts only. Message contents stay on your device.
+          </div>
+        </div>
+        {subscribed ? (
+          <button
+            disabled={busy}
+            onClick={disable}
+            className="text-sm px-3 py-1.5 rounded-full border border-line text-text hover:bg-white/5 disabled:opacity-50"
+          >
+            Disable
+          </button>
+        ) : (
+          <button
+            disabled={busy || perm === "denied"}
+            onClick={enable}
+            className="text-sm px-3 py-1.5 rounded-full bg-wa-green text-text-oncolor disabled:opacity-50"
+          >
+            Enable
+          </button>
+        )}
+      </div>
+      {msg && <div className="text-[11px] text-text-muted mt-2">{msg}</div>}
     </div>
   );
 }

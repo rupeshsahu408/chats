@@ -63,10 +63,25 @@ export interface ChatMessageRecord {
   /** Server message id when known, otherwise a local uuid. */
   serverId: string | null;
   direction: "in" | "out";
+  /** Text body (or caption for media). Empty string for media-only. */
   plaintext: string;
   createdAt: string;
   /** For outbound: 'pending' | 'sent' | 'failed'. For inbound: 'received'. */
   status: "pending" | "sent" | "failed" | "received";
+  /** Optional media attachment (Phase 5). */
+  attachment?: {
+    kind: "image" | "voice";
+    blobId: string;
+    /** AES-GCM key, base64. Stored locally only. */
+    key: string;
+    mime: string;
+    sizeBytes: number;
+    durationMs?: number;
+    width?: number;
+    height?: number;
+    /** Inline thumbnail (base64 JPEG). Images only. */
+    thumbB64?: string;
+  };
 }
 
 /**
@@ -110,6 +125,15 @@ export class VeilDB extends Dexie {
       chatMessages: "++id, peerId, createdAt, serverId",
     });
     this.version(4).stores({
+      identity: "id",
+      prekeys: "id, kind, keyId",
+      chatSessions: "peerId, updatedAt",
+      chatMessages: "++id, peerId, createdAt, serverId",
+      unlocked: "id",
+    });
+    // v5: chatMessages gains an optional `attachment` field. No index
+    // change needed — the new column is just an additional property.
+    this.version(5).stores({
       identity: "id",
       prekeys: "id, kind, keyId",
       chatSessions: "peerId, updatedAt",

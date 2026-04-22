@@ -14,6 +14,7 @@ import {
 import { protectedProcedure, router } from "../init.js";
 import { getDb, schema } from "../../db/index.js";
 import { publish } from "../../lib/wsHub.js";
+import { pushToUser } from "../../lib/push.js";
 
 const MAX_FETCH = 200;
 
@@ -85,6 +86,14 @@ export const messagesRouter = router({
           createdAt: row.createdAt.toISOString(),
         },
       });
+
+      // Fire-and-forget Web Push; never blocks the send.
+      void pushToUser(peer, {
+        type: "new_message",
+        title: "New message",
+        body: "You have a new encrypted message.",
+        url: `/chats/${me}`,
+      }).catch(() => undefined);
 
       return { id: row.id, createdAt: row.createdAt.toISOString() };
     }),
