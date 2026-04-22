@@ -430,8 +430,10 @@ export type DiscoverContactsResult = z.infer<typeof DiscoverContactsResult>;
 export const MediaMimeSchema = z
   .string()
   .min(1)
-  .max(64)
-  .regex(/^(image|audio|video|application)\/[a-z0-9.+\-]+$/i);
+  .max(128)
+  .regex(
+    /^(image|audio|video|application)\/[a-z0-9.+\-]+(?:\s*;\s*[a-z0-9.+\-]+\s*=\s*[a-z0-9.+\-"]+)*$/i,
+  );
 
 export const RequestMediaUploadInput = z.object({
   mime: MediaMimeSchema,
