@@ -16,6 +16,7 @@ import { protectedProcedure, router } from "../init.js";
 import { getDb, schema } from "../../db/index.js";
 import { publish } from "../../lib/wsHub.js";
 import { pushToUser } from "../../lib/push.js";
+import { isBlockedEitherWay } from "./privacy.js";
 
 const MAX_FETCH = 200;
 
@@ -57,6 +58,13 @@ export const messagesRouter = router({
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "You can only message people you're connected with.",
+        });
+      }
+
+      if (await isBlockedEitherWay(me, peer)) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Messages can't be sent in this conversation.",
         });
       }
 

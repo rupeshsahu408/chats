@@ -21,6 +21,7 @@ import { protectedProcedure, router } from "../init.js";
 import { getDb, schema } from "../../db/index.js";
 import { fingerprintForPublicKey } from "../../lib/fingerprint.js";
 import { env } from "../../env.js";
+import { isBlockedEitherWay } from "./privacy.js";
 
 const SALT_TTL_MS = 5 * 60 * 1000;
 const discoverySalts = new Map<string, { salt: string; expiresAt: number }>();
@@ -264,6 +265,13 @@ export const connectionsRouter = router({
         .limit(1);
       if (peerExists.length === 0) {
         throw new TRPCError({ code: "NOT_FOUND", message: "No such user." });
+      }
+
+      if (await isBlockedEitherWay(me, peer)) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You can't connect with this user right now.",
+        });
       }
 
       const [a, b] = me < peer ? [me, peer] : [peer, me];

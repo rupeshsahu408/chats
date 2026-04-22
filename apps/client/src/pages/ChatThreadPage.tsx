@@ -150,7 +150,27 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [menuOpen, setMenuOpen] = useState<null | "main" | "ttl" | "safety">(null);
+  const [menuOpen, setMenuOpen] = useState<
+    null | "main" | "ttl" | "safety" | "report"
+  >(null);
+
+  // Block / report state: query the live block status so the UI reflects
+  // actions taken on another device.
+  const blockStatus = trpc.privacy.isBlocked.useQuery(
+    { peerId },
+    { enabled: !!peerId, retry: false, refetchOnWindowFocus: true },
+  );
+  const blockedByMe = blockStatus.data?.blockedByMe ?? false;
+  const blockedMe = blockStatus.data?.blockedMe ?? false;
+  const blockMutation = trpc.privacy.block.useMutation({
+    onSuccess: () => blockStatus.refetch(),
+  });
+  const unblockMutation = trpc.privacy.unblock.useMutation({
+    onSuccess: () => blockStatus.refetch(),
+  });
+  const reportMutation = trpc.privacy.report.useMutation({
+    onSuccess: () => blockStatus.refetch(),
+  });
   const [pendingPreview, setPendingPreview] = useState<EnvelopeLinkPreview | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -534,6 +554,23 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
           onToggleViewOnce={() =>
             void setChatPref(peerId, { viewOnceDefault: !viewOnceDefault })
           }
+          blockedByMe={blockedByMe}
+          onToggleBlock={() => {
+            setMenuOpen(null);
+            if (blockedByMe) {
+              if (!confirm(`Unblock ${displayName}?`)) return;
+              unblockMutation.mutate({ peerId });
+            } else {
+              if (
+                !confirm(
+                  `Block ${displayName}? They won't be able to send you messages and you won't be able to send them messages.`,
+                )
+              )
+                return;
+              blockMutation.mutate({ peerId });
+            }
+          }}
+          onReport={() => setMenuOpen("report")}
         />
       )}
       {menuOpen === "ttl" && (
@@ -553,6 +590,29 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
           peerLabel={displayName}
           onClose={() => setMenuOpen(null)}
         />
+      )}
+      {menuOpen === "report" && (
+        <ReportDialog
+          peerLabel={displayName}
+          onClose={() => setMenuOpen(null)}
+          onSubmit={async (reason, note, alsoBlock) => {
+            await reportMutation.mutateAsync({
+              peerId,
+              reason,
+              note: note || undefined,
+              alsoBlock,
+            });
+            setMenuOpen(null);
+            alert("Report submitted. Thank you.");
+          }}
+        />
+      )}
+      {(blockedByMe || blockedMe) && (
+        <div className="px-4 py-2 bg-yellow-500/10 border-t border-yellow-500/30 text-xs text-yellow-200 text-center">
+          {blockedByMe
+            ? "You have blocked this contact. Messages can't be sent."
+            : "This contact is unavailable."}
+        </div>
       )}
     </div>
   );
@@ -950,6 +1010,9 @@ function ChatMenu({
   biometricEnabled,
   viewOnceDefault,
   onToggleViewOnce,
+  blockedByMe,
+  onToggleBlock,
+  onReport,
 }: {
   onClose: () => void;
   ttlLabel: string;
@@ -959,6 +1022,9 @@ function ChatMenu({
   biometricEnabled: boolean;
   viewOnceDefault: boolean;
   onToggleViewOnce: () => void;
+  blockedByMe: boolean;
+  onToggleBlock: () => void;
+  onReport: () => void;
 }) {
   return (
     <Sheet onClose={onClose}>
@@ -979,6 +1045,107 @@ function ChatMenu({
         }}
         danger={biometricEnabled}
       />
+      <MenuItem
+        label={blockedByMe ? "Unblock contact" : "Block contact"}
+        onClick={onToggleBlock}
+        danger={!blockedByMe}
+      />
+      <MenuItem label="Report contact" onClick={onReport} danger />
+    </Sheet>
+  );
+}
+
+const REPORT_REASONS: { value: ReportReason; label: string }[] = [
+  { value: "spam", label: "Spam" },
+  { value: "harassment", label: "Harassment or bullying" },
+  { value: "impersonation", label: "Impersonation" },
+  { value: "illegal", label: "Illegal activity" },
+  { value: "other", label: "Other" },
+];
+
+type ReportReason = "spam" | "harassment" | "impersonation" | "illegal" | "other";
+
+function ReportDialog({
+  peerLabel,
+  onClose,
+  onSubmit,
+}: {
+  peerLabel: string;
+  onClose: () => void;
+  onSubmit: (reason: ReportReason, note: string, alsoBlock: boolean) => Promise<void>;
+}) {
+  const [reason, setReason] = useState<ReportReason>("spam");
+  const [note, setNote] = useState("");
+  const [alsoBlock, setAlsoBlock] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  return (
+    <Sheet onClose={onClose} title={`Report ${peerLabel}`}>
+      <div className="px-4 pb-4">
+        <div className="text-xs text-text-muted mb-3">
+          Veil never sees your messages. We only receive the category and
+          your optional note.
+        </div>
+        <div className="space-y-1 mb-3">
+          {REPORT_REASONS.map((r) => (
+            <label
+              key={r.value}
+              className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-white/5 cursor-pointer"
+            >
+              <input
+                type="radio"
+                name="reason"
+                checked={reason === r.value}
+                onChange={() => setReason(r.value)}
+              />
+              <span className="text-sm text-text">{r.label}</span>
+            </label>
+          ))}
+        </div>
+        <textarea
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          maxLength={500}
+          rows={3}
+          placeholder="Optional context (max 500 chars)"
+          className="w-full bg-surface text-text placeholder:text-text-muted rounded-md p-2 outline-none border border-line text-sm mb-3"
+        />
+        <label className="flex items-center gap-2 mb-3 text-sm text-text">
+          <input
+            type="checkbox"
+            checked={alsoBlock}
+            onChange={(e) => setAlsoBlock(e.target.checked)}
+          />
+          Also block this contact
+        </label>
+        {err && <ErrorMessage>{err}</ErrorMessage>}
+        <div className="flex gap-2 mt-2">
+          <button
+            onClick={onClose}
+            className="flex-1 py-2 rounded-md border border-line text-text"
+          >
+            Cancel
+          </button>
+          <button
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              setErr(null);
+              try {
+                await onSubmit(reason, note.trim(), alsoBlock);
+              } catch (e) {
+                setErr(e instanceof Error ? e.message : "Could not submit.");
+              } finally {
+                setBusy(false);
+              }
+            }}
+            className="flex-1 py-2 rounded-md bg-red-500/90 text-white disabled:opacity-50"
+          >
+            {busy ? "Submitting…" : "Submit report"}
+          </button>
+        </div>
+      </div>
     </Sheet>
   );
 }

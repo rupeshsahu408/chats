@@ -95,6 +95,8 @@ export function SettingsPage() {
 
         <SectionHeader>Privacy</SectionHeader>
         <PrivacyRows />
+        <LastSeenPrivacyRow />
+        <BlockedContactsRow />
 
         <SectionHeader>Notifications</SectionHeader>
         <PushRow />
@@ -305,6 +307,99 @@ function PrivacyRows() {
         />
       ))}
     </>
+  );
+}
+
+function LastSeenPrivacyRow() {
+  const q = trpc.privacy.getLastSeenPrivacy.useQuery(undefined, {
+    retry: false,
+  });
+  const m = trpc.privacy.setLastSeenPrivacy.useMutation({
+    onSuccess: () => q.refetch(),
+  });
+  const value = q.data?.value ?? "contacts";
+  const options: { value: "everyone" | "contacts" | "nobody"; label: string }[] = [
+    { value: "everyone", label: "Everyone" },
+    { value: "contacts", label: "Contacts" },
+    { value: "nobody", label: "Nobody" },
+  ];
+  return (
+    <div className="px-4 py-3 bg-panel border-b border-line/60">
+      <div className="text-text font-medium">Last seen</div>
+      <div className="text-xs text-text-muted mb-2">
+        Choose who can see when you were last online.
+      </div>
+      <div className="inline-flex rounded-full bg-surface border border-line p-1">
+        {options.map((o) => {
+          const isActive = value === o.value;
+          return (
+            <button
+              key={o.value}
+              disabled={m.isPending || q.isLoading}
+              onClick={() => m.mutate({ value: o.value })}
+              className={
+                "px-3 py-1.5 text-sm rounded-full transition wa-tap " +
+                (isActive
+                  ? "bg-wa-green text-text-oncolor shadow"
+                  : "text-text-muted hover:text-text")
+              }
+            >
+              {o.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function BlockedContactsRow() {
+  const q = trpc.privacy.listBlocked.useQuery(undefined, { retry: false });
+  const unblock = trpc.privacy.unblock.useMutation({
+    onSuccess: () => q.refetch(),
+  });
+  const blocked = q.data ?? [];
+  return (
+    <div className="px-4 py-3 bg-panel border-b border-line/60">
+      <div className="text-text font-medium">Blocked contacts</div>
+      <div className="text-xs text-text-muted mb-2">
+        Blocked people can't message you and you can't message them.
+      </div>
+      {q.isLoading ? (
+        <div className="text-xs text-text-muted">Loading…</div>
+      ) : blocked.length === 0 ? (
+        <div className="text-xs text-text-muted">No one is blocked.</div>
+      ) : (
+        <ul className="space-y-1">
+          {blocked.map((b) => (
+            <li
+              key={b.peer.id}
+              className="flex items-center justify-between gap-2 bg-surface rounded-md px-3 py-2"
+            >
+              <div className="min-w-0">
+                <div className="text-sm text-text font-mono truncate">
+                  {b.peer.fingerprint || b.peer.id.slice(0, 12) + "…"}
+                </div>
+                <div className="text-[11px] text-text-muted">
+                  Blocked {new Date(b.createdAt).toLocaleDateString()}
+                </div>
+              </div>
+              <button
+                disabled={unblock.isPending}
+                onClick={() => {
+                  if (confirm("Unblock this contact?")) {
+                    unblock.mutate({ peerId: b.peer.id });
+                  }
+                }}
+                className="text-sm px-3 py-1 rounded-full border border-line text-text hover:bg-white/5 disabled:opacity-50"
+              >
+                Unblock
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 

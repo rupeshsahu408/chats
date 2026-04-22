@@ -28,6 +28,20 @@ export const connectionRequestStatus = pgEnum("connection_request_status", [
   "expired",
 ]);
 
+export const lastSeenPrivacy = pgEnum("last_seen_privacy", [
+  "everyone",
+  "contacts",
+  "nobody",
+]);
+
+export const reportReason = pgEnum("report_reason", [
+  "spam",
+  "harassment",
+  "impersonation",
+  "illegal",
+  "other",
+]);
+
 const bytea = customType<{ data: Buffer; default: false }>({
   dataType: () => "bytea",
 });
@@ -60,6 +74,10 @@ export const users = pgTable(
       .notNull()
       .defaultNow(),
     lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
+    /** Phase 6: who can see your `lastSeenAt` timestamp. */
+    lastSeenPrivacy: lastSeenPrivacy("last_seen_privacy")
+      .notNull()
+      .default("contacts"),
   },
   (t) => ({
     emailHashIdx: uniqueIndex("users_email_hash_idx")
@@ -391,7 +409,68 @@ export const pushSubscriptions = pgTable(
   }),
 );
 
+/* ─────────── blocks (Phase 6) ─────────── */
+/*
+ * Directional block: blocker_user_id has blocked blocked_user_id.
+ * Enforced server-side in `messages.send` and
+ * `connections.requestByPeerId`. Existing connections are NOT removed
+ * automatically — the user can do that separately — but messaging is
+ * refused as long as the block is in place.
+ */
+
+export const blocks = pgTable(
+  "blocks",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    blockerUserId: uuid("blocker_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    blockedUserId: uuid("blocked_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => ({
+    pairIdx: uniqueIndex("blocks_pair_idx").on(t.blockerUserId, t.blockedUserId),
+    blockerIdx: index("blocks_blocker_idx").on(t.blockerUserId),
+    blockedIdx: index("blocks_blocked_idx").on(t.blockedUserId),
+  }),
+);
+
+/* ─────────── reports (Phase 6) ─────────── */
+/*
+ * User-submitted abuse reports. We never see message contents (E2E),
+ * so the report carries only the reporter, the accused, a category,
+ * and an optional plaintext note the reporter chose to share.
+ */
+
+export const reports = pgTable(
+  "reports",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    reporterUserId: uuid("reporter_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    reportedUserId: uuid("reported_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    reason: reportReason("reason").notNull(),
+    note: text("note"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => ({
+    reporterIdx: index("reports_reporter_idx").on(t.reporterUserId, t.createdAt),
+    reportedIdx: index("reports_reported_idx").on(t.reportedUserId),
+  }),
+);
+
 export type UserRow = typeof users.$inferSelect;
+export type BlockRow = typeof blocks.$inferSelect;
+export type ReportRow = typeof reports.$inferSelect;
 export type MediaBlobRow = typeof mediaBlobs.$inferSelect;
 export type PushSubscriptionRow = typeof pushSubscriptions.$inferSelect;
 export type InviteRow = typeof invites.$inferSelect;
