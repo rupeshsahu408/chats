@@ -106,8 +106,21 @@ async function issueSession(
   return {
     user: { id: userId, accountType, createdAt: accountCreatedAt.toISOString() },
     accessToken,
+    refreshToken,
+    refreshExpiresIn: TOKEN_TTL.refreshSeconds,
     expiresIn: TOKEN_TTL.accessSeconds,
   };
+}
+
+function readRefreshToken(req: {
+  headers: Record<string, string | string[] | undefined>;
+  cookies?: Record<string, string>;
+}): string | null {
+  const header = req.headers["x-refresh-token"];
+  if (typeof header === "string" && header.length > 0) return header;
+  if (Array.isArray(header) && header[0]) return header[0];
+  const cookie = req.cookies?.["veil_refresh"];
+  return cookie && cookie.length > 0 ? cookie : null;
 }
 
 export const authRouter = router({
@@ -565,10 +578,12 @@ export const authRouter = router({
   refresh: configuredProcedure
     .output(AuthResultSchema)
     .mutation(async ({ ctx }): Promise<AuthResult> => {
-      const cookies = (
-        ctx.req as unknown as { cookies?: Record<string, string> }
-      ).cookies;
-      const token = cookies?.["veil_refresh"];
+      const token = readRefreshToken(
+        ctx.req as unknown as {
+          headers: Record<string, string | string[] | undefined>;
+          cookies?: Record<string, string>;
+        },
+      );
       if (!token) {
         throw new TRPCError({ code: "UNAUTHORIZED", message: "No refresh token." });
       }
@@ -612,15 +627,19 @@ export const authRouter = router({
           createdAt: row.user.createdAt.toISOString(),
         },
         accessToken,
+        refreshToken: newRefresh,
+        refreshExpiresIn: TOKEN_TTL.refreshSeconds,
         expiresIn: TOKEN_TTL.accessSeconds,
       };
     }),
 
   logout: configuredProcedure.mutation(async ({ ctx }) => {
-    const cookies = (
-      ctx.req as unknown as { cookies?: Record<string, string> }
-    ).cookies;
-    const token = cookies?.["veil_refresh"];
+    const token = readRefreshToken(
+      ctx.req as unknown as {
+        headers: Record<string, string | string[] | undefined>;
+        cookies?: Record<string, string>;
+      },
+    );
     if (token) {
       const db = getDb();
       await db

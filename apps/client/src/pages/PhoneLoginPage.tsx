@@ -102,7 +102,7 @@ export function PhoneLoginPage() {
         firebaseIdToken: idToken,
         purpose: "login",
       });
-      setAuth({ accessToken: r.accessToken, user: r.user });
+      setAuth({ accessToken: r.accessToken, refreshToken: r.refreshToken, refreshExpiresIn: r.refreshExpiresIn, user: r.user });
       navigate(postAuthLandingPath());
     } catch (e: unknown) {
       setError(messageOf(e));

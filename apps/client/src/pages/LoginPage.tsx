@@ -53,7 +53,7 @@ export function LoginPage() {
     setError(null);
     try {
       const r = await verifyOtp.mutateAsync({ email, code, purpose: "login" });
-      setAuth({ accessToken: r.accessToken, user: r.user });
+      setAuth({ accessToken: r.accessToken, refreshToken: r.refreshToken, refreshExpiresIn: r.refreshExpiresIn, user: r.user });
       navigateAfterLogin();
     } catch (e: unknown) {
       setError(messageOf(e));

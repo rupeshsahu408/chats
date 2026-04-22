@@ -18,8 +18,13 @@ export function makeTrpcClient() {
           return fetch(url, { ...options, credentials: "include" });
         },
         headers() {
-          const token = useAuthStore.getState().accessToken;
-          return token ? { authorization: `Bearer ${token}` } : {};
+          const { accessToken, refreshToken } = useAuthStore.getState();
+          const h: Record<string, string> = {};
+          if (accessToken) h.authorization = `Bearer ${accessToken}`;
+          // Sent on every request so the server can read it for /auth.refresh
+          // even when third-party cookies are blocked (Vercel ↔ Render etc.).
+          if (refreshToken) h["x-refresh-token"] = refreshToken;
+          return h;
         },
       }),
     ],

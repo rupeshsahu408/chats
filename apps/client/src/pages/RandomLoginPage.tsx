@@ -72,7 +72,7 @@ export function RandomLoginPage() {
         signature,
       });
 
-      setAuth({ accessToken: r.accessToken, user: r.user });
+      setAuth({ accessToken: r.accessToken, refreshToken: r.refreshToken, refreshExpiresIn: r.refreshExpiresIn, user: r.user });
 
       const { privateKey: x25519Priv } = deriveX25519FromPhrase(trimmedPhrase);
       const x25519Pub = x25519PublicKeyFromPrivate(x25519Priv);

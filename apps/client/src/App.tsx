@@ -93,7 +93,7 @@ function SessionBootstrap() {
     refresh
       .mutateAsync()
       .then((r) => {
-        setAuth({ accessToken: r.accessToken, user: r.user });
+        setAuth({ accessToken: r.accessToken, refreshToken: r.refreshToken, refreshExpiresIn: r.refreshExpiresIn, user: r.user });
         const pending = readPendingInvite();
         const onAuthLandingPath =
           location.pathname === "/" ||

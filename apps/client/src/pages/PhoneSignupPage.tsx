@@ -141,7 +141,7 @@ export function PhoneSignupPage() {
         purpose: "signup",
         identityPublicKey: bytesToBase64(ed.publicKey),
       });
-      setAuth({ accessToken: r.accessToken, user: r.user });
+      setAuth({ accessToken: r.accessToken, refreshToken: r.refreshToken, refreshExpiresIn: r.refreshExpiresIn, user: r.user });
       setPendingUserId(r.user.id);
       setStep("pin");
     } catch (e: unknown) {

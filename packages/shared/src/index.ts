@@ -82,6 +82,15 @@ export type PublicUser = z.infer<typeof PublicUserSchema>;
 export const AuthResultSchema = z.object({
   user: PublicUserSchema,
   accessToken: z.string(),
+  /**
+   * Long-lived refresh token. Also set as an httpOnly cookie when the
+   * browser allows it, but returned here so cross-site clients (e.g. a
+   * Vercel-hosted UI calling a Render-hosted API) can persist it in
+   * localStorage and survive third-party-cookie blocking.
+   */
+  refreshToken: z.string(),
+  /** Seconds until the refresh token expires. */
+  refreshExpiresIn: z.number().int().positive(),
   /** Seconds until the access token expires. */
   expiresIn: z.number().int().positive(),
 });
