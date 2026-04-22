@@ -9,8 +9,13 @@ import {
   FetchHistoryInput,
   FetchHistoryResult,
   OkSchema,
+  SendGroupMessageInput,
+  SendGroupMessageResult,
+  FetchGroupHistoryInput,
+  FetchGroupHistoryResult,
   type InboxMessage,
   type HistoryMessage,
+  type GroupHistoryMessage,
 } from "@veil/shared";
 import { protectedProcedure, router } from "../init.js";
 import { getDb, schema } from "../../db/index.js";
@@ -99,6 +104,7 @@ export const messagesRouter = router({
           ciphertext: input.ciphertext,
           createdAt: row.createdAt.toISOString(),
           expiresAt: row.expiresAt ? row.expiresAt.toISOString() : null,
+          groupId: null,
         },
       });
 
@@ -150,6 +156,7 @@ export const messagesRouter = router({
           ciphertext: bufToB64(r.ciphertext),
           createdAt: r.createdAt.toISOString(),
           expiresAt: r.expiresAt ? r.expiresAt.toISOString() : null,
+          groupId: r.groupId ?? null,
         })),
       };
     }),
@@ -205,6 +212,7 @@ export const messagesRouter = router({
           ciphertext: bufToB64(r.ciphertext),
           createdAt: r.createdAt.toISOString(),
           expiresAt: r.expiresAt ? r.expiresAt.toISOString() : null,
+          groupId: r.groupId ?? null,
         })),
       };
     }),
@@ -344,6 +352,197 @@ export const messagesRouter = router({
           id: r.id,
           senderUserId: r.senderUserId,
           recipientUserId: r.recipientUserId,
+          header: bufToB64(r.header),
+          ciphertext: bufToB64(r.ciphertext),
+          createdAt: r.createdAt.toISOString(),
+          expiresAt: r.expiresAt ? r.expiresAt.toISOString() : null,
+          groupId: r.groupId ?? null,
+        })),
+        hasMore,
+      };
+    }),
+
+  /* ──────────────── Phase 7: Group fan-out ──────────────── */
+
+  /**
+   * Send one group message by fanning out per-recipient ciphertexts. Each
+   * recipient row carries the same `groupId`. Caller and every recipient
+   * must be a member of the group.
+   */
+  sendGroup: protectedProcedure
+    .input(SendGroupMessageInput)
+    .output(SendGroupMessageResult)
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      const me = ctx.userId;
+
+      const myMem = await db
+        .select({ id: schema.groupMembers.id })
+        .from(schema.groupMembers)
+        .where(
+          and(
+            eq(schema.groupMembers.groupId, input.groupId),
+            eq(schema.groupMembers.userId, me),
+          ),
+        )
+        .limit(1);
+      if (myMem.length === 0) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You are not a member of this group.",
+        });
+      }
+
+      const recipientIds = input.recipients.map((r) => r.recipientUserId);
+      if (recipientIds.includes(me)) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Don't include yourself in the recipients list.",
+        });
+      }
+      const memberRows = await db
+        .select({ userId: schema.groupMembers.userId })
+        .from(schema.groupMembers)
+        .where(
+          and(
+            eq(schema.groupMembers.groupId, input.groupId),
+            inArray(schema.groupMembers.userId, recipientIds),
+          ),
+        );
+      const valid = new Set(memberRows.map((r) => r.userId));
+      const invalid = recipientIds.filter((id) => !valid.has(id));
+      if (invalid.length > 0) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Some recipients are not group members.",
+        });
+      }
+
+      const expiresAt = input.expiresInSeconds
+        ? new Date(Date.now() + input.expiresInSeconds * 1000)
+        : null;
+      const convId = `g:${input.groupId}`;
+      const valuesToInsert = input.recipients.map((r) => ({
+        senderUserId: me,
+        recipientUserId: r.recipientUserId,
+        groupId: input.groupId,
+        conversationId: convId,
+        header: Buffer.from(r.header, "base64"),
+        ciphertext: Buffer.from(r.ciphertext, "base64"),
+        expiresAt,
+      }));
+      const inserted = await db
+        .insert(schema.messages)
+        .values(valuesToInsert)
+        .returning({
+          id: schema.messages.id,
+          recipientUserId: schema.messages.recipientUserId,
+          createdAt: schema.messages.createdAt,
+          expiresAt: schema.messages.expiresAt,
+        });
+      const rowByRecipient = new Map(inserted.map((r) => [r.recipientUserId, r]));
+
+      // Push WS + Web Push
+      for (const r of input.recipients) {
+        const row = rowByRecipient.get(r.recipientUserId)!;
+        publish(r.recipientUserId, {
+          type: "new_message",
+          message: {
+            id: row.id,
+            senderUserId: me,
+            header: r.header,
+            ciphertext: r.ciphertext,
+            createdAt: row.createdAt.toISOString(),
+            expiresAt: row.expiresAt ? row.expiresAt.toISOString() : null,
+            groupId: input.groupId,
+          },
+        });
+        void pushToUser(r.recipientUserId, {
+          type: "new_message",
+          title: "New group message",
+          body: "You have a new encrypted group message.",
+          url: `/groups/${input.groupId}`,
+        }).catch(() => undefined);
+      }
+
+      const createdAt = inserted[0]!.createdAt.toISOString();
+      // Preserve input order in returned ids.
+      const ids = input.recipients.map(
+        (r) => rowByRecipient.get(r.recipientUserId)!.id,
+      );
+      return { createdAt, ids };
+    }),
+
+  /** Paginated group history for a group I'm a member of. */
+  fetchGroupHistory: protectedProcedure
+    .input(FetchGroupHistoryInput)
+    .output(FetchGroupHistoryResult)
+    .query(async ({ ctx, input }): Promise<{
+      messages: GroupHistoryMessage[];
+      hasMore: boolean;
+    }> => {
+      const db = getDb();
+      const me = ctx.userId;
+      const myMem = await db
+        .select({ id: schema.groupMembers.id })
+        .from(schema.groupMembers)
+        .where(
+          and(
+            eq(schema.groupMembers.groupId, input.groupId),
+            eq(schema.groupMembers.userId, me),
+          ),
+        )
+        .limit(1);
+      if (myMem.length === 0) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Group not found." });
+      }
+
+      const before = input.before ? new Date(input.before) : null;
+      const now = new Date();
+      const limit = input.limit;
+
+      // Only return rows addressed to me OR sent by me — we own one
+      // fan-out leg per group member, so this gives us a lossless
+      // single-stream view of the group thread on this device.
+      const whereClauses = [
+        eq(schema.messages.groupId, input.groupId),
+        or(
+          eq(schema.messages.recipientUserId, me),
+          eq(schema.messages.senderUserId, me),
+        )!,
+        or(
+          isNull(schema.messages.expiresAt),
+          gt(schema.messages.expiresAt, now),
+        )!,
+      ];
+      if (before) whereClauses.push(lt(schema.messages.createdAt, before));
+
+      const rows = await db
+        .select()
+        .from(schema.messages)
+        .where(and(...whereClauses))
+        .orderBy(desc(schema.messages.createdAt))
+        .limit(limit + 1);
+
+      // Dedup by (sender, createdAt) since outbound messages exist
+      // once per recipient leg; for our own outbound we get N rows.
+      const seen = new Set<string>();
+      const dedup: typeof rows = [];
+      for (const r of rows) {
+        const key = `${r.senderUserId}:${r.createdAt.toISOString()}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        dedup.push(r);
+      }
+
+      const hasMore = dedup.length > limit;
+      const page = hasMore ? dedup.slice(0, limit) : dedup;
+
+      return {
+        messages: page.map((r) => ({
+          id: r.id,
+          groupId: input.groupId,
+          senderUserId: r.senderUserId,
           header: bufToB64(r.header),
           ciphertext: bufToB64(r.ciphertext),
           createdAt: r.createdAt.toISOString(),

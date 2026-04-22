@@ -187,9 +187,26 @@ After PIN setup at signup, the client generates 1 signed prekey + 20 one-time pr
 - **New server env vars** (all four required to enable media): `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`. Optional tuning: `MEDIA_MAX_BYTES` (default 16 MB), `MEDIA_TTL_HOURS` (default 24).
 - **R2 bucket setup:** the bucket needs a CORS policy allowing `PUT` and `GET` from the client origin(s) with `content-type` in `AllowedHeaders` and `ETag` in `ExposeHeaders`. Example JSON is in `apps/server/.env.example`.
 
+## Phase 6 — Privacy & polish (complete)
+
+- DB: `blocks`, `reports`, plus `last_seen_visibility` enum on `users` (everyone / contacts / nobody).
+- Server: `privacy` router (block/unblock/list/report, lastSeenVisibility get/set). Block enforcement in `messages.send` (forbid both directions) and `connections.requestByPeerId` (refuses an inbound request from someone the receiver has blocked). Last-seen filtered by visibility setting.
+- Client: ChatThread overflow menu adds Block / Unblock / Report. Settings page adds blocked-contacts list + last-seen radio. `inspect.ts` script trimmed.
+
+## Phase 7 — Group chats (complete, pending e2e verification)
+
+- **Crypto choice:** sender-key scheme equivalent to MLS, mirroring the Phase 3 pragmatic substitute. Each (group, sender, epoch) has a 32-byte chain key. Per send: `msgKey = HMAC(chain, [0x01])`, then `chain ← HMAC(chain, [0x02])`. Out-of-order tolerated via a 64-key skipped-key cache. AES-GCM with the JSON header + 4-byte counter as AD. Implemented in `apps/client/src/lib/signal/group.ts`.
+- **Key distribution:** Sender Key Distribution Messages (SKDMs) ride the existing 1:1 Double Ratchet to every other member. New `ChatEnvelope` variant `{ t: "skdm", gid, ep, ck }`; `messageSync.ts` routes inbound SKDMs to `groupSync.handleIncomingSenderKey` and never persists them as chat rows.
+- **Membership/epoch:** every membership change bumps `groups.epoch` server-side and broadcasts a `group_changed` WS event. `SessionSync` listens and calls `rotateMySenderKeyIfNeeded`, which lazily generates+distributes a fresh chain key under the new epoch.
+- **DB (Neon):** migration `0003_phase7.sql` — `groups`, `group_members`, plus `messages.group_id` with a partial index. Applied.
+- **Server routers:** `routers/groups.ts` (create/list/get/addMembers/removeMember/leave/updateMeta/setRole, admin enforcement, WS fan-out via `notifyMembers`) and `routers/messages.ts` extended with `sendGroup` (per-recipient ciphertext fan-out + push fan-out + block check) and `fetchGroupHistory` (deduped by `(sender, createdAt)`).
+- **Client storage:** Dexie v7 — `groupSenderKeys` (composite `[groupId+senderUserId+epoch]` index) + `groupMessages` (with `dedupKey = sender:epoch:counter`).
+- **Client orchestrator:** `lib/groupSync.ts` — `ensureMySenderKey`, `rotateMySenderKeyIfNeeded`, `sendGroupChat`/`sendGroupText`, `ingestGroupInboxMessage`, `handleIncomingSenderKey`, `resetLocalGroup`, `reapExpiredGroupMessages`.
+- **UI:** `/groups` (list + create-group dialog from connections), `/groups/:groupId` (chat with sender labels + auto-scroll + history restore), `/groups/:groupId/settings` (members list, add/remove, promote/demote, edit name/desc, leave). Tab toggle on `/chats` ↔ `/groups`.
+
 ## Next phase
 
-**Phase 5 wrap-up — verify push notifications end-to-end, then Phase 6 (privacy & polish).**
+**Phase 7 wrap-up — manual e2e test (3-account group), confirm push notifications, then move to Phase 8.**
 
 ## User preferences
 

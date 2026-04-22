@@ -144,6 +144,20 @@ export function ChatsPage() {
 
       {identity && (
         <div className="bg-panel flex-1">
+          <div className="flex items-center gap-2 px-4 pt-3 pb-1">
+            <button
+              className="px-3 py-1 rounded-full text-sm bg-wa-green text-text-oncolor"
+              disabled
+            >
+              Direct
+            </button>
+            <button
+              className="px-3 py-1 rounded-full text-sm bg-surface border border-line text-text"
+              onClick={() => navigate("/groups")}
+            >
+              Groups
+            </button>
+          </div>
           {connections.isLoading ? (
             <div className="flex justify-center py-10">
               <Spinner />

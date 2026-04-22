@@ -287,6 +287,8 @@ export const InboxMessageSchema = z.object({
   createdAt: z.string(),
   /** ISO timestamp after which the server will hard-delete this row. */
   expiresAt: z.string().nullable().optional(),
+  /** Phase 7: present when this fan-out leg belongs to a group message. */
+  groupId: z.string().uuid().nullable().optional(),
 });
 export type InboxMessage = z.infer<typeof InboxMessageSchema>;
 
@@ -309,6 +311,7 @@ export const HistoryMessageSchema = z.object({
   ciphertext: Base64BytesSchema,
   createdAt: z.string(),
   expiresAt: z.string().nullable().optional(),
+  groupId: z.string().uuid().nullable().optional(),
 });
 export type HistoryMessage = z.infer<typeof HistoryMessageSchema>;
 
@@ -357,6 +360,8 @@ export const WsServerEventSchema = z.discriminatedUnion("type", [
     typing: z.boolean(),
   }),
   z.object({ type: z.literal("pong"), t: z.number() }),
+  /** Phase 7: a group I'm in changed (members, name, role, etc.). Client should refetch. */
+  z.object({ type: z.literal("group_changed"), groupId: z.string().uuid() }),
 ]);
 export type WsServerEvent = z.infer<typeof WsServerEventSchema>;
 
@@ -573,3 +578,118 @@ export const LinkPreviewSchema = z.object({
   imageUrl: z.string().url().nullable(),
 });
 export type LinkPreview = z.infer<typeof LinkPreviewSchema>;
+
+/* ─────────── Phase 7: Group Chats ─────────── */
+
+export const GroupRoleSchema = z.enum(["admin", "member"]);
+export type GroupRole = z.infer<typeof GroupRoleSchema>;
+
+export const GroupNameSchema = z.string().trim().min(1).max(80);
+export const GroupDescriptionSchema = z.string().trim().max(280);
+
+export const GroupMemberSchema = z.object({
+  userId: UserIdSchema,
+  role: GroupRoleSchema,
+  joinedAt: z.string(),
+  fingerprint: z.string().nullable(),
+});
+export type GroupMember = z.infer<typeof GroupMemberSchema>;
+
+export const GroupSummarySchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  description: z.string().nullable(),
+  epoch: z.number().int().nonnegative(),
+  myRole: GroupRoleSchema,
+  memberCount: z.number().int().nonnegative(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type GroupSummary = z.infer<typeof GroupSummarySchema>;
+
+export const GroupDetailSchema = GroupSummarySchema.extend({
+  createdByUserId: UserIdSchema,
+  members: z.array(GroupMemberSchema),
+});
+export type GroupDetail = z.infer<typeof GroupDetailSchema>;
+
+export const CreateGroupInput = z.object({
+  name: GroupNameSchema,
+  description: GroupDescriptionSchema.optional(),
+  memberPeerIds: z.array(UserIdSchema).min(1).max(99),
+});
+export type CreateGroupInput = z.infer<typeof CreateGroupInput>;
+
+export const GroupIdInput = z.object({ groupId: z.string().uuid() });
+
+export const AddGroupMembersInput = z.object({
+  groupId: z.string().uuid(),
+  peerIds: z.array(UserIdSchema).min(1).max(50),
+});
+
+export const RemoveGroupMemberInput = z.object({
+  groupId: z.string().uuid(),
+  userId: UserIdSchema,
+});
+
+export const UpdateGroupMetaInput = z.object({
+  groupId: z.string().uuid(),
+  name: GroupNameSchema.optional(),
+  description: GroupDescriptionSchema.nullable().optional(),
+});
+
+export const SetGroupRoleInput = z.object({
+  groupId: z.string().uuid(),
+  userId: UserIdSchema,
+  role: GroupRoleSchema,
+});
+
+export const GroupRecipientCipherSchema = z.object({
+  recipientUserId: UserIdSchema,
+  header: Base64BytesSchema,
+  ciphertext: Base64BytesSchema,
+});
+export type GroupRecipientCipher = z.infer<typeof GroupRecipientCipherSchema>;
+
+export const SendGroupMessageInput = z.object({
+  groupId: z.string().uuid(),
+  recipients: z.array(GroupRecipientCipherSchema).min(1).max(99),
+  expiresInSeconds: z
+    .number()
+    .int()
+    .positive()
+    .max(60 * 60 * 24 * 30)
+    .optional(),
+});
+export type SendGroupMessageInput = z.infer<typeof SendGroupMessageInput>;
+
+export const SendGroupMessageResult = z.object({
+  createdAt: z.string(),
+  /** Per-recipient delivered row id, in the same order as input.recipients. */
+  ids: z.array(z.string().uuid()),
+});
+export type SendGroupMessageResult = z.infer<typeof SendGroupMessageResult>;
+
+export const FetchGroupHistoryInput = z.object({
+  groupId: z.string().uuid(),
+  before: z.string().optional(),
+  limit: z.number().int().min(1).max(200).default(100),
+});
+export type FetchGroupHistoryInput = z.infer<typeof FetchGroupHistoryInput>;
+
+export const GroupHistoryMessageSchema = z.object({
+  id: z.string().uuid(),
+  groupId: z.string().uuid(),
+  senderUserId: UserIdSchema,
+  header: Base64BytesSchema,
+  ciphertext: Base64BytesSchema,
+  createdAt: z.string(),
+  expiresAt: z.string().nullable().optional(),
+});
+export type GroupHistoryMessage = z.infer<typeof GroupHistoryMessageSchema>;
+
+export const FetchGroupHistoryResult = z.object({
+  messages: z.array(GroupHistoryMessageSchema),
+  hasMore: z.boolean(),
+});
+export type FetchGroupHistoryResult = z.infer<typeof FetchGroupHistoryResult>;

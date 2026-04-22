@@ -297,10 +297,11 @@ export const messages = pgTable(
     recipientUserId: uuid("recipient_user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
+    /** Phase 7: when set, this row is one fan-out leg of a group message. */
+    groupId: uuid("group_id"),
     /**
-     * Canonical conversation id: lower(userId) || ':' || higher(userId).
-     * Lets us paginate history for one peer across both directions
-     * without OR-joins.
+     * Canonical conversation id. For 1:1: lower(userId) || ':' || higher(userId).
+     * For groups: 'g:' || groupId.
      */
     conversationId: text("conversation_id").notNull(),
     /** Plaintext header bytes (typed JSON: ratchet pub, counters, X3DH metadata). */
@@ -468,7 +469,58 @@ export const reports = pgTable(
   }),
 );
 
+/* ─────────── groups (Phase 7) ─────────── */
+
+export const groupRole = pgEnum("group_role", ["admin", "member"]);
+
+export const groups = pgTable(
+  "groups",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    description: text("description"),
+    /** Bumps on every membership change; clients use this to know when to re-distribute sender keys. */
+    epoch: integer("epoch").notNull().default(0),
+    createdByUserId: uuid("created_by_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => ({
+    creatorIdx: index("groups_creator_idx").on(t.createdByUserId),
+  }),
+);
+
+export const groupMembers = pgTable(
+  "group_members",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    groupId: uuid("group_id")
+      .notNull()
+      .references(() => groups.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    role: groupRole("role").notNull().default("member"),
+    joinedAt: timestamp("joined_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => ({
+    pairIdx: uniqueIndex("group_members_pair_idx").on(t.groupId, t.userId),
+    groupIdx: index("group_members_group_idx").on(t.groupId),
+    userIdx: index("group_members_user_idx").on(t.userId),
+  }),
+);
+
 export type UserRow = typeof users.$inferSelect;
+export type GroupRow = typeof groups.$inferSelect;
+export type GroupMemberRow = typeof groupMembers.$inferSelect;
 export type BlockRow = typeof blocks.$inferSelect;
 export type ReportRow = typeof reports.$inferSelect;
 export type MediaBlobRow = typeof mediaBlobs.$inferSelect;

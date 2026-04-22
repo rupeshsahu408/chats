@@ -6,6 +6,7 @@ import { applyReadReceipt, ingestInboxMessage, pollAndDecrypt, restorePeerHistor
 import { useStealthPrefs } from "./stealthPrefs";
 import { deleteExpiredChatMessages } from "./db";
 import { trpcClientProxy } from "./trpcClientProxy";
+import { reapExpiredGroupMessages, rotateMySenderKeyIfNeeded } from "./groupSync";
 
 /**
  * App-wide background sync.
@@ -46,6 +47,12 @@ export function SessionSync() {
         void ingestInboxMessage(identity, event.message);
       } else if (event.type === "read_receipt") {
         void applyReadReceipt(event.messageId, event.at).catch(() => undefined);
+      } else if (event.type === "group_changed") {
+        // Group epoch may have bumped — proactively refresh & re-distribute
+        // our sender key so other members can decrypt our next message.
+        void rotateMySenderKeyIfNeeded(identity, event.groupId).catch(() =>
+          undefined,
+        );
       }
     });
     return unsub;
@@ -61,6 +68,7 @@ export function SessionSync() {
     if (!identity) return;
     const t = setInterval(() => {
       void deleteExpiredChatMessages().catch(() => undefined);
+      void reapExpiredGroupMessages().catch(() => undefined);
     }, 60_000);
     return () => clearInterval(t);
   }, [identity]);

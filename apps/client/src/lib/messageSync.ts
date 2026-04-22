@@ -19,6 +19,7 @@ import type { InboxMessage, HistoryMessage } from "@veil/shared";
 import { decodeEnvelope, encodeEnvelope, type ChatEnvelope } from "./messageEnvelope";
 import type { ChatMessageRecord } from "./db";
 import { getCachedStealthPrefs } from "./stealthPrefs";
+import { handleIncomingSenderKey, ingestGroupInboxMessage } from "./groupSync";
 
 function envelopeToRecordFields(
   env: ChatEnvelope,
@@ -40,12 +41,15 @@ function envelopeToRecordFields(
       ...extras,
     };
   }
-  // voice
-  return {
-    plaintext: "",
-    attachment: { ...env.media, kind: "voice" },
-    ...extras,
-  };
+  if (env.t === "voice") {
+    return {
+      plaintext: "",
+      attachment: { ...env.media, kind: "voice" },
+      ...extras,
+    };
+  }
+  // skdm — should never be persisted as a chat row.
+  return { plaintext: "", ...extras };
 }
 
 function deriveExpiry(env: ChatEnvelope): string | undefined {
@@ -98,6 +102,16 @@ export async function ingestInboxMessage(
   identity: UnlockedIdentity,
   m: InboxMessage,
 ): Promise<"new" | "duplicate" | "failed"> {
+  // Group fan-out leg: route to group ingestor.
+  if (m.groupId) {
+    const result = await ingestGroupInboxMessage(m);
+    if (!wsMarkDelivered([m.id])) {
+      void trpcClientProxy()
+        .messages.markDelivered.mutate({ ids: [m.id] })
+        .catch(() => undefined);
+    }
+    return result;
+  }
   if (await hasChatMessageWithServerId(m.id)) {
     if (!wsMarkDelivered([m.id])) {
       void trpcClientProxy()
@@ -109,6 +123,15 @@ export async function ingestInboxMessage(
   try {
     const plaintext = await decryptIncoming(identity, m);
     const env = decodeEnvelope(plaintext);
+    if (env.t === "skdm") {
+      await handleIncomingSenderKey(m.senderUserId, env);
+      if (!wsMarkDelivered([m.id])) {
+        void trpcClientProxy()
+          .messages.markDelivered.mutate({ ids: [m.id] })
+          .catch(() => undefined);
+      }
+      return "new";
+    }
     await appendChatMessage({
       peerId: m.senderUserId,
       serverId: m.id,
@@ -147,6 +170,13 @@ export async function pollAndDecrypt(
   const acked: string[] = [];
 
   for (const m of messages) {
+    if (m.groupId) {
+      const result = await ingestGroupInboxMessage(m);
+      acked.push(m.id);
+      if (result === "new") added += 1;
+      else if (result === "failed") failed += 1;
+      continue;
+    }
     if (await hasChatMessageWithServerId(m.id)) {
       acked.push(m.id);
       continue;
@@ -154,6 +184,12 @@ export async function pollAndDecrypt(
     try {
       const plaintext = await decryptIncoming(identity, m);
       const env = decodeEnvelope(plaintext);
+      if (env.t === "skdm") {
+        await handleIncomingSenderKey(m.senderUserId, env);
+        acked.push(m.id);
+        added += 1;
+        continue;
+      }
       await appendChatMessage({
         peerId: m.senderUserId,
         serverId: m.id,

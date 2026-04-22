@@ -19,6 +19,9 @@ import { RandomLoginPage } from "./pages/RandomLoginPage";
 import { PhoneLoginPage } from "./pages/PhoneLoginPage";
 import { ChatsPage } from "./pages/ChatsPage";
 import { ChatThreadPage } from "./pages/ChatThreadPage";
+import { GroupsPage } from "./pages/GroupsPage";
+import { GroupChatPage } from "./pages/GroupChatPage";
+import { GroupSettingsPage } from "./pages/GroupSettingsPage";
 import { InvitePage } from "./pages/InvitePage";
 import { InviteRedeemPage } from "./pages/InviteRedeemPage";
 import { ConnectionsPage } from "./pages/ConnectionsPage";
@@ -60,6 +63,9 @@ export function App() {
           <Route path="/login/random" element={<RandomLoginPage />} />
           <Route path="/chats" element={<ChatsPage />} />
           <Route path="/chats/:peerId" element={<ChatThreadPage />} />
+          <Route path="/groups" element={<GroupsPage />} />
+          <Route path="/groups/:groupId" element={<GroupChatPage />} />
+          <Route path="/groups/:groupId/settings" element={<GroupSettingsPage />} />
           <Route path="/invite" element={<InvitePage />} />
           <Route path="/connections" element={<ConnectionsPage />} />
           <Route path="/settings" element={<SettingsPage />} />

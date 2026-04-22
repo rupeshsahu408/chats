@@ -162,6 +162,43 @@ export interface UnlockedIdentityRecord {
   savedAt: string;
 }
 
+/* ─────────── Phase 7: Group chat local state ─────────── */
+
+/** Per-(group, sender, epoch) sender-key chain state. */
+export interface GroupSenderKeyRecord {
+  /** Composite key: `${groupId}:${senderUserId}:${epoch}`. */
+  id: string;
+  groupId: string;
+  senderUserId: string;
+  epoch: number;
+  /** Base64 32-byte current chain key. */
+  chainKey: string;
+  /** Next counter for sender; or expected counter for receiver. */
+  n: number;
+  /** Skipped message keys, JSON-serialised `{ counter: base64 }`. */
+  skipped: string;
+  updatedAt: string;
+}
+
+/** Per-group plaintext message log (this device only). */
+export interface GroupMessageRecord {
+  id?: number;
+  groupId: string;
+  /** Server message id (one of the fan-out legs). For our own outbound, we assign the first leg. */
+  serverId: string | null;
+  /** Stable de-dupe key: `${senderUserId}:${epoch}:${counter}`. */
+  dedupKey: string;
+  senderUserId: string;
+  /** "in" if someone else sent it; "out" if I did. */
+  direction: "in" | "out";
+  plaintext: string;
+  createdAt: string;
+  status: "pending" | "sent" | "failed" | "received";
+  expiresAt?: string;
+  attachment?: ChatMessageRecord["attachment"];
+  linkPreview?: ChatMessageRecord["linkPreview"];
+}
+
 export class VeilDB extends Dexie {
   identity!: Table<IdentityRecord, "self">;
   prekeys!: Table<PrekeyPrivateRecord, string>;
@@ -170,6 +207,8 @@ export class VeilDB extends Dexie {
   unlocked!: Table<UnlockedIdentityRecord, "self">;
   chatPrefs!: Table<ChatPrefRecord, string>;
   userPrefs!: Table<UserPrefRecord, "self">;
+  groupSenderKeys!: Table<GroupSenderKeyRecord, string>;
+  groupMessages!: Table<GroupMessageRecord, number>;
 
   constructor() {
     super("veil");
@@ -211,6 +250,18 @@ export class VeilDB extends Dexie {
       chatPrefs: "peerId, updatedAt",
       userPrefs: "id",
     });
+    // v7 — Phase 7: group chats. Sender-key state + per-group log.
+    this.version(7).stores({
+      identity: "id",
+      prekeys: "id, kind, keyId",
+      chatSessions: "peerId, updatedAt",
+      chatMessages: "++id, peerId, createdAt, serverId, expiresAt",
+      unlocked: "id",
+      chatPrefs: "peerId, updatedAt",
+      userPrefs: "id",
+      groupSenderKeys: "id, [groupId+senderUserId+epoch], groupId, senderUserId",
+      groupMessages: "++id, groupId, createdAt, serverId, dedupKey, expiresAt",
+    });
   }
 }
 
@@ -232,6 +283,74 @@ export async function clearIdentity(): Promise<void> {
   await db.unlocked.clear();
   await db.chatPrefs.clear();
   await db.userPrefs.clear();
+  await db.groupSenderKeys.clear();
+  await db.groupMessages.clear();
+}
+
+/* ─────────── Phase 7: Group helpers ─────────── */
+
+export function senderKeyId(
+  groupId: string,
+  senderUserId: string,
+  epoch: number,
+): string {
+  return `${groupId}:${senderUserId}:${epoch}`;
+}
+
+export async function getSenderKey(
+  groupId: string,
+  senderUserId: string,
+  epoch: number,
+): Promise<GroupSenderKeyRecord | undefined> {
+  return await db.groupSenderKeys.get(senderKeyId(groupId, senderUserId, epoch));
+}
+
+export async function putSenderKey(
+  rec: GroupSenderKeyRecord,
+): Promise<void> {
+  await db.groupSenderKeys.put(rec);
+}
+
+export async function deleteSenderKeysForGroup(groupId: string): Promise<void> {
+  await db.groupSenderKeys.where("groupId").equals(groupId).delete();
+}
+
+export async function appendGroupMessage(
+  rec: Omit<GroupMessageRecord, "id">,
+): Promise<number> {
+  return (await db.groupMessages.add(rec)) as number;
+}
+
+export async function hasGroupMessageDedup(dedupKey: string): Promise<boolean> {
+  return (await db.groupMessages.where("dedupKey").equals(dedupKey).count()) > 0;
+}
+
+export async function setGroupMessageStatus(
+  localId: number,
+  status: GroupMessageRecord["status"],
+  serverId?: string,
+): Promise<void> {
+  const patch: Partial<GroupMessageRecord> = { status };
+  if (serverId) patch.serverId = serverId;
+  await db.groupMessages.update(localId, patch);
+}
+
+export async function listGroupMessages(
+  groupId: string,
+): Promise<GroupMessageRecord[]> {
+  const rows = await db.groupMessages
+    .where("groupId")
+    .equals(groupId)
+    .toArray();
+  return rows.sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1));
+}
+
+export async function deleteExpiredGroupMessages(): Promise<void> {
+  const nowIso = new Date().toISOString();
+  await db.groupMessages
+    .where("expiresAt")
+    .belowOrEqual(nowIso)
+    .delete();
 }
 
 /* ─────────── Chat prefs (per-peer) ─────────── */

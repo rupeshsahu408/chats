@@ -9,6 +9,7 @@ import { mediaRouter } from "./media.js";
 import { pushRouter } from "./push.js";
 import { linkPreviewRouter } from "./linkPreview.js";
 import { privacyRouter } from "./privacy.js";
+import { groupsRouter } from "./groups.js";
 
 export const appRouter = router({
   auth: authRouter,
@@ -21,6 +22,7 @@ export const appRouter = router({
   push: pushRouter,
   linkPreview: linkPreviewRouter,
   privacy: privacyRouter,
+  groups: groupsRouter,
 });
 
 export type AppRouter = typeof appRouter;

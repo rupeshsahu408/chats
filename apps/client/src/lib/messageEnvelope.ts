@@ -39,10 +39,28 @@ export interface EnvelopeExtras {
   lp?: EnvelopeLinkPreview;
 }
 
+/**
+ * Phase 7: Sender-Key Distribution Message — sent through the existing
+ * 1:1 ratchet to share a per-(group, epoch) chain key. Recipients store
+ * the chainKey indexed by (groupId, senderUserId, epoch); subsequent
+ * group messages from that sender are decryptable.
+ */
+export type SenderKeyDistribution = {
+  v: 2;
+  t: "skdm";
+  /** Group id. */
+  gid: string;
+  /** Group epoch this key is valid for. */
+  ep: number;
+  /** Base64 32-byte initial chain key. */
+  ck: string;
+} & EnvelopeExtras;
+
 export type ChatEnvelope =
   | ({ v: 1 | 2; t: "text"; body: string } & EnvelopeExtras)
   | ({ v: 1 | 2; t: "image"; body?: string; media: MediaAttachment } & EnvelopeExtras)
-  | ({ v: 1 | 2; t: "voice"; media: MediaAttachment } & EnvelopeExtras);
+  | ({ v: 1 | 2; t: "voice"; media: MediaAttachment } & EnvelopeExtras)
+  | SenderKeyDistribution;
 
 export function encodeEnvelope(env: ChatEnvelope): string {
   return JSON.stringify(env);
@@ -68,6 +86,14 @@ export function decodeEnvelope(plaintext: string): ChatEnvelope {
       ) {
         return parsed as ChatEnvelope;
       }
+      if (
+        parsed.t === "skdm" &&
+        typeof (parsed as { gid?: unknown }).gid === "string" &&
+        typeof (parsed as { ep?: unknown }).ep === "number" &&
+        typeof (parsed as { ck?: unknown }).ck === "string"
+      ) {
+        return parsed as ChatEnvelope;
+      }
     }
   } catch {
     /* fall through to plain text */
@@ -76,6 +102,7 @@ export function decodeEnvelope(plaintext: string): ChatEnvelope {
 }
 
 export function envelopePreview(env: ChatEnvelope): string {
+  if (env.t === "skdm") return "";
   if (env.vo) return "👁 View-once message";
   if (env.t === "text") return env.body;
   if (env.t === "image") return env.body ? `📷 ${env.body}` : "📷 Photo";
