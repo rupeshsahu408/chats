@@ -45,6 +45,10 @@ function challengeKey(): Uint8Array {
   return new TextEncoder().encode(`challenge:${env.JWT_SECRET}`);
 }
 
+const REFRESH_COOKIE_SAMESITE: "none" | "lax" = env.COOKIE_SECURE
+  ? "none"
+  : "lax";
+
 function setRefreshCookie(
   res: { setCookie: (name: string, value: string, opts: object) => void },
   token: string,
@@ -53,7 +57,7 @@ function setRefreshCookie(
     path: "/",
     httpOnly: true,
     secure: env.COOKIE_SECURE,
-    sameSite: "lax",
+    sameSite: REFRESH_COOKIE_SAMESITE,
     maxAge: TOKEN_TTL.refreshSeconds,
   });
 }
@@ -61,7 +65,12 @@ function setRefreshCookie(
 function clearRefreshCookie(res: {
   clearCookie: (name: string, opts: object) => void;
 }) {
-  res.clearCookie("veil_refresh", { path: "/" });
+  res.clearCookie("veil_refresh", {
+    path: "/",
+    httpOnly: true,
+    secure: env.COOKIE_SECURE,
+    sameSite: REFRESH_COOKIE_SAMESITE,
+  });
 }
 
 async function issueSession(
