@@ -3,7 +3,7 @@ import { randomBytes } from "node:crypto";
 import { env } from "../env.js";
 
 const ACCESS_TTL_SECONDS = 15 * 60; // 15 min
-const REFRESH_TTL_SECONDS = 30 * 24 * 60 * 60; // 30 days
+const REFRESH_TTL_SECONDS = 90 * 24 * 60 * 60; // 90 days
 
 function key(secret: string | undefined): Uint8Array {
   if (!secret) throw new Error("JWT secret missing");

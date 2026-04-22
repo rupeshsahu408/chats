@@ -20,6 +20,7 @@ import { generateX25519KeyPair } from "../lib/signal/x25519";
 import { saveIdentity } from "../lib/db";
 import { buildPrekeyBundle } from "../lib/prekeys";
 import { useUnlockStore } from "../lib/unlockStore";
+import { postAuthLandingPath } from "../lib/inviteRedirect";
 import {
   isFirebaseConfigured,
   createRecaptchaVerifier,
@@ -72,21 +73,21 @@ export function PhoneSignupPage() {
         <div className="flex flex-col items-center gap-4 text-center">
           <Logo />
           <h2 className="text-2xl font-semibold">Phone signup</h2>
-          <div className="rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-300 text-left w-full">
+          <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300 text-left w-full">
             <p className="font-medium mb-1">Firebase not configured</p>
-            <p className="text-amber-300/80">
+            <p className="text-amber-700 dark:text-amber-700 dark:text-amber-300">
               To enable phone sign-up, set these environment variables in{" "}
-              <code className="text-xs bg-white/10 px-1 rounded">
+              <code className="text-xs bg-elevated px-1 rounded">
                 apps/client/.env
               </code>
               :
             </p>
-            <ul className="mt-2 space-y-1 text-xs font-mono text-amber-200/70">
+            <ul className="mt-2 space-y-1 text-xs font-mono text-amber-700 dark:text-amber-700 dark:text-amber-300">
               <li>VITE_FIREBASE_API_KEY</li>
               <li>VITE_FIREBASE_AUTH_DOMAIN</li>
               <li>VITE_FIREBASE_PROJECT_ID</li>
             </ul>
-            <p className="mt-2 text-xs text-amber-300/70">
+            <p className="mt-2 text-xs text-amber-700 dark:text-amber-700 dark:text-amber-300">
               And on the server: FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL,
               FIREBASE_PRIVATE_KEY
             </p>
@@ -200,7 +201,7 @@ export function PhoneSignupPage() {
         console.warn("Prekey bootstrap failed", e);
       }
 
-      setUnlocked({
+      await setUnlocked({
         userId: pendingUserId,
         ed25519: pendingIdentity.ed25519,
         x25519: pendingIdentity.x25519,
@@ -219,7 +220,7 @@ export function PhoneSignupPage() {
         <div className="flex flex-col items-center gap-3 mb-2">
           <Logo />
           <h2 className="text-2xl font-semibold">Your phone number</h2>
-          <p className="text-sm text-white/60 text-center">
+          <p className="text-sm text-text-muted text-center">
             We'll send a one-time code via SMS. Include the country code (e.g.
             +1 for US).
           </p>
@@ -234,7 +235,7 @@ export function PhoneSignupPage() {
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             placeholder="+1 555 000 0000"
-            className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 outline-none focus:border-accent transition"
+            className="w-full rounded-xl bg-surface border border-line px-4 py-3 outline-none focus:border-wa-green transition"
           />
         </div>
         <ErrorMessage>{error}</ErrorMessage>
@@ -255,8 +256,8 @@ export function PhoneSignupPage() {
         <div className="flex flex-col items-center gap-3 mb-2">
           <Logo />
           <h2 className="text-2xl font-semibold">Enter the code</h2>
-          <p className="text-sm text-white/60 text-center">
-            Sent to <span className="text-white/90">{phone}</span>
+          <p className="text-sm text-text-muted text-center">
+            Sent to <span className="text-text">{phone}</span>
           </p>
         </div>
         <InfoMessage>{info}</InfoMessage>
@@ -271,7 +272,7 @@ export function PhoneSignupPage() {
             value={code}
             onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
             placeholder="••••••"
-            className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-center text-2xl tracking-[0.5em] outline-none focus:border-accent transition"
+            className="w-full rounded-xl bg-surface border border-line px-4 py-3 text-center text-2xl tracking-[0.5em] outline-none focus:border-wa-green transition"
           />
         </div>
         <ErrorMessage>{error}</ErrorMessage>
@@ -295,10 +296,10 @@ export function PhoneSignupPage() {
         <div className="flex flex-col items-center gap-3 mb-2">
           <Logo />
           <h2 className="text-2xl font-semibold">Set a Backup PIN</h2>
-          <p className="text-sm text-white/60 text-center">
+          <p className="text-sm text-text-muted text-center">
             Your PIN encrypts your identity key on this device. You'll need it
             to restore your chats on a new device.{" "}
-            <span className="text-red-300">
+            <span className="text-red-500">
               We can't recover it for you.
             </span>
           </p>
@@ -311,7 +312,7 @@ export function PhoneSignupPage() {
             autoFocus
             value={pin}
             onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
-            className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 outline-none focus:border-accent transition"
+            className="w-full rounded-xl bg-surface border border-line px-4 py-3 outline-none focus:border-wa-green transition"
           />
         </div>
         <div>
@@ -321,7 +322,7 @@ export function PhoneSignupPage() {
             inputMode="numeric"
             value={pinConfirm}
             onChange={(e) => setPinConfirm(e.target.value.replace(/\D/g, ""))}
-            className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 outline-none focus:border-accent transition"
+            className="w-full rounded-xl bg-surface border border-line px-4 py-3 outline-none focus:border-wa-green transition"
           />
         </div>
         <ErrorMessage>{error}</ErrorMessage>
@@ -337,10 +338,10 @@ export function PhoneSignupPage() {
       <div className="flex flex-col items-center gap-4 text-center">
         <Logo size={72} />
         <h2 className="text-2xl font-semibold">Welcome to Veil</h2>
-        <p className="text-sm text-white/60">
+        <p className="text-sm text-text-muted">
           Your account is ready. Start adding connections.
         </p>
-        <PrimaryButton onClick={() => navigate("/chats")}>
+        <PrimaryButton onClick={() => navigate(postAuthLandingPath())}>
           Continue
         </PrimaryButton>
       </div>

@@ -3,16 +3,19 @@ import { useNavigate } from "react-router-dom";
 import { trpc } from "../lib/trpc";
 import { useAuthStore } from "../lib/store";
 import {
-  ScreenShell,
-  Logo,
   ErrorMessage,
   InfoMessage,
   FieldLabel,
   Pill,
   PrimaryButton,
-  SecondaryButton,
-  Divider,
+  Avatar,
+  EmptyState,
+  Spinner,
+  FAB,
+  PlusIcon,
+  PeopleIcon,
 } from "../components/Layout";
+import { MainShell } from "../components/MainShell";
 import { bytesToBase64 } from "../lib/crypto";
 import type { Peer } from "@veil/shared";
 
@@ -96,175 +99,258 @@ export function ConnectionsPage() {
     outgoing.data?.filter((r) => r.status === "pending").length ?? 0;
 
   return (
-    <ScreenShell back="/chats" phase="Phase 2 · People">
-      <div className="flex flex-col items-center gap-2">
-        <Logo />
-        <h2 className="text-2xl font-semibold">Your people</h2>
-        <p className="text-xs text-white/50 text-center">
-          Connections require mutual consent. You can disconnect anytime.
-        </p>
-      </div>
-
-      <div className="grid grid-cols-4 gap-1 p-1 rounded-xl border border-white/10 bg-white/5 text-sm">
-        <TabButton
+    <MainShell active="people" title="People">
+      <div className="bg-bar text-text-oncolor px-2 grid grid-cols-4 text-xs font-medium uppercase tracking-wide">
+        <SubTab
           active={tab === "people"}
           onClick={() => setTab("people")}
           label="People"
           count={list.data?.length ?? 0}
         />
-        <TabButton
+        <SubTab
           active={tab === "incoming"}
           onClick={() => setTab("incoming")}
           label="Pending"
           count={incomingCount}
           highlight={incomingCount > 0}
         />
-        <TabButton
+        <SubTab
           active={tab === "outgoing"}
           onClick={() => setTab("outgoing")}
           label="Sent"
           count={outgoingPendingCount}
         />
-        <TabButton
+        <SubTab
           active={tab === "find"}
           onClick={() => setTab("find")}
           label="Find"
-          count={0}
         />
       </div>
 
-      <ErrorMessage>{error}</ErrorMessage>
+      <div className="flex-1 bg-panel">
+        {error && (
+          <div className="px-4 pt-3">
+            <ErrorMessage>{error}</ErrorMessage>
+          </div>
+        )}
 
-      {tab === "people" && (
-        <div className="flex flex-col gap-2">
-          {list.isLoading && (
-            <div className="text-sm text-white/40 text-center">Loading…</div>
-          )}
-          {list.data && list.data.length === 0 && (
-            <div className="text-sm text-white/40 text-center py-4">
-              No connections yet. Invite someone to start.
-              <div className="mt-3">
-                <PrimaryButton onClick={() => navigate("/invite")}>
-                  Create an invite
-                </PrimaryButton>
+        {tab === "people" && (
+          <div>
+            {list.isLoading && (
+              <div className="flex justify-center py-10">
+                <Spinner />
               </div>
-            </div>
-          )}
-          {list.data?.map((c) => (
-            <PersonRow
-              key={c.id}
-              peer={c.peer}
-              right={
-                <button
-                  onClick={() => onRemove(c.peer.id)}
-                  className="text-xs text-red-300 hover:text-red-200 underline"
-                >
-                  Disconnect
-                </button>
-              }
-              sub={`Connected ${new Date(c.createdAt).toLocaleDateString()}`}
-            />
-          ))}
-        </div>
-      )}
+            )}
+            {list.data && list.data.length === 0 && (
+              <EmptyState
+                icon={<PeopleIcon className="w-12 h-12" />}
+                title="No connections yet"
+                message="Invite someone to start chatting privately."
+                action={
+                  <PrimaryButton onClick={() => navigate("/invite")}>
+                    Create an invite
+                  </PrimaryButton>
+                }
+              />
+            )}
+            {list.data?.map((c) => (
+              <PersonRow
+                key={c.id}
+                peer={c.peer}
+                sub={`Connected ${new Date(c.createdAt).toLocaleDateString()}`}
+                right={
+                  <div className="flex gap-2">
+                    <RowButton onClick={() => navigate(`/chats/${c.peer.id}`)}>
+                      Chat
+                    </RowButton>
+                    <RowButton onClick={() => onRemove(c.peer.id)} danger>
+                      Remove
+                    </RowButton>
+                  </div>
+                }
+              />
+            ))}
+          </div>
+        )}
 
-      {tab === "incoming" && (
-        <div className="flex flex-col gap-2">
-          {incoming.isLoading && (
-            <div className="text-sm text-white/40 text-center">Loading…</div>
-          )}
-          {incoming.data && incoming.data.length === 0 && (
-            <div className="text-sm text-white/40 text-center py-4">
-              No pending requests.
-            </div>
-          )}
-          {incoming.data?.map((r) => (
-            <PersonRow
-              key={r.id}
-              peer={r.from}
-              sub={
-                r.note
-                  ? `“${r.note}”`
-                  : `Sent ${new Date(r.createdAt).toLocaleString()}`
-              }
-              right={
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => onReject(r.id)}
-                    className="text-xs px-2 py-1 rounded-lg border border-white/15 text-white/70 hover:bg-white/10"
-                  >
-                    Reject
-                  </button>
-                  <button
-                    onClick={() => onAccept(r.id)}
-                    className="text-xs px-2 py-1 rounded-lg bg-accent text-white hover:bg-accent-soft"
-                  >
-                    Accept
-                  </button>
-                </div>
-              }
-            />
-          ))}
-        </div>
-      )}
+        {tab === "incoming" && (
+          <div>
+            {incoming.isLoading && (
+              <div className="flex justify-center py-10">
+                <Spinner />
+              </div>
+            )}
+            {incoming.data && incoming.data.length === 0 && (
+              <EmptyState title="No pending requests" />
+            )}
+            {incoming.data?.map((r) => (
+              <PersonRow
+                key={r.id}
+                peer={r.from}
+                sub={
+                  r.note
+                    ? `"${r.note}"`
+                    : `Sent ${new Date(r.createdAt).toLocaleString()}`
+                }
+                right={
+                  <div className="flex gap-2">
+                    <RowButton onClick={() => onReject(r.id)}>Reject</RowButton>
+                    <RowButton onClick={() => onAccept(r.id)} primary>
+                      Accept
+                    </RowButton>
+                  </div>
+                }
+              />
+            ))}
+          </div>
+        )}
 
-      {tab === "outgoing" && (
-        <div className="flex flex-col gap-2">
-          {outgoing.isLoading && (
-            <div className="text-sm text-white/40 text-center">Loading…</div>
-          )}
-          {outgoing.data && outgoing.data.length === 0 && (
-            <div className="text-sm text-white/40 text-center py-4">
-              You haven't sent any requests.
-            </div>
-          )}
-          {outgoing.data?.map((r) => (
-            <PersonRow
-              key={r.id}
-              peer={r.to}
-              sub={
-                r.status === "pending"
-                  ? `Sent ${new Date(r.createdAt).toLocaleString()}`
-                  : `${capitalize(r.status)} ${
-                      r.decidedAt
-                        ? new Date(r.decidedAt).toLocaleDateString()
-                        : ""
-                    }`
-              }
-              right={
-                <div className="flex items-center gap-2">
-                  <Pill tone={statusTone(r.status)}>{r.status}</Pill>
-                  {r.status === "pending" && (
-                    <button
-                      onClick={() => onCancel(r.id)}
-                      className="text-xs text-white/50 hover:text-white underline"
-                    >
-                      Cancel
-                    </button>
-                  )}
-                </div>
-              }
-            />
-          ))}
-        </div>
-      )}
+        {tab === "outgoing" && (
+          <div>
+            {outgoing.isLoading && (
+              <div className="flex justify-center py-10">
+                <Spinner />
+              </div>
+            )}
+            {outgoing.data && outgoing.data.length === 0 && (
+              <EmptyState title="No outgoing requests" />
+            )}
+            {outgoing.data?.map((r) => (
+              <PersonRow
+                key={r.id}
+                peer={r.to}
+                sub={
+                  r.status === "pending"
+                    ? `Sent ${new Date(r.createdAt).toLocaleString()}`
+                    : `${capitalize(r.status)} ${
+                        r.decidedAt
+                          ? new Date(r.decidedAt).toLocaleDateString()
+                          : ""
+                      }`
+                }
+                right={
+                  <div className="flex items-center gap-2">
+                    <Pill tone={statusTone(r.status)}>{r.status}</Pill>
+                    {r.status === "pending" && (
+                      <RowButton onClick={() => onCancel(r.id)}>
+                        Cancel
+                      </RowButton>
+                    )}
+                  </div>
+                }
+              />
+            ))}
+          </div>
+        )}
 
-      {tab === "find" && <FindFriendsPanel />}
+        {tab === "find" && <FindFriendsPanel />}
+      </div>
 
-      <SecondaryButton onClick={() => navigate("/invite")}>
-        Invite someone
-      </SecondaryButton>
-    </ScreenShell>
+      <FAB to="/invite" label="Invite someone">
+        <PlusIcon />
+      </FAB>
+    </MainShell>
   );
 }
 
-/* ───────────── Phone-contact discovery (Phase 4) ───────────── */
+function SubTab({
+  active,
+  onClick,
+  label,
+  count,
+  highlight,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+  count?: number;
+  highlight?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={
+        "h-11 wa-tap relative inline-flex items-center justify-center gap-1.5 transition " +
+        (active
+          ? "text-text-oncolor"
+          : "text-text-oncolor/70 hover:text-text-oncolor")
+      }
+    >
+      {label}
+      {typeof count === "number" && count > 0 && (
+        <span
+          className={
+            "text-[10px] rounded-full px-1.5 py-0.5 min-w-[18px] text-center " +
+            (highlight
+              ? "bg-wa-green-light text-wa-green-dark"
+              : "bg-text-oncolor/15 text-text-oncolor")
+          }
+        >
+          {count}
+        </span>
+      )}
+      {active && (
+        <span className="absolute bottom-0 left-0 right-0 h-[3px] bg-text-oncolor rounded-t" />
+      )}
+    </button>
+  );
+}
 
-type Match = {
-  hash: string;
-  peerId: string;
-  rawNumber: string;
-};
+function RowButton({
+  children,
+  onClick,
+  primary,
+  danger,
+}: {
+  children: React.ReactNode;
+  onClick: () => void;
+  primary?: boolean;
+  danger?: boolean;
+}) {
+  const cls = primary
+    ? "bg-wa-green text-text-oncolor hover:bg-wa-green-dark"
+    : danger
+      ? "border border-line text-red-500 hover:bg-elevated"
+      : "border border-line text-text-muted hover:bg-elevated";
+  return (
+    <button
+      onClick={onClick}
+      className={`text-xs px-3 py-1.5 rounded-full transition wa-tap ${cls}`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function PersonRow({
+  peer,
+  sub,
+  right,
+}: {
+  peer: Peer;
+  sub: string;
+  right?: React.ReactNode;
+}) {
+  return (
+    <div className="px-4 py-3 flex items-center gap-3 border-b border-line/60">
+      <Avatar seed={peer.id} label={peer.fingerprint.slice(0, 2)} size={48} />
+      <div className="flex-1 min-w-0">
+        <div className="text-sm flex items-center gap-2">
+          <span className="font-mono text-text truncate">
+            {peer.fingerprint || peer.id.slice(0, 8) + "…"}
+          </span>
+          <Pill tone="neutral">{peer.accountType}</Pill>
+        </div>
+        <div className="text-xs text-text-muted truncate">{sub}</div>
+      </div>
+      {right}
+    </div>
+  );
+}
+
+/* ───────────── Phone-contact discovery ───────────── */
+
+type Match = { hash: string; peerId: string; rawNumber: string };
 
 function FindFriendsPanel() {
   const utils = trpc.useUtils();
@@ -298,7 +384,9 @@ function FindFriendsPanel() {
     setMatches(null);
     const numbers = parseNumbers(raw);
     if (numbers.length === 0) {
-      setError("Enter at least one phone number with country code (e.g. +14155550100).");
+      setError(
+        "Enter at least one phone number with country code (e.g. +14155550100).",
+      );
       return;
     }
     if (numbers.length > 500) {
@@ -308,7 +396,8 @@ function FindFriendsPanel() {
     setScanning(true);
     try {
       const salt = await getSalt.refetch();
-      if (!salt.data) throw new Error(salt.error?.message ?? "Couldn't fetch salt.");
+      if (!salt.data)
+        throw new Error(salt.error?.message ?? "Couldn't fetch salt.");
       const hashes: string[] = [];
       const hashToNumber = new Map<string, string>();
       for (const n of numbers) {
@@ -330,15 +419,11 @@ function FindFriendsPanel() {
       setMatches(found);
       if (found.length === 0) {
         setInfo(
-          `No matches found among ${numbers.length} number${
-            numbers.length === 1 ? "" : "s"
-          }. Your contacts aren't on Veil yet.`,
+          `No matches found among ${numbers.length} number${numbers.length === 1 ? "" : "s"}. Your contacts aren't on Veil yet.`,
         );
       } else {
         setInfo(
-          `Found ${found.length} contact${
-            found.length === 1 ? "" : "s"
-          } on Veil out of ${numbers.length}.`,
+          `Found ${found.length} contact${found.length === 1 ? "" : "s"} on Veil out of ${numbers.length}.`,
         );
       }
     } catch (e: unknown) {
@@ -366,30 +451,23 @@ function FindFriendsPanel() {
   }
 
   return (
-    <div className="flex flex-col gap-3">
-      <Divider>Find friends from your contacts</Divider>
-      <p className="text-xs text-white/55">
+    <div className="p-4 flex flex-col gap-3">
+      <p className="text-xs text-text-muted">
         We hash each number on this device with a server salt that rotates every
         5 minutes. The server only learns which hashed contacts already use
         Veil — never your full address book.
       </p>
       <div>
-        <FieldLabel>
-          Phone numbers (one per line, include country code)
-        </FieldLabel>
+        <FieldLabel>Phone numbers (one per line, with country code)</FieldLabel>
         <textarea
           value={raw}
           onChange={(e) => setRaw(e.target.value)}
           rows={5}
           placeholder={"+14155550100\n+442071838750"}
-          className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 outline-none focus:border-accent transition font-mono text-sm"
+          className="w-full rounded-xl bg-surface border border-line text-text px-4 py-3 outline-none focus:border-wa-green transition font-mono text-sm"
         />
       </div>
-      <PrimaryButton
-        onClick={onScan}
-        loading={scanning}
-        disabled={!raw.trim()}
-      >
+      <PrimaryButton onClick={onScan} loading={scanning} disabled={!raw.trim()}>
         Scan for matches
       </PrimaryButton>
       <InfoMessage>{info}</InfoMessage>
@@ -399,29 +477,23 @@ function FindFriendsPanel() {
           {matches.map((m) => (
             <div
               key={m.peerId}
-              className="rounded-xl border border-white/10 bg-white/5 p-3 flex items-center gap-3"
+              className="rounded-xl border border-line bg-surface p-3 flex items-center gap-3"
             >
-              <div className="size-10 rounded-full bg-gradient-to-br from-accent/60 to-midnight flex items-center justify-center font-mono text-[10px] text-white">
-                {m.peerId.slice(0, 2)}
-              </div>
+              <Avatar seed={m.peerId} size={40} />
               <div className="flex-1 min-w-0">
-                <div className="font-mono text-sm text-white/90 truncate">
+                <div className="font-mono text-sm text-text truncate">
                   {m.rawNumber}
                 </div>
-                <div className="text-[10px] text-white/45 truncate">
+                <div className="text-[10px] text-text-faint truncate">
                   Veil id {m.peerId}
                 </div>
               </div>
               {sent.has(m.peerId) ? (
                 <Pill tone="ok">Requested</Pill>
               ) : (
-                <button
-                  onClick={() => onConnect(m)}
-                  disabled={sending === m.peerId}
-                  className="text-xs px-3 py-1.5 rounded-lg bg-accent text-white hover:bg-accent-soft disabled:opacity-50"
-                >
-                  {sending === m.peerId ? "Sending…" : "Connect"}
-                </button>
+                <RowButton primary onClick={() => onConnect(m)}>
+                  {sending === m.peerId ? "…" : "Connect"}
+                </RowButton>
               )}
             </div>
           ))}
@@ -434,10 +506,7 @@ function FindFriendsPanel() {
 function normalizePhone(input: string): string | null {
   const trimmed = input.trim();
   if (!trimmed) return null;
-  // Strip everything but leading + and digits.
-  const cleaned = trimmed
-    .replace(/[^\d+]/g, "")
-    .replace(/(?!^)\+/g, "");
+  const cleaned = trimmed.replace(/[^\d+]/g, "").replace(/(?!^)\+/g, "");
   if (!cleaned.startsWith("+")) return null;
   if (cleaned.length < 8 || cleaned.length > 16) return null;
   return cleaned;
@@ -447,9 +516,6 @@ async function deriveContactHash(
   phoneE164: string,
   saltB64: string,
 ): Promise<string> {
-  // Mirror the server: phoneSha = SHA256("phone:" + lowercase(E.164)) (hex).
-  // Then send HMAC(salt, phoneShaHex) — server re-derives the same value
-  // for each phone user it stores and compares.
   const canonical = `phone:${phoneE164.trim().toLowerCase()}`;
   const shaBuf = await crypto.subtle.digest(
     "SHA-256",
@@ -478,9 +544,7 @@ function toArrayBuffer(view: Uint8Array): ArrayBuffer {
 
 function bytesToHex(b: Uint8Array): string {
   let s = "";
-  for (let i = 0; i < b.length; i++) {
-    s += b[i]!.toString(16).padStart(2, "0");
-  }
+  for (let i = 0; i < b.length; i++) s += b[i]!.toString(16).padStart(2, "0");
   return s;
 }
 
@@ -489,68 +553,6 @@ function base64ToBytesLocal(b64: string): Uint8Array {
   const out = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
   return out;
-}
-
-function TabButton({
-  active,
-  onClick,
-  label,
-  count,
-  highlight,
-}: {
-  active: boolean;
-  onClick: () => void;
-  label: string;
-  count: number;
-  highlight?: boolean;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={
-        "rounded-lg px-2 py-2 text-center transition " +
-        (active
-          ? "bg-accent/30 text-white"
-          : "text-white/60 hover:text-white hover:bg-white/5")
-      }
-    >
-      {label}
-      <span
-        className={
-          "ml-1.5 text-[10px] " +
-          (highlight && !active ? "text-accent-soft font-semibold" : "")
-        }
-      >
-        {count}
-      </span>
-    </button>
-  );
-}
-
-function PersonRow({
-  peer,
-  sub,
-  right,
-}: {
-  peer: Peer;
-  sub: string;
-  right?: React.ReactNode;
-}) {
-  return (
-    <div className="rounded-xl border border-white/10 bg-white/5 p-3 flex items-center gap-3">
-      <div className="size-10 rounded-full bg-gradient-to-br from-accent/60 to-midnight flex items-center justify-center font-mono text-xs text-white">
-        {peer.fingerprint.split("-")[0]}
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="text-sm flex items-center gap-2">
-          <span className="font-mono text-white/90">{peer.fingerprint}</span>
-          <Pill tone="neutral">{peer.accountType}</Pill>
-        </div>
-        <div className="text-xs text-white/50 truncate">{sub}</div>
-      </div>
-      {right}
-    </div>
-  );
 }
 
 function statusTone(s: string): "accent" | "ok" | "danger" | "warn" | "neutral" {

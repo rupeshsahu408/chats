@@ -21,6 +21,7 @@ import { x25519PublicKeyFromPrivate } from "../lib/signal/x25519";
 import { saveIdentity } from "../lib/db";
 import { buildPrekeyBundle } from "../lib/prekeys";
 import { useUnlockStore } from "../lib/unlockStore";
+import { postAuthLandingPath } from "../lib/inviteRedirect";
 
 type Step = "credentials" | "done";
 
@@ -107,13 +108,13 @@ export function RandomLoginPage() {
         console.warn("Prekey upload failed", e);
       }
 
-      setUnlocked({
+      await setUnlocked({
         userId: r.user.id,
         ed25519: ed,
         x25519: { privateKey: x25519Priv, publicKey: x25519Pub },
       });
 
-      navigate("/chats");
+      navigate(postAuthLandingPath());
     } catch (e: unknown) {
       setError(messageOf(e));
     } finally {
@@ -126,7 +127,7 @@ export function RandomLoginPage() {
       <div className="flex flex-col items-center gap-3 mb-2">
         <Logo />
         <h2 className="text-2xl font-semibold">Log in with Random ID</h2>
-        <p className="text-sm text-white/60 text-center">
+        <p className="text-sm text-text-muted text-center">
           Enter your Veil ID and 12-word recovery phrase.
         </p>
       </div>
@@ -139,7 +140,7 @@ export function RandomLoginPage() {
           value={randomId}
           onChange={(e) => setRandomId(e.target.value)}
           placeholder="veil_xxxxxxxx"
-          className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 font-mono outline-none focus:border-accent transition"
+          className="w-full rounded-xl bg-surface border border-line px-4 py-3 font-mono outline-none focus:border-wa-green transition"
         />
       </div>
 
@@ -150,10 +151,10 @@ export function RandomLoginPage() {
           value={phrase}
           onChange={(e) => setPhrase(e.target.value)}
           placeholder="word1 word2 word3 …"
-          className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 outline-none focus:border-accent transition resize-none text-sm"
+          className="w-full rounded-xl bg-surface border border-line px-4 py-3 outline-none focus:border-wa-green transition resize-none text-sm"
         />
         {phrase.trim().length > 0 && !isPhraseValid && (
-          <p className="mt-1 text-xs text-amber-400/80">
+          <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
             Invalid phrase — check all 12 words are correct BIP-39 words.
           </p>
         )}

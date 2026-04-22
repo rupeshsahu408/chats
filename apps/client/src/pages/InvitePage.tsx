@@ -67,7 +67,7 @@ export function InvitePage() {
       <div className="flex flex-col items-center gap-3">
         <Logo />
         <h2 className="text-2xl font-semibold">Invite someone</h2>
-        <p className="text-sm text-white/60 text-center max-w-sm">
+        <p className="text-sm text-text-muted text-center max-w-sm">
           Share the link or QR with one person. They'll see your fingerprint
           and ask to connect — you approve before anything links.
         </p>
@@ -80,7 +80,7 @@ export function InvitePage() {
         />
       ) : (
         <>
-          <div className="rounded-xl border border-white/10 bg-white/5 p-4 flex flex-col gap-3">
+          <div className="rounded-xl border border-line bg-surface p-4 flex flex-col gap-3">
             <div>
               <FieldLabel>Label (optional)</FieldLabel>
               <input
@@ -89,7 +89,7 @@ export function InvitePage() {
                 onChange={(e) => setLabel(e.target.value)}
                 placeholder='e.g. "for Alex"'
                 maxLength={60}
-                className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-2 outline-none focus:border-accent transition"
+                className="w-full rounded-xl bg-surface border border-line px-4 py-2 outline-none focus:border-wa-green transition"
               />
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -100,7 +100,7 @@ export function InvitePage() {
                   onChange={(e) =>
                     setMaxUses(Number(e.target.value) as 1 | 5 | 10)
                   }
-                  className="w-full rounded-xl bg-white/5 border border-white/10 px-3 py-2 outline-none focus:border-accent"
+                  className="w-full rounded-xl bg-surface border border-line px-3 py-2 outline-none focus:border-wa-green"
                 >
                   <option value={1}>1 (single-use)</option>
                   <option value={5}>5</option>
@@ -112,7 +112,7 @@ export function InvitePage() {
                 <select
                   value={expiresInHours}
                   onChange={(e) => setExpiresInHours(Number(e.target.value))}
-                  className="w-full rounded-xl bg-white/5 border border-white/10 px-3 py-2 outline-none focus:border-accent"
+                  className="w-full rounded-xl bg-surface border border-line px-3 py-2 outline-none focus:border-wa-green"
                 >
                   <option value={1}>1 hour</option>
                   <option value={24}>1 day</option>
@@ -131,10 +131,10 @@ export function InvitePage() {
 
       <Divider>Your invites</Divider>
       {list.isLoading && (
-        <div className="text-sm text-white/40 text-center">Loading…</div>
+        <div className="text-sm text-text-faint text-center">Loading…</div>
       )}
       {list.data && list.data.length === 0 && (
-        <div className="text-sm text-white/40 text-center">
+        <div className="text-sm text-text-faint text-center">
           No invites yet.
         </div>
       )}
@@ -186,21 +186,21 @@ function InviteCreatedCard({
   }
 
   return (
-    <div className="rounded-xl border border-accent/40 bg-accent/10 p-4 flex flex-col gap-3 items-center text-center">
-      <div className="text-xs uppercase tracking-wider text-accent-soft">
+    <div className="rounded-xl border border-wa-green/30 bg-wa-green/10 p-4 flex flex-col gap-3 items-center text-center">
+      <div className="text-xs uppercase tracking-wider text-wa-green-dark dark:text-wa-green">
         Invite ready
       </div>
       {qr && (
         <img
           src={qr}
           alt="Invite QR"
-          className="rounded-lg border border-white/10"
+          className="rounded-lg border border-line"
           width={240}
           height={240}
         />
       )}
       <div className="w-full">
-        <div className="font-mono text-[11px] text-white/70 break-all bg-white/5 rounded-lg px-3 py-2 border border-white/10">
+        <div className="font-mono text-[11px] text-text-muted break-all bg-surface rounded-lg px-3 py-2 border border-line">
           {fullUrl}
         </div>
       </div>
@@ -210,7 +210,7 @@ function InviteCreatedCard({
         </SecondaryButton>
         <SecondaryButton onClick={onDone}>Done</SecondaryButton>
       </div>
-      <div className="text-[11px] text-white/50 leading-relaxed">
+      <div className="text-[11px] text-text-muted leading-relaxed">
         We won't show this link again — copy or screenshot it now. The token
         itself never leaves your device after this screen; the server only
         keeps a hash.
@@ -244,12 +244,12 @@ function InviteRow({
     status === "active" ? "ok" : status === "revoked" ? "danger" : "warn";
 
   return (
-    <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-sm flex items-center justify-between gap-3">
+    <div className="rounded-xl border border-line bg-surface p-3 text-sm flex items-center justify-between gap-3">
       <div className="min-w-0">
         <div className="font-medium truncate">
           {invite.label ?? "Untitled invite"}
         </div>
-        <div className="text-xs text-white/50">
+        <div className="text-xs text-text-muted">
           Used {invite.usedCount}
           {invite.maxUses ? `/${invite.maxUses}` : ""} ·{" "}
           {invite.expiresAt
@@ -262,7 +262,7 @@ function InviteRow({
         {status === "active" && (
           <button
             onClick={onRevoke}
-            className="text-xs text-red-300 hover:text-red-200 underline"
+            className="text-xs text-red-500 hover:text-red-200 underline"
           >
             Revoke
           </button>

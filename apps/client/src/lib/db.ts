@@ -69,11 +69,32 @@ export interface ChatMessageRecord {
   status: "pending" | "sent" | "failed" | "received";
 }
 
+/**
+ * Cached *decrypted* identity private keys, so the user only enters their
+ * PIN / recovery phrase once per browser. Tradeoff: anyone with access to
+ * this browser can read these keys without the PIN. Wiped on explicit
+ * logout or wipe-device.
+ */
+export interface UnlockedIdentityRecord {
+  id: "self";
+  userId: string;
+  /** Base64 raw 32-byte Ed25519 private key. */
+  ed25519PrivateKey: string;
+  /** Base64 raw 32-byte Ed25519 public key. */
+  ed25519PublicKey: string;
+  /** Base64 raw 32-byte X25519 private key. */
+  x25519PrivateKey: string;
+  /** Base64 raw 32-byte X25519 public key. */
+  x25519PublicKey: string;
+  savedAt: string;
+}
+
 export class VeilDB extends Dexie {
   identity!: Table<IdentityRecord, "self">;
   prekeys!: Table<PrekeyPrivateRecord, string>;
   chatSessions!: Table<ChatSessionRecord, string>;
   chatMessages!: Table<ChatMessageRecord, number>;
+  unlocked!: Table<UnlockedIdentityRecord, "self">;
 
   constructor() {
     super("veil");
@@ -87,6 +108,13 @@ export class VeilDB extends Dexie {
       prekeys: "id, kind, keyId",
       chatSessions: "peerId, updatedAt",
       chatMessages: "++id, peerId, createdAt, serverId",
+    });
+    this.version(4).stores({
+      identity: "id",
+      prekeys: "id, kind, keyId",
+      chatSessions: "peerId, updatedAt",
+      chatMessages: "++id, peerId, createdAt, serverId",
+      unlocked: "id",
     });
   }
 }
@@ -106,6 +134,23 @@ export async function clearIdentity(): Promise<void> {
   await db.prekeys.clear();
   await db.chatSessions.clear();
   await db.chatMessages.clear();
+  await db.unlocked.clear();
+}
+
+export async function saveUnlockedIdentity(
+  rec: UnlockedIdentityRecord,
+): Promise<void> {
+  await db.unlocked.put(rec);
+}
+
+export async function loadUnlockedIdentity(): Promise<
+  UnlockedIdentityRecord | undefined
+> {
+  return await db.unlocked.get("self");
+}
+
+export async function clearUnlockedIdentity(): Promise<void> {
+  await db.unlocked.clear();
 }
 
 export async function saveSignedPrekey(rec: {

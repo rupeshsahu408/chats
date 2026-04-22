@@ -2,6 +2,54 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ───────── WhatsApp design tokens ───────── */
+/* Values are RGB triples so Tailwind can apply alpha (`bg-bar/80`). */
+
+:root,
+[data-theme="light"] {
+  --wa-bg: 240 242 245;            /* #F0F2F5 — app background */
+  --wa-panel: 255 255 255;         /* #FFFFFF — chat list / panels */
+  --wa-surface: 255 255 255;       /* cards, inputs */
+  --wa-elevated: 255 255 255;
+  --wa-bar: 0 168 132;             /* #00A884 — top app bar (WA brand) */
+  --wa-line: 232 234 236;          /* #E8EAEC — dividers/borders */
+  --wa-text: 17 27 33;             /* #111B21 */
+  --wa-text-muted: 102 119 128;    /* #667780 */
+  --wa-text-faint: 138 152 160;
+  --wa-text-oncolor: 255 255 255;
+  --wa-green: 0 168 132;           /* #00A884 — primary accent */
+  --wa-green-dark: 0 134 106;      /* #00866A */
+  --wa-green-soft: 217 253 211;    /* #D9FDD3 — outgoing bubble */
+  --wa-teal: 7 94 84;              /* #075E54 — classic dark teal */
+  --wa-bubble-out: 217 253 211;    /* #D9FDD3 */
+  --wa-bubble-in: 255 255 255;     /* #FFFFFF */
+  --wa-tick: 83 166 250;           /* #53A6FA — read tick blue */
+  --wa-wallpaper-dot: 17 27 33;
+  color-scheme: light;
+}
+
+[data-theme="dark"] {
+  --wa-bg: 11 20 26;               /* #0B141A */
+  --wa-panel: 17 27 33;            /* #111B21 — chat list panel */
+  --wa-surface: 32 44 51;          /* #202C33 — cards, incoming bubble */
+  --wa-elevated: 42 57 66;         /* #2A3942 */
+  --wa-bar: 32 44 51;              /* #202C33 — top app bar (dark) */
+  --wa-line: 47 65 75;             /* #2F414B */
+  --wa-text: 233 237 239;          /* #E9EDEF */
+  --wa-text-muted: 134 150 160;    /* #8696A0 */
+  --wa-text-faint: 102 119 128;
+  --wa-text-oncolor: 255 255 255;
+  --wa-green: 0 168 132;
+  --wa-green-dark: 0 134 106;
+  --wa-green-soft: 0 92 75;        /* #005C4B — outgoing bubble dark */
+  --wa-teal: 7 94 84;
+  --wa-bubble-out: 0 92 75;        /* #005C4B */
+  --wa-bubble-in: 32 44 51;        /* #202C33 */
+  --wa-tick: 83 166 250;
+  --wa-wallpaper-dot: 233 237 239;
+  color-scheme: dark;
+}
+
 @layer base {
   html,
   body,
@@ -9,14 +57,36 @@
     height: 100%;
   }
   body {
-    @apply bg-midnight-deep text-white antialiased;
+    @apply bg-bg text-text antialiased;
     font-family:
-      Inter,
-      ui-sans-serif,
+      "Segoe UI",
+      "Helvetica Neue",
+      Helvetica,
       system-ui,
       -apple-system,
-      "Segoe UI",
       Roboto,
       sans-serif;
+    font-feature-settings: "ss01", "cv11";
+  }
+  input,
+  textarea,
+  select,
+  button {
+    font-family: inherit;
+  }
+  /* WhatsApp-style scrollbar (thin) */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgb(var(--wa-line));
+    border-radius: 4px;
+  }
+}
+
+@layer utilities {
+  .wa-tap {
+    -webkit-tap-highlight-color: transparent;
   }
 }

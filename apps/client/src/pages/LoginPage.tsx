@@ -12,6 +12,7 @@ import {
   InfoMessage,
 } from "../components/Layout";
 import { isFirebaseConfigured } from "../lib/firebase";
+import { postAuthLandingPath } from "../lib/inviteRedirect";
 
 type Step = "method" | "email-input" | "email-code";
 
@@ -29,18 +30,7 @@ export function LoginPage() {
   const verifyOtp = trpc.auth.verifyEmailOtp.useMutation();
 
   function navigateAfterLogin() {
-    let pending: string | null = null;
-    try {
-      pending = sessionStorage.getItem("veil:pending_invite");
-    } catch {}
-    if (pending) {
-      try {
-        sessionStorage.removeItem("veil:pending_invite");
-      } catch {}
-      navigate(`/i/${encodeURIComponent(pending)}`);
-    } else {
-      navigate("/chats");
-    }
+    navigate(postAuthLandingPath());
   }
 
   async function onSendEmailCode() {
@@ -76,7 +66,7 @@ export function LoginPage() {
         <div className="flex flex-col items-center gap-3 mb-2">
           <Logo />
           <h2 className="text-2xl font-semibold">Log in to Veil</h2>
-          <p className="text-sm text-white/60 text-center">
+          <p className="text-sm text-text-muted text-center">
             Choose how you signed up.
           </p>
         </div>
@@ -123,7 +113,7 @@ export function LoginPage() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="you@example.com"
-            className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 outline-none focus:border-accent transition"
+            className="w-full rounded-xl bg-surface border border-line px-4 py-3 outline-none focus:border-wa-green transition"
           />
         </div>
         <ErrorMessage>{error}</ErrorMessage>
@@ -145,8 +135,8 @@ export function LoginPage() {
         <div className="flex flex-col items-center gap-3 mb-2">
           <Logo />
           <h2 className="text-2xl font-semibold">Enter the code</h2>
-          <p className="text-sm text-white/60 text-center">
-            Sent to <span className="text-white/90">{email}</span>
+          <p className="text-sm text-text-muted text-center">
+            Sent to <span className="text-text">{email}</span>
           </p>
         </div>
         <InfoMessage>{info}</InfoMessage>
@@ -161,7 +151,7 @@ export function LoginPage() {
             value={code}
             onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
             placeholder="••••••"
-            className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-center text-2xl tracking-[0.5em] outline-none focus:border-accent transition"
+            className="w-full rounded-xl bg-surface border border-line px-4 py-3 text-center text-2xl tracking-[0.5em] outline-none focus:border-wa-green transition"
           />
         </div>
         <ErrorMessage>{error}</ErrorMessage>
@@ -197,13 +187,13 @@ function LoginOption({
     <button
       onClick={disabled ? undefined : onClick}
       disabled={disabled}
-      className="w-full text-left rounded-xl border border-white/10 bg-white/5 px-4 py-3 hover:bg-white/10 transition flex items-center justify-between disabled:opacity-40 disabled:pointer-events-none"
+      className="w-full text-left rounded-xl border border-line bg-surface px-4 py-3 hover:bg-elevated transition flex items-center justify-between disabled:opacity-40 disabled:pointer-events-none"
     >
       <div>
         <div className="font-medium">{title}</div>
-        <div className="text-xs text-white/50">{sub}</div>
+        <div className="text-xs text-text-muted">{sub}</div>
       </div>
-      <span className="text-white/40">→</span>
+      <span className="text-text-faint">→</span>
     </button>
   );
 }

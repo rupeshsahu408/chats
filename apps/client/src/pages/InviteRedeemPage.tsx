@@ -69,7 +69,7 @@ export function InviteRedeemPage() {
   if (preview.isLoading) {
     return (
       <ScreenShell back="/" phase="Phase 2 · Invite">
-        <div className="text-sm text-white/40 text-center">
+        <div className="text-sm text-text-faint text-center">
           Loading invite…
         </div>
       </ScreenShell>
@@ -99,7 +99,7 @@ export function InviteRedeemPage() {
         <div className="flex flex-col items-center gap-3 text-center">
           <Logo />
           <h2 className="text-2xl font-semibold">Can't use this invite</h2>
-          <p className="text-sm text-white/60">{msg}</p>
+          <p className="text-sm text-text-muted">{msg}</p>
           <SecondaryButton onClick={() => navigate("/")}>Home</SecondaryButton>
         </div>
       </ScreenShell>
@@ -112,7 +112,7 @@ export function InviteRedeemPage() {
         <div className="flex flex-col items-center gap-3 text-center">
           <Logo />
           <h2 className="text-2xl font-semibold">Request sent</h2>
-          <p className="text-sm text-white/60 max-w-sm">
+          <p className="text-sm text-text-muted max-w-sm">
             They'll see your fingerprint and decide whether to connect. You'll
             see them in your People list once they accept.
           </p>
@@ -134,26 +134,26 @@ export function InviteRedeemPage() {
         <h2 className="text-2xl font-semibold">You've been invited</h2>
       </div>
 
-      <div className="rounded-xl border border-white/10 bg-white/5 p-4 flex flex-col gap-2">
+      <div className="rounded-xl border border-line bg-surface p-4 flex flex-col gap-2">
         <div className="flex justify-between text-sm">
-          <span className="text-white/60">Account type</span>
+          <span className="text-text-muted">Account type</span>
           <Pill tone="accent">{data.inviter.accountType}</Pill>
         </div>
         <div className="flex justify-between text-sm">
-          <span className="text-white/60">Identity fingerprint</span>
-          <span className="font-mono text-white/90">
+          <span className="text-text-muted">Identity fingerprint</span>
+          <span className="font-mono text-text">
             {data.inviter.fingerprint}
           </span>
         </div>
         <div className="flex justify-between text-sm">
-          <span className="text-white/60">User since</span>
-          <span className="text-white/80">
+          <span className="text-text-muted">User since</span>
+          <span className="text-text">
             {new Date(data.inviter.createdAt).toLocaleDateString()}
           </span>
         </div>
         <div className="flex justify-between text-sm">
-          <span className="text-white/60">User ID</span>
-          <span className="font-mono text-[10px] text-white/50 truncate max-w-[55%]">
+          <span className="text-text-muted">User ID</span>
+          <span className="font-mono text-[10px] text-text-muted truncate max-w-[55%]">
             {data.inviter.id}
           </span>
         </div>
@@ -178,9 +178,9 @@ export function InviteRedeemPage() {
           maxLength={140}
           placeholder="Hey, this is Alex from work"
           rows={2}
-          className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-2 outline-none focus:border-accent transition resize-none"
+          className="w-full rounded-xl bg-surface border border-line px-4 py-2 outline-none focus:border-wa-green transition resize-none"
         />
-        <div className="text-[10px] text-white/40 text-right mt-1">
+        <div className="text-[10px] text-text-faint text-right mt-1">
           {note.length}/140
         </div>
       </div>

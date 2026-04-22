@@ -20,6 +20,7 @@ import { generateX25519KeyPair } from "../lib/signal/x25519";
 import { saveIdentity } from "../lib/db";
 import { buildPrekeyBundle } from "../lib/prekeys";
 import { useUnlockStore } from "../lib/unlockStore";
+import { postAuthLandingPath } from "../lib/inviteRedirect";
 
 type Step = "email" | "code" | "pin" | "done";
 
@@ -140,8 +141,9 @@ export function EmailSignupPage() {
       }
 
       // We just had the PIN, so we can keep the identity unlocked in
-      // memory — saves the user from re-entering it immediately.
-      setUnlocked({
+      // memory AND cache it to IndexedDB — saves the user from re-entering
+      // it on every refresh in this browser.
+      await setUnlocked({
         userId: pendingUserId,
         ed25519: pendingIdentity.ed25519,
         x25519: pendingIdentity.x25519,
@@ -156,22 +158,7 @@ export function EmailSignupPage() {
   // If the user arrived via /i/:token while logged out, bring them back
   // there after they finish signup.
   function continueAfterSignup() {
-    let pending: string | null = null;
-    try {
-      pending = sessionStorage.getItem("veil:pending_invite");
-    } catch {
-      /* ignore */
-    }
-    if (pending) {
-      try {
-        sessionStorage.removeItem("veil:pending_invite");
-      } catch {
-        /* ignore */
-      }
-      navigate(`/i/${encodeURIComponent(pending)}`);
-    } else {
-      navigate("/chats");
-    }
+    navigate(postAuthLandingPath());
   }
 
   if (step === "email") {
@@ -180,7 +167,7 @@ export function EmailSignupPage() {
         <div className="flex flex-col items-center gap-3 mb-2">
           <Logo />
           <h2 className="text-2xl font-semibold">What's your email?</h2>
-          <p className="text-sm text-white/60 text-center">
+          <p className="text-sm text-text-muted text-center">
             We'll send you a 6-digit code. Your email is hashed before storage.
           </p>
         </div>
@@ -194,7 +181,7 @@ export function EmailSignupPage() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="you@example.com"
-            className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 outline-none focus:border-accent transition"
+            className="w-full rounded-xl bg-surface border border-line px-4 py-3 outline-none focus:border-wa-green transition"
           />
         </div>
         <ErrorMessage>{error}</ErrorMessage>
@@ -215,8 +202,8 @@ export function EmailSignupPage() {
         <div className="flex flex-col items-center gap-3 mb-2">
           <Logo />
           <h2 className="text-2xl font-semibold">Enter the code</h2>
-          <p className="text-sm text-white/60 text-center">
-            Sent to <span className="text-white/90">{email}</span>
+          <p className="text-sm text-text-muted text-center">
+            Sent to <span className="text-text">{email}</span>
           </p>
         </div>
         <InfoMessage>{info}</InfoMessage>
@@ -231,7 +218,7 @@ export function EmailSignupPage() {
             value={code}
             onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
             placeholder="••••••"
-            className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-center text-2xl tracking-[0.5em] outline-none focus:border-accent transition"
+            className="w-full rounded-xl bg-surface border border-line px-4 py-3 text-center text-2xl tracking-[0.5em] outline-none focus:border-wa-green transition"
           />
         </div>
         <ErrorMessage>{error}</ErrorMessage>
@@ -255,10 +242,10 @@ export function EmailSignupPage() {
         <div className="flex flex-col items-center gap-3 mb-2">
           <Logo />
           <h2 className="text-2xl font-semibold">Set a Backup PIN</h2>
-          <p className="text-sm text-white/60 text-center">
+          <p className="text-sm text-text-muted text-center">
             Your PIN encrypts your identity key on this device. You'll need it
             to restore your chats on a new device.{" "}
-            <span className="text-red-300">
+            <span className="text-red-500">
               We can't recover it for you. Lose it and lose all your devices →
               your history is gone forever.
             </span>
@@ -272,7 +259,7 @@ export function EmailSignupPage() {
             autoFocus
             value={pin}
             onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
-            className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 outline-none focus:border-accent transition"
+            className="w-full rounded-xl bg-surface border border-line px-4 py-3 outline-none focus:border-wa-green transition"
           />
         </div>
         <div>
@@ -282,7 +269,7 @@ export function EmailSignupPage() {
             inputMode="numeric"
             value={pinConfirm}
             onChange={(e) => setPinConfirm(e.target.value.replace(/\D/g, ""))}
-            className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 outline-none focus:border-accent transition"
+            className="w-full rounded-xl bg-surface border border-line px-4 py-3 outline-none focus:border-wa-green transition"
           />
         </div>
         <ErrorMessage>{error}</ErrorMessage>
@@ -299,7 +286,7 @@ export function EmailSignupPage() {
       <div className="flex flex-col items-center gap-4 text-center">
         <Logo size={72} />
         <h2 className="text-2xl font-semibold">Welcome to Veil</h2>
-        <p className="text-sm text-white/60">
+        <p className="text-sm text-text-muted">
           Your account is ready. Connections and messaging arrive in the next
           phases.
         </p>

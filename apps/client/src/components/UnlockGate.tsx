@@ -1,12 +1,19 @@
 import { useEffect, useState } from "react";
 import { useUnlockStore } from "../lib/unlockStore";
-import { unlockIdentity, unlockIdentityFromPhrase, isPhraseDerived } from "../lib/unlock";
+import {
+  unlockIdentity,
+  unlockIdentityFromPhrase,
+  isPhraseDerived,
+} from "../lib/unlock";
 import { loadIdentity } from "../lib/db";
-import { ErrorMessage, FieldLabel, PrimaryButton } from "./Layout";
+import { ErrorMessage, FieldLabel, PrimaryButton, LockIcon } from "./Layout";
 
 /**
  * Prompts the user to enter their Backup PIN (email/phone accounts) or
  * recovery phrase (random ID accounts) to decrypt their identity keys.
+ *
+ * Once unlocked, the keys are cached in IndexedDB so the user only has to
+ * do this once per browser (see UnlockedIdentityRecord).
  */
 export function UnlockGate({ children }: { children?: React.ReactNode }) {
   const identity = useUnlockStore((s) => s.identity);
@@ -35,7 +42,7 @@ export function UnlockGate({ children }: { children?: React.ReactNode }) {
       const id = accountIsPhraseDerived
         ? await unlockIdentityFromPhrase(input)
         : await unlockIdentity(input);
-      setIdentity(id);
+      await setIdentity(id);
     } catch (e) {
       setError(
         e instanceof Error
@@ -51,15 +58,23 @@ export function UnlockGate({ children }: { children?: React.ReactNode }) {
     }
   }
 
-  if (accountIsPhraseDerived) {
-    return (
-      <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5 flex flex-col gap-3">
+  return (
+    <div className="rounded-2xl bg-surface border border-line p-5 flex flex-col gap-3">
+      <div className="flex items-start gap-3">
+        <div className="size-10 rounded-full bg-wa-green/15 text-wa-green-dark dark:text-wa-green flex items-center justify-center shrink-0">
+          <LockIcon />
+        </div>
         <div>
-          <h3 className="text-lg font-semibold">Unlock chats</h3>
-          <p className="text-sm text-white/60 mt-1">
-            Enter your 12-word recovery phrase to unlock your messaging keys.
+          <h3 className="text-lg font-semibold text-text">Unlock chats</h3>
+          <p className="text-sm text-text-muted mt-0.5">
+            {accountIsPhraseDerived
+              ? "Enter your 12-word recovery phrase to unlock your messaging keys. You'll only do this once on this device."
+              : "Enter your Backup PIN to decrypt your messaging keys. You'll only do this once on this device."}
           </p>
         </div>
+      </div>
+
+      {accountIsPhraseDerived ? (
         <div>
           <FieldLabel>Recovery phrase</FieldLabel>
           <textarea
@@ -68,45 +83,36 @@ export function UnlockGate({ children }: { children?: React.ReactNode }) {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="word1 word2 word3 …"
-            className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 outline-none focus:border-accent transition resize-none text-sm"
+            className="w-full rounded-xl bg-bg border border-line text-text px-4 py-3 outline-none focus:border-wa-green transition resize-none text-sm"
           />
         </div>
-        <ErrorMessage>{error}</ErrorMessage>
-        <PrimaryButton
-          onClick={onUnlock}
-          loading={busy}
-          disabled={input.trim().split(/\s+/).length < 12}
-        >
-          Unlock
-        </PrimaryButton>
-      </div>
-    );
-  }
+      ) : (
+        <div>
+          <FieldLabel>Backup PIN</FieldLabel>
+          <input
+            type="password"
+            inputMode="numeric"
+            autoFocus
+            value={input}
+            onChange={(e) => setInput(e.target.value.replace(/\D/g, ""))}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && input) onUnlock();
+            }}
+            className="w-full rounded-xl bg-bg border border-line text-text px-4 py-3 outline-none focus:border-wa-green transition"
+          />
+        </div>
+      )}
 
-  return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5 flex flex-col gap-3">
-      <div>
-        <h3 className="text-lg font-semibold">Unlock chats</h3>
-        <p className="text-sm text-white/60 mt-1">
-          Enter your Backup PIN to decrypt your messaging keys on this device.
-        </p>
-      </div>
-      <div>
-        <FieldLabel>Backup PIN</FieldLabel>
-        <input
-          type="password"
-          inputMode="numeric"
-          autoFocus
-          value={input}
-          onChange={(e) => setInput(e.target.value.replace(/\D/g, ""))}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && input) onUnlock();
-          }}
-          className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 outline-none focus:border-accent transition"
-        />
-      </div>
       <ErrorMessage>{error}</ErrorMessage>
-      <PrimaryButton onClick={onUnlock} loading={busy} disabled={!input}>
+      <PrimaryButton
+        onClick={onUnlock}
+        loading={busy}
+        disabled={
+          !input ||
+          (!!accountIsPhraseDerived &&
+            input.trim().split(/\s+/).length < 12)
+        }
+      >
         Unlock
       </PrimaryButton>
     </div>

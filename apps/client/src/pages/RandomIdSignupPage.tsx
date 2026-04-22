@@ -8,8 +8,8 @@ import {
   PrimaryButton,
   SecondaryButton,
   FieldLabel,
+  TextInput,
   ErrorMessage,
-  InfoMessage,
 } from "../components/Layout";
 import {
   bytesToBase64,
@@ -17,12 +17,12 @@ import {
   deriveIdentityFromPhrase,
   deriveX25519FromPhrase,
   generateRandomId,
-  signMessage,
 } from "../lib/crypto";
 import { x25519PublicKeyFromPrivate } from "../lib/signal/x25519";
 import { saveIdentity } from "../lib/db";
 import { buildPrekeyBundle } from "../lib/prekeys";
 import { useUnlockStore } from "../lib/unlockStore";
+import { postAuthLandingPath } from "../lib/inviteRedirect";
 
 type Step = "generate" | "confirm" | "done";
 
@@ -99,7 +99,7 @@ export function RandomIdSignupPage() {
         console.warn("Prekey bootstrap failed", e);
       }
 
-      setUnlocked({
+      await setUnlocked({
         userId: r.user.id,
         ed25519: ed,
         x25519: x25519Kp,
@@ -115,50 +115,50 @@ export function RandomIdSignupPage() {
 
   if (step === "generate") {
     return (
-      <ScreenShell back="/" phase="Phase 4 · Random ID">
+      <ScreenShell back="/" phase="Random ID">
         <div className="flex flex-col items-center gap-3 mb-2">
           <Logo />
-          <h2 className="text-2xl font-semibold">Your Veil ID</h2>
-          <p className="text-sm text-white/60 text-center">
+          <h2 className="text-2xl font-semibold text-text">Your Veil ID</h2>
+          <p className="text-sm text-text-muted text-center">
             No email, no phone. Your identity is a random ID protected by a
             12-word recovery phrase.
           </p>
         </div>
 
-        <div className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3">
-          <p className="text-xs text-white/40 uppercase tracking-widest mb-1">
+        <div className="w-full rounded-xl bg-surface border border-line px-4 py-3">
+          <p className="text-xs text-text-muted uppercase tracking-widest mb-1">
             Your ID
           </p>
-          <p className="font-mono text-lg tracking-wider text-accent-soft">
+          <p className="font-mono text-lg tracking-wider text-wa-green-dark dark:text-wa-green">
             {randomId}
           </p>
         </div>
 
         <div className="w-full">
-          <p className="text-xs text-white/40 uppercase tracking-widest mb-2">
+          <p className="text-xs text-text-muted uppercase tracking-widest mb-2">
             Recovery phrase (12 words)
           </p>
           <div className="grid grid-cols-3 gap-2">
             {words.map((word, i) => (
               <div
                 key={i}
-                className="rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm flex items-center gap-2"
+                className="rounded-lg bg-surface border border-line px-3 py-2 text-sm flex items-center gap-2"
               >
-                <span className="text-white/30 text-xs w-4 shrink-0">
+                <span className="text-text-faint text-xs w-4 shrink-0">
                   {i + 1}.
                 </span>
-                <span>{word}</span>
+                <span className="text-text">{word}</span>
               </div>
             ))}
           </div>
-          <p className="mt-3 text-xs text-red-300/80">
+          <p className="mt-3 text-xs text-red-500">
             ⚠ Write these 12 words down and store them safely. You cannot
             recover your account without them. We will never show them again.
           </p>
         </div>
 
         <PrimaryButton onClick={() => setStep("confirm")}>
-          I've saved my phrase →
+          I've saved my phrase
         </PrimaryButton>
       </ScreenShell>
     );
@@ -166,11 +166,11 @@ export function RandomIdSignupPage() {
 
   if (step === "confirm") {
     return (
-      <ScreenShell phase="Phase 4 · Confirm phrase">
+      <ScreenShell back="/signup/random" phase="Confirm phrase">
         <div className="flex flex-col items-center gap-3 mb-2">
           <Logo />
-          <h2 className="text-2xl font-semibold">Confirm your phrase</h2>
-          <p className="text-sm text-white/60 text-center">
+          <h2 className="text-2xl font-semibold text-text">Confirm your phrase</h2>
+          <p className="text-sm text-text-muted text-center">
             Type all 12 words in order to confirm you've saved them.
           </p>
         </div>
@@ -183,7 +183,7 @@ export function RandomIdSignupPage() {
             value={confirmInput}
             onChange={(e) => setConfirmInput(e.target.value)}
             placeholder="word1 word2 word3 …"
-            className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 outline-none focus:border-accent transition resize-none text-sm"
+            className="w-full rounded-xl bg-surface border border-line text-text px-4 py-3 outline-none focus:border-wa-green transition resize-none text-sm"
           />
         </div>
 
@@ -203,29 +203,32 @@ export function RandomIdSignupPage() {
   }
 
   return (
-    <ScreenShell phase="Phase 4 · Done">
+    <ScreenShell phase="Done">
       <div className="flex flex-col items-center gap-4 text-center">
         <Logo size={72} />
-        <h2 className="text-2xl font-semibold">Welcome to Veil</h2>
-        <div className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3">
-          <p className="text-xs text-white/40 uppercase tracking-widest mb-1">
+        <h2 className="text-2xl font-semibold text-text">Welcome to Veil</h2>
+        <div className="w-full rounded-xl bg-surface border border-line px-4 py-3">
+          <p className="text-xs text-text-muted uppercase tracking-widest mb-1">
             Your ID
           </p>
-          <p className="font-mono text-lg tracking-wider text-accent-soft">
+          <p className="font-mono text-lg tracking-wider text-wa-green-dark dark:text-wa-green">
             {randomId}
           </p>
         </div>
-        <p className="text-sm text-white/60">
+        <p className="text-sm text-text-muted">
           Share your ID with people who want to connect with you. Your recovery
           phrase is the only way to access your account on a new device.
         </p>
-        <PrimaryButton onClick={() => navigate("/chats")}>
+        <PrimaryButton onClick={() => navigate(postAuthLandingPath())}>
           Continue
         </PrimaryButton>
       </div>
     </ScreenShell>
   );
 }
+
+// Keep the unused-but-shared TextInput import alive for future polish.
+void TextInput;
 
 function messageOf(e: unknown): string {
   if (e && typeof e === "object" && "message" in e) {

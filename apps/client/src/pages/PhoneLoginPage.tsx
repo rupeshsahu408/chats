@@ -17,6 +17,7 @@ import {
   sendPhoneOtp,
 } from "../lib/firebase";
 import type { ConfirmationResult, RecaptchaVerifier } from "firebase/auth";
+import { postAuthLandingPath } from "../lib/inviteRedirect";
 
 type Step = "phone" | "code";
 
@@ -51,9 +52,9 @@ export function PhoneLoginPage() {
         <div className="flex flex-col items-center gap-4 text-center">
           <Logo />
           <h2 className="text-2xl font-semibold">Phone login</h2>
-          <div className="rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-300 text-left w-full">
+          <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300 text-left w-full">
             <p className="font-medium mb-1">Firebase not configured</p>
-            <p className="text-amber-300/80 text-xs">
+            <p className="text-amber-700 dark:text-amber-700 dark:text-amber-300 text-xs">
               Set VITE_FIREBASE_API_KEY, VITE_FIREBASE_AUTH_DOMAIN, and
               VITE_FIREBASE_PROJECT_ID to enable phone login.
             </p>
@@ -102,19 +103,7 @@ export function PhoneLoginPage() {
         purpose: "login",
       });
       setAuth({ accessToken: r.accessToken, user: r.user });
-
-      let pending: string | null = null;
-      try {
-        pending = sessionStorage.getItem("veil:pending_invite");
-      } catch {}
-      if (pending) {
-        try {
-          sessionStorage.removeItem("veil:pending_invite");
-        } catch {}
-        navigate(`/i/${encodeURIComponent(pending)}`);
-      } else {
-        navigate("/chats");
-      }
+      navigate(postAuthLandingPath());
     } catch (e: unknown) {
       setError(messageOf(e));
     } finally {
@@ -129,7 +118,7 @@ export function PhoneLoginPage() {
         <div className="flex flex-col items-center gap-3 mb-2">
           <Logo />
           <h2 className="text-2xl font-semibold">Log in with phone</h2>
-          <p className="text-sm text-white/60 text-center">
+          <p className="text-sm text-text-muted text-center">
             Enter the phone number you used to sign up.
           </p>
         </div>
@@ -143,7 +132,7 @@ export function PhoneLoginPage() {
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             placeholder="+1 555 000 0000"
-            className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 outline-none focus:border-accent transition"
+            className="w-full rounded-xl bg-surface border border-line px-4 py-3 outline-none focus:border-wa-green transition"
           />
         </div>
         <ErrorMessage>{error}</ErrorMessage>
@@ -164,8 +153,8 @@ export function PhoneLoginPage() {
       <div className="flex flex-col items-center gap-3 mb-2">
         <Logo />
         <h2 className="text-2xl font-semibold">Enter the code</h2>
-        <p className="text-sm text-white/60 text-center">
-          Sent to <span className="text-white/90">{phone}</span>
+        <p className="text-sm text-text-muted text-center">
+          Sent to <span className="text-text">{phone}</span>
         </p>
       </div>
       <InfoMessage>{info}</InfoMessage>
@@ -180,7 +169,7 @@ export function PhoneLoginPage() {
           value={code}
           onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
           placeholder="••••••"
-          className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-center text-2xl tracking-[0.5em] outline-none focus:border-accent transition"
+          className="w-full rounded-xl bg-surface border border-line px-4 py-3 text-center text-2xl tracking-[0.5em] outline-none focus:border-wa-green transition"
         />
       </div>
       <ErrorMessage>{error}</ErrorMessage>

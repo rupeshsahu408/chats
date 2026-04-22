@@ -7,9 +7,15 @@ import { useUnlockStore } from "../lib/unlockStore";
 import { db } from "../lib/db";
 import { pollAndDecrypt, sendChatMessage } from "../lib/messageSync";
 import {
-  ScreenShell,
+  AppBar,
+  Avatar,
+  IconButton,
+  MoreVerticalIcon,
+  MessageBubble,
+  MessageInputBar,
   ErrorMessage,
-  PrimaryButton,
+  EmptyState,
+  LockIcon,
 } from "../components/Layout";
 import { UnlockGate } from "../components/UnlockGate";
 
@@ -27,20 +33,28 @@ export function ChatThreadPage() {
 
   if (!peerId) {
     return (
-      <ScreenShell back="/chats" phase="Chat">
-        <ErrorMessage>Missing peer id.</ErrorMessage>
-      </ScreenShell>
+      <main className="min-h-full flex flex-col bg-bg text-text">
+        <AppBar title="Chat" back="/chats" />
+        <div className="p-4">
+          <ErrorMessage>Missing peer id.</ErrorMessage>
+        </div>
+      </main>
     );
   }
 
   return (
-    <ScreenShell back="/chats" phase="Phase 3 · Chat">
+    <main className="min-h-full flex flex-col bg-bg text-text">
       {!identity ? (
-        <UnlockGate />
+        <>
+          <AppBar title="Chat" back="/chats" />
+          <div className="p-4">
+            <UnlockGate />
+          </div>
+        </>
       ) : (
         <ChatThreadInner peerId={peerId} />
       )}
-    </ScreenShell>
+    </main>
   );
 }
 
@@ -54,6 +68,7 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
     [connections.data, peerId],
   );
   const fingerprint = peer?.peer.fingerprint ?? "";
+  const displayName = fingerprint || `${peerId.slice(0, 8)}…`;
 
   const messages = useLiveQuery(
     () => db.chatMessages.where("peerId").equals(peerId).sortBy("createdAt"),
@@ -74,7 +89,6 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
       try {
         await pollAndDecrypt(identity);
       } catch (e) {
-        // Network blips are expected — don't show errors for polling.
         console.warn("Poll failed", e);
       }
       if (!cancelled) timer = setTimeout(tick, POLL_MS);
@@ -108,78 +122,67 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
   }
 
   return (
-    <div className="flex flex-col gap-3 min-h-0 flex-1">
-      <div className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3">
-        <div className="text-xs uppercase tracking-wider text-white/50">
-          Chatting with
-        </div>
-        <div className="font-mono text-sm text-white/90 mt-0.5">
-          {peerId.slice(0, 8)}…
-        </div>
-        <div className="text-xs text-white/50 mt-1">
-          Fingerprint:{" "}
-          <span className="font-mono text-accent/90">{fingerprint || "…"}</span>
-        </div>
-      </div>
+    <div className="flex flex-col flex-1 min-h-0">
+      <AppBar
+        title={
+          <div className="flex items-center gap-2">
+            <Avatar seed={peerId} label={displayName.slice(0, 2)} size={36} />
+            <div className="flex-1 min-w-0">
+              <div className="font-semibold text-base truncate">
+                <span className="font-mono">{displayName}</span>
+              </div>
+              <div className="text-[11px] text-text-oncolor/80 truncate inline-flex items-center gap-1">
+                <LockIcon className="w-3 h-3" /> end-to-end encrypted
+              </div>
+            </div>
+          </div>
+        }
+        back="/chats"
+        right={
+          <IconButton label="More" className="text-text-oncolor">
+            <MoreVerticalIcon />
+          </IconButton>
+        }
+      />
 
       <div
         ref={scrollRef}
-        className="flex-1 min-h-[40vh] max-h-[55vh] overflow-y-auto rounded-xl border border-white/10 bg-black/30 p-3 flex flex-col gap-2"
+        className="flex-1 min-h-0 overflow-y-auto bg-bg bg-chat-wallpaper bg-wallpaper px-3 py-4 flex flex-col gap-1"
       >
         {!messages || messages.length === 0 ? (
-          <div className="text-center text-white/40 text-sm py-12">
-            No messages yet. Say hi.
-          </div>
+          <EmptyState
+            title="No messages yet"
+            message="Say hi to start the conversation."
+          />
         ) : (
           messages.map((m) => (
-            <div
+            <MessageBubble
               key={m.id}
-              className={`max-w-[80%] px-3 py-2 rounded-2xl text-sm ${
-                m.direction === "out"
-                  ? "self-end bg-accent/20 border border-accent/30"
-                  : "self-start bg-white/[0.06] border border-white/10"
-              }`}
+              direction={m.direction}
+              status={m.status}
+              time={new Date(m.createdAt).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
             >
-              <div className="whitespace-pre-wrap break-words">
-                {m.plaintext}
-              </div>
-              <div
-                className={`text-[10px] mt-1 ${
-                  m.direction === "out" ? "text-accent/60" : "text-white/40"
-                }`}
-              >
-                {new Date(m.createdAt).toLocaleTimeString()}
-                {m.direction === "out" && m.status !== "sent" && (
-                  <span className="ml-2 italic">{m.status}</span>
-                )}
-              </div>
-            </div>
+              {m.plaintext}
+            </MessageBubble>
           ))
         )}
       </div>
 
-      <div className="flex gap-2">
-        <input
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              void onSend();
-            }
-          }}
-          placeholder="Type a message…"
-          className="flex-1 rounded-xl bg-white/5 border border-white/10 px-4 py-3 outline-none focus:border-accent transition"
-        />
-        <PrimaryButton
-          onClick={onSend}
-          loading={sending}
-          disabled={!draft.trim()}
-        >
-          Send
-        </PrimaryButton>
-      </div>
-      <ErrorMessage>{error}</ErrorMessage>
+      {error && (
+        <div className="px-3 pb-2">
+          <ErrorMessage>{error}</ErrorMessage>
+        </div>
+      )}
+
+      <MessageInputBar
+        value={draft}
+        onChange={setDraft}
+        onSend={onSend}
+        sending={sending}
+      />
     </div>
   );
 }
