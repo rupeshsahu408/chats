@@ -331,10 +331,12 @@ export const mediaBlobs = pgTable(
       .references(() => users.id, { onDelete: "cascade" }),
     /** Client-supplied MIME hint (e.g. "image/jpeg", "audio/webm"). */
     mime: text("mime").notNull(),
-    /** AES-GCM ciphertext bytes. Includes the 12-byte IV prefix. */
-    ciphertext: bytea("ciphertext").notNull(),
-    /** Plaintext byte count, for UI preallocation hints. */
-    sizeBytes: integer("size_bytes").notNull(),
+    /** Object key inside the R2 bucket. Ciphertext lives there, not in PG. */
+    r2Key: text("r2_key").notNull(),
+    /** Ciphertext byte count (set on finalize from R2 HEAD). */
+    sizeBytes: integer("size_bytes").notNull().default(0),
+    /** Flipped true after finalizeUpload verifies the object landed in R2. */
+    uploaded: boolean("uploaded").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

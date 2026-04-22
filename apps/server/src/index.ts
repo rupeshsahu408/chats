@@ -13,10 +13,9 @@ import { startMediaSweeper } from "./lib/mediaSweeper.js";
 
 const app = Fastify({
   trustProxy: true,
-  // Phase 5 needs to ship encrypted media (images, voice notes) inline
-  // through tRPC as base64. ~12 MB body covers an 8 MB ciphertext after
-  // base64 inflation plus envelope overhead.
-  bodyLimit: 12 * 1024 * 1024,
+  // Encrypted media now uploads directly to R2 via presigned URLs, so the
+  // server only ever sees small JSON envelopes again.
+  bodyLimit: 1 * 1024 * 1024,
   logger: isDev
     ? {
         level: "info",

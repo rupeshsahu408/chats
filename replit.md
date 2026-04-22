@@ -89,6 +89,8 @@ Only `VITE_API_BASE_URL` if you ever need to point the client at a non-default A
 - `connection_requests` — from_user_id → to_user_id, status (pending/accepted/rejected/canceled/expired), optional ≤140-char note, invite_id (nullable), decided_at. Partial unique index ensures only one pending request per (from, to) pair.
 - `connections` — canonical (user_a_id < user_b_id) so a single row represents the bidirectional link. Unique on (user_a, user_b).
 - **`messages` (Phase 3)** — opaque encrypted mailbox: sender_user_id, recipient_user_id, header (bytea, plaintext JSON header), ciphertext (bytea, AES-GCM), created_at. Index on (recipient, created_at). Rows are deleted by `messages.fetchAndConsume` so the server doesn't retain ciphertext long-term.
+- **`media_blobs` (Phase 5, R2)** — metadata only: owner_user_id, mime, **r2_key** (object key in the R2 bucket), size_bytes, **uploaded** (bool, set true after `finalizeUpload` confirms the PUT), created_at, expires_at. Encrypted bytes live in R2; PG never sees them.
+- **`push_subscriptions` (Phase 5)** — Web Push (VAPID) subscriptions: user_id, endpoint (unique), p256dh, auth, user_agent, created_at, last_used_at.
 
 ## Auth flow (Phase 1)
 
@@ -170,9 +172,24 @@ After PIN setup at signup, the client generates 1 signed prekey + 20 one-time pr
 
 > **Server env vars added in Phase 4:** `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY` (all optional — omitting disables phone auth with clear errors). Client: `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`.
 
+## Phase 5 — Encrypted media via Cloudflare R2 (in progress)
+
+- **Storage moved off Postgres.** `media_blobs` columns are now `mime`, `r2_key`, `size_bytes` (default 0), `uploaded` (default false), plus the timestamps. The encrypted bytes live in R2; the row is just metadata.
+- **Server router (`routers/media.ts`):**
+  - `media.requestUpload({ mime, sizeBytes })` → inserts an `uploaded=false` row, returns `{ blobId, uploadUrl, uploadContentType, uploadExpiresAt }`. The `uploadUrl` is a 15-minute presigned R2 PUT URL.
+  - `media.finalizeUpload({ blobId })` → server `HEAD`s R2 to confirm the object landed, records the real `size_bytes`, flips `uploaded=true`. Oversized objects are deleted from R2 and the row is removed.
+  - `media.download({ blobId })` → returns a 5-minute presigned R2 GET URL plus `mime` / `sizeBytes`. Refuses rows where `uploaded=false` or expired.
+  - All three return `PRECONDITION_FAILED` listing missing env vars when R2 isn't configured.
+- **R2 wrapper (`lib/r2.ts`)** uses `@aws-sdk/client-s3` against `https://<accountId>.r2.cloudflarestorage.com` with `forcePathStyle: true`. Helpers: `presignUpload`, `presignDownload`, `headObject`, `deleteObjects`.
+- **Sweeper** now also `DeleteObjects`-batches the corresponding R2 keys whenever it removes expired rows.
+- **Body limit** dropped from 12 MB back to 1 MB — the server no longer carries ciphertext.
+- **Client (`lib/media.ts`):** `uploadEncryptedMedia` calls `requestUpload` → `fetch(PUT)` directly to R2 with `Content-Type: application/octet-stream` → `finalizeUpload`. `fetchAndDecryptMedia` calls `download` → `fetch(GET)` directly from R2 → AES-GCM decrypt → object URL.
+- **New server env vars** (all four required to enable media): `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`. Optional tuning: `MEDIA_MAX_BYTES` (default 16 MB), `MEDIA_TTL_HOURS` (default 24).
+- **R2 bucket setup:** the bucket needs a CORS policy allowing `PUT` and `GET` from the client origin(s) with `content-type` in `AllowedHeaders` and `ETag` in `ExposeHeaders`. Example JSON is in `apps/server/.env.example`.
+
 ## Next phase
 
-**Phase 5 — WebSocket transport + push notifications + media attachments.**
+**Phase 5 wrap-up — verify push notifications end-to-end, then Phase 6 (privacy & polish).**
 
 ## User preferences
 

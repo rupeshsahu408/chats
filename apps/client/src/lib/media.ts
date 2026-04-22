@@ -1,5 +1,5 @@
 import { trpcClientProxy } from "./trpcClientProxy";
-import { encryptBlob, decryptBlob, bytesToBase64Std, base64ToBytesStd } from "./mediaCrypto";
+import { encryptBlob, decryptBlob, bytesToBase64Std } from "./mediaCrypto";
 
 export interface MediaAttachment {
   /** Discriminator inside a chat-message envelope. */
@@ -19,16 +19,47 @@ export interface MediaAttachment {
   thumbB64?: string;
 }
 
+/**
+ * Encrypt `bytes` with a fresh AES-GCM key, ask the server for a presigned
+ * R2 PUT URL, upload the ciphertext directly to R2 (never through our
+ * server), then ask the server to verify the upload landed.
+ */
 export async function uploadEncryptedMedia(
   bytes: Uint8Array,
   mime: string,
 ): Promise<{ blobId: string; key: string; sizeBytes: number }> {
   const enc = await encryptBlob(bytes);
-  const result = await trpcClientProxy().media.upload.mutate({
-    ciphertext: bytesToBase64Std(enc.ciphertext),
+  const ciphertext = enc.ciphertext;
+  const proxy = trpcClientProxy();
+
+  const requested = await proxy.media.requestUpload.mutate({
     mime,
+    sizeBytes: ciphertext.byteLength,
   });
-  return { blobId: result.blobId, key: enc.keyB64, sizeBytes: bytes.byteLength };
+
+  const putRes = await fetch(requested.uploadUrl, {
+    method: "PUT",
+    headers: { "Content-Type": requested.uploadContentType },
+    body: new Blob([ciphertext.slice().buffer], {
+      type: requested.uploadContentType,
+    }),
+  });
+  if (!putRes.ok) {
+    const detail = await putRes.text().catch(() => "");
+    throw new Error(
+      `Media upload to R2 failed (${putRes.status}). ${detail.slice(0, 200)}`,
+    );
+  }
+
+  const finalized = await proxy.media.finalizeUpload.mutate({
+    blobId: requested.blobId,
+  });
+
+  return {
+    blobId: finalized.blobId,
+    key: enc.keyB64,
+    sizeBytes: bytes.byteLength,
+  };
 }
 
 const blobUrlCache = new Map<string, string>();
@@ -43,9 +74,15 @@ export async function fetchAndDecryptMedia(
   const dl = await trpcClientProxy().media.download.query({
     blobId: attachment.blobId,
   });
-  const ct = base64ToBytesStd(dl.ciphertext);
+  const getRes = await fetch(dl.downloadUrl);
+  if (!getRes.ok) {
+    throw new Error(`Media download from R2 failed (${getRes.status}).`);
+  }
+  const ct = new Uint8Array(await getRes.arrayBuffer());
   const plain = await decryptBlob(ct, attachment.key);
-  const blob = new Blob([plain.slice().buffer], { type: dl.mime || attachment.mime });
+  const blob = new Blob([plain.slice().buffer], {
+    type: dl.mime || attachment.mime,
+  });
   const url = URL.createObjectURL(blob);
   blobUrlCache.set(cacheKey, url);
   return url;

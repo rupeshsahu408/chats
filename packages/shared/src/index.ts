@@ -424,16 +424,7 @@ export const DiscoverContactsResult = z.object({
 });
 export type DiscoverContactsResult = z.infer<typeof DiscoverContactsResult>;
 
-/* ─────────── Phase 5: Encrypted media ─────────── */
-
-/**
- * Generous base64 cap for an encrypted media blob (8 MB plaintext →
- * ~10.7 MB base64). Server enforces the underlying byte cap separately.
- */
-export const LargeBase64Schema = z
-  .string()
-  .regex(/^[A-Za-z0-9+/]+=*$/)
-  .max(12 * 1024 * 1024);
+/* ─────────── Phase 5: Encrypted media (R2 presigned) ─────────── */
 
 /** MIME hints we accept for end-to-end encrypted media. */
 export const MediaMimeSchema = z
@@ -442,19 +433,37 @@ export const MediaMimeSchema = z
   .max(64)
   .regex(/^(image|audio|video|application)\/[a-z0-9.+\-]+$/i);
 
-export const UploadMediaInput = z.object({
-  /** Base64 of AES-GCM ciphertext (12-byte IV prefix + ciphertext + tag). */
-  ciphertext: LargeBase64Schema,
+export const RequestMediaUploadInput = z.object({
   mime: MediaMimeSchema,
+  /** Ciphertext byte count the client intends to upload. */
+  sizeBytes: z.number().int().positive(),
 });
-export type UploadMediaInput = z.infer<typeof UploadMediaInput>;
+export type RequestMediaUploadInput = z.infer<typeof RequestMediaUploadInput>;
 
-export const UploadMediaResult = z.object({
+export const RequestMediaUploadResult = z.object({
+  blobId: z.string().uuid(),
+  /** Presigned PUT URL the client uploads ciphertext to (direct to R2). */
+  uploadUrl: z.string().url(),
+  /** Header the client MUST send with the PUT (matches what was signed). */
+  uploadContentType: z.string(),
+  /** ISO timestamp after which the presigned URL stops working. */
+  uploadExpiresAt: z.string(),
+});
+export type RequestMediaUploadResult = z.infer<typeof RequestMediaUploadResult>;
+
+export const FinalizeMediaUploadInput = z.object({
+  blobId: z.string().uuid(),
+});
+export type FinalizeMediaUploadInput = z.infer<typeof FinalizeMediaUploadInput>;
+
+export const FinalizeMediaUploadResult = z.object({
   blobId: z.string().uuid(),
   sizeBytes: z.number().int().nonnegative(),
   expiresAt: z.string(),
 });
-export type UploadMediaResult = z.infer<typeof UploadMediaResult>;
+export type FinalizeMediaUploadResult = z.infer<
+  typeof FinalizeMediaUploadResult
+>;
 
 export const DownloadMediaInput = z.object({
   blobId: z.string().uuid(),
@@ -462,9 +471,12 @@ export const DownloadMediaInput = z.object({
 export type DownloadMediaInput = z.infer<typeof DownloadMediaInput>;
 
 export const DownloadMediaResult = z.object({
-  ciphertext: LargeBase64Schema,
+  /** Presigned GET URL the client fetches ciphertext from (direct from R2). */
+  downloadUrl: z.string().url(),
   mime: MediaMimeSchema,
   sizeBytes: z.number().int().nonnegative(),
+  /** ISO timestamp after which the presigned URL stops working. */
+  expiresAt: z.string(),
 });
 export type DownloadMediaResult = z.infer<typeof DownloadMediaResult>;
 
