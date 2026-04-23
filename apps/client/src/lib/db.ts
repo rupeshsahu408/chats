@@ -599,7 +599,22 @@ export async function markChatMessageRead(
 ): Promise<void> {
   const row = await db.chatMessages.where("serverId").equals(serverId).first();
   if (!row || row.id === undefined) return;
-  await db.chatMessages.update(row.id, { status: "read", readAt });
+  const patch: Partial<ChatMessageRecord> = { status: "read", readAt };
+  // Two-sided "delete-after-seen": if this is OUR outbound message and we
+  // have a seen TTL configured for this peer, stamp expiresAt so our own
+  // copy auto-deletes after the chosen duration once the recipient has
+  // actually read it. Receiver-side stamping happens in ChatThreadPage
+  // when inbound messages are marked read.
+  if (row.direction === "out" && !row.expiresAt) {
+    const pref = await db.chatPrefs.get(row.peerId);
+    const secs = pref?.seenTtlSeconds ?? 0;
+    if (secs > 0) {
+      const base = new Date(readAt).getTime();
+      const due = Number.isFinite(base) ? base : Date.now();
+      patch.expiresAt = new Date(due + secs * 1000).toISOString();
+    }
+  }
+  await db.chatMessages.update(row.id, patch);
 }
 
 export async function deleteChatMessageById(id: number): Promise<void> {
