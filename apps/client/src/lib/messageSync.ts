@@ -164,6 +164,26 @@ async function decryptIncoming(
 // resolves to "duplicate" without touching Dexie or the decrypt path.
 const inFlightIngest = new Map<string, Promise<"new" | "duplicate" | "failed">>();
 
+/**
+ * After receiving a Sender Key Distribution Message (SKDM), we schedule a
+ * short-delay re-poll so any group messages that arrived before their SKDM
+ * (and were left un-acked in the inbox) get a chance to decrypt immediately
+ * rather than waiting for the next background poll interval.
+ */
+let _skdmRetryTimeout: ReturnType<typeof setTimeout> | null = null;
+let _skdmRetryIdentity: UnlockedIdentity | null = null;
+
+function scheduleSkdmRetryPoll(identity: UnlockedIdentity): void {
+  _skdmRetryIdentity = identity;
+  if (_skdmRetryTimeout !== null) return; // already pending
+  _skdmRetryTimeout = setTimeout(() => {
+    _skdmRetryTimeout = null;
+    const id = _skdmRetryIdentity;
+    _skdmRetryIdentity = null;
+    if (id) void pollAndDecrypt(id).catch(() => undefined);
+  }, 600); // short delay so all in-flight WS events land first
+}
+
 export function ingestInboxMessage(
   identity: UnlockedIdentity,
   m: InboxMessage,
@@ -188,10 +208,16 @@ async function ingestInboxMessageInner(
   // Group fan-out leg: route to group ingestor.
   if (m.groupId) {
     const result = await ingestGroupInboxMessage(m);
-    if (!wsMarkDelivered([m.id])) {
-      void trpcClientProxy()
-        .messages.markDelivered.mutate({ ids: [m.id] })
-        .catch(() => undefined);
+    // Only ack if successfully processed. A "failed" result almost always
+    // means the Sender Key Distribution Message (SKDM) hasn't arrived yet.
+    // Leaving the message un-acked keeps it in the server inbox so it will
+    // be retried once the SKDM lands and scheduleSkdmRetryPoll fires.
+    if (result !== "failed") {
+      if (!wsMarkDelivered([m.id])) {
+        void trpcClientProxy()
+          .messages.markDelivered.mutate({ ids: [m.id] })
+          .catch(() => undefined);
+      }
     }
     return result;
   }
@@ -213,6 +239,9 @@ async function ingestInboxMessageInner(
           .messages.markDelivered.mutate({ ids: [m.id] })
           .catch(() => undefined);
       }
+      // Sender key is now stored — schedule a re-poll so any group messages
+      // that arrived before this SKDM (and were left un-acked) get retried.
+      scheduleSkdmRetryPoll(identity);
       return "new";
     }
     if (await applySideEffectEnvelope(env, m.senderUserId)) {
@@ -261,12 +290,28 @@ export async function pollAndDecrypt(
   let failed = 0;
   const acked: string[] = [];
 
-  for (const m of messages) {
+  // Process 1:1 messages (which include SKDMs) before group messages.
+  // This ensures sender keys are always stored before we attempt to decrypt
+  // the group messages that depend on them — fixing the SKDM race condition
+  // where a group message arrives in the same inbox batch as its SKDM.
+  const sorted = [...messages].sort((a, b) => {
+    const aIsGroup = a.groupId ? 1 : 0;
+    const bIsGroup = b.groupId ? 1 : 0;
+    return aIsGroup - bIsGroup;
+  });
+
+  for (const m of sorted) {
     if (m.groupId) {
       const result = await ingestGroupInboxMessage(m);
-      acked.push(m.id);
-      if (result === "new") added += 1;
-      else if (result === "failed") failed += 1;
+      // Only ack if processed successfully. Leave "failed" messages un-acked
+      // so they remain in the server inbox and are retried on the next poll
+      // (by which time the SKDM should have been processed).
+      if (result !== "failed") {
+        acked.push(m.id);
+        if (result === "new") added += 1;
+      } else {
+        failed += 1;
+      }
       continue;
     }
     if (await hasChatMessageWithServerId(m.id)) {
