@@ -29,6 +29,7 @@ import { SettingsPage } from "./pages/SettingsPage";
 import { SessionSync } from "./lib/SessionSync";
 import { useStealthPrefs } from "./lib/stealthPrefs";
 import { InstallPrompt } from "./components/InstallPrompt";
+import { PushPermissionPrompt } from "./components/PushPermissionPrompt";
 
 export function App() {
   const [queryClient] = useState(
@@ -74,6 +75,7 @@ export function App() {
           <Route path="*" element={<WelcomePage />} />
         </Routes>
         <InstallPrompt />
+        <PushPermissionPrompt />
       </QueryClientProvider>
     </trpc.Provider>
   );

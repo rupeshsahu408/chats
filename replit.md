@@ -213,6 +213,19 @@ After PIN setup at signup, the client generates 1 signed prekey + 20 one-time pr
 - Dismissals persist for 7 days in `localStorage` (`veil:install-prompt:dismissed-at`) to avoid nagging.
 - Listens for `appinstalled` to clear the banner immediately on install.
 
+## Push permission prompt (post-install)
+
+- `components/PushPermissionPrompt.tsx` is mounted globally in `App.tsx` next to `InstallPrompt`.
+- Renders an in-app "Get notified of new messages" banner **only when all of these are true**:
+  1. App is running standalone (`display-mode: standalone` or `navigator.standalone`) — covers Android-installed PWA *and* iOS Add-to-Home-Screen.
+  2. User is signed in (`useAuthStore.accessToken` present).
+  3. Push is supported (`serviceWorker` + `PushManager` + `Notification`).
+  4. `Notification.permission === "default"` (never prompts after grant/deny).
+  5. Not dismissed within the last 7 days (`veil:push-prompt:dismissed-at`).
+- Tap **Enable** → calls `ensurePushSubscription({ requestPermission: true })`. Tap **Not now** or X → 7-day cooldown.
+- Effect: iOS Safari users in a normal browser tab never see the prompt (push doesn't work there pre-iOS 16.4 in-browser anyway). They get prompted only after they Add-to-Home-Screen and re-open Veil.
+- Settings → Notifications still works as the manual fallback for users who previously dismissed.
+
 ## Next phase
 
 **Native iOS (Phase 8) and Android Play Store (Phase 9) are deferred.** The product launches as an installable PWA: Android users install via Chrome's prompt, iOS users use Add-to-Home-Screen (web push works on iOS 16.4+ once installed). Phase 7 wrap-up — manual e2e group test (3 accounts) + push verification — remains the only outstanding item before launch readiness.
