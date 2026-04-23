@@ -144,7 +144,44 @@ export async function ensureMySenderKey(
     await putSenderKey(rec);
   }
 
+  // Self-heal the *receive* side too. New members who just joined a
+  // group have no sender keys for any existing member's current epoch
+  // — without this they'd see every inbound group message as
+  // undecryptable until those members happen to send something. We
+  // proactively request each missing peer key over the 1:1 ratchet
+  // (`skreq`), which the recipient answers with a fresh SKDM. Calls
+  // are throttled inside requestSenderKey so this is safe to invoke
+  // from every group_changed event.
+  await requestMissingPeerSenderKeys(identity, group).catch(() => undefined);
+
   return state;
+}
+
+/**
+ * For every other current member of `group`, check whether we already
+ * have their sender key for the current epoch; if not, fire a `skreq`
+ * over the 1:1 ratchet. This is what lets a brand-new group member
+ * immediately read messages from members who have already established
+ * sender keys for the current epoch.
+ */
+async function requestMissingPeerSenderKeys(
+  identity: UnlockedIdentity,
+  group: GroupDetail,
+): Promise<void> {
+  const me = identity.userId;
+  const epoch = group.epoch;
+  const others = group.members.filter((m) => m.userId !== me);
+  await Promise.all(
+    others.map(async (m) => {
+      const rec = await getSenderKey(group.id, m.userId, epoch);
+      if (rec) return;
+      // requestSenderKey self-throttles (30s cooldown per peer/epoch)
+      // so this is safe to call from every refresh.
+      await requestSenderKey(identity, group.id, epoch, m.userId).catch(
+        () => undefined,
+      );
+    }),
+  );
 }
 
 /**
