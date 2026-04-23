@@ -11,6 +11,7 @@ import { linkPreviewRouter } from "./linkPreview.js";
 import { privacyRouter } from "./privacy.js";
 import { groupsRouter } from "./groups.js";
 import { scheduledRouter } from "./scheduled.js";
+import { contactsRouter } from "./contacts.js";
 
 export const appRouter = router({
   auth: authRouter,
@@ -25,6 +26,7 @@ export const appRouter = router({
   privacy: privacyRouter,
   groups: groupsRouter,
   scheduled: scheduledRouter,
+  contacts: contactsRouter,
 });
 
 export type AppRouter = typeof appRouter;

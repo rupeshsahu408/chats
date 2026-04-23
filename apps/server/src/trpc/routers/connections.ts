@@ -33,15 +33,19 @@ function pruneExpiredSalts() {
   }
 }
 
-function peer(u: {
-  id: string;
-  accountType: "email" | "phone" | "random";
-  identityPubkey: Buffer;
-  createdAt: Date;
-  username?: string | null;
-  displayName?: string | null;
-  avatarDataUrl?: string | null;
-}): Peer {
+function peer(
+  u: {
+    id: string;
+    accountType: "email" | "phone" | "random";
+    identityPubkey: Buffer;
+    createdAt: Date;
+    username?: string | null;
+    displayName?: string | null;
+    bio?: string | null;
+    avatarDataUrl?: string | null;
+  },
+  contactName?: string | null,
+): Peer {
   return {
     id: u.id,
     accountType: u.accountType,
@@ -49,7 +53,9 @@ function peer(u: {
     createdAt: u.createdAt.toISOString(),
     username: u.username ?? null,
     displayName: u.displayName ?? null,
+    bio: u.bio ?? null,
     avatarDataUrl: u.avatarDataUrl ?? null,
+    contactName: contactName ?? null,
   };
 }
 
@@ -118,6 +124,7 @@ export const connectionsRouter = router({
         .select({
           conn: schema.connections,
           a: schema.users,
+          contactName: schema.userContacts.customName,
         })
         .from(schema.connections)
         .innerJoin(
@@ -133,6 +140,13 @@ export const connectionsRouter = router({
             ),
           ),
         )
+        .leftJoin(
+          schema.userContacts,
+          and(
+            eq(schema.userContacts.ownerUserId, me),
+            eq(schema.userContacts.contactUserId, schema.users.id),
+          ),
+        )
         .where(
           or(
             eq(schema.connections.userAId, me),
@@ -142,7 +156,7 @@ export const connectionsRouter = router({
         .orderBy(desc(schema.connections.createdAt));
       return rows.map((r) => ({
         id: r.conn.id,
-        peer: peer(r.a),
+        peer: peer(r.a, r.contactName),
         createdAt: r.conn.createdAt.toISOString(),
       }));
     }),

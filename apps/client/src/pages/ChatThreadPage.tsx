@@ -61,6 +61,7 @@ import {
   SearchIcon,
 } from "../components/Layout";
 import { UnlockGate } from "../components/UnlockGate";
+import { peerLabel, peerSubLabel } from "../lib/peerLabel";
 import {
   downscaleImage,
   fetchAndDecryptMedia,
@@ -133,6 +134,7 @@ export function ChatThreadPage() {
 function ChatThreadInner({ peerId }: { peerId: string }) {
   const identity = useUnlockStore((s) => s.identity)!;
   const myId = useAuthStore((s) => s.user?.id) ?? "";
+  const navigate = useNavigate();
   const connections = trpc.connections.list.useQuery(undefined, {
     retry: false,
   });
@@ -141,7 +143,10 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
     [connections.data, peerId],
   );
   const fingerprint = peer?.peer.fingerprint ?? "";
-  const displayName = fingerprint || `${peerId.slice(0, 8)}…`;
+  const displayName = peer?.peer
+    ? peerLabel(peer.peer)
+    : fingerprint || `${peerId.slice(0, 8)}…`;
+  const subDisplay = peer?.peer ? peerSubLabel(peer.peer) : null;
 
   // Per-peer prefs (TTL, biometric, view-once default).
   const chatPref = useLiveQuery(
@@ -680,11 +685,26 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
     <div className="flex flex-col flex-1 min-h-0">
       <AppBar
         title={
-          <div className="flex items-center gap-2">
-            <Avatar seed={peerId} label={displayName.slice(0, 2)} size={36} />
+          <button
+            type="button"
+            onClick={() => navigate(`/profile/${peerId}`)}
+            className="flex items-center gap-2 w-full text-left wa-tap"
+            aria-label="View contact info"
+          >
+            <Avatar
+              seed={peer?.peer.username || peerId}
+              src={peer?.peer.avatarDataUrl ?? null}
+              label={displayName.slice(0, 2)}
+              size={36}
+            />
             <div className="flex-1 min-w-0">
               <div className="font-semibold text-base truncate">
-                <span className="font-mono">{displayName}</span>
+                {displayName}
+                {subDisplay && (
+                  <span className="ml-2 text-[11px] font-normal text-text-oncolor/70 font-mono">
+                    {subDisplay}
+                  </span>
+                )}
               </div>
               <div className="text-[11px] text-text-oncolor/80 truncate inline-flex items-center gap-1">
                 {peerTyping ? (
@@ -705,7 +725,7 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
                 )}
               </div>
             </div>
-          </div>
+          </button>
         }
         back="/chats"
         right={

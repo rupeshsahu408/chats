@@ -214,9 +214,39 @@ export const PeerSchema = z.object({
   /** Optional public profile fields, mirrored from the users table. */
   username: z.string().nullable().optional(),
   displayName: z.string().nullable().optional(),
+  bio: z.string().nullable().optional(),
   avatarDataUrl: z.string().nullable().optional(),
+  /**
+   * Private nickname the requesting user has saved for this peer
+   * (WhatsApp-style "saved contact name"). Visible only to the
+   * requester; never affects the peer's public username/displayName.
+   */
+  contactName: z.string().nullable().optional(),
 });
 export type Peer = z.infer<typeof PeerSchema>;
+
+/* ─────────── Private contact names ─────────── */
+
+export const ContactNameSchema = z
+  .string()
+  .trim()
+  .min(1, "Contact name can't be empty")
+  .max(60, "Contact name must be 60 characters or fewer");
+export type ContactName = z.infer<typeof ContactNameSchema>;
+
+export const SetContactNameInput = z.object({
+  peerId: UserIdSchema,
+  /** Pass `null` to clear the saved name and fall back to defaults. */
+  customName: ContactNameSchema.nullable(),
+});
+export type SetContactNameInput = z.infer<typeof SetContactNameInput>;
+
+export const ContactNameEntrySchema = z.object({
+  peerId: UserIdSchema,
+  customName: z.string(),
+  updatedAt: z.string(),
+});
+export type ContactNameEntry = z.infer<typeof ContactNameEntrySchema>;
 
 export const IncomingRequestSchema = z.object({
   id: ConnectionRequestIdSchema,

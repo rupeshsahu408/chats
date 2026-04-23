@@ -7,10 +7,13 @@ import type { Peer } from "@veil/shared";
 export function peerLabel(peer: Pick<Peer, "id" | "fingerprint"> & {
   username?: string | null;
   displayName?: string | null;
+  contactName?: string | null;
 }): string {
+  const cn = peer.contactName?.trim();
+  if (cn) return cn;
+  if (peer.username) return `@${peer.username}`;
   const dn = peer.displayName?.trim();
   if (dn) return dn;
-  if (peer.username) return `@${peer.username}`;
   if (peer.fingerprint) return peer.fingerprint;
   return `${peer.id.slice(0, 8)}…`;
 }

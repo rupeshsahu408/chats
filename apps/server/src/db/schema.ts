@@ -604,6 +604,45 @@ export const scheduledMessages = pgTable(
   }),
 );
 
+/* ─────────── user_contacts ─────────── */
+/*
+ * Per-user private nicknames for other users (WhatsApp-style "saved
+ * contact name"). The custom name is visible only to the owner; it
+ * never affects the other user's public username/displayName.
+ */
+
+export const userContacts = pgTable(
+  "user_contacts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    /** The user who saved the nickname (the address-book owner). */
+    ownerUserId: uuid("owner_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    /** The user being nicknamed. */
+    contactUserId: uuid("contact_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    /** Free-text private name, ≤60 chars. */
+    customName: text("custom_name").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => ({
+    pairIdx: uniqueIndex("user_contacts_pair_idx").on(
+      t.ownerUserId,
+      t.contactUserId,
+    ),
+    ownerIdx: index("user_contacts_owner_idx").on(t.ownerUserId),
+  }),
+);
+
+export type UserContactRow = typeof userContacts.$inferSelect;
+
 export type ScheduledMessageRow = typeof scheduledMessages.$inferSelect;
 
 export type UserRow = typeof users.$inferSelect;

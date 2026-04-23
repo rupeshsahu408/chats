@@ -197,6 +197,15 @@ After PIN setup at signup, the client generates 1 signed prekey + 20 one-time pr
 - **New server env vars** (all four required to enable media): `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`. Optional tuning: `MEDIA_MAX_BYTES` (default 16 MB), `MEDIA_TTL_HOURS` (default 24).
 - **R2 bucket setup:** the bucket needs a CORS policy allowing `PUT` and `GET` from the client origin(s) with `content-type` in `AllowedHeaders` and `ETag` in `ExposeHeaders`. Example JSON is in `apps/server/.env.example`.
 
+## Contact profile + private contact names (WhatsApp-style)
+
+- **DB:** `user_contacts` (owner_user_id, contact_user_id, custom_name, timestamps; unique on the owner+contact pair). Migration applied via `drizzle-kit push`.
+- **Shared:** `Peer` schema gains optional `bio` and `contactName` (the latter is the *requesting* user's private nickname for the peer). `ContactNameSchema`, `SetContactNameInput`, `ContactNameEntrySchema` added.
+- **Server:** new `contacts` router (`list`, `set`) — `set` accepts `customName: null` to clear. `connections.list` now LEFT JOINs `user_contacts` and surfaces `contactName` (and `bio`) on each peer in a single query.
+- **Client `peerLabel`:** preference order is now `contactName` → `@username` → `displayName` → fingerprint → truncated id, so the chat list, chat header, and any other consumer falls back gracefully.
+- **Client `ProfilePage` (`/profile/:peerId`):** WhatsApp-style contact info screen — large avatar, public `@username`, fingerprint, bio, plus a "Saved name (only you can see this)" section with inline add/edit/clear. Rendered as a real route, navigated to from the chat header.
+- **Chat header:** the avatar+title block in `ChatThreadPage` is a button that navigates to `/profile/:peerId`. The header now uses `peerLabel(peer)` (contact name → @username → fingerprint) and shows `peerSubLabel` as a small secondary line.
+
 ## Phase 6 — Privacy & polish (complete)
 
 - DB: `blocks`, `reports`, plus `last_seen_visibility` enum on `users` (everyone / contacts / nobody).
