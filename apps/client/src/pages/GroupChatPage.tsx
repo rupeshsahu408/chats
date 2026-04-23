@@ -48,6 +48,7 @@ import {
 } from "../lib/db";
 import {
   ensureMySenderKey,
+  getPendingSenderKeyRecipients,
   ingestGroupInboxMessage,
   sendGroupChat,
   sendGroupText,
@@ -540,6 +541,48 @@ function GroupChatInner({ groupId }: { groupId: string }) {
     if (!groupQuery.data) return;
     void ensureMySenderKey(identity, groupQuery.data).catch(() => undefined);
   }, [groupQuery.data, identity]);
+
+  // Track which group members haven't yet acknowledged my sender key,
+  // so the composer can show a "X members can't yet read your messages"
+  // hint while distribution is still in progress. Recomputes whenever
+  // the group epoch / membership changes, after each send (messages
+  // length tick), and on a 4 s heartbeat while there are still pending
+  // recipients. Polling stops when everyone has acknowledged.
+  const [pendingDist, setPendingDist] = useState<number>(0);
+  useEffect(() => {
+    if (!groupQuery.data) return;
+    const grp = groupQuery.data;
+    let cancelled = false;
+    let timer: ReturnType<typeof setInterval> | null = null;
+    const recompute = async () => {
+      try {
+        const pending = await getPendingSenderKeyRecipients(
+          grp.id,
+          identity.userId,
+          grp.epoch,
+          grp.members.map((m) => m.userId),
+        );
+        if (!cancelled) setPendingDist(pending.length);
+      } catch {
+        /* ignore */
+      }
+    };
+    void recompute();
+    timer = setInterval(() => {
+      if (pendingDist === 0) {
+        if (timer) {
+          clearInterval(timer);
+          timer = null;
+        }
+        return;
+      }
+      void recompute();
+    }, 4_000);
+    return () => {
+      cancelled = true;
+      if (timer) clearInterval(timer);
+    };
+  }, [groupQuery.data, identity, messages?.length, pendingDist]);
 
   // Auto-scroll to bottom on new messages.
   useEffect(() => {
@@ -1415,6 +1458,23 @@ function GroupChatInner({ groupId }: { groupId: string }) {
           loading={previewLoading}
           onDismiss={() => setPendingPreview(null)}
         />
+      )}
+
+      {/* Sender-key distribution hint: surface when one or more current
+          members haven't yet acknowledged our sender key. Self-resolves
+          via the self-healing distribute path + skreq, so we just show
+          a passive note rather than blocking the send. */}
+      {pendingDist > 0 && (
+        <div className="px-3 pt-2 -mb-1">
+          <div className="bg-surface border-l-2 border-amber-400 rounded-md px-3 py-2 text-xs text-text-muted flex items-center gap-2">
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+            <span>
+              {pendingDist === 1
+                ? "1 member can't yet read your messages — sharing encryption keys…"
+                : `${pendingDist} members can't yet read your messages — sharing encryption keys…`}
+            </span>
+          </div>
+        </div>
       )}
 
       {/* Composer */}

@@ -199,6 +199,26 @@ async function distributeSenderKey(
   return results.filter((u): u is string => u !== null);
 }
 
+/**
+ * Returns the user-ids of `currentMembers` who have NOT yet acknowledged
+ * our sender key for (groupId, epoch). Used by the group composer to
+ * surface "X members can't yet read your messages" while distribution
+ * is still in progress. Excludes ourselves. If we don't have a sender
+ * key for this epoch yet, every other member is considered pending.
+ */
+export async function getPendingSenderKeyRecipients(
+  groupId: string,
+  me: string,
+  epoch: number,
+  currentMemberIds: string[],
+): Promise<string[]> {
+  const others = currentMemberIds.filter((u) => u !== me);
+  const rec = await getSenderKey(groupId, me, epoch);
+  if (!rec) return others;
+  const distributed = parseDistributed(rec);
+  return others.filter((u) => !distributed.has(u));
+}
+
 /* ─────────────── Sender Key REQUEST (recovery path) ─────────────── */
 
 /**
