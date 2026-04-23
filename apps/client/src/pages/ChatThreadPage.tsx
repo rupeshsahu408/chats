@@ -2103,14 +2103,12 @@ function ChatMenu({
         label="Starred messages"
         onClick={() => {
           onShowStarred();
-          onClose();
         }}
       />
       <MenuItem
         label="Scheduled messages"
         onClick={() => {
           onShowScheduled();
-          onClose();
         }}
       />
       <MenuItem label={`Disappearing messages · ${ttlLabel}`} onClick={onTTL} />
