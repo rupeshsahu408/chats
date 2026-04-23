@@ -15,6 +15,8 @@ import {
   OkSchema,
   SendGroupMessageInput,
   SendGroupMessageResult,
+  SendGroupBroadcastInput,
+  SendGroupBroadcastResult,
   FetchGroupHistoryInput,
   FetchGroupHistoryResult,
   type InboxMessage,
@@ -578,6 +580,135 @@ export const messagesRouter = router({
         (r) => rowByRecipient.get(r.recipientUserId)!.id,
       );
       return { createdAt, ids };
+    }),
+
+  /**
+   * WhatsApp-style group broadcast. Caller supplies a single sender-key
+   * ciphertext + header; the server fetches all current group members
+   * and fans out one row per member (excluding the sender). This is
+   * the canonical group-send path — delivery is determined purely by
+   * group membership at send-time, with no client-supplied recipient
+   * list and no dependency on per-pair connections.
+   */
+  sendGroupBroadcast: protectedProcedure
+    .input(SendGroupBroadcastInput)
+    .output(SendGroupBroadcastResult)
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      const me = ctx.userId;
+
+      const myMem = await db
+        .select({ id: schema.groupMembers.id })
+        .from(schema.groupMembers)
+        .where(
+          and(
+            eq(schema.groupMembers.groupId, input.groupId),
+            eq(schema.groupMembers.userId, me),
+          ),
+        )
+        .limit(1);
+      if (myMem.length === 0) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You are not a member of this group.",
+        });
+      }
+
+      // Fetch all current members server-side. This is the source of
+      // truth — clients cannot accidentally drop a recently-added
+      // member by sending a stale recipient list.
+      const memberRows = await db
+        .select({ userId: schema.groupMembers.userId })
+        .from(schema.groupMembers)
+        .where(eq(schema.groupMembers.groupId, input.groupId));
+      const recipientIds = memberRows
+        .map((r) => r.userId)
+        .filter((u) => u !== me);
+
+      const expiresAt = input.expiresInSeconds
+        ? new Date(Date.now() + input.expiresInSeconds * 1000)
+        : null;
+      const convId = `g:${input.groupId}`;
+      const headerBuf = Buffer.from(input.header, "base64");
+      const ctBuf = Buffer.from(input.ciphertext, "base64");
+
+      // Group-of-one (sender is the only member): nothing to fan out,
+      // but still return a stable row id by inserting a self-leg.
+      // This keeps the local UI flow consistent with the multi-member
+      // case (status flip from pending → sent on a known server id).
+      if (recipientIds.length === 0) {
+        const inserted = await db
+          .insert(schema.messages)
+          .values({
+            senderUserId: me,
+            recipientUserId: me,
+            groupId: input.groupId,
+            conversationId: convId,
+            header: headerBuf,
+            ciphertext: ctBuf,
+            expiresAt,
+          })
+          .returning({
+            id: schema.messages.id,
+            createdAt: schema.messages.createdAt,
+          });
+        const row = inserted[0]!;
+        return {
+          createdAt: row.createdAt.toISOString(),
+          id: row.id,
+          fanout: 0,
+        };
+      }
+
+      const valuesToInsert = recipientIds.map((uid) => ({
+        senderUserId: me,
+        recipientUserId: uid,
+        groupId: input.groupId,
+        conversationId: convId,
+        header: headerBuf,
+        ciphertext: ctBuf,
+        expiresAt,
+      }));
+      const inserted = await db
+        .insert(schema.messages)
+        .values(valuesToInsert)
+        .returning({
+          id: schema.messages.id,
+          recipientUserId: schema.messages.recipientUserId,
+          createdAt: schema.messages.createdAt,
+          expiresAt: schema.messages.expiresAt,
+        });
+
+      // WS push + Web Push to every recipient.
+      const headerB64 = input.header;
+      const ciphertextB64 = input.ciphertext;
+      for (const row of inserted) {
+        publish(row.recipientUserId, {
+          type: "new_message",
+          message: {
+            id: row.id,
+            senderUserId: me,
+            header: headerB64,
+            ciphertext: ciphertextB64,
+            createdAt: row.createdAt.toISOString(),
+            expiresAt: row.expiresAt ? row.expiresAt.toISOString() : null,
+            groupId: input.groupId,
+          },
+        });
+        void pushToUser(row.recipientUserId, {
+          type: "new_message",
+          title: "New group message",
+          body: "You have a new encrypted group message.",
+          url: `/groups/${input.groupId}`,
+        }).catch(() => undefined);
+      }
+
+      const first = inserted[0]!;
+      return {
+        createdAt: first.createdAt.toISOString(),
+        id: first.id,
+        fanout: inserted.length,
+      };
     }),
 
   /** Paginated group history for a group I'm a member of. */

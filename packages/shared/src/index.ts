@@ -767,6 +767,35 @@ export const SendGroupMessageResult = z.object({
 });
 export type SendGroupMessageResult = z.infer<typeof SendGroupMessageResult>;
 
+/**
+ * WhatsApp-style group broadcast: client supplies one sender-key
+ * ciphertext + header and the server fans it out to every current
+ * group member based purely on group membership. Replaces the older
+ * per-recipient `recipients` list which forced clients to maintain
+ * a (sometimes stale) member cache.
+ */
+export const SendGroupBroadcastInput = z.object({
+  groupId: z.string().uuid(),
+  header: Base64BytesSchema,
+  ciphertext: Base64BytesSchema,
+  expiresInSeconds: z
+    .number()
+    .int()
+    .positive()
+    .max(60 * 60 * 24 * 30)
+    .optional(),
+});
+export type SendGroupBroadcastInput = z.infer<typeof SendGroupBroadcastInput>;
+
+export const SendGroupBroadcastResult = z.object({
+  createdAt: z.string(),
+  /** First fan-out row id; clients use this as the canonical server id for the message. */
+  id: z.string().uuid(),
+  /** Number of recipients the server fanned out to (excludes the sender). */
+  fanout: z.number().int().nonnegative(),
+});
+export type SendGroupBroadcastResult = z.infer<typeof SendGroupBroadcastResult>;
+
 export const FetchGroupHistoryInput = z.object({
   groupId: z.string().uuid(),
   before: z.string().optional(),

@@ -396,24 +396,16 @@ export async function sendGroupChat(
 
   try {
     const wire = new TextEncoder().encode(encodeEnvelope(envelope));
-    // Fan-out cipher: each recipient gets the same header + ciphertext.
+    // Sender-key encryption: same ciphertext for every member. Server
+    // does the fan-out from the live group_members table — clients no
+    // longer pass a recipient list, so a stale member cache can't
+    // accidentally drop a member from the broadcast.
     const { headerB64, ciphertextB64 } = await groupEncrypt(state, wire);
     await putSenderKey(stateToRec(state));
-    const recipients = group.members
-      .filter((m) => m.userId !== identity.userId)
-      .map((m) => ({
-        recipientUserId: m.userId,
-        header: headerB64,
-        ciphertext: ciphertextB64,
-      }));
-    if (recipients.length === 0) {
-      // Group of one — local-only, mark as sent.
-      await setGroupMessageStatus(localId, "sent");
-      return localId;
-    }
-    const sent = await trpcClientProxy().messages.sendGroup.mutate({
+    const sent = await trpcClientProxy().messages.sendGroupBroadcast.mutate({
       groupId,
-      recipients,
+      header: headerB64,
+      ciphertext: ciphertextB64,
       ...((envelope.t === "text" ||
         envelope.t === "image" ||
         envelope.t === "voice") &&
@@ -421,7 +413,7 @@ export async function sendGroupChat(
         ? { expiresInSeconds: envelope.ttl }
         : {}),
     });
-    await setGroupMessageStatus(localId, "sent", sent.ids[0]);
+    await setGroupMessageStatus(localId, "sent", sent.id);
   } catch (err) {
     await setGroupMessageStatus(localId, "failed");
     throw err;
@@ -566,15 +558,12 @@ async function broadcastSideEffectEnvelope(
   const wire = new TextEncoder().encode(encodeEnvelope(envelope));
   const { headerB64, ciphertextB64 } = await groupEncrypt(state, wire);
   await putSenderKey(stateToRec(state));
-  const recipients = group.members
-    .filter((m) => m.userId !== identity.userId)
-    .map((m) => ({
-      recipientUserId: m.userId,
-      header: headerB64,
-      ciphertext: ciphertextB64,
-    }));
-  if (recipients.length === 0) return;
-  await trpcClientProxy().messages.sendGroup.mutate({ groupId, recipients });
+  // Server fans out to the live member set — no client-supplied list.
+  await trpcClientProxy().messages.sendGroupBroadcast.mutate({
+    groupId,
+    header: headerB64,
+    ciphertext: ciphertextB64,
+  });
 }
 
 /* ─────────────── Inbound group message ─────────────── */
