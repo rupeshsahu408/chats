@@ -237,6 +237,13 @@ Fixes in `lib/SessionSync.tsx` + `lib/wsClient.ts`:
 
 Diagnosed via direct prod-DB inspection: messages were being inserted but `delivered_at` was NULL for every recent row, proving the write path worked and the read path was the failure point.
 
+### Duplicate-message follow-up
+
+The always-on poll exposed a pre-existing race: the WS push and a poll drain (or two poll drains from focus + visibility + interval firing back-to-back) both ran `hasChatMessageWithServerId` → `appendChatMessage` non-atomically, so two or more passed the check and each inserted their own copy (3–4 duplicates were common). Fixed in two layers:
+
+1. **`lib/messageSync.ts`**: in-memory `inFlightIngest` map keyed by `m.id` — concurrent calls share the same Promise, so only the first one does the work.
+2. **`lib/db.ts` `appendChatMessage`**: when `serverId` is present, the existence-check + insert run inside a single `db.transaction("rw", db.chatMessages, …)` so concurrent transactions can't both insert.
+
 ## Next phase
 
 **Native iOS (Phase 8) and Android Play Store (Phase 9) are deferred.** The product launches as an installable PWA: Android users install via Chrome's prompt, iOS users use Add-to-Home-Screen (web push works on iOS 16.4+ once installed). Phase 7 wrap-up — manual e2e group test (3 accounts) + push verification — remains the only outstanding item before launch readiness.

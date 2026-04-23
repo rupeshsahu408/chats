@@ -499,6 +499,21 @@ export async function consumeOneTimePrekey(keyId: number): Promise<void> {
 export async function appendChatMessage(
   rec: Omit<ChatMessageRecord, "id">,
 ): Promise<number> {
+  // Atomic dedupe-on-insert: when a serverId is present we run the lookup
+  // and the insert inside a single Dexie transaction, so concurrent
+  // ingest paths (live WS + background poll + focus drain) can't all
+  // pass the "is this new?" check and each insert their own copy.
+  if (rec.serverId) {
+    const serverId = rec.serverId;
+    return await db.transaction("rw", db.chatMessages, async () => {
+      const existing = await db.chatMessages
+        .where("serverId")
+        .equals(serverId)
+        .first();
+      if (existing && existing.id !== undefined) return existing.id;
+      return (await db.chatMessages.add(rec as ChatMessageRecord)) as number;
+    });
+  }
   return (await db.chatMessages.add(rec as ChatMessageRecord)) as number;
 }
 

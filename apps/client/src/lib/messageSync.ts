@@ -94,11 +94,29 @@ async function decryptIncoming(
   );
 }
 
-/**
- * Persist a single live (WS) inbox message and ack delivery to the server.
- * Idempotent: drops messages we've already stored.
- */
-export async function ingestInboxMessage(
+// In-flight ingest guard: when WS push and a poll drain race for the same
+// server message id, the first call claims it here so the second one
+// resolves to "duplicate" without touching Dexie or the decrypt path.
+const inFlightIngest = new Map<string, Promise<"new" | "duplicate" | "failed">>();
+
+export function ingestInboxMessage(
+  identity: UnlockedIdentity,
+  m: InboxMessage,
+): Promise<"new" | "duplicate" | "failed"> {
+  const existing = inFlightIngest.get(m.id);
+  if (existing) return existing;
+  const p = (async () => {
+    try {
+      return await ingestInboxMessageInner(identity, m);
+    } finally {
+      inFlightIngest.delete(m.id);
+    }
+  })();
+  inFlightIngest.set(m.id, p);
+  return p;
+}
+
+async function ingestInboxMessageInner(
   identity: UnlockedIdentity,
   m: InboxMessage,
 ): Promise<"new" | "duplicate" | "failed"> {
