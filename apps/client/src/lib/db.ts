@@ -31,6 +31,13 @@ export interface IdentityRecord {
   salt2?: string;
   /** Base64 of raw 32-byte X25519 public key. Phase 3+. */
   x25519PublicKey?: string;
+  /**
+   * BIP-39 recovery phrase, only stored for `phrase-derived` (Random ID)
+   * accounts so the user can re-download their recovery key from
+   * Settings if they lose the original copy. For PIN-encrypted accounts
+   * this stays undefined — those users have no phrase.
+   */
+  recoveryPhrase?: string;
   createdAt: string;
 }
 

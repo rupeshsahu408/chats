@@ -282,12 +282,27 @@ export function Avatar({
   label,
   size = 44,
   className,
+  src,
 }: {
   seed: string;
   label?: string;
   size?: number;
   className?: string;
+  /** Optional profile photo data URL or http(s) URL. */
+  src?: string | null;
 }) {
+  if (src) {
+    return (
+      <img
+        src={src}
+        alt=""
+        style={{ width: size, height: size }}
+        className={
+          "rounded-full object-cover shrink-0 select-none " + (className ?? "")
+        }
+      />
+    );
+  }
   const initials = (label ?? seed).slice(0, 2).toUpperCase();
   const hue = stringToHue(seed);
   return (
@@ -319,6 +334,7 @@ export function ChatListRow({
   to,
   onClick,
   seed,
+  avatarSrc,
   title,
   subtitle,
   meta,
@@ -328,6 +344,7 @@ export function ChatListRow({
   to?: string;
   onClick?: () => void;
   seed: string;
+  avatarSrc?: string | null;
   title: ReactNode;
   subtitle?: ReactNode;
   meta?: ReactNode;
@@ -336,7 +353,7 @@ export function ChatListRow({
 }) {
   const body = (
     <div className="flex items-center gap-3 px-4 py-3 hover:bg-surface active:bg-elevated transition wa-tap border-b border-line/60 last:border-b-0">
-      <Avatar seed={seed} />
+      <Avatar seed={seed} src={avatarSrc} />
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline gap-2">
           <div className="font-medium text-text truncate flex-1">{title}</div>

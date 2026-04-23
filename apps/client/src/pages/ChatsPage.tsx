@@ -22,6 +22,7 @@ import {
 import { MainShell } from "../components/MainShell";
 import { UnlockGate } from "../components/UnlockGate";
 import { db } from "../lib/db";
+import { peerLabel } from "../lib/peerLabel";
 import { pollAndDecrypt } from "../lib/messageSync";
 
 export function ChatsPage() {
@@ -116,8 +117,9 @@ export function ChatsPage() {
       if (!searching || !search.trim()) return true;
       const q = search.trim().toLowerCase();
       return (
-        conn.peer.id.toLowerCase().includes(q) ||
-        conn.peer.fingerprint.toLowerCase().includes(q)
+        conn.peer.fingerprint.toLowerCase().includes(q) ||
+        (conn.peer.username ?? "").toLowerCase().includes(q) ||
+        (conn.peer.displayName ?? "").toLowerCase().includes(q)
       );
     })
     .sort((a, b) => {
@@ -155,7 +157,7 @@ export function ChatsPage() {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by ID or fingerprint…"
+            placeholder="Search by name, @username or fingerprint…"
             className="w-full bg-surface border border-line rounded-full px-4 py-2 text-sm outline-none focus:border-wa-green text-text"
           />
         </div>
@@ -203,10 +205,11 @@ export function ChatsPage() {
               <ChatListRow
                 key={conn.id}
                 to={`/chats/${conn.peer.id}`}
-                seed={conn.peer.id}
+                seed={conn.peer.username || conn.peer.id}
+                avatarSrc={conn.peer.avatarDataUrl ?? null}
                 title={
-                  <span className="font-mono text-sm">
-                    {conn.peer.fingerprint || conn.peer.id.slice(0, 8) + "…"}
+                  <span className="text-sm">
+                    {peerLabel(conn.peer)}
                   </span>
                 }
                 subtitle={

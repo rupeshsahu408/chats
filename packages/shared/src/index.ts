@@ -211,6 +211,10 @@ export const PeerSchema = z.object({
   accountType: AccountTypeSchema,
   fingerprint: z.string(),
   createdAt: z.string(),
+  /** Optional public profile fields, mirrored from the users table. */
+  username: z.string().nullable().optional(),
+  displayName: z.string().nullable().optional(),
+  avatarDataUrl: z.string().nullable().optional(),
 });
 export type Peer = z.infer<typeof PeerSchema>;
 

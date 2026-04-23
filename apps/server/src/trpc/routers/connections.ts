@@ -38,12 +38,18 @@ function peer(u: {
   accountType: "email" | "phone" | "random";
   identityPubkey: Buffer;
   createdAt: Date;
+  username?: string | null;
+  displayName?: string | null;
+  avatarDataUrl?: string | null;
 }): Peer {
   return {
     id: u.id,
     accountType: u.accountType,
     fingerprint: fingerprintForPublicKey(u.identityPubkey),
     createdAt: u.createdAt.toISOString(),
+    username: u.username ?? null,
+    displayName: u.displayName ?? null,
+    avatarDataUrl: u.avatarDataUrl ?? null,
   };
 }
 

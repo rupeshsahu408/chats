@@ -196,6 +196,7 @@ export function RandomIdSignupPage() {
         iv2: "phrase-derived",
         salt2: "phrase-derived",
         x25519PublicKey: bytesToBase64(x25519Pub),
+        recoveryPhrase: phrase,
         createdAt: new Date().toISOString(),
       });
 

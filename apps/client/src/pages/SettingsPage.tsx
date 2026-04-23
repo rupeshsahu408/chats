@@ -18,7 +18,7 @@ import { MainShell } from "../components/MainShell";
 import { ScheduledMessagesSheet } from "../components/ScheduledMessagesSheet";
 import { useThemeStore, type ThemeMode } from "../lib/themeStore";
 import { ensurePushSubscription, disablePushSubscription } from "../lib/push";
-import { clearIdentity } from "../lib/db";
+import { clearIdentity, loadIdentity } from "../lib/db";
 import { useStealthPrefs } from "../lib/stealthPrefs";
 import { resizeAvatarToDataUrl } from "../lib/avatar";
 
@@ -129,10 +129,12 @@ export function SettingsPage() {
         </div>
 
         <SectionHeader>Profile</SectionHeader>
+        <UsernameRow username={me?.username ?? null} />
         <ProfileEditor />
 
         <SectionHeader>Security</SectionHeader>
         <DailyPasswordEditor />
+        <RecoveryKeyRow username={me?.username ?? null} />
 
         <SectionHeader>Appearance</SectionHeader>
         <ThemeRow />
@@ -222,6 +224,198 @@ function SectionHeader({ children }: { children: React.ReactNode }) {
     <div className="px-4 pt-5 pb-1 text-[11px] uppercase tracking-widest text-text-muted bg-panel">
       {children}
     </div>
+  );
+}
+
+/* ─────────── Username display (read-only, copyable) ─────────── */
+
+function UsernameRow({ username }: { username: string | null }) {
+  const [copied, setCopied] = useState(false);
+  async function copy() {
+    if (!username) return;
+    try {
+      await navigator.clipboard.writeText(`@${username}`);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1200);
+    } catch {
+      /* clipboard may be unavailable */
+    }
+  }
+  return (
+    <div className="px-4 py-3 bg-panel border-b border-line/60 flex items-center justify-between gap-3">
+      <div className="min-w-0">
+        <div className="text-text font-medium">Username</div>
+        <div className="text-sm text-wa-green font-mono truncate">
+          {username ? `@${username}` : "—"}
+        </div>
+        <div className="text-[11px] text-text-muted mt-0.5">
+          People can find and add you using this handle.
+        </div>
+      </div>
+      {username && (
+        <button
+          onClick={copy}
+          className="shrink-0 text-sm px-3 py-1.5 rounded-full border border-line text-text hover:bg-white/5 wa-tap"
+        >
+          {copied ? "Copied!" : "Copy"}
+        </button>
+      )}
+    </div>
+  );
+}
+
+/* ─────────── Recovery key download ─────────── */
+
+function RecoveryKeyRow({ username }: { username: string | null }) {
+  const [open, setOpen] = useState(false);
+  const [phrase, setPhrase] = useState<string | null>(null);
+  const [unsupported, setUnsupported] = useState(false);
+  const [reveal, setReveal] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  async function openModal() {
+    setReveal(false);
+    setCopied(false);
+    setUnsupported(false);
+    setPhrase(null);
+    setOpen(true);
+    try {
+      const rec = await loadIdentity();
+      if (!rec) {
+        setUnsupported(true);
+        return;
+      }
+      if (rec.recoveryPhrase) {
+        setPhrase(rec.recoveryPhrase);
+      } else {
+        // Either a PIN-encrypted account (no phrase exists) or a Random
+        // ID account that signed in before we started persisting the
+        // phrase locally.
+        setUnsupported(true);
+      }
+    } catch {
+      setUnsupported(true);
+    }
+  }
+
+  function downloadFile() {
+    if (!phrase) return;
+    const handle = username ? `@${username}` : "your account";
+    const text =
+      `Veil recovery key for ${handle}\n\n` +
+      `${phrase}\n\n` +
+      `Keep this file in a safe place — anyone with these 12 words can ` +
+      `log in to your Veil account from any device.\n` +
+      `Generated ${new Date().toLocaleString()}.\n`;
+    const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `veil-recovery-${username ?? "account"}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  async function copyPhrase() {
+    if (!phrase) return;
+    try {
+      await navigator.clipboard.writeText(phrase);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  return (
+    <>
+      <SettingsRow
+        label="Recovery key"
+        sub="Download your 12-word backup. You'll need it to log in on a new device."
+        onClick={openModal}
+      />
+      {open && (
+        <Modal
+          title="Recovery key"
+          onClose={() => {
+            setOpen(false);
+            setReveal(false);
+          }}
+        >
+          {unsupported ? (
+            <div className="space-y-3">
+              <p className="text-sm text-text">
+                Your recovery key isn't stored on this device.
+              </p>
+              <p className="text-xs text-text-muted leading-relaxed">
+                If this is a Random ID account, sign in once with your 12-word
+                phrase and we'll save a copy here so you can re-download it
+                from this screen later. PIN-protected accounts don't have a
+                recovery phrase.
+              </p>
+              <div className="flex justify-end mt-4">
+                <PrimaryButton onClick={() => setOpen(false)}>OK</PrimaryButton>
+              </div>
+            </div>
+          ) : !phrase ? (
+            <div className="text-sm text-text-muted">Loading…</div>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-xs text-text-muted leading-relaxed">
+                These 12 words are the master key to your account. Anyone with
+                them can log in as you. Store the file somewhere only you can
+                reach.
+              </p>
+
+              <div className="relative">
+                <div
+                  className={
+                    "grid grid-cols-3 gap-2 p-3 rounded-xl bg-surface border border-line text-sm font-mono leading-relaxed select-text " +
+                    (reveal ? "" : "blur-md pointer-events-none")
+                  }
+                >
+                  {phrase.split(" ").map((w, i) => (
+                    <div key={i} className="flex gap-1.5">
+                      <span className="text-text-faint w-5 text-right">
+                        {i + 1}.
+                      </span>
+                      <span className="text-text">{w}</span>
+                    </div>
+                  ))}
+                </div>
+                {!reveal && (
+                  <button
+                    onClick={() => setReveal(true)}
+                    className="absolute inset-0 rounded-xl flex items-center justify-center text-sm text-text bg-bg/30 hover:bg-bg/40 wa-tap"
+                  >
+                    Tap to reveal
+                  </button>
+                )}
+              </div>
+
+              <div className="flex flex-wrap gap-2 pt-2">
+                <PrimaryButton onClick={downloadFile}>
+                  Download .txt
+                </PrimaryButton>
+                <SecondaryButton onClick={copyPhrase}>
+                  {copied ? "Copied!" : "Copy to clipboard"}
+                </SecondaryButton>
+                <SecondaryButton
+                  onClick={() => {
+                    setOpen(false);
+                    setReveal(false);
+                  }}
+                >
+                  Close
+                </SecondaryButton>
+              </div>
+            </div>
+          )}
+        </Modal>
+      )}
+    </>
   );
 }
 

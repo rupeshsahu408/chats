@@ -122,6 +122,7 @@ export function RandomLoginPage() {
         iv2: "phrase-derived",
         salt2: "phrase-derived",
         x25519PublicKey: bytesToBase64(x25519Pub),
+        recoveryPhrase: trimmed,
         createdAt: new Date().toISOString(),
       });
 

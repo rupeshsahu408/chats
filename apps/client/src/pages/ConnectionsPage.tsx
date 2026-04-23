@@ -18,6 +18,7 @@ import {
 import { MainShell } from "../components/MainShell";
 import { bytesToBase64 } from "../lib/crypto";
 import type { Peer } from "@veil/shared";
+import { peerLabel, peerSubLabel } from "../lib/peerLabel";
 
 type Tab = "people" | "incoming" | "outgoing" | "find";
 
@@ -333,14 +334,24 @@ function PersonRow({
 }) {
   return (
     <div className="px-4 py-3 flex items-center gap-3 border-b border-line/60">
-      <Avatar seed={peer.id} label={peer.fingerprint.slice(0, 2)} size={48} />
+      <Avatar
+        seed={peer.username || peer.id}
+        label={(peer.displayName || peer.username || peer.fingerprint).slice(0, 2)}
+        size={48}
+        src={peer.avatarDataUrl ?? null}
+      />
       <div className="flex-1 min-w-0">
         <div className="text-sm flex items-center gap-2">
-          <span className="font-mono text-text truncate">
-            {peer.fingerprint || peer.id.slice(0, 8) + "…"}
+          <span className="text-text truncate font-medium">
+            {peerLabel(peer)}
           </span>
           <Pill tone="neutral">{peer.accountType}</Pill>
         </div>
+        {peerSubLabel(peer) && (
+          <div className="text-[11px] text-text-faint font-mono truncate">
+            {peerSubLabel(peer)}
+          </div>
+        )}
         <div className="text-xs text-text-muted truncate">{sub}</div>
       </div>
       {right}
