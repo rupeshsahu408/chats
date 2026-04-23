@@ -4,7 +4,30 @@ import { protectedProcedure, router } from "../init.js";
 
 const FETCH_TIMEOUT_MS = 6_000;
 const MAX_BYTES = 256 * 1024; // 256 KB of HTML is plenty to find <head>
+const MAX_IMAGE_BYTES = 512 * 1024; // 512 KB cap for the OG image
+const MAX_ICON_BYTES = 64 * 1024; // 64 KB cap for the favicon
 const UA = "Mozilla/5.0 (compatible; VeilLinkPreview/1.0; +https://veil.chat)";
+
+/**
+ * Image MIME types we'll inline. Anything else (SVG, video, exotic
+ * formats) is dropped — SVG in particular can carry script and would
+ * defeat the privacy goal once rendered in the recipient's browser.
+ */
+const ALLOWED_IMAGE_MIME = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+]);
+const ALLOWED_ICON_MIME = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+  "image/x-icon",
+  "image/vnd.microsoft.icon",
+  "image/ico",
+]);
 
 const cache = new Map<string, { at: number; data: LinkPreview }>();
 const CACHE_TTL_MS = 10 * 60 * 1000;
@@ -46,6 +69,21 @@ function metaContent(html: string, name: string): string | null {
   return cm && cm[1] ? decodeEntities(cm[1]).trim() : null;
 }
 
+/** Find the first <link rel="...icon..." href="..."> in the HTML. */
+function iconHref(html: string): string | null {
+  // Match <link ... rel="...icon..." ... href="..."> in any attr order.
+  const linkRe = /<link\b[^>]*>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = linkRe.exec(html))) {
+    const tag = m[0];
+    const rel = /\brel=["']([^"']+)["']/i.exec(tag);
+    if (!rel || !rel[1] || !/icon/i.test(rel[1])) continue;
+    const href = /\bhref=["']([^"']+)["']/i.exec(tag);
+    if (href && href[1]) return decodeEntities(href[1]).trim();
+  }
+  return null;
+}
+
 function titleTag(html: string): string | null {
   const m = /<title[^>]*>([\s\S]*?)<\/title>/i.exec(html);
   return m && m[1] ? decodeEntities(m[1].trim()) : null;
@@ -58,6 +96,71 @@ function abs(base: string, maybe: string | null): string | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * Fetch a remote URL with timeout + read at most `cap` bytes of body.
+ * Returns null on any error or when the response isn't of an allowed
+ * MIME type. Used by both the OG image inliner and the favicon inliner.
+ */
+async function fetchInlineImage(
+  rawUrl: string,
+  cap: number,
+  allowed: Set<string>,
+): Promise<string | null> {
+  let url: URL;
+  try {
+    url = new URL(rawUrl);
+  } catch {
+    return null;
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+  if (isPrivateHost(url.hostname)) return null;
+
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
+  let res: Response;
+  try {
+    res = await fetch(url.toString(), {
+      method: "GET",
+      redirect: "follow",
+      signal: ctrl.signal,
+      headers: { "User-Agent": UA, Accept: "image/*" },
+    });
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(t);
+  }
+  if (!res.ok) return null;
+  const ct = ((res.headers.get("content-type") ?? "").split(";")[0] ?? "")
+    .trim()
+    .toLowerCase();
+  if (!allowed.has(ct)) return null;
+  // Honour the server-declared length when present so we can short-circuit.
+  const declared = Number(res.headers.get("content-length") ?? "");
+  if (Number.isFinite(declared) && declared > cap) return null;
+
+  const reader = res.body?.getReader();
+  if (!reader) return null;
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  while (total < cap) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    if (!value) continue;
+    total += value.byteLength;
+    if (total > cap) {
+      try { await reader.cancel(); } catch { /* ignore */ }
+      return null;
+    }
+    chunks.push(value);
+  }
+  try { await reader.cancel(); } catch { /* ignore */ }
+  if (chunks.length === 0) return null;
+  const buf = concat(chunks);
+  const b64 = Buffer.from(buf).toString("base64");
+  return `data:${ct};base64,${b64}`;
 }
 
 async function fetchPreview(rawUrl: string): Promise<LinkPreview> {
@@ -103,6 +206,8 @@ async function fetchPreview(rawUrl: string): Promise<LinkPreview> {
       description: null,
       siteName: null,
       imageUrl: null,
+      imageDataUrl: null,
+      iconDataUrl: null,
     };
   }
 
@@ -142,6 +247,20 @@ async function fetchPreview(rawUrl: string): Promise<LinkPreview> {
     res.url,
     metaContent(html, "og:image") ?? metaContent(html, "twitter:image"),
   );
+  const iconUrl =
+    abs(res.url, iconHref(html)) ?? abs(res.url, "/favicon.ico");
+
+  // Fetch the image + favicon in parallel and inline them as data URLs.
+  // Either may legitimately return null (404, too big, wrong MIME, SSRF
+  // block) — we just omit it from the preview rather than failing.
+  const [imageDataUrl, iconDataUrl] = await Promise.all([
+    imageUrl
+      ? fetchInlineImage(imageUrl, MAX_IMAGE_BYTES, ALLOWED_IMAGE_MIME)
+      : Promise.resolve(null),
+    iconUrl
+      ? fetchInlineImage(iconUrl, MAX_ICON_BYTES, ALLOWED_ICON_MIME)
+      : Promise.resolve(null),
+  ]);
 
   return {
     url: rawUrl,
@@ -150,6 +269,8 @@ async function fetchPreview(rawUrl: string): Promise<LinkPreview> {
     description: description ? description.slice(0, 500) : null,
     siteName: siteName ? siteName.slice(0, 120) : null,
     imageUrl,
+    imageDataUrl,
+    iconDataUrl,
   };
 }
 

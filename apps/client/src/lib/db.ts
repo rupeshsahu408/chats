@@ -116,7 +116,15 @@ export interface ChatMessageRecord {
     title?: string | null;
     description?: string | null;
     siteName?: string | null;
+    /**
+     * Original third-party image URL. Kept for reference; never rendered
+     * directly because doing so would leak the recipient's IP.
+     */
     imageUrl?: string | null;
+    /** Server-fetched OG image, inlined as a `data:` URL. Render this. */
+    imageDataUrl?: string | null;
+    /** Server-fetched favicon, inlined as a `data:` URL. */
+    iconDataUrl?: string | null;
   };
   /** Optional media attachment (Phase 5). */
   attachment?: {
@@ -186,6 +194,12 @@ export interface ChatPrefRecord {
   pinnedToTop?: boolean;
   /** Mute notifications until this ISO timestamp. Empty = not muted. */
   mutedUntil?: string;
+  /**
+   * Whether to fetch and attach IP-safe link previews to outgoing
+   * messages in this chat. Default true. When false, URLs in the
+   * draft are sent as plain text with no preview card.
+   */
+  linkPreviewsEnabled?: boolean;
   updatedAt: string;
 }
 

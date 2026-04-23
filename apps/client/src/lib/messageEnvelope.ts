@@ -27,7 +27,16 @@ export interface EnvelopeLinkPreview {
   title?: string | null;
   description?: string | null;
   siteName?: string | null;
+  /**
+   * Original third-party image URL. Stored only for reference/debug.
+   * Renderers MUST prefer `imageDataUrl` and never fetch this directly,
+   * because doing so would leak the recipient's IP to the linked site.
+   */
   imageUrl?: string | null;
+  /** Server-fetched OG image, inlined as a `data:` URL. */
+  imageDataUrl?: string | null;
+  /** Server-fetched favicon, inlined as a `data:` URL. */
+  iconDataUrl?: string | null;
 }
 
 /**

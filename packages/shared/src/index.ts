@@ -863,8 +863,20 @@ export const LinkPreviewSchema = z.object({
   title: z.string().nullable(),
   description: z.string().nullable(),
   siteName: z.string().nullable(),
-  /** Absolute URL of the OG image, if one was found. */
+  /**
+   * Absolute URL of the OG image, if one was found. Kept for diagnostics
+   * only — clients MUST NOT render it directly because doing so would
+   * leak the recipient's IP to the third-party site. Always prefer
+   * `imageDataUrl` when rendering.
+   */
   imageUrl: z.string().url().nullable(),
+  /**
+   * Server-fetched OG image, inlined as a `data:` URL so the recipient
+   * never makes a network request to the third party. Capped server-side.
+   */
+  imageDataUrl: z.string().nullable(),
+  /** Server-fetched favicon, inlined as a `data:` URL. Same privacy reason. */
+  iconDataUrl: z.string().nullable(),
 });
 export type LinkPreview = z.infer<typeof LinkPreviewSchema>;
 

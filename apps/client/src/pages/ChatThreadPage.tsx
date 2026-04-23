@@ -158,6 +158,8 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
   const ttlSeconds = chatPref?.ttlSeconds ?? 0;
   const seenTtlSeconds = chatPref?.seenTtlSeconds ?? 0;
   const viewOnceDefault = chatPref?.viewOnceDefault ?? false;
+  // Default-on. Only treat as off when the user has explicitly disabled it.
+  const linkPreviewsEnabled = chatPref?.linkPreviewsEnabled !== false;
   const biometricCredentialId = chatPref?.biometricCredentialId;
   const pinnedToTop = !!chatPref?.pinnedToTop;
   const mutedUntilIso = chatPref?.mutedUntil ?? "";
@@ -526,39 +528,53 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
     return () => clearInterval(t);
   }, []);
 
-  // Detect URL in draft → fetch link preview lazily.
+  // Detect URL in draft → fetch link preview lazily. The server fetches
+  // both the OG metadata AND the OG image + favicon, then inlines the
+  // images as data URLs. The recipient never makes a network request to
+  // the linked site, so neither party leaks their IP. Gated on the
+  // per-chat "Link previews" toggle.
   useEffect(() => {
+    if (!linkPreviewsEnabled) {
+      setPendingPreview(null);
+      return;
+    }
     const url = firstUrl(draft);
     if (!url) {
       setPendingPreview(null);
       return;
     }
     if (pendingPreview && pendingPreview.url === url) return;
+    // Debounce 300ms so we don't fire while the user is still typing.
     setPreviewLoading(true);
     let cancelled = false;
-    void (async () => {
-      try {
-        const lp = await trpcClientProxy().linkPreview.fetch.mutate({ url });
-        if (cancelled) return;
-        setPendingPreview({
-          url: lp.url,
-          resolvedUrl: lp.resolvedUrl,
-          title: lp.title,
-          description: lp.description,
-          siteName: lp.siteName,
-          imageUrl: lp.imageUrl,
-        });
-      } catch {
-        if (!cancelled) setPendingPreview(null);
-      } finally {
-        if (!cancelled) setPreviewLoading(false);
-      }
-    })();
+    const timer = setTimeout(() => {
+      void (async () => {
+        try {
+          const lp = await trpcClientProxy().linkPreview.fetch.mutate({ url });
+          if (cancelled) return;
+          setPendingPreview({
+            url: lp.url,
+            resolvedUrl: lp.resolvedUrl,
+            title: lp.title,
+            description: lp.description,
+            siteName: lp.siteName,
+            imageUrl: lp.imageUrl,
+            imageDataUrl: lp.imageDataUrl,
+            iconDataUrl: lp.iconDataUrl,
+          });
+        } catch {
+          if (!cancelled) setPendingPreview(null);
+        } finally {
+          if (!cancelled) setPreviewLoading(false);
+        }
+      })();
+    }, 300);
     return () => {
       cancelled = true;
+      clearTimeout(timer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draft]);
+  }, [draft, linkPreviewsEnabled]);
 
   async function onSendText() {
     const text = draft.trim();
@@ -1238,6 +1254,12 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
           viewOnceDefault={viewOnceDefault}
           onToggleViewOnce={() =>
             void setChatPref(peerId, { viewOnceDefault: !viewOnceDefault })
+          }
+          linkPreviewsEnabled={linkPreviewsEnabled}
+          onToggleLinkPreviews={() =>
+            void setChatPref(peerId, {
+              linkPreviewsEnabled: !linkPreviewsEnabled,
+            })
           }
           blockedByMe={blockedByMe}
           onToggleBlock={() => {
@@ -2073,29 +2095,50 @@ export function LinkPreviewBlock({
 }: {
   preview: NonNullable<ChatMessageRecord["linkPreview"]>;
 }) {
+  // Privacy invariant: NEVER render `preview.imageUrl` directly. Doing so
+  // would cause the recipient's browser to GET the image from the linked
+  // site, leaking their IP and undoing the entire point of the feature.
+  // We only render `imageDataUrl` (which the sender's server inlined).
+  const href = preview.resolvedUrl ?? preview.url;
+  let domain: string | null = null;
+  try {
+    domain = new URL(href).hostname.replace(/^www\./, "");
+  } catch {
+    /* keep null */
+  }
   return (
     <a
-      href={preview.resolvedUrl ?? preview.url}
+      href={href}
       target="_blank"
       rel="noopener noreferrer nofollow"
-      className="mt-2 -mx-1 block rounded-md overflow-hidden bg-black/20 border border-white/5"
+      className="mt-2 -mx-1 block rounded-lg overflow-hidden bg-black/20 border border-white/5 animate-soft-pop hover:border-white/15 transition-colors"
     >
-      {preview.imageUrl && (
+      {preview.imageDataUrl && (
         <img
-          src={preview.imageUrl}
+          src={preview.imageDataUrl}
           alt=""
-          className="w-full max-h-40 object-cover"
+          className="w-full max-h-40 object-cover bg-black/30"
           loading="lazy"
+          decoding="async"
         />
       )}
       <div className="p-2">
-        {preview.siteName && (
-          <div className="text-[10px] uppercase tracking-wide text-text-muted">
-            {preview.siteName}
-          </div>
-        )}
+        <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-text-muted">
+          {preview.iconDataUrl && (
+            <img
+              src={preview.iconDataUrl}
+              alt=""
+              className="w-3 h-3 rounded-sm"
+              loading="lazy"
+              decoding="async"
+            />
+          )}
+          <span className="truncate">{preview.siteName || domain || ""}</span>
+        </div>
         {preview.title && (
-          <div className="text-sm text-text font-medium line-clamp-2">{preview.title}</div>
+          <div className="text-sm text-text font-medium line-clamp-2 mt-0.5">
+            {preview.title}
+          </div>
         )}
         {preview.description && (
           <div className="text-xs text-text-muted line-clamp-2 mt-0.5">
@@ -2342,6 +2385,8 @@ function ChatMenu({
   biometricEnabled,
   viewOnceDefault,
   onToggleViewOnce,
+  linkPreviewsEnabled,
+  onToggleLinkPreviews,
   blockedByMe,
   onToggleBlock,
   onReport,
@@ -2365,6 +2410,8 @@ function ChatMenu({
   biometricEnabled: boolean;
   viewOnceDefault: boolean;
   onToggleViewOnce: () => void;
+  linkPreviewsEnabled: boolean;
+  onToggleLinkPreviews: () => void;
   blockedByMe: boolean;
   onToggleBlock: () => void;
   onReport: () => void;
@@ -2426,6 +2473,13 @@ function ChatMenu({
         label={`View-once images: ${viewOnceDefault ? "On" : "Off"}`}
         onClick={() => {
           onToggleViewOnce();
+          onClose();
+        }}
+      />
+      <MenuItem
+        label={`Link previews: ${linkPreviewsEnabled ? "On" : "Off"}`}
+        onClick={() => {
+          onToggleLinkPreviews();
           onClose();
         }}
       />
