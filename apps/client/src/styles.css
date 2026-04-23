@@ -91,9 +91,20 @@
   }
 }
 
-/* Privacy: blur the entire viewport when the tab is hidden / blurred. */
+/* Privacy: completely hide the viewport when the tab is hidden,
+ * blurred, being screen-captured, or a screenshot keystroke fires.
+ * Combines a heavy blur with a full-opacity black overlay so any
+ * frame the OS captures during the hold window is solid black. */
 html.veil-privacy-blur body {
-  filter: blur(24px) saturate(0.8) brightness(0.7);
+  filter: blur(40px) brightness(0);
   pointer-events: none;
   user-select: none;
+}
+html.veil-privacy-blur body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: #000;
+  z-index: 2147483647;
+  pointer-events: none;
 }

@@ -160,23 +160,116 @@ function usePrivacyBlur() {
   );
   useEffect(() => {
     const cls = "veil-privacy-blur";
-    function update() {
+    const root = document.documentElement;
+
+    // Hold-blur timer: when a screenshot keystroke fires, we can't
+    // un-blur immediately (the OS captures a few frames after the key
+    // press on some platforms), so we keep the screen blacked out for
+    // a short window before falling back to passive focus-based blur.
+    let holdUntil = 0;
+    let holdTimer: ReturnType<typeof setTimeout> | null = null;
+    let captureActive = false;
+
+    function apply() {
       if (!enabled) {
-        document.documentElement.classList.remove(cls);
+        root.classList.remove(cls);
         return;
       }
-      const hidden = document.visibilityState === "hidden" || !document.hasFocus();
-      document.documentElement.classList.toggle(cls, hidden);
+      const focusBlur =
+        document.visibilityState === "hidden" || !document.hasFocus();
+      const holding = Date.now() < holdUntil;
+      root.classList.toggle(cls, focusBlur || holding || captureActive);
     }
-    update();
-    window.addEventListener("blur", update);
-    window.addEventListener("focus", update);
-    document.addEventListener("visibilitychange", update);
+
+    function holdBlur(ms: number) {
+      holdUntil = Math.max(holdUntil, Date.now() + ms);
+      if (holdTimer) clearTimeout(holdTimer);
+      apply();
+      holdTimer = setTimeout(() => {
+        holdTimer = null;
+        apply();
+      }, ms);
+    }
+
+    function isScreenshotKey(e: KeyboardEvent): boolean {
+      const k = e.key;
+      // PrintScreen / Snapshot — Windows + Linux.
+      if (k === "PrintScreen" || k === "Snapshot") return true;
+      // Windows: Win+Shift+S (Snipping Tool), Win+PrintScreen.
+      if (e.shiftKey && (k === "S" || k === "s") && (e.metaKey || e.getModifierState("OS"))) {
+        return true;
+      }
+      // macOS: Cmd+Shift+3, Cmd+Shift+4, Cmd+Shift+5, Cmd+Shift+6.
+      if (e.metaKey && e.shiftKey && (k === "3" || k === "4" || k === "5" || k === "6")) {
+        return true;
+      }
+      // ChromeOS: Ctrl+Show-Windows / Ctrl+Shift+Show-Windows.
+      if (e.ctrlKey && (k === "F5" || k === "MediaPlayPause")) return true;
+      return false;
+    }
+
+    function onKeyDown(e: KeyboardEvent) {
+      if (!enabled) return;
+      if (isScreenshotKey(e)) {
+        // Prevent default where browsers allow it (PrintScreen on some
+        // platforms is interceptable; OS-level shortcuts are not, but
+        // the hold-blur still kicks in for the post-keystroke frames).
+        e.preventDefault();
+        holdBlur(2500);
+        // Best-effort: stomp the clipboard so the captured image (if
+        // any) doesn't survive a paste into another app.
+        try {
+          if (navigator.clipboard && "writeText" in navigator.clipboard) {
+            void navigator.clipboard.writeText("");
+          }
+        } catch {
+          /* clipboard write may be blocked — safe to ignore. */
+        }
+      }
+    }
+
+    // Detect when the tab itself is being captured/recorded (browser
+    // screen-share, OBS browser source, etc). We monkey-patch
+    // getDisplayMedia so any capture started from this page activates
+    // the blur, and we listen for the resulting MediaStream's
+    // "inactive" event to clear it.
+    const md = navigator.mediaDevices as
+      | (MediaDevices & {
+          getDisplayMedia?: (c?: DisplayMediaStreamOptions) => Promise<MediaStream>;
+        })
+      | undefined;
+    const originalGDM = md?.getDisplayMedia?.bind(md);
+    if (md && originalGDM) {
+      md.getDisplayMedia = async (constraints?: DisplayMediaStreamOptions) => {
+        const stream = await originalGDM(constraints);
+        captureActive = true;
+        apply();
+        const clear = () => {
+          captureActive = false;
+          apply();
+        };
+        stream.getTracks().forEach((t) => t.addEventListener("ended", clear));
+        stream.addEventListener("inactive", clear);
+        return stream;
+      };
+    }
+
+    apply();
+    window.addEventListener("blur", apply);
+    window.addEventListener("focus", apply);
+    document.addEventListener("visibilitychange", apply);
+    window.addEventListener("keydown", onKeyDown, { capture: true });
+
     return () => {
-      window.removeEventListener("blur", update);
-      window.removeEventListener("focus", update);
-      document.removeEventListener("visibilitychange", update);
-      document.documentElement.classList.remove(cls);
+      window.removeEventListener("blur", apply);
+      window.removeEventListener("focus", apply);
+      document.removeEventListener("visibilitychange", apply);
+      window.removeEventListener("keydown", onKeyDown, { capture: true } as EventListenerOptions);
+      if (holdTimer) clearTimeout(holdTimer);
+      if (md && originalGDM) {
+        md.getDisplayMedia = originalGDM;
+      }
+      root.classList.remove(cls);
     };
   }, [enabled]);
 }
