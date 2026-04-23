@@ -255,8 +255,12 @@ export function RandomIdSignupPage() {
   /* ─────────── Step UIs ─────────── */
 
   if (step === "username") {
+    // Don't block Continue on the availability check — the server will
+    // reject duplicates when the user finishes signup. This avoids a
+    // permanently-disabled button whenever the check is slow, blocked,
+    // or the deployed server doesn't expose this endpoint yet.
     const canContinue =
-      !!username && !localUsernameProblem && usernameAvailable === true;
+      !!username && !localUsernameProblem && usernameAvailable !== false;
     return (
       <ScreenShell back="/" phase="Step 1 of 8 · Username">
         <div className="flex flex-col items-center gap-3 mb-2">
