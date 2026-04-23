@@ -10,6 +10,7 @@ import { pushRouter } from "./push.js";
 import { linkPreviewRouter } from "./linkPreview.js";
 import { privacyRouter } from "./privacy.js";
 import { groupsRouter } from "./groups.js";
+import { scheduledRouter } from "./scheduled.js";
 
 export const appRouter = router({
   auth: authRouter,
@@ -23,6 +24,7 @@ export const appRouter = router({
   linkPreview: linkPreviewRouter,
   privacy: privacyRouter,
   groups: groupsRouter,
+  scheduled: scheduledRouter,
 });
 
 export type AppRouter = typeof appRouter;

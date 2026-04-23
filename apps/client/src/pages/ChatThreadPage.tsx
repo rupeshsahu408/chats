@@ -15,7 +15,6 @@ import {
   setChatMessageStarred,
   setChatMessagePinned,
   clearChatHistory,
-  saveScheduledMessage,
 } from "../lib/db";
 import { ScheduledMessagesSheet } from "../components/ScheduledMessagesSheet";
 import {
@@ -489,17 +488,15 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
     }
   }
 
-  // Schedule a message to be sent later. The actual send is performed by
-  // the app-wide scheduledSender (mounted in SessionSync), so it fires
-  // even when this page is not currently open.
+  // Schedule a message to be sent later. The encrypted payload is queued
+  // on the server, which releases it at the requested time even if this
+  // tab is closed. Plaintext stays on this device only.
   async function onScheduleMessage(text: string, scheduledFor: string) {
-    await saveScheduledMessage({
-      peerId,
-      text,
-      scheduledFor,
-      sent: false,
-      createdAt: new Date().toISOString(),
-    });
+    if (!identity) {
+      throw new Error("You need to unlock your account to schedule messages.");
+    }
+    const { scheduleServerMessage } = await import("../lib/scheduledServer");
+    await scheduleServerMessage(identity, peerId, text, scheduledFor);
   }
 
   async function onPickImage(file: File) {

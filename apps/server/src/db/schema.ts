@@ -518,6 +518,64 @@ export const groupMembers = pgTable(
   }),
 );
 
+/* ─────────── scheduled_messages ─────────── */
+/*
+ * Server-side queue for messages the sender wants released at a future
+ * time. Holds the *already-encrypted* envelope (header + ciphertext) — the
+ * server still cannot read the plaintext. The scheduledSweeper promotes
+ * each row into a normal `messages` row at `scheduledFor`, so delivery,
+ * push, and history all reuse the existing message pipeline.
+ */
+
+export const scheduledStatus = pgEnum("scheduled_status", [
+  "pending",
+  "delivered",
+  "cancelled",
+  "failed",
+]);
+
+export const scheduledMessages = pgTable(
+  "scheduled_messages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    senderUserId: uuid("sender_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    recipientUserId: uuid("recipient_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    /** Canonical 1:1 conversation id. */
+    conversationId: text("conversation_id").notNull(),
+    /** Plaintext header bytes (ratchet pub + counters + X3DH metadata). */
+    header: bytea("header").notNull(),
+    /** AES-GCM ciphertext (already encrypted at scheduling time). */
+    ciphertext: bytea("ciphertext").notNull(),
+    /** Optional disappearing-message TTL passed to the delivered message. */
+    expiresInSeconds: integer("expires_in_seconds"),
+    /** When the message should be released into the inbox. */
+    scheduledFor: timestamp("scheduled_for", { withTimezone: true }).notNull(),
+    status: scheduledStatus("status").notNull().default("pending"),
+    /** Set once the sweeper has inserted a delivered `messages` row. */
+    deliveredMessageId: uuid("delivered_message_id"),
+    deliveredAt: timestamp("delivered_at", { withTimezone: true }),
+    failedAt: timestamp("failed_at", { withTimezone: true }),
+    failReason: text("fail_reason"),
+    attempts: integer("attempts").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => ({
+    senderIdx: index("sched_sender_idx").on(t.senderUserId, t.status),
+    /** Used by the sweeper: cheap scan for "pending and due". */
+    dueIdx: index("sched_due_idx")
+      .on(t.scheduledFor)
+      .where(sql`${t.status} = 'pending'`),
+  }),
+);
+
+export type ScheduledMessageRow = typeof scheduledMessages.$inferSelect;
+
 export type UserRow = typeof users.$inferSelect;
 export type GroupRow = typeof groups.$inferSelect;
 export type GroupMemberRow = typeof groupMembers.$inferSelect;

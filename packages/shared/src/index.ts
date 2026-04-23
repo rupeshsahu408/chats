@@ -367,6 +367,65 @@ export const FetchHistoryResult = z.object({
 });
 export type FetchHistoryResult = z.infer<typeof FetchHistoryResult>;
 
+/* ─────────── Scheduled messages (server-side queue) ─────────── */
+
+export const CreateScheduledMessageInput = z.object({
+  recipientUserId: UserIdSchema,
+  /** Already-encrypted header (base64). */
+  header: Base64BytesSchema,
+  /** Already-encrypted ciphertext (base64). */
+  ciphertext: Base64BytesSchema,
+  /** ISO timestamp at which the server should release the message. */
+  scheduledFor: z.string(),
+  /** Optional disappearing-message TTL applied at delivery time. */
+  expiresInSeconds: z
+    .number()
+    .int()
+    .positive()
+    .max(60 * 60 * 24 * 30)
+    .optional(),
+  /**
+   * Optional client-side cached preview of the plaintext, encrypted only
+   * to the sender (so they can see what they scheduled in their list).
+   * Keep short — the whole point is to never store plaintext server-side.
+   * Stored as a base64 ciphertext blob the client decrypts locally.
+   */
+});
+export type CreateScheduledMessageInput = z.infer<
+  typeof CreateScheduledMessageInput
+>;
+
+export const ScheduledMessageSchema = z.object({
+  id: z.string().uuid(),
+  recipientUserId: UserIdSchema,
+  scheduledFor: z.string(),
+  status: z.enum(["pending", "delivered", "cancelled", "failed"]),
+  attempts: z.number().int().nonnegative(),
+  createdAt: z.string(),
+  deliveredAt: z.string().nullable().optional(),
+  failReason: z.string().nullable().optional(),
+});
+export type ScheduledMessage = z.infer<typeof ScheduledMessageSchema>;
+
+export const CreateScheduledMessageResult = z.object({
+  id: z.string().uuid(),
+  scheduledFor: z.string(),
+});
+
+export const ListScheduledMessagesResult = z.object({
+  scheduled: z.array(ScheduledMessageSchema),
+});
+export type ListScheduledMessagesResult = z.infer<
+  typeof ListScheduledMessagesResult
+>;
+
+export const CancelScheduledMessageInput = z.object({
+  id: z.string().uuid(),
+});
+export type CancelScheduledMessageInput = z.infer<
+  typeof CancelScheduledMessageInput
+>;
+
 /* WebSocket envelope (used by /ws). */
 
 export const WsServerEventSchema = z.discriminatedUnion("type", [
