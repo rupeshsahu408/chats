@@ -10,6 +10,7 @@ import {
 import { installSystemThemeListener } from "./lib/themeStore";
 import { ensurePushSubscription } from "./lib/push";
 import { readPendingInvite, clearPendingInvite } from "./lib/inviteRedirect";
+import { LandingPage } from "./pages/LandingPage";
 import { WelcomePage } from "./pages/WelcomePage";
 import { EmailSignupPage } from "./pages/EmailSignupPage";
 import { PhoneSignupPage } from "./pages/PhoneSignupPage";
@@ -56,7 +57,8 @@ export function App() {
         <SessionBootstrap />
         <SessionSync />
         <Routes>
-          <Route path="/" element={<WelcomePage />} />
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/welcome" element={<WelcomePage />} />
           <Route path="/signup/email" element={<EmailSignupPage />} />
           <Route path="/signup/phone" element={<PhoneSignupPage />} />
           <Route path="/signup/random" element={<RandomIdSignupPage />} />
@@ -119,6 +121,7 @@ function SessionBootstrap() {
         const pending = readPendingInvite();
         const onAuthLandingPath =
           location.pathname === "/" ||
+          location.pathname === "/welcome" ||
           location.pathname === "/login" ||
           location.pathname === "/signup/email" ||
           location.pathname === "/signup/phone" ||

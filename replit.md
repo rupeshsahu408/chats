@@ -244,6 +244,22 @@ The always-on poll exposed a pre-existing race: the WS push and a poll drain (or
 1. **`lib/messageSync.ts`**: in-memory `inFlightIngest` map keyed by `m.id` — concurrent calls share the same Promise, so only the first one does the work.
 2. **`lib/db.ts` `appendChatMessage`**: when `serverId` is present, the existence-check + insert run inside a single `db.transaction("rw", db.chatMessages, …)` so concurrent transactions can't both insert.
 
+## Public landing page
+
+`pages/LandingPage.tsx` is the new public entry at `/`. The previous signup-options screen moved to `/welcome`. Self-contained marketing page (no auth, no tRPC, no app shell):
+
+- Sticky transparent → blurred nav with mobile drawer.
+- Hero with gradient headline, dual CTAs ("Get started" → `/welcome`, "See how it works" → `#how`), and an animated phone mockup.
+- Trust bar with 4 stat tiles.
+- 9-card feature grid (encryption, no phone needed, disappearing messages, group chats, voice/media, push, stealth mode, multi-device PWA, open source).
+- "How it works" three-step explainer.
+- Security section with X3DH / Double Ratchet / zero-knowledge / open-source breakdown plus a faux code panel.
+- Veil-vs-typical-messenger comparison table.
+- Accordion FAQ (6 questions, first one open by default).
+- Final gradient CTA card and a 5-column footer with social links.
+
+`SessionBootstrap` was updated so a signed-in user landing on `/` or `/welcome` is still bounced to `/chats`.
+
 ## Next phase
 
 **Native iOS (Phase 8) and Android Play Store (Phase 9) are deferred.** The product launches as an installable PWA: Android users install via Chrome's prompt, iOS users use Add-to-Home-Screen (web push works on iOS 16.4+ once installed). Phase 7 wrap-up — manual e2e group test (3 accounts) + push verification — remains the only outstanding item before launch readiness.
