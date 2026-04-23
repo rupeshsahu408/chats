@@ -471,6 +471,31 @@ export const messagesRouter = router({
       return { ok: true as const };
     }),
 
+  /**
+   * View-once consume: the recipient of a message asks the server to
+   * hard-delete the persisted ciphertext after they've opened it.
+   * Restricted to rows where the caller is the recipient — the sender's
+   * copy (if any) lives only in the sender's local DB and is wiped via
+   * the encrypted `vo_seen` tombstone that travels alongside this call.
+   *
+   * Idempotent: missing or already-deleted ids return ok.
+   */
+  consumeReceived: protectedProcedure
+    .input(DeleteForEveryoneInput)
+    .output(OkSchema)
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      await db
+        .delete(schema.messages)
+        .where(
+          and(
+            eq(schema.messages.id, input.id),
+            eq(schema.messages.recipientUserId, ctx.userId),
+          ),
+        );
+      return { ok: true as const };
+    }),
+
   /* ──────────────── Phase 7: Group fan-out ──────────────── */
 
   /**

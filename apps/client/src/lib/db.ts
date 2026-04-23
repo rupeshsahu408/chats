@@ -96,6 +96,11 @@ export interface ChatMessageRecord {
   viewOnce?: boolean;
   /** Set when the recipient has opened a view-once item. */
   viewedAt?: string;
+  /**
+   * Set when the recipient's device reported a likely screenshot of a
+   * view-once message back to the sender. Surfaces a warning badge.
+   */
+  screenshotAt?: string;
   /** Optional in-envelope link preview (Phase 2). */
   linkPreview?: {
     url: string;
@@ -867,6 +872,46 @@ export async function applyEditByServerId(
     plaintext: newBody,
     editedAt,
   });
+}
+
+/**
+ * Sender-side: a peer reported they opened our view-once message. Wipe
+ * the body/attachment so even our local row no longer carries the
+ * content, and stamp `viewedAt` so the bubble flips to "Opened".
+ */
+export async function applyViewOnceSeenByServerId(
+  targetServerId: string,
+  at: string,
+): Promise<void> {
+  const row = await db.chatMessages
+    .where("serverId")
+    .equals(targetServerId)
+    .first();
+  if (!row || row.id === undefined) return;
+  await db.chatMessages.update(row.id, {
+    viewedAt: at,
+    plaintext: "",
+    attachment: undefined,
+    linkPreview: undefined,
+    replyTo: undefined,
+  });
+}
+
+/**
+ * Sender-side: peer device flagged a probable screenshot of our
+ * view-once message. Stamps `screenshotAt` so the bubble shows a
+ * warning badge.
+ */
+export async function applyViewOnceScreenshotByServerId(
+  targetServerId: string,
+  at: string,
+): Promise<void> {
+  const row = await db.chatMessages
+    .where("serverId")
+    .equals(targetServerId)
+    .first();
+  if (!row || row.id === undefined) return;
+  await db.chatMessages.update(row.id, { screenshotAt: at });
 }
 
 /** Toggle the local star flag on a message. */

@@ -19,6 +19,7 @@ import {
 import { ScheduledMessagesSheet } from "../components/ScheduledMessagesSheet";
 import {
   consumeViewOnce,
+  notifyViewOnceScreenshot,
   pollAndDecrypt,
   reportRead,
   sendChatEnvelope,
@@ -208,6 +209,9 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
     row: ChatMessageRecord;
     ref: EnvelopeReplyRef;
   } | null>(null);
+  // One-shot view-once: when on, the next outgoing message (text or
+  // image) is sent with `vo: true`. Toggle resets after the send.
+  const [oneShotViewOnce, setOneShotViewOnce] = useState(false);
 
   // Bulk selection mode (top-menu → "Select messages"). Holds the
   // local `id`s of the selected rows; the action bar at the bottom
@@ -513,10 +517,12 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
         ttlSeconds: ttlSeconds || undefined,
         linkPreview: pendingPreview ?? undefined,
         replyTo: replyTo?.ref,
+        viewOnce: oneShotViewOnce || undefined,
       });
       setDraft("");
       setPendingPreview(null);
       setReplyTo(null);
+      setOneShotViewOnce(false);
       sendTyping(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't send.");
@@ -583,11 +589,12 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
         ...(caption ? { body: caption } : {}),
         media,
         ...(ttlSeconds ? { ttl: ttlSeconds } : {}),
-        ...(viewOnceDefault ? { vo: true } : {}),
+        ...(viewOnceDefault || oneShotViewOnce ? { vo: true } : {}),
         ...(replyTo ? { re: replyTo.ref } : {}),
       });
       setDraft("");
       setReplyTo(null);
+      setOneShotViewOnce(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't send image.");
     } finally {
@@ -977,6 +984,8 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
           onPickImage={onPickImage}
           onSendVoice={onSendVoice}
           viewOnceDefault={viewOnceDefault}
+          oneShotViewOnce={oneShotViewOnce}
+          onToggleOneShotViewOnce={() => setOneShotViewOnce((v) => !v)}
           replyTo={replyTo}
           onClearReply={() => setReplyTo(null)}
           onSchedule={onScheduleMessage}
@@ -1733,55 +1742,234 @@ function BubbleHoverAction({
   );
 }
 
+/**
+ * Per-message view-once bubble. The compact in-thread bubble shows
+ * status only; tapping opens a fullscreen viewer with a countdown that
+ * wipes the message on close, on timeout, or on app blur. Best-effort
+ * screenshot detection (PrintScreen / Snip key, visibility change)
+ * notifies the sender through a `vo_ss` envelope.
+ */
 function ViewOnceBubble({ m, time }: { m: ChatMessageRecord; time: string }) {
-  const [opened, setOpened] = useState(false);
-  const [url, setUrl] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const identity = useUnlockStore((s) => s.identity);
   const isOut = m.direction === "out";
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [url, setUrl] = useState<string | null>(null);
 
-  async function open() {
+  // Outbound bubble: just status. Wipe-on-view is sender-side controlled
+  // by the inbound vo_seen tombstone (applyViewOnceSeenByServerId).
+  if (isOut) {
+    let label = "View-once sent";
+    if (m.screenshotAt) label = "⚠ Screenshot taken";
+    else if (m.viewedAt) label = "Opened";
+    return (
+      <MessageBubble direction={m.direction} status={m.status} time={time}>
+        <div className="flex items-center gap-2 text-sm text-text-muted">
+          <span>👁</span>
+          <span>{label}</span>
+        </div>
+      </MessageBubble>
+    );
+  }
+
+  async function openViewer() {
     if (loading) return;
+    setError(null);
     setLoading(true);
     try {
       if (m.attachment) {
         const u = await fetchAndDecryptMedia({ ...m.attachment });
         setUrl(u);
       }
-      setOpened(true);
-      // Inbound: ack + delete locally after a brief view window.
-      if (!isOut && m.serverId) {
+      setViewerOpen(true);
+      if (m.serverId) {
         void reportRead([m.serverId]).catch(() => undefined);
       }
-      if (!isOut && m.id !== undefined) {
-        setTimeout(() => {
-          void consumeViewOnce(m.id!).catch(() => undefined);
-        }, 8000);
-      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't open.");
     } finally {
       setLoading(false);
     }
   }
 
+  function closeViewer() {
+    if (url) {
+      try {
+        URL.revokeObjectURL(url);
+      } catch {
+        /* ignore */
+      }
+    }
+    setUrl(null);
+    setViewerOpen(false);
+    if (m.id !== undefined && identity) {
+      const peerId = m.peerId;
+      const localId = m.id;
+      void consumeViewOnce(identity, peerId, localId).catch(() => undefined);
+    }
+  }
+
   return (
-    <MessageBubble direction={m.direction} status={m.status} time={time}>
-      {!opened ? (
+    <>
+      <MessageBubble direction={m.direction} status={m.status} time={time}>
         <button
-          onClick={open}
-          className="flex items-center gap-2 text-sm text-text-muted"
+          onClick={openViewer}
+          disabled={loading}
+          className="flex items-center gap-2 text-sm text-text-muted disabled:opacity-50"
         >
           <span>👁</span>
-          <span>{loading ? "Opening…" : isOut ? "View-once sent" : "Tap to open · disappears after viewing"}</span>
+          <span>
+            {loading
+              ? "Opening…"
+              : "Tap to open · disappears after viewing"}
+          </span>
         </button>
-      ) : url ? (
-        <img
-          src={url}
-          alt=""
-          className="rounded-md max-w-[240px] max-h-[320px] object-contain"
+        {error && (
+          <div className="mt-1 text-[11px] text-red-400">{error}</div>
+        )}
+      </MessageBubble>
+      {viewerOpen && (
+        <ViewOnceViewer
+          imageUrl={url}
+          text={m.plaintext}
+          onClose={closeViewer}
+          onScreenshot={() => {
+            if (m.serverId && identity) {
+              void notifyViewOnceScreenshot(
+                identity,
+                m.peerId,
+                m.serverId,
+              ).catch(() => undefined);
+            }
+          }}
         />
-      ) : (
-        <div className="text-sm text-text-muted">View-once · {m.plaintext || "media"}</div>
       )}
-    </MessageBubble>
+    </>
+  );
+}
+
+/**
+ * Fullscreen view-once viewer. Auto-closes after 10s for media or 30s
+ * for text. Closes immediately if the tab loses visibility (likely
+ * screenshot or app switch). Listens for PrintScreen and the Win+Shift+S
+ * snip combo and notifies the sender if pressed.
+ */
+function ViewOnceViewer({
+  imageUrl,
+  text,
+  onClose,
+  onScreenshot,
+}: {
+  imageUrl: string | null;
+  text: string;
+  onClose: () => void;
+  onScreenshot: () => void;
+}) {
+  const TOTAL_MS = imageUrl ? 10_000 : 30_000;
+  const [remainingMs, setRemainingMs] = useState(TOTAL_MS);
+  const screenshotReportedRef = useRef(false);
+
+  useEffect(() => {
+    const start = Date.now();
+    const tick = window.setInterval(() => {
+      const left = Math.max(0, TOTAL_MS - (Date.now() - start));
+      setRemainingMs(left);
+      if (left <= 0) onClose();
+    }, 100);
+    return () => window.clearInterval(tick);
+  }, [TOTAL_MS, onClose]);
+
+  // Close on tab hide / app switch — common when the user is about to
+  // screenshot or screen-share.
+  useEffect(() => {
+    const onVis = () => {
+      if (document.hidden) onClose();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, [onClose]);
+
+  // Best-effort screenshot detection. Browsers deliberately do not fire
+  // events for OS screenshots, but PrintScreen and Win+Shift+S are
+  // observable as keydowns when the page has focus.
+  useEffect(() => {
+    function flagScreenshot() {
+      if (screenshotReportedRef.current) return;
+      screenshotReportedRef.current = true;
+      onScreenshot();
+    }
+    function onKey(e: KeyboardEvent) {
+      const k = e.key;
+      if (k === "PrintScreen") {
+        flagScreenshot();
+      } else if (
+        // Win+Shift+S (Windows snip), Cmd/Ctrl+Shift+3/4/5 (macOS)
+        (e.shiftKey && (e.metaKey || e.ctrlKey) &&
+          (k === "3" || k === "4" || k === "5" || k.toLowerCase() === "s"))
+      ) {
+        flagScreenshot();
+      }
+    }
+    window.addEventListener("keydown", onKey, true);
+    window.addEventListener("keyup", onKey, true);
+    return () => {
+      window.removeEventListener("keydown", onKey, true);
+      window.removeEventListener("keyup", onKey, true);
+    };
+  }, [onScreenshot]);
+
+  // Block right-click "Save image as…" on the contained image.
+  const blockContextMenu = (e: { preventDefault: () => void }) =>
+    e.preventDefault();
+
+  const pct = Math.round((remainingMs / TOTAL_MS) * 100);
+  const seconds = Math.ceil(remainingMs / 1000);
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] bg-black/95 flex flex-col select-none"
+      onContextMenu={blockContextMenu}
+    >
+      <div className="flex items-center justify-between px-4 py-3 text-white/90">
+        <div className="flex items-center gap-2 text-sm">
+          <span>👁</span>
+          <span>View-once · {seconds}s</span>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close"
+          className="size-9 rounded-full hover:bg-white/10 flex items-center justify-center text-xl"
+        >
+          ✕
+        </button>
+      </div>
+      <div className="h-1 mx-4 bg-white/10 rounded-full overflow-hidden">
+        <div
+          className="h-full bg-wa-green transition-[width] duration-100"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <div className="flex-1 flex items-center justify-center p-4 overflow-auto">
+        {imageUrl ? (
+          <img
+            src={imageUrl}
+            alt=""
+            draggable={false}
+            className="max-w-full max-h-full object-contain pointer-events-none"
+          />
+        ) : (
+          <div className="max-w-md text-center text-white text-lg leading-snug whitespace-pre-wrap break-words">
+            {text || <span className="italic text-white/60">empty</span>}
+          </div>
+        )}
+      </div>
+      <div className="px-4 py-3 text-center text-[11px] text-white/60">
+        Screenshots can't always be detected. The sender will be notified
+        if we see one.
+      </div>
+    </div>
   );
 }
 
@@ -2631,6 +2819,8 @@ function Composer({
   onPickImage,
   onSendVoice,
   viewOnceDefault,
+  oneShotViewOnce,
+  onToggleOneShotViewOnce,
   replyTo,
   onClearReply,
   onSchedule,
@@ -2642,6 +2832,8 @@ function Composer({
   onPickImage: (f: File) => void;
   onSendVoice: (bytes: Uint8Array, mime: string, durationMs: number) => void;
   viewOnceDefault: boolean;
+  oneShotViewOnce: boolean;
+  onToggleOneShotViewOnce: () => void;
   replyTo: { row: ChatMessageRecord; ref: EnvelopeReplyRef } | null;
   onClearReply: () => void;
   onSchedule: (text: string, scheduledFor: string) => Promise<void>;
@@ -2736,10 +2928,44 @@ function Composer({
           onClick={() => fileInput.current?.click()}
           disabled={sending}
           className="size-9 rounded-full text-text-muted hover:text-text hover:bg-white/10 flex items-center justify-center shrink-0 disabled:opacity-50"
-          aria-label={viewOnceDefault ? "Attach view-once image" : "Attach image"}
-          title={viewOnceDefault ? "View-once image" : "Image"}
+          aria-label={
+            viewOnceDefault || oneShotViewOnce
+              ? "Attach view-once image"
+              : "Attach image"
+          }
+          title={
+            viewOnceDefault || oneShotViewOnce ? "View-once image" : "Image"
+          }
         >
-          {viewOnceDefault ? <span>👁</span> : <PaperclipIcon className="w-5 h-5" />}
+          {viewOnceDefault || oneShotViewOnce ? (
+            <span>👁</span>
+          ) : (
+            <PaperclipIcon className="w-5 h-5" />
+          )}
+        </button>
+        <button
+          type="button"
+          onClick={onToggleOneShotViewOnce}
+          disabled={sending}
+          className={
+            "size-9 rounded-full hover:bg-white/10 flex items-center justify-center shrink-0 text-lg disabled:opacity-50 " +
+            (oneShotViewOnce
+              ? "text-wa-green bg-wa-green/15"
+              : "text-text-muted hover:text-text")
+          }
+          aria-label={
+            oneShotViewOnce
+              ? "Turn off view-once for next message"
+              : "Send next message as view-once"
+          }
+          aria-pressed={oneShotViewOnce}
+          title={
+            oneShotViewOnce
+              ? "Next message disappears after one view"
+              : "View-once mode"
+          }
+        >
+          👁
         </button>
         <textarea
           value={draft}

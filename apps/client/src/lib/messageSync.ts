@@ -15,6 +15,8 @@ import {
   deleteChatMessageByServerId,
   applyReactionByServerId,
   applyEditByServerId,
+  applyViewOnceSeenByServerId,
+  applyViewOnceScreenshotByServerId,
   db,
 } from "./db";
 import { decryptFromPeer, encryptToPeer } from "./signal/session";
@@ -115,6 +117,20 @@ async function applySideEffectEnvelope(
   }
   if (env.t === "edit") {
     await applyEditByServerId(env.target, env.body, env.editedAt);
+    return true;
+  }
+  if (env.t === "vo_seen") {
+    // Recipient has opened our view-once message. Wipe the body locally
+    // and ask the server to drop the persisted ciphertext so a fresh
+    // device can't restore it from history.
+    await applyViewOnceSeenByServerId(env.target, env.at);
+    // Note: the *recipient* asks the server to wipe ciphertext via
+    // `consumeReceived` from their consumeViewOnce path. The sender
+    // doesn't own the row and can't delete it here.
+    return true;
+  }
+  if (env.t === "vo_ss") {
+    await applyViewOnceScreenshotByServerId(env.target, env.at);
     return true;
   }
   return false;
@@ -403,12 +419,14 @@ export async function sendChatMessage(
     ttlSeconds?: number;
     linkPreview?: import("./messageEnvelope").EnvelopeLinkPreview;
     replyTo?: import("./messageEnvelope").EnvelopeReplyRef;
+    viewOnce?: boolean;
   } = {},
 ): Promise<number> {
   const env: ChatEnvelope = { v: 2, t: "text", body: plaintext };
   if (opts.ttlSeconds && opts.ttlSeconds > 0) env.ttl = opts.ttlSeconds;
   if (opts.linkPreview) env.lp = opts.linkPreview;
   if (opts.replyTo) env.re = opts.replyTo;
+  if (opts.viewOnce) env.vo = true;
   return sendChatEnvelope(identity, peerId, env);
 }
 
@@ -767,13 +785,63 @@ async function persistHistoryEntry(
 /* ─────────────────────── View-once handling ─────────────────────── */
 
 /**
- * Called once the recipient actually opens a view-once message. Wipes
- * the local row + tries to delete the underlying media blob from R2.
+ * Called once the recipient actually opens a view-once message.
+ *
+ *   1. Hard-deletes the local row (so this device keeps no copy).
+ *   2. Sends a `vo_seen` envelope to the sender through the ratchet so
+ *      their UI flips to "Opened" and their server-side ciphertext is
+ *      wiped (preventing restore on a fresh device).
+ *
+ * Idempotent — safe to call multiple times.
  */
-export async function consumeViewOnce(localId: number): Promise<void> {
+export async function consumeViewOnce(
+  identity: UnlockedIdentity,
+  peerId: string,
+  localId: number,
+): Promise<void> {
   const row = await db.chatMessages.get(localId);
   if (!row) return;
-  // Wipe the local copy. R2 blobs are reaped server-side by the
-  // mediaSweeper on their normal TTL.
+  const serverId = row.serverId;
+  // Wipe the local copy first so the bubble disappears even if the
+  // outgoing tombstone fails. R2 media objects are reaped server-side
+  // by mediaSweeper on their normal TTL.
   await db.chatMessages.delete(localId);
+  if (!serverId) return;
+  // Best-effort: tell the server to drop the persisted ciphertext for
+  // this message so a fresh recipient device can't replay it.
+  void trpcClientProxy()
+    .messages.consumeReceived.mutate({ id: serverId })
+    .catch(() => undefined);
+  try {
+    await transmitSideEffectEnvelope(identity, peerId, {
+      v: 2,
+      t: "vo_seen",
+      target: serverId,
+      at: new Date().toISOString(),
+    });
+  } catch (e) {
+    console.warn("vo_seen tombstone failed", e);
+  }
+}
+
+/**
+ * Best-effort: tell the sender that a screenshot of their view-once
+ * message was probably captured on this device. Browsers can't reliably
+ * detect OS-level screenshots, so this is informational only.
+ */
+export async function notifyViewOnceScreenshot(
+  identity: UnlockedIdentity,
+  peerId: string,
+  serverId: string,
+): Promise<void> {
+  try {
+    await transmitSideEffectEnvelope(identity, peerId, {
+      v: 2,
+      t: "vo_ss",
+      target: serverId,
+      at: new Date().toISOString(),
+    });
+  } catch (e) {
+    console.warn("vo_ss notice failed", e);
+  }
 }

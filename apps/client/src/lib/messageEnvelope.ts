@@ -141,6 +141,38 @@ export type EditMessage = {
 };
 
 /**
+ * View-once "seen" tombstone. Sent by the recipient through the ratchet
+ * the moment they open a view-once message. The sender's device replaces
+ * the local row's content with an "Opened" placeholder and asks the
+ * server to wipe the persisted ciphertext so a fresh device can never
+ * restore it.
+ */
+export type ViewOnceSeenEnvelope = {
+  v: 2;
+  t: "vo_seen";
+  /** Server message id of the view-once message that was opened. */
+  target: string;
+  /** ISO timestamp when the recipient opened it. */
+  at: string;
+};
+
+/**
+ * Best-effort screenshot warning. Recipient fires this through the
+ * ratchet when their device detects a probable screenshot capture
+ * (e.g. PrintScreen keypress, page going hidden while a view-once is
+ * open). Browsers cannot reliably observe OS-level captures, so this
+ * is informational only — the sender's UI shows a warning badge.
+ */
+export type ViewOnceScreenshotEnvelope = {
+  v: 2;
+  t: "vo_ss";
+  /** Server message id of the view-once message that was captured. */
+  target: string;
+  /** ISO timestamp when capture was detected. */
+  at: string;
+};
+
+/**
  * Group poll. Sent as a group message; carries the poll definition.
  * Votes arrive as separate `poll_vote` envelopes referencing this pollId.
  */
@@ -174,6 +206,8 @@ export type ChatEnvelope =
   | DeleteForEveryone
   | ReactionEnvelope
   | EditMessage
+  | ViewOnceSeenEnvelope
+  | ViewOnceScreenshotEnvelope
   | PollEnvelope
   | PollVoteEnvelope;
 
@@ -231,6 +265,13 @@ export function decodeEnvelope(plaintext: string): ChatEnvelope {
         return parsed as ChatEnvelope;
       }
       if (
+        (parsed.t === "vo_seen" || parsed.t === "vo_ss") &&
+        typeof (parsed as { target?: unknown }).target === "string" &&
+        typeof (parsed as { at?: unknown }).at === "string"
+      ) {
+        return parsed as ChatEnvelope;
+      }
+      if (
         parsed.t === "poll" &&
         typeof (parsed as { pollId?: unknown }).pollId === "string" &&
         typeof (parsed as { question?: unknown }).question === "string" &&
@@ -257,6 +298,7 @@ export function envelopePreview(env: ChatEnvelope): string {
   if (env.t === "del") return "🗑 Message deleted";
   if (env.t === "rxn") return env.emoji ? `Reacted ${env.emoji}` : "";
   if (env.t === "edit") return env.body;
+  if (env.t === "vo_seen" || env.t === "vo_ss") return "";
   if (env.t === "poll") return `📊 Poll: ${env.question}`;
   if (env.t === "poll_vote") return "";
   if (env.t !== "text" && env.t !== "image" && env.t !== "voice") return "";
