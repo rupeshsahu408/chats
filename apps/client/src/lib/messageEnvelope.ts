@@ -30,6 +30,24 @@ export interface EnvelopeLinkPreview {
   imageUrl?: string | null;
 }
 
+/**
+ * Reply reference attached to a chat envelope. Points at the original
+ * message by its server id and includes a short snippet so the
+ * recipient can render the quoted preview without needing the original
+ * decrypted message in their local log (useful on a fresh device).
+ */
+export interface EnvelopeReplyRef {
+  /** Server message id of the message being replied to. */
+  id: string;
+  /** Short preview of the quoted body (≤ 140 chars). */
+  body: string;
+  /**
+   * Direction of the quoted message *from the sender's POV*. Receiver
+   * mirrors it: my-out = peer's "in", my-in = peer's "out".
+   */
+  dir: "in" | "out";
+}
+
 export interface EnvelopeExtras {
   /** Disappearing-message TTL, seconds. */
   ttl?: number;
@@ -37,6 +55,8 @@ export interface EnvelopeExtras {
   vo?: boolean;
   /** Link preview metadata. */
   lp?: EnvelopeLinkPreview;
+  /** Reply-to reference. */
+  re?: EnvelopeReplyRef;
 }
 
 /**
@@ -56,11 +76,40 @@ export type SenderKeyDistribution = {
   ck: string;
 } & EnvelopeExtras;
 
+/**
+ * Tombstone sent through the ratchet when the sender hits "Delete for
+ * everyone". The receiver replaces their local row for `target` with a
+ * "This message was deleted" placeholder; the server-side ciphertext
+ * is also wiped via `messages.deleteForEveryone`.
+ */
+export type DeleteForEveryone = {
+  v: 2;
+  t: "del";
+  /** Server message id of the original message being unsent. */
+  target: string;
+};
+
+/**
+ * Reaction add/remove. Empty `emoji` means "remove my reaction".
+ * Reactions are stored as a per-(message, sender) single emoji slot to
+ * match WhatsApp's behaviour.
+ */
+export type ReactionEnvelope = {
+  v: 2;
+  t: "rxn";
+  /** Server message id of the message being reacted to. */
+  target: string;
+  /** Single emoji grapheme; empty string clears the reaction. */
+  emoji: string;
+};
+
 export type ChatEnvelope =
   | ({ v: 1 | 2; t: "text"; body: string } & EnvelopeExtras)
   | ({ v: 1 | 2; t: "image"; body?: string; media: MediaAttachment } & EnvelopeExtras)
   | ({ v: 1 | 2; t: "voice"; media: MediaAttachment } & EnvelopeExtras)
-  | SenderKeyDistribution;
+  | SenderKeyDistribution
+  | DeleteForEveryone
+  | ReactionEnvelope;
 
 export function encodeEnvelope(env: ChatEnvelope): string {
   return JSON.stringify(env);
@@ -94,6 +143,19 @@ export function decodeEnvelope(plaintext: string): ChatEnvelope {
       ) {
         return parsed as ChatEnvelope;
       }
+      if (
+        parsed.t === "del" &&
+        typeof (parsed as { target?: unknown }).target === "string"
+      ) {
+        return parsed as ChatEnvelope;
+      }
+      if (
+        parsed.t === "rxn" &&
+        typeof (parsed as { target?: unknown }).target === "string" &&
+        typeof (parsed as { emoji?: unknown }).emoji === "string"
+      ) {
+        return parsed as ChatEnvelope;
+      }
     }
   } catch {
     /* fall through to plain text */
@@ -103,6 +165,8 @@ export function decodeEnvelope(plaintext: string): ChatEnvelope {
 
 export function envelopePreview(env: ChatEnvelope): string {
   if (env.t === "skdm") return "";
+  if (env.t === "del") return "🗑 Message deleted";
+  if (env.t === "rxn") return env.emoji ? `Reacted ${env.emoji}` : "";
   if (env.vo) return "👁 View-once message";
   if (env.t === "text") return env.body;
   if (env.t === "image") return env.body ? `📷 ${env.body}` : "📷 Photo";

@@ -343,6 +343,15 @@ export const FetchReceiptsResult = z.object({
 });
 export type FetchReceiptsResult = z.infer<typeof FetchReceiptsResult>;
 
+/* "Delete for everyone" — sender wipes the persisted ciphertext on the
+ * server so a fresh device's history restore won't bring the message
+ * back. The encrypted "del" envelope sent through the ratchet handles
+ * the live tombstone on already-online recipients. */
+export const DeleteForEveryoneInput = z.object({
+  id: z.string().uuid(),
+});
+export type DeleteForEveryoneInput = z.infer<typeof DeleteForEveryoneInput>;
+
 export const FetchHistoryInput = z.object({
   peerId: UserIdSchema,
   /** ISO timestamp; only return messages created strictly before this. */

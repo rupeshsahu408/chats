@@ -112,6 +112,28 @@ export interface ChatMessageRecord {
     /** Inline thumbnail (base64 JPEG). Images only. */
     thumbB64?: string;
   };
+  /**
+   * Reply reference: when this message is a reply, points back to the
+   * original message that's being quoted. `serverId` is the original
+   * message's server id; `body` is a short cached preview.
+   */
+  replyTo?: {
+    serverId: string;
+    body: string;
+    /** "out" = quoted msg was sent by me; "in" = sent by peer. */
+    dir: "in" | "out";
+  };
+  /**
+   * Tombstone for "Delete for everyone". When true, the message body
+   * and attachment are wiped locally and the bubble renders as
+   * "🚫 This message was deleted".
+   */
+  deleted?: boolean;
+  /**
+   * Per-user emoji reactions. Keyed by user id, value is the emoji
+   * grapheme. WhatsApp-style: each user has at most one reaction.
+   */
+  reactions?: Record<string, string>;
 }
 
 /** Per-peer chat preferences (TTL, view-once default, biometric lock). */
@@ -429,6 +451,59 @@ export async function markChatMessageRead(
 
 export async function deleteChatMessageById(id: number): Promise<void> {
   await db.chatMessages.delete(id);
+}
+
+/**
+ * Replace a chat message with a "deleted for everyone" tombstone. Wipes
+ * body, attachment, link preview and reply ref so nothing of the
+ * original is recoverable from the local row.
+ */
+export async function tombstoneChatMessageByServerId(
+  serverId: string,
+): Promise<void> {
+  const row = await db.chatMessages.where("serverId").equals(serverId).first();
+  if (!row || row.id === undefined) return;
+  await db.chatMessages.update(row.id, {
+    deleted: true,
+    plaintext: "",
+    attachment: undefined,
+    linkPreview: undefined,
+    replyTo: undefined,
+    reactions: undefined,
+  });
+}
+
+export async function tombstoneChatMessageById(id: number): Promise<void> {
+  await db.chatMessages.update(id, {
+    deleted: true,
+    plaintext: "",
+    attachment: undefined,
+    linkPreview: undefined,
+    replyTo: undefined,
+    reactions: undefined,
+  });
+}
+
+/**
+ * Apply a reaction event from a peer (or our own echo) to the targeted
+ * message. An empty `emoji` clears that user's reaction. The whole
+ * `reactions` map is rewritten atomically so concurrent updates from
+ * the same user always pick the latest value.
+ */
+export async function applyReactionByServerId(
+  targetServerId: string,
+  fromUserId: string,
+  emoji: string,
+): Promise<void> {
+  const row = await db.chatMessages
+    .where("serverId")
+    .equals(targetServerId)
+    .first();
+  if (!row || row.id === undefined) return;
+  const next = { ...(row.reactions ?? {}) };
+  if (emoji) next[fromUserId] = emoji;
+  else delete next[fromUserId];
+  await db.chatMessages.update(row.id, { reactions: next });
 }
 
 export async function saveUnlockedIdentity(

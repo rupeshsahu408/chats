@@ -208,7 +208,8 @@ export async function sendGroupChat(
     createdAt: new Date().toISOString(),
     status: "pending",
     expiresAt:
-      envelope.t !== "skdm" && envelope.ttl
+      (envelope.t === "text" || envelope.t === "image" || envelope.t === "voice") &&
+      envelope.ttl
         ? new Date(Date.now() + envelope.ttl * 1000).toISOString()
         : undefined,
     attachment:
@@ -216,7 +217,10 @@ export async function sendGroupChat(
         ? { ...envelope.media, kind: envelope.t }
         : undefined,
     linkPreview:
-      envelope.t !== "skdm" && envelope.lp ? envelope.lp : undefined,
+      (envelope.t === "text" || envelope.t === "image" || envelope.t === "voice") &&
+      envelope.lp
+        ? envelope.lp
+        : undefined,
   } as Omit<GroupMessageRecord, "id">);
 
   try {
@@ -239,7 +243,10 @@ export async function sendGroupChat(
     const sent = await trpcClientProxy().messages.sendGroup.mutate({
       groupId,
       recipients,
-      ...(envelope.t !== "skdm" && envelope.ttl
+      ...((envelope.t === "text" ||
+        envelope.t === "image" ||
+        envelope.t === "voice") &&
+      envelope.ttl
         ? { expiresInSeconds: envelope.ttl }
         : {}),
     });
@@ -301,7 +308,10 @@ export async function ingestGroupInboxMessage(
 
   const ptText = new TextDecoder().decode(ptBytes);
   const env = decodeEnvelope(ptText);
-  if (env.t === "skdm") return "duplicate"; // Should never travel through groupId-tagged rows.
+  // Side-effect / control envelopes don't ride group fan-out today.
+  if (env.t !== "text" && env.t !== "image" && env.t !== "voice") {
+    return "duplicate";
+  }
 
   await appendGroupMessage({
     groupId: m.groupId,

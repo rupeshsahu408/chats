@@ -10,6 +10,7 @@ import {
   FetchHistoryResult,
   FetchReceiptsInput,
   FetchReceiptsResult,
+  DeleteForEveryoneInput,
   OkSchema,
   SendGroupMessageInput,
   SendGroupMessageResult,
@@ -401,6 +402,36 @@ export const messagesRouter = router({
           readAt: r.readAt ? r.readAt.toISOString() : null,
         })),
       };
+    }),
+
+  /**
+   * "Delete for everyone": hard-delete the persisted ciphertext of a
+   * message the caller sent. The receiver's tombstone is delivered via
+   * an encrypted `t:"del"` envelope through the normal send pipeline,
+   * so this endpoint only needs to wipe the server row to prevent a
+   * fresh device from restoring the message via fetchHistory.
+   *
+   * Idempotent: missing or already-deleted ids return ok.
+   */
+  deleteForEveryone: protectedProcedure
+    .input(DeleteForEveryoneInput)
+    .output(OkSchema)
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      const rows = await db
+        .select({ id: schema.messages.id })
+        .from(schema.messages)
+        .where(
+          and(
+            eq(schema.messages.id, input.id),
+            eq(schema.messages.senderUserId, ctx.userId),
+          ),
+        );
+      if (rows.length === 0) return { ok: true as const };
+      await db
+        .delete(schema.messages)
+        .where(eq(schema.messages.id, input.id));
+      return { ok: true as const };
     }),
 
   /* ──────────────── Phase 7: Group fan-out ──────────────── */

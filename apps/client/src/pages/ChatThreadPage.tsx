@@ -10,6 +10,8 @@ import {
   getChatPref,
   setChatPref,
   type ChatPrefRecord,
+  deleteChatMessageById,
+  tombstoneChatMessageById,
 } from "../lib/db";
 import {
   consumeViewOnce,
@@ -17,7 +19,10 @@ import {
   reportRead,
   sendChatEnvelope,
   sendChatMessage,
+  sendReaction,
+  deleteMessageForEveryone,
 } from "../lib/messageSync";
+import { EmojiPicker, ReactionPicker } from "../components/EmojiPicker";
 import { wsClient, wsTyping } from "../lib/wsClient";
 import { usePresenceStore } from "../lib/presenceStore";
 import {
@@ -46,7 +51,12 @@ import {
   uploadEncryptedMedia,
   type MediaAttachment,
 } from "../lib/media";
-import { firstUrl, type EnvelopeLinkPreview } from "../lib/messageEnvelope";
+import {
+  firstUrl,
+  envelopePreview,
+  type EnvelopeLinkPreview,
+  type EnvelopeReplyRef,
+} from "../lib/messageEnvelope";
 import { trpcClientProxy } from "../lib/trpcClientProxy";
 import { useStealthPrefs } from "../lib/stealthPrefs";
 import { safetyNumberFromB64 } from "../lib/safetyNumber";
@@ -154,6 +164,54 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
   const [menuOpen, setMenuOpen] = useState<
     null | "main" | "ttl" | "safety" | "report"
   >(null);
+
+  // Per-message UX state: which message currently has the floating
+  // action bar open, which one is showing the reaction picker, and the
+  // pending reply attachment for the next outgoing message.
+  const [actionFor, setActionFor] = useState<ChatMessageRecord | null>(null);
+  const [reactFor, setReactFor] = useState<ChatMessageRecord | null>(null);
+  const [deleteFor, setDeleteFor] = useState<ChatMessageRecord | null>(null);
+  const [replyTo, setReplyTo] = useState<{
+    row: ChatMessageRecord;
+    ref: EnvelopeReplyRef;
+  } | null>(null);
+
+  /** Build a reply ref from a row the user just tapped "Reply" on. */
+  const buildReplyRef = useCallback(
+    (row: ChatMessageRecord): EnvelopeReplyRef => {
+      const preview = row.deleted
+        ? "Deleted message"
+        : row.attachment?.kind === "image"
+          ? row.plaintext
+            ? `📷 ${row.plaintext}`
+            : "📷 Photo"
+          : row.attachment?.kind === "voice"
+            ? "🎤 Voice message"
+            : (row.plaintext ?? "");
+      return {
+        // We need the *server* id so the recipient can look it up. If
+        // it's still pending, we fall back to a synthetic id and the
+        // tap-to-jump won't work for the peer; the visual chip still
+        // renders fine.
+        id: row.serverId ?? `local-${row.id ?? "?"}`,
+        body: preview.slice(0, 140),
+        // Sender POV: replying to my own message → "out", to peer → "in"
+        dir: row.direction,
+      };
+    },
+    [],
+  );
+
+  /** Smooth-scroll a bubble into view by its server id. */
+  const onScrollToMessage = useCallback((serverId: string) => {
+    const el = document.querySelector<HTMLElement>(
+      `[data-server-id="${CSS.escape(serverId)}"]`,
+    );
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    el.classList.add("ring-2", "ring-wa-green");
+    setTimeout(() => el.classList.remove("ring-2", "ring-wa-green"), 1200);
+  }, []);
 
   // Block / report state: query the live block status so the UI reflects
   // actions taken on another device.
@@ -349,9 +407,11 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
       await sendChatMessage(identity, peerId, text, {
         ttlSeconds: ttlSeconds || undefined,
         linkPreview: pendingPreview ?? undefined,
+        replyTo: replyTo?.ref,
       });
       setDraft("");
       setPendingPreview(null);
+      setReplyTo(null);
       sendTyping(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't send.");
@@ -390,8 +450,10 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
         media,
         ...(ttlSeconds ? { ttl: ttlSeconds } : {}),
         ...(viewOnceDefault ? { vo: true } : {}),
+        ...(replyTo ? { re: replyTo.ref } : {}),
       });
       setDraft("");
+      setReplyTo(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't send image.");
     } finally {
@@ -549,12 +611,14 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
               }
             }
             return messages.map((m, i) => (
-              <div key={m.id} className="flex flex-col">
-                <MessageRow m={m} />
-                {i === lastReadOutIdx && m.readAt && (
-                  <SeenIndicator readAt={m.readAt} />
-                )}
-              </div>
+              <MessageRowSlot
+                key={m.id}
+                m={m}
+                myUserId={myId}
+                onAction={(row) => setActionFor(row)}
+                onJumpTo={onScrollToMessage}
+                showSeenAfter={i === lastReadOutIdx && m.readAt ? m.readAt : null}
+              />
             ));
           })()
         )}
@@ -589,7 +653,79 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
         onPickImage={onPickImage}
         onSendVoice={onSendVoice}
         viewOnceDefault={viewOnceDefault}
+        replyTo={replyTo}
+        onClearReply={() => setReplyTo(null)}
       />
+
+      {actionFor && (
+        <MessageActionMenu
+          row={actionFor}
+          onClose={() => setActionFor(null)}
+          onReply={() => {
+            setReplyTo({
+              row: actionFor,
+              ref: buildReplyRef(actionFor),
+            });
+            setActionFor(null);
+          }}
+          onReact={() => {
+            setReactFor(actionFor);
+            setActionFor(null);
+          }}
+          onDelete={() => {
+            setDeleteFor(actionFor);
+            setActionFor(null);
+          }}
+        />
+      )}
+
+      {reactFor && (
+        <ReactionPickerSheet
+          row={reactFor}
+          myUserId={myId}
+          onClose={() => setReactFor(null)}
+          onPick={async (emoji) => {
+            const target = reactFor.serverId;
+            setReactFor(null);
+            if (!target) return;
+            try {
+              await sendReaction(identity, peerId, myId, target, emoji);
+            } catch (e) {
+              setError(e instanceof Error ? e.message : "Couldn't react.");
+            }
+          }}
+        />
+      )}
+
+      {deleteFor && (
+        <DeleteMessageDialog
+          row={deleteFor}
+          onClose={() => setDeleteFor(null)}
+          onDeleteForMe={async () => {
+            const id = deleteFor.id;
+            setDeleteFor(null);
+            if (id === undefined) return;
+            // Mine-only: drop the local row but keep the peer's copy.
+            await deleteChatMessageById(id);
+          }}
+          onDeleteForEveryone={async () => {
+            const row = deleteFor;
+            setDeleteFor(null);
+            try {
+              await deleteMessageForEveryone(identity, peerId, row);
+            } catch (e) {
+              // Fall back to local-only so the bubble at least
+              // disappears from this device.
+              if (row.id !== undefined) await tombstoneChatMessageById(row.id);
+              setError(
+                e instanceof Error
+                  ? `Delete-for-everyone failed: ${e.message}`
+                  : "Delete-for-everyone failed.",
+              );
+            }
+          }}
+        />
+      )}
 
       {menuOpen === "main" && (
         <ChatMenu
@@ -767,7 +903,82 @@ function formatSeenAgo(iso: string): string {
 
 /* ────────────────────────── Bubble row ────────────────────────── */
 
-function MessageRow({ m }: { m: ChatMessageRecord }) {
+/**
+ * Outer slot for a message row: owns the long-press/right-click handler
+ * that opens the action menu, the `data-server-id` anchor used by
+ * "scroll to original" jumps, and the optional Seen indicator caption
+ * underneath the most-recent read outbound bubble.
+ */
+function MessageRowSlot({
+  m,
+  myUserId,
+  onAction,
+  onJumpTo,
+  showSeenAfter,
+}: {
+  m: ChatMessageRecord;
+  myUserId: string;
+  onAction: (row: ChatMessageRecord) => void;
+  onJumpTo: (serverId: string) => void;
+  showSeenAfter: string | null;
+}) {
+  // Long-press / right-click on the bubble area opens the action bar.
+  const pressTimer = useRef<number | null>(null);
+  const movedRef = useRef(false);
+  const trigger = () => {
+    if (m.deleted) return;
+    onAction(m);
+  };
+  return (
+    <div
+      data-server-id={m.serverId ?? ""}
+      className="flex flex-col transition-shadow rounded-md"
+      onContextMenu={(e) => {
+        e.preventDefault();
+        trigger();
+      }}
+      onTouchStart={() => {
+        movedRef.current = false;
+        pressTimer.current = window.setTimeout(() => {
+          if (!movedRef.current) trigger();
+        }, 450);
+      }}
+      onTouchMove={() => {
+        movedRef.current = true;
+        if (pressTimer.current) {
+          clearTimeout(pressTimer.current);
+          pressTimer.current = null;
+        }
+      }}
+      onTouchEnd={() => {
+        if (pressTimer.current) {
+          clearTimeout(pressTimer.current);
+          pressTimer.current = null;
+        }
+      }}
+    >
+      <MessageRow
+        m={m}
+        myUserId={myUserId}
+        onAction={onAction}
+        onJumpTo={onJumpTo}
+      />
+      {showSeenAfter && <SeenIndicator readAt={showSeenAfter} />}
+    </div>
+  );
+}
+
+function MessageRow({
+  m,
+  myUserId,
+  onAction,
+  onJumpTo,
+}: {
+  m: ChatMessageRecord;
+  myUserId: string;
+  onAction: (row: ChatMessageRecord) => void;
+  onJumpTo: (serverId: string) => void;
+}) {
   const time = new Date(m.createdAt).toLocaleTimeString([], {
     hour: "2-digit",
     minute: "2-digit",
@@ -777,34 +988,202 @@ function MessageRow({ m }: { m: ChatMessageRecord }) {
     <span className="ml-1 text-[10px] text-text-muted">⏱ {ttlLabel}</span>
   ) : null;
 
+  // Tombstone wins: never reveal the body, attachment, or reactions.
+  if (m.deleted) {
+    return (
+      <MessageBubble direction={m.direction} time={time}>
+        <span className="italic text-text-muted text-sm">
+          🚫 {m.direction === "out" ? "You deleted this message" : "This message was deleted"}
+        </span>
+      </MessageBubble>
+    );
+  }
+
+  // Quoted reply chip rendered inside the bubble at the top.
+  const replyChip = m.replyTo ? (
+    <ReplyQuoteChip
+      replyTo={m.replyTo}
+      myDirection={m.direction}
+      onJumpTo={onJumpTo}
+    />
+  ) : null;
+
+  // Tap anywhere on the bubble (desktop) opens the action menu via the
+  // small floating button revealed on hover. We attach the hover button
+  // through a wrapper div outside the MessageBubble so the bubble's
+  // own click target (e.g. images) keeps working.
+  const reactions = m.reactions ?? {};
+  const reactionsRow =
+    Object.keys(reactions).length > 0 ? (
+      <ReactionsStrip
+        reactions={reactions}
+        myUserId={myUserId}
+        direction={m.direction}
+        onClick={() => onAction(m)}
+      />
+    ) : null;
+
   if (m.viewOnce) {
     return (
-      <ViewOnceBubble m={m} time={time} />
+      <>
+        {replyChip && <div className={m.direction === "out" ? "self-end" : "self-start"}>{replyChip}</div>}
+        <ViewOnceBubble m={m} time={time} />
+        <BubbleHoverAction direction={m.direction} onClick={() => onAction(m)} />
+        {reactionsRow}
+      </>
     );
   }
   if (m.attachment?.kind === "image") {
     return (
-      <MessageBubble direction={m.direction} status={m.status} time={time}>
-        <ImageAttachment att={m.attachment} />
-        {m.plaintext && <div className="mt-1">{m.plaintext}</div>}
-        {ttlBadge}
-      </MessageBubble>
+      <>
+        <MessageBubble direction={m.direction} status={m.status} time={time}>
+          {replyChip}
+          <ImageAttachment att={m.attachment} />
+          {m.plaintext && <div className="mt-1">{m.plaintext}</div>}
+          {ttlBadge}
+        </MessageBubble>
+        <BubbleHoverAction direction={m.direction} onClick={() => onAction(m)} />
+        {reactionsRow}
+      </>
     );
   }
   if (m.attachment?.kind === "voice") {
     return (
-      <MessageBubble direction={m.direction} status={m.status} time={time}>
-        <VoiceAttachment att={m.attachment} />
-        {ttlBadge}
-      </MessageBubble>
+      <>
+        <MessageBubble direction={m.direction} status={m.status} time={time}>
+          {replyChip}
+          <VoiceAttachment att={m.attachment} />
+          {ttlBadge}
+        </MessageBubble>
+        <BubbleHoverAction direction={m.direction} onClick={() => onAction(m)} />
+        {reactionsRow}
+      </>
     );
   }
   return (
-    <MessageBubble direction={m.direction} status={m.status} time={time}>
-      {m.plaintext}
-      {m.linkPreview && <LinkPreviewBlock preview={m.linkPreview} />}
-      {ttlBadge}
-    </MessageBubble>
+    <>
+      <MessageBubble direction={m.direction} status={m.status} time={time}>
+        {replyChip}
+        {m.plaintext}
+        {m.linkPreview && <LinkPreviewBlock preview={m.linkPreview} />}
+        {ttlBadge}
+      </MessageBubble>
+      <BubbleHoverAction direction={m.direction} onClick={() => onAction(m)} />
+      {reactionsRow}
+    </>
+  );
+}
+
+/**
+ * Quoted reply preview rendered at the top of a bubble. WhatsApp-style:
+ * coloured left bar + author label + 1-line snippet. Tap to scroll the
+ * original into view.
+ */
+function ReplyQuoteChip({
+  replyTo,
+  myDirection,
+  onJumpTo,
+}: {
+  replyTo: NonNullable<ChatMessageRecord["replyTo"]>;
+  myDirection: "in" | "out";
+  onJumpTo: (serverId: string) => void;
+}) {
+  // From this user's POV, replyTo.dir === "out" means the quoted
+  // message was originally sent by them.
+  const author = replyTo.dir === "out" ? "You" : "Them";
+  const accent = replyTo.dir === "out" ? "border-wa-green" : "border-pink-400";
+  return (
+    <button
+      type="button"
+      onClick={() => onJumpTo(replyTo.serverId)}
+      className={
+        "block w-full text-left mb-1 -mx-1 px-2 py-1 rounded bg-black/20 border-l-4 " +
+        accent +
+        (myDirection === "out" ? " hover:bg-black/30" : " hover:bg-black/30")
+      }
+    >
+      <div className="text-[11px] font-medium text-text/80">{author}</div>
+      <div className="text-[12px] text-text-muted truncate">
+        {replyTo.body || <span className="italic">empty message</span>}
+      </div>
+    </button>
+  );
+}
+
+/**
+ * Aggregated reactions strip rendered below a bubble. Each unique emoji
+ * shows once with its count; tapping the strip reopens the action menu
+ * (where the user can change/remove their own reaction).
+ */
+function ReactionsStrip({
+  reactions,
+  myUserId,
+  direction,
+  onClick,
+}: {
+  reactions: Record<string, string>;
+  myUserId: string;
+  direction: "in" | "out";
+  onClick: () => void;
+}) {
+  const counts = new Map<string, number>();
+  for (const e of Object.values(reactions)) {
+    counts.set(e, (counts.get(e) ?? 0) + 1);
+  }
+  const mine = reactions[myUserId];
+  const entries = Array.from(counts.entries());
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={
+        "mt-0.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-surface border border-line text-xs shadow-bubble " +
+        (direction === "out" ? "self-end" : "self-start")
+      }
+      aria-label="Reactions"
+    >
+      {entries.map(([e, n]) => (
+        <span
+          key={e}
+          className={
+            "inline-flex items-center gap-0.5 " +
+            (e === mine ? "text-wa-green" : "text-text")
+          }
+        >
+          <span className="text-base leading-none">{e}</span>
+          {entries.length > 1 || n > 1 ? (
+            <span className="text-text-muted">{n}</span>
+          ) : null}
+        </span>
+      ))}
+    </button>
+  );
+}
+
+/**
+ * Tiny dropdown caret rendered at the corner of a bubble on desktop
+ * hover, mirroring WhatsApp's behaviour. Mobile users use long-press
+ * on the surrounding row instead.
+ */
+function BubbleHoverAction({
+  direction,
+  onClick,
+}: {
+  direction: "in" | "out";
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label="Message actions"
+      className={
+        "hidden sm:flex -mt-1 size-5 rounded-full bg-surface/80 border border-line text-text-muted opacity-0 group-hover:opacity-100 transition items-center justify-center text-[10px] " +
+        (direction === "out" ? "self-end mr-1" : "self-start ml-1")
+      }
+    >
+      ▾
+    </button>
   );
 }
 
@@ -1414,6 +1793,8 @@ function Composer({
   onPickImage,
   onSendVoice,
   viewOnceDefault,
+  replyTo,
+  onClearReply,
 }: {
   draft: string;
   setDraft: (v: string) => void;
@@ -1422,9 +1803,12 @@ function Composer({
   onPickImage: (f: File) => void;
   onSendVoice: (bytes: Uint8Array, mime: string, durationMs: number) => void;
   viewOnceDefault: boolean;
+  replyTo: { row: ChatMessageRecord; ref: EnvelopeReplyRef } | null;
+  onClearReply: () => void;
 }) {
   const fileInput = useRef<HTMLInputElement>(null);
   const [recording, setRecording] = useState<RecordingState | null>(null);
+  const [emojiOpen, setEmojiOpen] = useState(false);
 
   if (recording) {
     return (
@@ -1444,7 +1828,43 @@ function Composer({
   }
 
   return (
-    <div className="sticky bottom-0 bg-bg/95 backdrop-blur px-2 py-2 border-t border-line flex items-end gap-2">
+    <div className="sticky bottom-0 bg-bg/95 backdrop-blur border-t border-line">
+      {replyTo && (
+        <div className="px-3 py-2 border-b border-line bg-surface/40 flex items-start gap-2">
+          <div
+            className={
+              "flex-1 min-w-0 px-2 py-1 rounded border-l-4 bg-black/20 " +
+              (replyTo.ref.dir === "out" ? "border-wa-green" : "border-pink-400")
+            }
+          >
+            <div className="text-[11px] font-medium text-text/80">
+              Replying to {replyTo.ref.dir === "out" ? "yourself" : "them"}
+            </div>
+            <div className="text-[12px] text-text-muted truncate">
+              {replyTo.ref.body || <span className="italic">empty message</span>}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClearReply}
+            aria-label="Cancel reply"
+            className="size-7 rounded-full text-text-muted hover:text-text hover:bg-white/10 flex items-center justify-center shrink-0"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {emojiOpen && (
+        <div className="px-2 pb-2 pt-1">
+          <EmojiPicker
+            onPick={(e) => setDraft(draft + e)}
+            onClose={() => setEmojiOpen(false)}
+          />
+        </div>
+      )}
+
+      <div className="px-2 py-2 flex items-end gap-2">
       <input
         ref={fileInput}
         type="file"
@@ -1457,6 +1877,18 @@ function Composer({
         }}
       />
       <div className="flex-1 bg-surface rounded-3xl px-2 py-1 flex items-end gap-1">
+        <button
+          type="button"
+          onClick={() => setEmojiOpen((v) => !v)}
+          className={
+            "size-9 rounded-full hover:bg-white/10 flex items-center justify-center shrink-0 text-xl " +
+            (emojiOpen ? "text-wa-green" : "text-text-muted hover:text-text")
+          }
+          aria-label="Open emoji picker"
+          aria-expanded={emojiOpen}
+        >
+          😊
+        </button>
         <button
           type="button"
           onClick={() => fileInput.current?.click()}
@@ -1505,6 +1937,7 @@ function Composer({
           <MicIcon className="w-6 h-6" />
         </button>
       )}
+      </div>
     </div>
   );
 }
@@ -1657,3 +2090,206 @@ function pickAudioMime(): string | null {
 }
 
 void getChatPref;
+void envelopePreview;
+
+/* ─────────────────── Per-message action overlays ─────────────────── */
+
+/**
+ * Bottom sheet shown when the user taps/long-presses a message bubble.
+ * Offers Reply / React / Delete (delete only on outbound). The full
+ * delete dialog and reaction picker are spawned by the parent via the
+ * `onDelete` / `onReact` callbacks.
+ */
+function MessageActionMenu({
+  row,
+  onClose,
+  onReply,
+  onReact,
+  onDelete,
+}: {
+  row: ChatMessageRecord;
+  onClose: () => void;
+  onReply: () => void;
+  onReact: () => void;
+  onDelete: () => void;
+}) {
+  const isOut = row.direction === "out";
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center sm:justify-center"
+      onClick={onClose}
+      role="dialog"
+      aria-label="Message actions"
+    >
+      <div
+        className="w-full sm:max-w-sm bg-surface rounded-t-2xl sm:rounded-2xl border border-line shadow-sheet"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <ActionRow icon="↩" label="Reply" onClick={onReply} />
+        <ActionRow
+          icon="😊"
+          label="React"
+          onClick={onReact}
+          disabled={!row.serverId}
+          hint={!row.serverId ? "Wait until sent" : undefined}
+        />
+        {isOut && (
+          <ActionRow
+            icon="🗑"
+            label="Delete message"
+            onClick={onDelete}
+            destructive
+          />
+        )}
+        {!isOut && (
+          <ActionRow
+            icon="🗑"
+            label="Delete for me"
+            onClick={onDelete}
+            destructive
+          />
+        )}
+        <button
+          type="button"
+          onClick={onClose}
+          className="w-full px-4 py-3 text-text-muted text-sm border-t border-line"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ActionRow({
+  icon,
+  label,
+  onClick,
+  destructive,
+  disabled,
+  hint,
+}: {
+  icon: string;
+  label: string;
+  onClick: () => void;
+  destructive?: boolean;
+  disabled?: boolean;
+  hint?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={
+        "w-full px-4 py-3 flex items-center gap-3 text-left border-b border-line/60 last:border-b-0 disabled:opacity-50 " +
+        (destructive ? "text-red-400" : "text-text") +
+        " hover:bg-white/5"
+      }
+    >
+      <span className="text-xl w-6 text-center">{icon}</span>
+      <span className="flex-1">{label}</span>
+      {hint && <span className="text-xs text-text-muted">{hint}</span>}
+    </button>
+  );
+}
+
+/**
+ * Floating reaction picker mounted as a centered popover. Wraps the
+ * reusable `ReactionPicker` strip (with expand-to-grid) and gives it a
+ * dimmed scrim so taps outside dismiss.
+ */
+function ReactionPickerSheet({
+  row,
+  myUserId,
+  onClose,
+  onPick,
+}: {
+  row: ChatMessageRecord;
+  myUserId: string;
+  onClose: () => void;
+  onPick: (emoji: string) => void;
+}) {
+  const mine = row.reactions?.[myUserId] ?? "";
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center px-4"
+      onClick={onClose}
+      role="dialog"
+      aria-label="React"
+    >
+      <div onClick={(e) => e.stopPropagation()}>
+        <ReactionPicker value={mine} onPick={onPick} onClose={onClose} />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Three-button confirm dialog matching WhatsApp's unsend UX:
+ *   [Delete for me] [Delete for everyone] [Cancel]
+ *
+ * "Delete for everyone" is hidden for inbound messages (you can't
+ * unsend something you didn't send). The grace window is enforced by
+ * the server endpoint, but we don't gate it client-side beyond that.
+ */
+function DeleteMessageDialog({
+  row,
+  onClose,
+  onDeleteForMe,
+  onDeleteForEveryone,
+}: {
+  row: ChatMessageRecord;
+  onClose: () => void;
+  onDeleteForMe: () => void | Promise<void>;
+  onDeleteForEveryone: () => void | Promise<void>;
+}) {
+  const isOut = row.direction === "out";
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center px-4"
+      onClick={onClose}
+      role="dialog"
+      aria-label="Delete message"
+    >
+      <div
+        className="w-full max-w-sm bg-surface rounded-2xl border border-line shadow-sheet p-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="text-base font-semibold text-text mb-1">
+          Delete message?
+        </div>
+        <div className="text-sm text-text-muted mb-4">
+          {isOut
+            ? "You can delete this message for yourself or remove it for everyone in this chat."
+            : "This message will be removed from this device only."}
+        </div>
+        <div className="flex flex-col gap-2">
+          {isOut && (
+            <button
+              type="button"
+              onClick={() => void onDeleteForEveryone()}
+              className="w-full px-4 py-2.5 rounded-xl bg-red-500/15 text-red-300 hover:bg-red-500/25 transition text-sm font-medium"
+            >
+              Delete for everyone
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => void onDeleteForMe()}
+            className="w-full px-4 py-2.5 rounded-xl bg-white/5 text-text hover:bg-white/10 transition text-sm font-medium"
+          >
+            Delete for me
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-full px-4 py-2.5 rounded-xl text-text-muted hover:bg-white/5 transition text-sm"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
