@@ -170,7 +170,14 @@ export const invitesRouter = router({
    */
   redeem: protectedProcedure
     .input(RedeemInviteInput)
-    .output(z.object({ requestId: z.string().uuid() }))
+    .output(
+      z.object({
+        requestId: z.string().uuid(),
+        connectionId: z.string().uuid(),
+        peerId: z.string().uuid(),
+        alreadyConnected: z.boolean(),
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
       const db = getDb();
       const tokenHash = sha256Hex(input.token);
@@ -201,11 +208,13 @@ export const invitesRouter = router({
         });
       }
 
-      // Already connected?
+      // The inviter already gave consent by sharing the link, so we
+      // create the connection straight away — no extra approval step.
       const [a, b] =
         ctx.userId < invite.inviterUserId
           ? [ctx.userId, invite.inviterUserId]
           : [invite.inviterUserId, ctx.userId];
+
       const existingConn = await db
         .select({ id: schema.connections.id })
         .from(schema.connections)
@@ -216,46 +225,77 @@ export const invitesRouter = router({
           ),
         )
         .limit(1);
+
       if (existingConn.length > 0) {
-        throw new TRPCError({
-          code: "CONFLICT",
-          message: "You're already connected with this person.",
-        });
+        // Idempotent: tapping the link twice just returns the existing chat.
+        const existingReq = await db
+          .select({ id: schema.connectionRequests.id })
+          .from(schema.connectionRequests)
+          .where(
+            and(
+              eq(schema.connectionRequests.fromUserId, ctx.userId),
+              eq(schema.connectionRequests.toUserId, invite.inviterUserId),
+              eq(schema.connectionRequests.inviteId, invite.id),
+            ),
+          )
+          .limit(1);
+        return {
+          requestId:
+            existingReq[0]?.id ?? "00000000-0000-0000-0000-000000000000",
+          connectionId: existingConn[0]!.id,
+          peerId: invite.inviterUserId,
+          alreadyConnected: true,
+        };
       }
 
-      // Already a pending request from me to them?
-      const existingReq = await db
-        .select({ id: schema.connectionRequests.id })
-        .from(schema.connectionRequests)
-        .where(
-          and(
-            eq(schema.connectionRequests.fromUserId, ctx.userId),
-            eq(schema.connectionRequests.toUserId, invite.inviterUserId),
-            eq(schema.connectionRequests.status, "pending"),
-          ),
-        )
-        .limit(1);
-      if (existingReq.length > 0) {
-        return { requestId: existingReq[0]!.id };
-      }
+      const result = await db.transaction(async (tx) => {
+        const inserted = await tx
+          .insert(schema.connectionRequests)
+          .values({
+            fromUserId: ctx.userId,
+            toUserId: invite.inviterUserId,
+            inviteId: invite.id,
+            note: input.note ?? null,
+            status: "accepted",
+            decidedAt: new Date(),
+          })
+          .returning({ id: schema.connectionRequests.id });
 
-      const inserted = await db
-        .insert(schema.connectionRequests)
-        .values({
-          fromUserId: ctx.userId,
-          toUserId: invite.inviterUserId,
-          inviteId: invite.id,
-          note: input.note ?? null,
-        })
-        .returning({ id: schema.connectionRequests.id });
+        const connInserted = await tx
+          .insert(schema.connections)
+          .values({ userAId: a, userBId: b })
+          .onConflictDoNothing()
+          .returning({ id: schema.connections.id });
 
-      // Increment used count.
-      await db
-        .update(schema.invites)
-        .set({ usedCount: invite.usedCount + 1 })
-        .where(eq(schema.invites.id, invite.id));
+        let connectionId = connInserted[0]?.id;
+        if (!connectionId) {
+          const fetched = await tx
+            .select({ id: schema.connections.id })
+            .from(schema.connections)
+            .where(
+              and(
+                eq(schema.connections.userAId, a),
+                eq(schema.connections.userBId, b),
+              ),
+            )
+            .limit(1);
+          connectionId = fetched[0]!.id;
+        }
 
-      return { requestId: inserted[0]!.id };
+        await tx
+          .update(schema.invites)
+          .set({ usedCount: invite.usedCount + 1 })
+          .where(eq(schema.invites.id, invite.id));
+
+        return { requestId: inserted[0]!.id, connectionId };
+      });
+
+      return {
+        requestId: result.requestId,
+        connectionId: result.connectionId,
+        peerId: invite.inviterUserId,
+        alreadyConnected: false,
+      };
     }),
 });
 

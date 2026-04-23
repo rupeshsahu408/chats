@@ -23,10 +23,11 @@ export function InviteRedeemPage() {
     { token },
     { enabled: !!token, retry: false },
   );
+  const utils = trpc.useUtils();
   const redeem = trpc.invites.redeem.useMutation();
 
   const [note, setNote] = useState("");
-  const [done, setDone] = useState(false);
+  const [done, setDone] = useState<{ peerId: string; alreadyConnected: boolean } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Stash the invite token so signup/login can pick it up after auth.
@@ -46,13 +47,21 @@ export function InviteRedeemPage() {
       return;
     }
     try {
-      await redeem.mutateAsync({ token, note: note.trim() || undefined });
+      const res = await redeem.mutateAsync({
+        token,
+        note: note.trim() || undefined,
+      });
       try {
         sessionStorage.removeItem("veil:pending_invite");
       } catch {
         /* ignore */
       }
-      setDone(true);
+      // Refresh the connections list so the new chat shows up immediately.
+      await utils.connections.list.invalidate();
+      setDone({
+        peerId: res.peerId,
+        alreadyConnected: res.alreadyConnected,
+      });
     } catch (e: unknown) {
       setError(messageOf(e));
     }
@@ -108,17 +117,23 @@ export function InviteRedeemPage() {
 
   if (done) {
     return (
-      <ScreenShell back="/chats" phase="Phase 2 · Sent">
+      <ScreenShell back="/chats" phase="Phase 2 · Connected">
         <div className="flex flex-col items-center gap-3 text-center">
           <Logo />
-          <h2 className="text-2xl font-semibold">Request sent</h2>
+          <h2 className="text-2xl font-semibold">
+            {done.alreadyConnected ? "You're already connected" : "You're connected!"}
+          </h2>
           <p className="text-sm text-text-muted max-w-sm">
-            They'll see your fingerprint and decide whether to connect. You'll
-            see them in your People list once they accept.
+            {done.alreadyConnected
+              ? "Open the chat to keep the conversation going."
+              : "Your end-to-end encrypted chat is ready. Say hi!"}
           </p>
-          <PrimaryButton onClick={() => navigate("/connections")}>
-            View connections
+          <PrimaryButton onClick={() => navigate(`/chats/${done.peerId}`)}>
+            Open chat
           </PrimaryButton>
+          <SecondaryButton onClick={() => navigate("/chats")}>
+            All chats
+          </SecondaryButton>
         </div>
       </ScreenShell>
     );
@@ -192,7 +207,7 @@ export function InviteRedeemPage() {
         loading={redeem.isPending}
         disabled={isSelf}
       >
-        {accessToken ? "Send connection request" : "Continue to sign up"}
+        {accessToken ? "Connect" : "Continue to sign up"}
       </PrimaryButton>
     </ScreenShell>
   );
