@@ -874,6 +874,15 @@ export const GroupMemberSchema = z.object({
   role: GroupRoleSchema,
   joinedAt: z.string(),
   fingerprint: z.string().nullable(),
+  /** Public profile fields, mirrored from the users table. */
+  username: z.string().nullable().optional(),
+  displayName: z.string().nullable().optional(),
+  avatarDataUrl: z.string().nullable().optional(),
+  /**
+   * Private nickname the requesting user has saved for this member
+   * (WhatsApp-style "saved contact name"). Null when nothing's saved.
+   */
+  contactName: z.string().nullable().optional(),
 });
 export type GroupMember = z.infer<typeof GroupMemberSchema>;
 

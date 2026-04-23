@@ -452,9 +452,20 @@ async function loadGroupDetail(
       role: schema.groupMembers.role,
       joinedAt: schema.groupMembers.joinedAt,
       identity: schema.users.identityPubkey,
+      username: schema.users.username,
+      displayName: schema.users.displayName,
+      avatarDataUrl: schema.users.avatarDataUrl,
+      contactName: schema.userContacts.customName,
     })
     .from(schema.groupMembers)
     .innerJoin(schema.users, eq(schema.users.id, schema.groupMembers.userId))
+    .leftJoin(
+      schema.userContacts,
+      and(
+        eq(schema.userContacts.ownerUserId, me),
+        eq(schema.userContacts.contactUserId, schema.groupMembers.userId),
+      ),
+    )
     .where(eq(schema.groupMembers.groupId, groupId))
     .orderBy(asc(schema.groupMembers.joinedAt));
 
@@ -475,6 +486,10 @@ async function loadGroupDetail(
       role: m.role,
       joinedAt: m.joinedAt.toISOString(),
       fingerprint: fingerprintFromIdentity(m.identity as Buffer | null),
+      username: m.username ?? null,
+      displayName: m.displayName ?? null,
+      avatarDataUrl: m.avatarDataUrl ?? null,
+      contactName: m.contactName ?? null,
     })),
   };
 }

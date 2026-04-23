@@ -787,6 +787,16 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
         />
       )}
 
+      {peer?.peer && !peer.peer.contactName && (
+        <AddContactBanner
+          peerId={peerId}
+          peerLabel={peer.peer.username ? `@${peer.peer.username}` : displayName}
+          onSaved={async () => {
+            await connections.refetch();
+          }}
+        />
+      )}
+
       {searchOpen && (
         <div className="px-3 py-2 bg-panel border-b border-line flex items-center gap-2">
           <SearchIcon className="text-text-muted" />
@@ -3631,6 +3641,125 @@ export function SchedulePickerSheet({
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function AddContactBanner({
+  peerId,
+  peerLabel: peerLabelText,
+  onSaved,
+}: {
+  peerId: string;
+  peerLabel: string;
+  onSaved: () => void | Promise<void>;
+}) {
+  const dismissKey = `veil:add-contact-dismissed:${peerId}`;
+  const [dismissed, setDismissed] = useState<boolean>(
+    () =>
+      typeof localStorage !== "undefined" &&
+      !!localStorage.getItem(dismissKey),
+  );
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const setContactName = trpc.contacts.set.useMutation({
+    onSuccess: async () => {
+      setEditing(false);
+      setError(null);
+      await onSaved();
+    },
+    onError: (e) => setError(e.message),
+  });
+
+  if (dismissed) return null;
+
+  function dismiss() {
+    try {
+      localStorage.setItem(dismissKey, String(Date.now()));
+    } catch {
+      // ignore — banner will reappear next mount, no harm.
+    }
+    setDismissed(true);
+  }
+
+  async function save() {
+    const trimmed = draft.trim();
+    if (trimmed.length === 0) {
+      setError("Contact name can't be empty.");
+      return;
+    }
+    if (trimmed.length > 60) {
+      setError("Contact name must be 60 characters or fewer.");
+      return;
+    }
+    setError(null);
+    setContactName.mutate({ peerId, customName: trimmed });
+  }
+
+  return (
+    <div className="px-3 py-2 bg-wa-green/10 border-b border-line text-sm">
+      {editing ? (
+        <div className="flex flex-col gap-2">
+          <div className="text-xs text-text-muted">
+            Save a private name for {peerLabelText}. Only you can see it.
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              autoFocus
+              type="text"
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              maxLength={60}
+              placeholder="e.g. Mom, Alex from work…"
+              className="flex-1 bg-surface border border-line rounded-full px-3 py-1.5 text-sm outline-none focus:border-wa-green text-text"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") void save();
+                if (e.key === "Escape") setEditing(false);
+              }}
+            />
+            <button
+              onClick={save}
+              disabled={setContactName.isPending}
+              className="px-3 py-1.5 rounded-full text-xs bg-wa-green text-text-oncolor disabled:opacity-50"
+            >
+              {setContactName.isPending ? "Saving…" : "Save"}
+            </button>
+            <button
+              onClick={() => setEditing(false)}
+              className="px-2 py-1.5 rounded-full text-xs text-text-muted"
+              disabled={setContactName.isPending}
+            >
+              Cancel
+            </button>
+          </div>
+          {error && <div className="text-xs text-red-500">{error}</div>}
+        </div>
+      ) : (
+        <div className="flex items-center gap-3">
+          <div className="flex-1 min-w-0">
+            <div className="text-text font-medium truncate">
+              Save {peerLabelText} to your contacts?
+            </div>
+            <div className="text-xs text-text-muted">
+              Pick a private nickname for your chat list.
+            </div>
+          </div>
+          <button
+            onClick={() => setEditing(true)}
+            className="px-3 py-1.5 rounded-full text-xs bg-wa-green text-text-oncolor shrink-0"
+          >
+            Add name
+          </button>
+          <button
+            onClick={dismiss}
+            className="px-2 py-1.5 rounded-full text-xs text-text-muted shrink-0"
+            aria-label="Dismiss"
+          >
+            ✕
+          </button>
+        </div>
+      )}
     </div>
   );
 }

@@ -35,6 +35,7 @@ import {
   FlagIcon,
 } from "../components/Layout";
 import { UnlockGate } from "../components/UnlockGate";
+import { peerLabel } from "../lib/peerLabel";
 import { EmojiPicker, ReactionPicker } from "../components/EmojiPicker";
 import {
   db,
@@ -632,11 +633,21 @@ function GroupChatInner({ groupId }: { groupId: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [text]);
 
-  // memberMap: userId → display label (fingerprint or truncated id)
+  // memberMap: userId → best display label, prefers the requester's
+  // saved contact name → @username → display name → fingerprint.
   const memberMap = useMemo(() => {
     const m = new Map<string, string>();
     for (const mem of groupQuery.data?.members ?? []) {
-      m.set(mem.userId, mem.fingerprint || mem.userId.slice(0, 8) + "…");
+      m.set(
+        mem.userId,
+        peerLabel({
+          id: mem.userId,
+          fingerprint: mem.fingerprint ?? "",
+          username: mem.username,
+          displayName: mem.displayName,
+          contactName: mem.contactName,
+        }),
+      );
     }
     return m;
   }, [groupQuery.data]);
