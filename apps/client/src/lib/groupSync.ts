@@ -18,6 +18,7 @@ import {
   deleteExpiredGroupMessages,
   deleteSenderKeysForGroup,
   findGroupMessageByServerId,
+  getEarliestGroupMessageTime,
   getSenderKey,
   hasGroupMessageDedup,
   putSenderKey,
@@ -42,7 +43,7 @@ import {
 } from "./messageEnvelope";
 import { base64ToBytes, bytesToBase64 } from "./crypto";
 import type { UnlockedIdentity } from "./signal/session";
-import type { GroupDetail, InboxMessage } from "@veil/shared";
+import type { GroupDetail, GroupHistoryMessage, InboxMessage } from "@veil/shared";
 
 function recToState(rec: GroupSenderKeyRecord): SenderKeyState {
   return {
@@ -586,4 +587,219 @@ export async function resetLocalGroup(groupId: string): Promise<void> {
 
 export async function reapExpiredGroupMessages(): Promise<void> {
   await deleteExpiredGroupMessages().catch(() => undefined);
+}
+
+/* ─────────────── Group history restore (fresh device / new member) ─────────── */
+
+const GROUP_HISTORY_PAGE = 100;
+const GROUP_HISTORY_MAX_PAGES = 5;
+
+/**
+ * Load server-side group history for one group and persist it locally.
+ * Called once per group on the first unlock of a session (same pattern as
+ * `restorePeerHistory` for 1:1 chats).
+ *
+ * - Outbound messages (sent by me) are stored as "sent on another device"
+ *   since we don't have the plaintext on this device.
+ * - Inbound messages are decrypted with the stored sender key if available;
+ *   otherwise a "[encrypted — couldn't decrypt on this device]" placeholder
+ *   is shown so the user can at least see the gap in history.
+ */
+export async function restoreGroupHistory(
+  identity: UnlockedIdentity,
+  groupId: string,
+): Promise<{ loaded: number; pages: number; hasMore: boolean }> {
+  let loaded = 0;
+  let pages = 0;
+  let before = await getEarliestGroupMessageTime(groupId);
+  let hasMore = true;
+
+  while (hasMore && pages < GROUP_HISTORY_MAX_PAGES) {
+    const page = await trpcClientProxy().messages.fetchGroupHistory.query({
+      groupId,
+      before: before ?? undefined,
+      limit: GROUP_HISTORY_PAGE,
+    });
+    pages += 1;
+
+    if (page.messages.length === 0) {
+      hasMore = page.hasMore;
+      break;
+    }
+
+    // Server returns newest-first; process oldest-first so earlier messages
+    // are stored before later ones (matters for reply-to resolution).
+    const ordered = [...page.messages].reverse();
+    for (const m of ordered) {
+      const stored = await persistGroupHistoryEntry(identity, groupId, m);
+      if (stored) loaded += 1;
+    }
+
+    const oldest = ordered[0];
+    if (oldest) before = oldest.createdAt;
+    hasMore = page.hasMore;
+  }
+
+  return { loaded, pages, hasMore };
+}
+
+/**
+ * Persist a single `GroupHistoryMessage` row into the local IndexedDB store.
+ * Returns true if a new row was written, false if it was a duplicate.
+ */
+async function persistGroupHistoryEntry(
+  identity: UnlockedIdentity,
+  groupId: string,
+  m: GroupHistoryMessage,
+): Promise<boolean> {
+  // Fast dedup by server id: if we already have this row, skip it.
+  const existing = await findGroupMessageByServerId(m.id);
+  if (existing) return false;
+
+  const isOutbound = m.senderUserId === identity.userId;
+
+  // ── Outbound message (I sent it on another device) ──────────────────
+  if (isOutbound) {
+    let dedupKey: string;
+    try {
+      const h = decodeGroupHeader(m.header);
+      dedupKey = `${h.header.sender}:${h.header.ep}:${h.header.n}`;
+    } catch {
+      // Malformed header — use a fallback that won't collide.
+      dedupKey = `${m.senderUserId}:hist:${m.id}`;
+    }
+    if (await hasGroupMessageDedup(dedupKey)) return false;
+    await appendGroupMessage({
+      groupId,
+      serverId: m.id,
+      dedupKey,
+      senderUserId: m.senderUserId,
+      direction: "out",
+      plaintext: "[sent from another device]",
+      createdAt: m.createdAt,
+      status: "sent",
+      ...(m.expiresAt ? { expiresAt: m.expiresAt } : {}),
+    } as Omit<GroupMessageRecord, "id">);
+    return true;
+  }
+
+  // ── Inbound message ─────────────────────────────────────────────────
+  let header: ReturnType<typeof decodeGroupHeader>;
+  try {
+    header = decodeGroupHeader(m.header);
+  } catch {
+    // Can't even parse the header — nothing we can do.
+    return false;
+  }
+
+  const dedupKey = `${header.header.sender}:${header.header.ep}:${header.header.n}`;
+  if (await hasGroupMessageDedup(dedupKey)) return false;
+
+  // Helper: store a placeholder when we can't decrypt.
+  const storePlaceholder = async () => {
+    await appendGroupMessage({
+      groupId,
+      serverId: m.id,
+      dedupKey,
+      senderUserId: m.senderUserId,
+      direction: "in",
+      plaintext: "[encrypted — couldn't decrypt on this device]",
+      createdAt: m.createdAt,
+      status: "received",
+      ...(m.expiresAt ? { expiresAt: m.expiresAt } : {}),
+    } as Omit<GroupMessageRecord, "id">);
+  };
+
+  const rec = await getSenderKey(
+    header.header.gid,
+    header.header.sender,
+    header.header.ep,
+  );
+
+  if (!rec) {
+    // We don't have the sender key for this epoch — show a placeholder.
+    await storePlaceholder();
+    return true;
+  }
+
+  // Try to decrypt with the stored sender key.
+  const state = recToState(rec);
+  const ct = base64ToBytes(m.ciphertext);
+  let ptBytes: Uint8Array | null = null;
+  try {
+    ptBytes = await groupDecrypt(state, header.bytes, header.header, ct);
+    await putSenderKey(stateToRec(state));
+  } catch {
+    await storePlaceholder();
+    return true;
+  }
+
+  if (!ptBytes) {
+    await storePlaceholder();
+    return true;
+  }
+
+  const ptText = new TextDecoder().decode(ptBytes);
+  let env: ReturnType<typeof decodeEnvelope>;
+  try {
+    env = decodeEnvelope(ptText);
+  } catch {
+    await storePlaceholder();
+    return true;
+  }
+
+  // Side-effect envelopes (reactions, edits, deletes) don't create rows —
+  // they mutate existing ones. We skip them here; they will be applied
+  // when the live inbox processes any newer occurrences.
+  if (env.t === "del" || env.t === "rxn" || env.t === "edit" || env.t === "skdm") {
+    return false;
+  }
+
+  // Resolve reply reference if present.
+  let replyTo: GroupMessageRecord["replyTo"] | undefined;
+  if (
+    (env.t === "text" || env.t === "image" || env.t === "voice") &&
+    env.re
+  ) {
+    const orig = await findGroupMessageByServerId(env.re.id);
+    replyTo = {
+      serverId: env.re.id,
+      body: env.re.body,
+      senderUserId: orig?.senderUserId ?? "",
+    };
+  }
+
+  await appendGroupMessage({
+    groupId,
+    serverId: m.id,
+    dedupKey,
+    senderUserId: m.senderUserId,
+    direction: "in",
+    plaintext:
+      env.t === "text"
+        ? env.body
+        : env.t === "image"
+          ? (env.body ?? "")
+          : "",
+    createdAt: m.createdAt,
+    status: "received",
+    ...(m.expiresAt ? { expiresAt: m.expiresAt } : {}),
+    ...(env.t === "image" || env.t === "voice"
+      ? { attachment: { ...env.media, kind: env.t } }
+      : {}),
+    ...(env.t === "poll"
+      ? {
+          pollData: {
+            pollId: env.pollId,
+            question: env.question,
+            choices: env.choices,
+          },
+        }
+      : {}),
+    ...(env.t === "poll_vote"
+      ? { pollVoteData: { pollId: env.pollId, choiceIdx: env.choiceIdx } }
+      : {}),
+    ...(replyTo ? { replyTo } : {}),
+  } as Omit<GroupMessageRecord, "id">);
+  return true;
 }

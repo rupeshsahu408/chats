@@ -6,7 +6,7 @@ import { applyDeliveryReceipt, applyReadReceipt, ingestInboxMessage, pollAndDecr
 import { useStealthPrefs } from "./stealthPrefs";
 import { deleteExpiredChatMessages } from "./db";
 import { trpcClientProxy } from "./trpcClientProxy";
-import { reapExpiredGroupMessages, rotateMySenderKeyIfNeeded } from "./groupSync";
+import { reapExpiredGroupMessages, restoreGroupHistory, rotateMySenderKeyIfNeeded } from "./groupSync";
 import { usePresenceStore } from "./presenceStore";
 import { useScheduledMessageSender } from "./scheduledSender";
 
@@ -94,6 +94,7 @@ export function SessionSync() {
       } catch (e) {
         console.warn("Initial inbox drain failed", e);
       }
+      // Restore 1:1 peer history.
       try {
         const list = await trpcClientProxy().connections.list.query();
         for (const c of list) {
@@ -105,6 +106,22 @@ export function SessionSync() {
         }
       } catch (e) {
         console.warn("Couldn't enumerate connections for history restore", e);
+      }
+      // Restore group history for every group the user belongs to.
+      // We fetch up to 5 pages × 100 messages per group, same as peer
+      // history. Messages we can't decrypt get a "[encrypted — couldn't
+      // decrypt on this device]" placeholder so the user sees the gap.
+      try {
+        const groups = await trpcClientProxy().groups.list.query();
+        for (const g of groups) {
+          try {
+            await restoreGroupHistory(identity, g.id);
+          } catch (e) {
+            console.warn("Group history restore failed for", g.id, e);
+          }
+        }
+      } catch (e) {
+        console.warn("Couldn't enumerate groups for history restore", e);
       }
     })();
   }, [identity, userId]);

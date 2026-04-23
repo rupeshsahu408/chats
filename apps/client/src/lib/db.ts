@@ -1020,3 +1020,21 @@ export async function setChatMessageStatus(
   if (serverId) patch.serverId = serverId;
   await db.chatMessages.update(id, patch);
 }
+
+/**
+ * Return the ISO timestamp of the oldest group message stored locally for
+ * the given group, or null if none exist. Used as the `before` cursor when
+ * paging backwards through server history.
+ */
+export async function getEarliestGroupMessageTime(
+  groupId: string,
+): Promise<string | null> {
+  const rows = await db.groupMessages
+    .where("groupId")
+    .equals(groupId)
+    .toArray();
+  if (rows.length === 0) return null;
+  let min = rows[0]!.createdAt;
+  for (const r of rows) if (r.createdAt < min) min = r.createdAt;
+  return min;
+}
