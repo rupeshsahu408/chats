@@ -220,6 +220,14 @@ export interface GroupSenderKeyRecord {
   n: number;
   /** Skipped message keys, JSON-serialised `{ counter: base64 }`. */
   skipped: string;
+  /**
+   * JSON-serialised array of user-ids we believe have already received
+   * an SKDM for this (group, epoch). Used to make sender-key
+   * distribution self-healing: any member of the current group not
+   * present here is re-attempted on the next `ensureMySenderKey` call.
+   * Only meaningful when this is OUR sender key (senderUserId === me).
+   */
+  distributedTo?: string;
   updatedAt: string;
 }
 

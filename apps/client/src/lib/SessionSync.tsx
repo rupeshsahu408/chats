@@ -6,7 +6,12 @@ import { applyDeliveryReceipt, applyReadReceipt, ingestInboxMessage, pollAndDecr
 import { useStealthPrefs } from "./stealthPrefs";
 import { deleteExpiredChatMessages } from "./db";
 import { trpcClientProxy } from "./trpcClientProxy";
-import { reapExpiredGroupMessages, restoreGroupHistory, rotateMySenderKeyIfNeeded } from "./groupSync";
+import {
+  ensureMySenderKey,
+  reapExpiredGroupMessages,
+  restoreGroupHistory,
+  rotateMySenderKeyIfNeeded,
+} from "./groupSync";
 import { usePresenceStore } from "./presenceStore";
 import { useScheduledMessageSender } from "./scheduledSender";
 
@@ -118,6 +123,18 @@ export function SessionSync() {
             await restoreGroupHistory(identity, g.id);
           } catch (e) {
             console.warn("Group history restore failed for", g.id, e);
+          }
+          // Proactively (re-)distribute our sender key for every group
+          // we belong to. Covers the case where we were added while
+          // offline (so we never received the `group_changed` push) and
+          // also self-heals any prior partial-distribution failures.
+          try {
+            const detail = await trpcClientProxy().groups.get.query({
+              groupId: g.id,
+            });
+            await ensureMySenderKey(identity, detail);
+          } catch (e) {
+            console.warn("Sender-key bootstrap failed for", g.id, e);
           }
         }
       } catch (e) {

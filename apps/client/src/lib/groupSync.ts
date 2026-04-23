@@ -40,6 +40,7 @@ import {
   encodeEnvelope,
   type ChatEnvelope,
   type SenderKeyDistribution,
+  type SenderKeyRequest,
 } from "./messageEnvelope";
 import { base64ToBytes, bytesToBase64 } from "./crypto";
 import type { UnlockedIdentity } from "./signal/session";
@@ -57,7 +58,10 @@ function recToState(rec: GroupSenderKeyRecord): SenderKeyState {
   };
 }
 
-function stateToRec(state: SenderKeyState): GroupSenderKeyRecord {
+function stateToRec(
+  state: SenderKeyState,
+  distributedTo?: string,
+): GroupSenderKeyRecord {
   return {
     id: `${state.groupId}:${state.senderUserId}:${state.epoch}`,
     groupId: state.groupId,
@@ -66,8 +70,20 @@ function stateToRec(state: SenderKeyState): GroupSenderKeyRecord {
     chainKey: state.chainKey,
     n: state.n,
     skipped: JSON.stringify(state.skipped),
+    ...(distributedTo !== undefined ? { distributedTo } : {}),
     updatedAt: state.updatedAt,
   };
+}
+
+function parseDistributed(rec: GroupSenderKeyRecord | undefined): Set<string> {
+  if (!rec?.distributedTo) return new Set();
+  try {
+    const arr = JSON.parse(rec.distributedTo) as unknown;
+    if (Array.isArray(arr)) return new Set(arr.filter((x): x is string => typeof x === "string"));
+  } catch {
+    /* fall through */
+  }
+  return new Set();
 }
 
 /* ─────────────── Sender Key creation + distribution ─────────────── */
@@ -90,24 +106,44 @@ export async function ensureMySenderKey(
 ): Promise<SenderKeyState> {
   const me = identity.userId;
   const epoch = group.epoch;
-  const existing = await getSenderKey(group.id, me, epoch);
-  if (existing) return recToState(existing);
+  let rec = await getSenderKey(group.id, me, epoch);
+  let state: SenderKeyState;
 
-  // Generate fresh chain key.
-  const chain = freshChainKey();
-  const state: SenderKeyState = {
-    groupId: group.id,
-    senderUserId: me,
-    epoch,
-    chainKey: bytesToBase64(chain),
-    n: 0,
-    skipped: {},
-    updatedAt: new Date().toISOString(),
-  };
-  await putSenderKey(stateToRec(state));
+  if (!rec) {
+    // No key for this epoch yet — generate a fresh chain key.
+    const chain = freshChainKey();
+    state = {
+      groupId: group.id,
+      senderUserId: me,
+      epoch,
+      chainKey: bytesToBase64(chain),
+      n: 0,
+      skipped: {},
+      updatedAt: new Date().toISOString(),
+    };
+    rec = stateToRec(state, "[]");
+    await putSenderKey(rec);
+  } else {
+    state = recToState(rec);
+  }
 
-  // Distribute to every other member through their 1:1 ratchet.
-  await distributeSenderKey(identity, group, state);
+  // Self-healing distribution: figure out which current members haven't
+  // yet received our SKDM for this epoch, and (re)deliver to them.
+  // Members get added to `distributedTo` once their leg succeeds. This
+  // covers: brand-new key, partial failure on first try, members added
+  // to the group after we created the key, and stale recipients whose
+  // 1:1 SKDM was lost in transit.
+  const distributed = parseDistributed(rec);
+  const targets = group.members
+    .filter((m) => m.userId !== me && !distributed.has(m.userId))
+    .map((m) => m.userId);
+  if (targets.length > 0) {
+    const ok = await distributeSenderKey(identity, group, state, targets);
+    for (const uid of ok) distributed.add(uid);
+    rec.distributedTo = JSON.stringify(Array.from(distributed));
+    await putSenderKey(rec);
+  }
+
   return state;
 }
 
@@ -127,7 +163,8 @@ async function distributeSenderKey(
   identity: UnlockedIdentity,
   group: GroupDetail,
   state: SenderKeyState,
-): Promise<void> {
+  recipients?: string[],
+): Promise<string[]> {
   const skdm: SenderKeyDistribution = {
     v: 2,
     t: "skdm",
@@ -137,29 +174,115 @@ async function distributeSenderKey(
   };
   const wire = encodeEnvelope(skdm);
   const me = identity.userId;
-  await Promise.all(
-    group.members
-      .filter((m) => m.userId !== me)
-      .map(async (m) => {
-        try {
-          const { headerB64, ciphertextB64 } = await encryptToPeer(
-            identity,
-            m.userId,
-            wire,
-          );
-          await trpcClientProxy().messages.send.mutate({
-            recipientUserId: m.userId,
-            header: headerB64,
-            ciphertext: ciphertextB64,
-          });
-        } catch (e) {
-          console.warn(
-            `Failed to deliver SKDM for ${group.id} to ${m.userId}:`,
-            e,
-          );
-        }
-      }),
+  const targets =
+    recipients ?? group.members.filter((m) => m.userId !== me).map((m) => m.userId);
+  const results = await Promise.all(
+    targets.map(async (uid): Promise<string | null> => {
+      try {
+        const { headerB64, ciphertextB64 } = await encryptToPeer(
+          identity,
+          uid,
+          wire,
+        );
+        await trpcClientProxy().messages.send.mutate({
+          recipientUserId: uid,
+          header: headerB64,
+          ciphertext: ciphertextB64,
+        });
+        return uid;
+      } catch (e) {
+        console.warn(`Failed to deliver SKDM for ${group.id} to ${uid}:`, e);
+        return null;
+      }
+    }),
   );
+  return results.filter((u): u is string => u !== null);
+}
+
+/* ─────────────── Sender Key REQUEST (recovery path) ─────────────── */
+
+/**
+ * Throttle outbound `skreq` messages so a single un-decryptable group
+ * post (which the user may see redelivered on every reconnect) doesn't
+ * spam the original sender with hundreds of identical requests.
+ */
+const _skreqThrottle = new Map<string, number>();
+const SKREQ_COOLDOWN_MS = 30_000;
+
+/**
+ * Ask `senderUserId` to redistribute their sender key for
+ * (groupId, epoch) by sending them a 1:1 `skreq` envelope. No-op if we
+ * already requested the same triple in the last 30 seconds.
+ */
+export async function requestSenderKey(
+  identity: UnlockedIdentity,
+  groupId: string,
+  epoch: number,
+  senderUserId: string,
+): Promise<void> {
+  if (senderUserId === identity.userId) return;
+  const key = `${groupId}:${senderUserId}:${epoch}`;
+  const last = _skreqThrottle.get(key) ?? 0;
+  const now = Date.now();
+  if (now - last < SKREQ_COOLDOWN_MS) return;
+  _skreqThrottle.set(key, now);
+  const env: SenderKeyRequest = { v: 2, t: "skreq", gid: groupId, ep: epoch };
+  try {
+    const { headerB64, ciphertextB64 } = await encryptToPeer(
+      identity,
+      senderUserId,
+      encodeEnvelope(env),
+    );
+    await trpcClientProxy().messages.send.mutate({
+      recipientUserId: senderUserId,
+      header: headerB64,
+      ciphertext: ciphertextB64,
+    });
+  } catch (e) {
+    console.warn(
+      `Failed to request sender key from ${senderUserId} for ${groupId}/${epoch}:`,
+      e,
+    );
+    // Allow a retry sooner if the request itself failed.
+    _skreqThrottle.delete(key);
+  }
+}
+
+/**
+ * Inbound `skreq` from a peer who can't decrypt one of our group
+ * messages. Look up our sender key for the requested (group, epoch);
+ * if we have one, fan a fresh SKDM back to just that requester (and
+ * mark them as distributed-to so we don't re-send unnecessarily).
+ */
+export async function handleIncomingSenderKeyRequest(
+  identity: UnlockedIdentity,
+  fromUserId: string,
+  req: SenderKeyRequest,
+): Promise<void> {
+  const me = identity.userId;
+  const rec = await getSenderKey(req.gid, me, req.ep);
+  if (!rec) {
+    // We don't have a sender key for that epoch — nothing to share.
+    // (Likely the requester is on a stale epoch; they'll catch up via
+    // group_changed → ensureMySenderKey on our side for the new epoch.)
+    return;
+  }
+  const state = recToState(rec);
+  let group: GroupDetail;
+  try {
+    group = await loadGroup(req.gid);
+  } catch {
+    return;
+  }
+  // Only honour requests from current group members.
+  if (!group.members.some((m) => m.userId === fromUserId)) return;
+  const ok = await distributeSenderKey(identity, group, state, [fromUserId]);
+  if (ok.length > 0) {
+    const distributed = parseDistributed(rec);
+    distributed.add(fromUserId);
+    rec.distributedTo = JSON.stringify(Array.from(distributed));
+    await putSenderKey(rec);
+  }
 }
 
 /* ─────────────── Inbound 1:1 SKDM handler ─────────────── */
@@ -443,6 +566,7 @@ async function broadcastSideEffectEnvelope(
  */
 export async function ingestGroupInboxMessage(
   m: InboxMessage,
+  identity?: UnlockedIdentity,
 ): Promise<"new" | "duplicate" | "failed"> {
   if (!m.groupId) return "failed";
   let header: ReturnType<typeof decodeGroupHeader>;
@@ -463,6 +587,16 @@ export async function ingestGroupInboxMessage(
     console.warn(
       `Group message arrived for ${header.header.gid} from ${header.header.sender} epoch ${header.header.ep}, but no sender key yet (will rely on SKDM).`,
     );
+    // WhatsApp-style recovery: ask the sender to redistribute their
+    // sender key to us via 1:1 ratchet. Throttled so we don't spam.
+    if (identity) {
+      void requestSenderKey(
+        identity,
+        header.header.gid,
+        header.header.ep,
+        header.header.sender,
+      ).catch(() => undefined);
+    }
     return "failed";
   }
   const state = recToState(rec);

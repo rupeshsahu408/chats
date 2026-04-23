@@ -77,6 +77,23 @@ export type SenderKeyDistribution = {
 } & EnvelopeExtras;
 
 /**
+ * Sender Key REQUEST. Sent through the 1:1 ratchet by a receiver who
+ * tried to decrypt a group message but doesn't have the sender's chain
+ * key for the given (group, epoch). The recipient (the original sender
+ * of the unreadable message) responds by re-distributing their current
+ * SKDM to the requester. Mirrors WhatsApp's "request sender key
+ * distribution message" recovery path.
+ */
+export type SenderKeyRequest = {
+  v: 2;
+  t: "skreq";
+  /** Group id. */
+  gid: string;
+  /** Group epoch the requester needs. */
+  ep: number;
+};
+
+/**
  * Tombstone sent through the ratchet when the sender hits "Delete for
  * everyone". The receiver replaces their local row for `target` with a
  * "This message was deleted" placeholder; the server-side ciphertext
@@ -153,6 +170,7 @@ export type ChatEnvelope =
   | ({ v: 1 | 2; t: "image"; body?: string; media: MediaAttachment } & EnvelopeExtras)
   | ({ v: 1 | 2; t: "voice"; media: MediaAttachment } & EnvelopeExtras)
   | SenderKeyDistribution
+  | SenderKeyRequest
   | DeleteForEveryone
   | ReactionEnvelope
   | EditMessage

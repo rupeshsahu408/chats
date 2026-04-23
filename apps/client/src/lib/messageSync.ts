@@ -25,7 +25,11 @@ import type { InboxMessage, HistoryMessage } from "@veil/shared";
 import { decodeEnvelope, encodeEnvelope, type ChatEnvelope } from "./messageEnvelope";
 import type { ChatMessageRecord } from "./db";
 import { getCachedStealthPrefs } from "./stealthPrefs";
-import { handleIncomingSenderKey, ingestGroupInboxMessage } from "./groupSync";
+import {
+  handleIncomingSenderKey,
+  handleIncomingSenderKeyRequest,
+  ingestGroupInboxMessage,
+} from "./groupSync";
 
 function envelopeToRecordFields(
   env: ChatEnvelope,
@@ -244,6 +248,16 @@ async function ingestInboxMessageInner(
       scheduleSkdmRetryPoll(identity);
       return "new";
     }
+    if (env.t === "skreq") {
+      // A peer is asking us to redistribute our sender key for a group.
+      await handleIncomingSenderKeyRequest(identity, m.senderUserId, env);
+      if (!wsMarkDelivered([m.id])) {
+        void trpcClientProxy()
+          .messages.markDelivered.mutate({ ids: [m.id] })
+          .catch(() => undefined);
+      }
+      return "new";
+    }
     if (await applySideEffectEnvelope(env, m.senderUserId)) {
       if (!wsMarkDelivered([m.id])) {
         void trpcClientProxy()
@@ -302,7 +316,7 @@ export async function pollAndDecrypt(
 
   for (const m of sorted) {
     if (m.groupId) {
-      const result = await ingestGroupInboxMessage(m);
+      const result = await ingestGroupInboxMessage(m, identity);
       // On the poll path we ALWAYS ack the message regardless of whether
       // decryption succeeded. By this point the inbox has already been
       // sorted so any SKDM in the same batch was processed first; if the
@@ -326,6 +340,12 @@ export async function pollAndDecrypt(
       const env = decodeEnvelope(plaintext);
       if (env.t === "skdm") {
         await handleIncomingSenderKey(m.senderUserId, env);
+        acked.push(m.id);
+        added += 1;
+        continue;
+      }
+      if (env.t === "skreq") {
+        await handleIncomingSenderKeyRequest(identity, m.senderUserId, env);
         acked.push(m.id);
         added += 1;
         continue;

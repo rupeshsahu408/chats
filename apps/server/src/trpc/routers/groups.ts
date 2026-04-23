@@ -149,7 +149,11 @@ export const groupsRouter = router({
       for (const p of peers) rows.push({ groupId: grp.id, userId: p, role: "member" });
       await db.insert(schema.groupMembers).values(rows);
 
-      await notifyMembers(db, grp.id, me);
+      // Notify EVERY member including the creator. The creator's client
+      // needs the event so it proactively generates+distributes its
+      // sender key for epoch 0 instead of waiting until the first send,
+      // which closes the race where another member sends before we do.
+      await notifyMembers(db, grp.id);
       return await loadGroupDetail(db, grp.id, me);
     }),
 
