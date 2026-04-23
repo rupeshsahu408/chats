@@ -1,5 +1,6 @@
 import type { ReactNode, ButtonHTMLAttributes, CSSProperties } from "react";
 import { Link } from "react-router-dom";
+import { feedback } from "../lib/feedback";
 
 /* ─────────────────────────────────────────────────────────────
  * WhatsApp-style design primitives.
@@ -75,6 +76,7 @@ export function PrimaryButton({
   children,
   loading,
   className,
+  onClick,
   ...props
 }: {
   children: ReactNode;
@@ -83,10 +85,14 @@ export function PrimaryButton({
   return (
     <button
       {...props}
+      onClick={(e) => {
+        if (!(loading || props.disabled)) feedback.press();
+        onClick?.(e);
+      }}
       disabled={loading || props.disabled}
       className={
         "w-full h-12 rounded-full bg-wa-green px-6 font-medium text-text-oncolor " +
-        "hover:bg-wa-green-dark active:scale-[0.99] transition " +
+        "hover:bg-wa-green-dark " +
         "disabled:opacity-50 disabled:cursor-not-allowed wa-tap " +
         (className ?? "")
       }
@@ -100,6 +106,7 @@ export function PrimaryButton({
 export function SecondaryButton({
   children,
   className,
+  onClick,
   ...props
 }: {
   children: ReactNode;
@@ -107,9 +114,13 @@ export function SecondaryButton({
   return (
     <button
       {...props}
+      onClick={(e) => {
+        if (!props.disabled) feedback.tap();
+        onClick?.(e);
+      }}
       className={
         "w-full h-12 rounded-full border border-line bg-transparent px-6 " +
-        "font-medium text-text hover:bg-surface transition " +
+        "font-medium text-text hover:bg-surface " +
         "disabled:opacity-50 wa-tap " +
         (className ?? "")
       }
@@ -389,7 +400,7 @@ export function UnreadBadge({ count }: { count: number }) {
   );
 }
 
-/** WhatsApp-style chat bubble. */
+/** WhatsApp-style chat bubble. Springs into view on first mount. */
 export function MessageBubble({
   direction,
   children,
@@ -407,8 +418,8 @@ export function MessageBubble({
       className={
         "max-w-[78%] px-2.5 py-1.5 rounded-lg shadow-bubble text-[15px] leading-snug " +
         (isOut
-          ? "self-end bg-wa-bubble-out text-text rounded-tr-[4px]"
-          : "self-start bg-wa-bubble-in text-text rounded-tl-[4px]")
+          ? "self-end bg-wa-bubble-out text-text rounded-tr-[4px] veil-bubble-out"
+          : "self-start bg-wa-bubble-in text-text rounded-tl-[4px] veil-bubble-in")
       }
     >
       <div className="whitespace-pre-wrap break-words">{children}</div>
@@ -476,9 +487,16 @@ export function MessageInputBar({
         />
       </div>
       <button
-        onClick={onSend}
+        onClick={() => {
+          if (sending || !value.trim()) return;
+          // We deliberately don't fire `feedback.press()` here —
+          // `sendChatMessage` plays the proper rising 3-note "send"
+          // motif once the encrypted envelope actually leaves the
+          // device, which is the moment the user wants confirmed.
+          onSend();
+        }}
         disabled={sending || !value.trim()}
-        className="size-12 rounded-full bg-wa-green text-text-oncolor flex items-center justify-center hover:bg-wa-green-dark transition disabled:opacity-50 wa-tap shrink-0"
+        className="size-12 rounded-full bg-wa-green text-text-oncolor flex items-center justify-center hover:bg-wa-green-dark disabled:opacity-50 wa-tap shrink-0"
         aria-label="Send"
       >
         <SendIcon />
@@ -500,15 +518,22 @@ export function FAB({
   children: ReactNode;
 }) {
   const cls =
-    "fixed bottom-20 right-5 sm:bottom-6 size-14 rounded-2xl bg-wa-green text-text-oncolor shadow-sheet flex items-center justify-center hover:bg-wa-green-dark active:scale-95 transition wa-tap z-30";
+    "fixed bottom-20 right-5 sm:bottom-6 size-14 rounded-2xl bg-wa-green text-text-oncolor shadow-sheet flex items-center justify-center hover:bg-wa-green-dark wa-tap z-30";
   if (to)
     return (
-      <Link to={to} aria-label={label} className={cls}>
+      <Link to={to} aria-label={label} className={cls} onClick={() => feedback.tap()}>
         {children}
       </Link>
     );
   return (
-    <button onClick={onClick} aria-label={label} className={cls}>
+    <button
+      onClick={() => {
+        feedback.tap();
+        onClick?.();
+      }}
+      aria-label={label}
+      className={cls}
+    >
       {children}
     </button>
   );
@@ -528,10 +553,15 @@ export function IconButton({
 }) {
   return (
     <button
-      onClick={onClick}
+      onClick={(e) => {
+        feedback.tap();
+        onClick?.();
+        // Stop synthetic propagation chain from triggering twice.
+        e.stopPropagation();
+      }}
       aria-label={label}
       className={
-        "size-10 rounded-full flex items-center justify-center hover:bg-white/10 transition wa-tap " +
+        "size-10 rounded-full flex items-center justify-center hover:bg-white/10 wa-tap " +
         (className ?? "")
       }
     >

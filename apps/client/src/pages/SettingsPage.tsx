@@ -20,6 +20,7 @@ import { useThemeStore, type ThemeMode } from "../lib/themeStore";
 import { ensurePushSubscription, disablePushSubscription } from "../lib/push";
 import { clearIdentity, loadIdentity } from "../lib/db";
 import { useStealthPrefs } from "../lib/stealthPrefs";
+import { feedback } from "../lib/feedback";
 import { resizeAvatarToDataUrl } from "../lib/avatar";
 
 export function SettingsPage() {
@@ -941,6 +942,16 @@ function PrivacyRows() {
       label: "Blur on app switch",
       sub: "Hide content when this tab loses focus, so screenshots and app-switcher previews show only a blur.",
     },
+    {
+      key: "soundEnabled",
+      label: "Sounds",
+      sub: "Play the Veil 3-note send and receive motifs, plus quiet tap blips for buttons.",
+    },
+    {
+      key: "hapticsEnabled",
+      label: "Haptics",
+      sub: "Short matched vibrations on send, receive and taps. Mobile devices only.",
+    },
   ];
   return (
     <>
@@ -1070,15 +1081,20 @@ function ToggleRow({
       <button
         role="switch"
         aria-checked={value}
-        onClick={() => onChange(!value)}
+        onClick={() => {
+          // Soft success ack — the tactile "click" you'd want from a
+          // physical toggle, plus a tiny haptic on mobile.
+          feedback.success();
+          onChange(!value);
+        }}
         className={
-          "shrink-0 mt-0.5 inline-flex h-6 w-11 items-center rounded-full transition wa-tap " +
+          "shrink-0 mt-0.5 inline-flex h-6 w-11 items-center rounded-full wa-tap " +
           (value ? "bg-wa-green" : "bg-line")
         }
       >
         <span
           className={
-            "inline-block size-5 rounded-full bg-white shadow transform transition " +
+            "inline-block size-5 rounded-full bg-white shadow transform transition-transform duration-180 ease-veil-spring " +
             (value ? "translate-x-5" : "translate-x-0.5")
           }
         />

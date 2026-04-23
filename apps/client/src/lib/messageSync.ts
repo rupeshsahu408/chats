@@ -27,6 +27,7 @@ import type { InboxMessage, HistoryMessage } from "@veil/shared";
 import { decodeEnvelope, encodeEnvelope, type ChatEnvelope } from "./messageEnvelope";
 import type { ChatMessageRecord } from "./db";
 import { getCachedStealthPrefs } from "./stealthPrefs";
+import { feedback } from "./feedback";
 import {
   handleIncomingSenderKey,
   handleIncomingSenderKeyRequest,
@@ -298,6 +299,10 @@ async function ingestInboxMessageInner(
       createdAt: m.createdAt,
       status: "received",
     });
+    // Distinct descending 3-note "receive" motif + matched soft haptic.
+    // Only fired on the true content path — SKDM, reactions, deletes
+    // and other side-effects don't trigger it.
+    feedback.receive();
     if (!wsMarkDelivered([m.id])) {
       void trpcClientProxy()
         .messages.markDelivered.mutate({ ids: [m.id] })
@@ -484,8 +489,12 @@ export async function sendChatEnvelope(
       ...(ttl && ttl > 0 ? { expiresInSeconds: ttl } : {}),
     });
     await setChatMessageStatus(localId, "sent", sent.id);
+    // Audible/haptic confirmation that the encrypted envelope actually
+    // left the device — the rising 3-note "send" motif.
+    feedback.send();
   } catch (err) {
     await setChatMessageStatus(localId, "failed");
+    feedback.error();
     throw err;
   }
   return localId;

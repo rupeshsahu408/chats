@@ -1,5 +1,13 @@
 import { create } from "zustand";
 import { getUserPrefs, setUserPrefs, type UserPrefRecord } from "./db";
+import { setSoundEnabled } from "./sound";
+import { setHapticsEnabled } from "./haptics";
+
+/** Sync the global sound/haptics modules with the latest prefs. */
+function syncFeedbackModules(prefs: UserPrefRecord | null): void {
+  setSoundEnabled(prefs?.soundEnabled ?? true);
+  setHapticsEnabled(prefs?.hapticsEnabled ?? true);
+}
 
 /**
  * Reactive store for the global stealth/privacy toggles. Hydrates from
@@ -20,10 +28,12 @@ export const useStealthPrefs = create<StealthState>((set, get) => ({
   async hydrate() {
     if (get().hydrated) return;
     const prefs = await getUserPrefs();
+    syncFeedbackModules(prefs);
     set({ prefs, hydrated: true });
   },
   async set(patch) {
     const next = await setUserPrefs(patch);
+    syncFeedbackModules(next);
     set({ prefs: next });
   },
 }));
@@ -37,6 +47,8 @@ export function getCachedStealthPrefs(): UserPrefRecord {
       typingIndicatorsEnabled: true,
       screenshotBlurEnabled: true,
       appLockEnabled: false,
+      soundEnabled: true,
+      hapticsEnabled: true,
       updatedAt: new Date(0).toISOString(),
     }
   );

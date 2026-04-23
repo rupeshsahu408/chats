@@ -202,6 +202,10 @@ export interface UserPrefRecord {
   screenshotBlurEnabled: boolean;
   /** Require biometric/passkey on app launch. Default false. */
   appLockEnabled: boolean;
+  /** Play the Veil sound motifs (send / receive / tap). Default true. */
+  soundEnabled?: boolean;
+  /** Fire short haptic vibrations to match (mobile only). Default true. */
+  hapticsEnabled?: boolean;
   updatedAt: string;
 }
 
@@ -741,6 +745,8 @@ const DEFAULT_USER_PREFS: UserPrefRecord = {
   typingIndicatorsEnabled: true,
   screenshotBlurEnabled: true,
   appLockEnabled: false,
+  soundEnabled: true,
+  hapticsEnabled: true,
   updatedAt: new Date(0).toISOString(),
 };
 

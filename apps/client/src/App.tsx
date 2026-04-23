@@ -30,6 +30,7 @@ import { ConnectionsPage } from "./pages/ConnectionsPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { SessionSync } from "./lib/SessionSync";
 import { useStealthPrefs } from "./lib/stealthPrefs";
+import { unlockAudioOnFirstGesture } from "./lib/sound";
 import { InstallPrompt } from "./components/InstallPrompt";
 import { PushPermissionPrompt } from "./components/PushPermissionPrompt";
 import { DailyVerificationGate } from "./components/DailyVerificationGate";
@@ -47,6 +48,18 @@ export function App() {
 
   // System theme listener — keeps "system" mode in sync with OS toggle.
   useEffect(() => installSystemThemeListener(), []);
+
+  // Hydrate stealth/UI prefs early so sound + haptic toggles are
+  // honoured the moment the user first taps anything.
+  const hydratePrefs = useStealthPrefs((s) => s.hydrate);
+  useEffect(() => {
+    void hydratePrefs();
+  }, [hydratePrefs]);
+
+  // Browsers gate the AudioContext behind a first user gesture. Wire
+  // up a one-shot unlocker so our send/receive tones can fire as soon
+  // as the user actually does anything.
+  useEffect(() => unlockAudioOnFirstGesture(), []);
 
   // Privacy: blur the entire app when the tab loses focus or is hidden,
   // making screenshots / app-switcher previews far less useful to a

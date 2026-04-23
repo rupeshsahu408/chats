@@ -64,6 +64,46 @@ export default {
       backgroundSize: {
         wallpaper: "18px 18px",
       },
+      // ─────────── Motion design tokens ───────────
+      // Spring-y curves so taps and bubbles feel physical, not linear.
+      transitionTimingFunction: {
+        "veil-spring": "cubic-bezier(0.34, 1.56, 0.64, 1)", // overshoot
+        "veil-soft": "cubic-bezier(0.22, 1, 0.36, 1)",      // ease-out-quint
+        "veil-snap": "cubic-bezier(0.16, 1, 0.3, 1)",       // ease-out-expo
+      },
+      transitionDuration: {
+        80: "80ms",
+        180: "180ms",
+        260: "260ms",
+        420: "420ms",
+      },
+      keyframes: {
+        "bubble-in-out": {
+          "0%": { opacity: "0", transform: "translateY(6px) scale(0.94)" },
+          "60%": { opacity: "1", transform: "translateY(-1px) scale(1.01)" },
+          "100%": { opacity: "1", transform: "translateY(0) scale(1)" },
+        },
+        "bubble-in-in": {
+          "0%": { opacity: "0", transform: "translateY(6px) scale(0.96)" },
+          "100%": { opacity: "1", transform: "translateY(0) scale(1)" },
+        },
+        "tap-pulse": {
+          "0%": { transform: "scale(1)" },
+          "50%": { transform: "scale(0.93)" },
+          "100%": { transform: "scale(1)" },
+        },
+        "soft-pop": {
+          "0%": { opacity: "0", transform: "scale(0.85)" },
+          "70%": { opacity: "1", transform: "scale(1.04)" },
+          "100%": { opacity: "1", transform: "scale(1)" },
+        },
+      },
+      animation: {
+        "bubble-in-out": "bubble-in-out 220ms cubic-bezier(0.34, 1.56, 0.64, 1) both",
+        "bubble-in-in": "bubble-in-in 180ms cubic-bezier(0.22, 1, 0.36, 1) both",
+        "tap-pulse": "tap-pulse 180ms cubic-bezier(0.34, 1.56, 0.64, 1)",
+        "soft-pop": "soft-pop 220ms cubic-bezier(0.34, 1.56, 0.64, 1) both",
+      },
     },
   },
   plugins: [],

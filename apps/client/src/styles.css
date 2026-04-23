@@ -86,8 +86,54 @@
 }
 
 @layer utilities {
+  /* Removes the default mobile blue tap flash and adds the Veil
+   * spring-y "press" micro-interaction: a quick scale-down on touch
+   * that snaps back with a slight overshoot. Total motion < 180ms so
+   * the eye reads it as feedback, not delay. */
   .wa-tap {
     -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    transition:
+      transform 120ms cubic-bezier(0.34, 1.56, 0.64, 1),
+      filter 120ms ease,
+      opacity 120ms ease,
+      background-color 120ms ease,
+      color 120ms ease;
+    transform-origin: center;
+    will-change: transform;
+  }
+  .wa-tap:active:not(:disabled) {
+    transform: scale(0.94);
+    transition-duration: 80ms;
+  }
+  /* Larger surfaces (chat rows) want a gentler press. */
+  .wa-tap-soft:active:not(:disabled) {
+    transform: scale(0.985);
+  }
+
+  /* Reusable spring entrance for new chat bubbles + sheet contents. */
+  .veil-bubble-out {
+    animation: bubble-in-out 220ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  }
+  .veil-bubble-in {
+    animation: bubble-in-in 180ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .veil-soft-pop {
+    animation: soft-pop 220ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  }
+}
+
+/* Honour the user's OS-level "reduced motion" setting — accessibility
+ * is a feature, not an afterthought. */
+@media (prefers-reduced-motion: reduce) {
+  .wa-tap,
+  .wa-tap:active:not(:disabled),
+  .veil-bubble-out,
+  .veil-bubble-in,
+  .veil-soft-pop {
+    animation: none !important;
+    transition-duration: 1ms !important;
+    transform: none !important;
   }
 }
 
