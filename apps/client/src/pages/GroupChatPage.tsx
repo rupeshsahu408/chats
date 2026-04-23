@@ -17,12 +17,20 @@ import {
   Spinner,
   LockIcon,
   SendIcon,
+  SearchIcon,
+  PaperclipIcon,
+  MicIcon,
 } from "../components/Layout";
 import { UnlockGate } from "../components/UnlockGate";
+import { EmojiPicker } from "../components/EmojiPicker";
 import {
   db,
   deleteGroupMessageById,
   setGroupMessageStarred,
+  setGroupMessagePinned,
+  clearGroupHistory,
+  getChatPref,
+  setChatPref,
   type GroupMessageRecord,
 } from "../lib/db";
 import {
@@ -36,8 +44,40 @@ import {
   sendGroupEdit,
   sendGroupDeleteForEveryone,
 } from "../lib/groupSync";
-import type { ChatEnvelope } from "../lib/messageEnvelope";
+import { sendChatEnvelope } from "../lib/messageSync";
+import {
+  type ChatEnvelope,
+  type EnvelopeLinkPreview,
+  firstUrl,
+} from "../lib/messageEnvelope";
 import { pollAndDecrypt } from "../lib/messageSync";
+import {
+  uploadEncryptedMedia,
+  downscaleImage,
+  makeThumbnail,
+  type MediaAttachment,
+} from "../lib/media";
+import {
+  biometricSupported,
+  registerBiometricCredential,
+  verifyBiometric,
+} from "../lib/biometric";
+import {
+  ImageAttachment,
+  VoiceAttachment,
+  LinkPreviewBlock,
+  LinkPreviewCard,
+  PinnedMessageBanner,
+  MessageInfoDialog,
+  EditMessageDialog,
+  RecordingBar,
+  startRecording,
+  type RecordingState,
+  TTL_OPTIONS,
+  MAX_IMAGE_BYTES,
+  EDIT_WINDOW_MS,
+  ttlRemainingLabel,
+} from "./ChatThreadPage";
 
 /* ─────────── Public page shell ─────────── */
 
@@ -357,6 +397,10 @@ function GroupChatInner({ groupId }: { groupId: string }) {
   const identity = useUnlockStore((s) => s.identity)!;
   const userId = useAuthStore((s) => s.user?.id ?? null);
 
+  // Group prefs are stored under a namespaced peerId so they share the
+  // existing chatPrefs table without colliding with 1:1 chats.
+  const prefKey = `g:${groupId}`;
+
   const groupQuery = trpc.groups.get.useQuery({ groupId }, { retry: false });
 
   const [text, setText] = useState("");
@@ -373,9 +417,35 @@ function GroupChatInner({ groupId }: { groupId: string }) {
   // Phase 1 parity state.
   const [replyTo, setReplyTo] = useState<GroupMessageRecord | null>(null);
   const [actionFor, setActionFor] = useState<GroupMessageRecord | null>(null);
+  const [editFor, setEditFor] = useState<GroupMessageRecord | null>(null);
+  const [infoFor, setInfoFor] = useState<GroupMessageRecord | null>(null);
+  const [forwardFor, setForwardFor] = useState<GroupMessageRecord | null>(null);
   const [selection, setSelection] = useState<Set<number>>(new Set());
   const [starredOpen, setStarredOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [ttlPickerOpen, setTtlPickerOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const [toast, setToast] = useState<string | null>(null);
+
+  // Per-thread prefs (TTL, biometric, etc.) loaded from chatPrefs.
+  const [ttlSeconds, setTtlSecondsState] = useState(0);
+  const [bioCredId, setBioCredId] = useState<string | undefined>(undefined);
+  const [unlocked, setUnlocked] = useState(false);
+  const [bioError, setBioError] = useState<string | null>(null);
+
+  // Composer extras
+  const [pendingPreview, setPendingPreview] =
+    useState<EnvelopeLinkPreview | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+
+  useEffect(() => {
+    void getChatPref(prefKey).then((p) => {
+      setTtlSecondsState(p?.ttlSeconds ?? 0);
+      setBioCredId(p?.biometricCredentialId);
+      setUnlocked(!p?.biometricCredentialId);
+    });
+  }, [prefKey]);
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
@@ -405,6 +475,21 @@ function GroupChatInner({ groupId }: { groupId: string }) {
     [groupId],
     [] as GroupMessageRecord[],
   );
+
+  // Pinned banner (one per thread).
+  const pinnedMessage = useMemo(
+    () => (messages ?? []).find((m) => m.pinned && !m.deleted) ?? null,
+    [messages],
+  );
+
+  // Filtered list (search).
+  const filteredMessages = useMemo(() => {
+    if (!searchOpen || !searchQuery.trim()) return messages;
+    const q = searchQuery.toLowerCase();
+    return (messages ?? []).filter((m) =>
+      (m.plaintext ?? "").toLowerCase().includes(q),
+    );
+  }, [messages, searchOpen, searchQuery]);
 
   // Restore history once.
   const restoredRef = useRef(false);
@@ -448,6 +533,47 @@ function GroupChatInner({ groupId }: { groupId: string }) {
     if (!el) return;
     el.scrollTop = el.scrollHeight;
   }, [messages?.length]);
+
+  // Re-render every 30s to refresh TTL countdowns.
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const t = window.setInterval(() => setTick((n) => n + 1), 30_000);
+    return () => clearInterval(t);
+  }, []);
+
+  // Detect URL in draft → fetch link preview lazily.
+  useEffect(() => {
+    const url = firstUrl(text);
+    if (!url) {
+      setPendingPreview(null);
+      return;
+    }
+    if (pendingPreview && pendingPreview.url === url) return;
+    setPreviewLoading(true);
+    let cancelled = false;
+    void (async () => {
+      try {
+        const lp = await trpcClientProxy().linkPreview.fetch.mutate({ url });
+        if (cancelled) return;
+        setPendingPreview({
+          url: lp.url,
+          resolvedUrl: lp.resolvedUrl,
+          title: lp.title,
+          description: lp.description,
+          siteName: lp.siteName,
+          imageUrl: lp.imageUrl,
+        });
+      } catch {
+        if (!cancelled) setPendingPreview(null);
+      } finally {
+        if (!cancelled) setPreviewLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [text]);
 
   // memberMap: userId → display label (fingerprint or truncated id)
   const memberMap = useMemo(() => {
@@ -538,31 +664,101 @@ function GroupChatInner({ groupId }: { groupId: string }) {
     [text, mentionAnchor],
   );
 
+  /* ---- Send handlers ---- */
+
   async function send() {
     const trimmed = text.trim();
     if (!trimmed) return;
     setSending(true);
     setError(null);
     try {
+      const env: ChatEnvelope = { v: 2, t: "text", body: trimmed };
       if (replyTo && replyTo.serverId) {
-        const env: ChatEnvelope = {
-          v: 2,
-          t: "text",
-          body: trimmed,
-          re: {
-            id: replyTo.serverId,
-            body: (replyTo.plaintext || "[attachment]").slice(0, 120),
-          },
+        env.re = {
+          id: replyTo.serverId,
+          body: (replyTo.plaintext || "[attachment]").slice(0, 120),
+          dir: replyTo.senderUserId === userId ? "out" : "in",
         };
-        await sendGroupChat(identity, groupId, env);
-      } else {
-        await sendGroupText(identity, groupId, trimmed);
       }
+      if (ttlSeconds > 0) env.ttl = ttlSeconds;
+      if (pendingPreview) env.lp = pendingPreview;
+      await sendGroupChat(identity, groupId, env);
       setText("");
       setReplyTo(null);
       setMentionQuery(null);
+      setPendingPreview(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to send");
+    } finally {
+      setSending(false);
+    }
+  }
+
+  async function onPickImage(file: File) {
+    setSending(true);
+    setError(null);
+    try {
+      const caption = text.trim();
+      const down = await downscaleImage(file);
+      if (down.bytes.byteLength > MAX_IMAGE_BYTES) {
+        throw new Error("Image is too large after compression (max 8 MB).");
+      }
+      const thumb = await makeThumbnail(
+        new Blob([down.bytes.slice().buffer], { type: down.mime }),
+      );
+      const upload = await uploadEncryptedMedia(down.bytes, down.mime);
+      const media: MediaAttachment = {
+        kind: "image",
+        blobId: upload.blobId,
+        key: upload.key,
+        mime: down.mime,
+        sizeBytes: upload.sizeBytes,
+        width: down.width,
+        height: down.height,
+        thumbB64: thumb?.thumbB64,
+      };
+      const env: ChatEnvelope = {
+        v: 2,
+        t: "image",
+        ...(caption ? { body: caption } : {}),
+        media,
+      };
+      if (ttlSeconds > 0) env.ttl = ttlSeconds;
+      if (replyTo && replyTo.serverId) {
+        env.re = {
+          id: replyTo.serverId,
+          body: (replyTo.plaintext || "[attachment]").slice(0, 120),
+          dir: replyTo.senderUserId === userId ? "out" : "in",
+        };
+      }
+      await sendGroupChat(identity, groupId, env);
+      setText("");
+      setReplyTo(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't send image.");
+    } finally {
+      setSending(false);
+    }
+  }
+
+  async function onSendVoice(bytes: Uint8Array, mime: string, durationMs: number) {
+    setSending(true);
+    setError(null);
+    try {
+      const upload = await uploadEncryptedMedia(bytes, mime);
+      const media: MediaAttachment = {
+        kind: "voice",
+        blobId: upload.blobId,
+        key: upload.key,
+        mime,
+        sizeBytes: upload.sizeBytes,
+        durationMs,
+      };
+      const env: ChatEnvelope = { v: 2, t: "voice", media };
+      if (ttlSeconds > 0) env.ttl = ttlSeconds;
+      await sendGroupChat(identity, groupId, env);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't send voice note.");
     } finally {
       setSending(false);
     }
@@ -582,9 +778,7 @@ function GroupChatInner({ groupId }: { groupId: string }) {
         showToast("Wait for the message to send first.");
         return;
       }
-      const mine = m.senderUserId === userId;
       const current = m.reactions?.[userId ?? ""] ?? "";
-      // Toggling the same emoji clears it.
       const next = current === emoji ? "" : emoji;
       setActionFor(null);
       try {
@@ -592,7 +786,6 @@ function GroupChatInner({ groupId }: { groupId: string }) {
       } catch (e) {
         setError(e instanceof Error ? e.message : "Reaction failed.");
       }
-      void mine;
     },
     [identity, groupId, userId, showToast],
   );
@@ -605,6 +798,16 @@ function GroupChatInner({ groupId }: { groupId: string }) {
       showToast(m.starred ? "Unstarred" : "Starred");
     },
     [showToast],
+  );
+
+  const handlePin = useCallback(
+    async (m: GroupMessageRecord) => {
+      if (m.id === undefined) return;
+      await setGroupMessagePinned(m.id, groupId, !m.pinned);
+      setActionFor(null);
+      showToast(m.pinned ? "Unpinned" : "Pinned");
+    },
+    [groupId, showToast],
   );
 
   const handleCopy = useCallback(
@@ -640,6 +843,40 @@ function GroupChatInner({ groupId }: { groupId: string }) {
     },
     [identity, groupId],
   );
+
+  async function handleEditSubmit(newBody: string) {
+    if (!editFor || !editFor.serverId) return;
+    try {
+      await sendGroupEdit(identity, groupId, editFor, newBody);
+      setEditFor(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Edit failed.");
+    }
+  }
+
+  async function handleBlockSender(senderUserId: string) {
+    if (!confirm("Block this sender? You won't see their messages anymore.")) return;
+    try {
+      await trpcClientProxy().privacy.block.mutate({ peerId: senderUserId });
+      showToast("Blocked");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Block failed.");
+    }
+  }
+
+  async function handleReportSender(senderUserId: string) {
+    const note = prompt("Add details (optional):") ?? "";
+    try {
+      await trpcClientProxy().privacy.report.mutate({
+        peerId: senderUserId,
+        reason: "other",
+        ...(note ? { note } : {}),
+      });
+      showToast("Reported");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Report failed.");
+    }
+  }
 
   /* ---- Bulk actions ---- */
 
@@ -692,6 +929,46 @@ function GroupChatInner({ groupId }: { groupId: string }) {
     }
   }
 
+  async function applyTtl(secs: number) {
+    setTtlSecondsState(secs);
+    await setChatPref(prefKey, { ttlSeconds: secs });
+    setTtlPickerOpen(false);
+    showToast(secs > 0 ? `Disappearing in ${ttlLabel(secs)}` : "Disappearing off");
+  }
+
+  async function onToggleBiometric() {
+    if (bioCredId) {
+      if (!confirm("Remove biometric lock from this group?")) return;
+      await setChatPref(prefKey, { biometricCredentialId: undefined });
+      setBioCredId(undefined);
+      return;
+    }
+    if (!biometricSupported()) {
+      alert("Biometric unlock isn't supported on this device.");
+      return;
+    }
+    try {
+      const credId = await registerBiometricCredential(
+        `veil:g:${groupId}`,
+        groupQuery.data?.name ?? "Group",
+      );
+      await setChatPref(prefKey, { biometricCredentialId: credId });
+      setBioCredId(credId);
+      alert("Biometric lock enabled for this group.");
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Could not enable biometric lock.");
+    }
+  }
+
+  function onScrollToMessage(serverId: string) {
+    const el = document.querySelector(`[data-server-id="${serverId}"]`);
+    if (el && "scrollIntoView" in el) {
+      (el as HTMLElement).scrollIntoView({ behavior: "smooth", block: "center" });
+      el.classList.add("ring-2", "ring-wa-green");
+      window.setTimeout(() => el.classList.remove("ring-2", "ring-wa-green"), 1500);
+    }
+  }
+
   if (groupQuery.isLoading) {
     return (
       <>
@@ -717,6 +994,41 @@ function GroupChatInner({ groupId }: { groupId: string }) {
 
   const group = groupQuery.data;
 
+  if (!unlocked && bioCredId) {
+    return (
+      <>
+        <AppBar
+          title={
+            <div className="flex items-center gap-2">
+              <Avatar seed={group.id} size={36} />
+              <div className="font-semibold text-base truncate">{group.name}</div>
+            </div>
+          }
+          back="/groups"
+        />
+        <div className="flex-1 flex flex-col items-center justify-center gap-4 p-6 text-center">
+          <LockIcon className="w-12 h-12 text-text-muted" />
+          <div className="text-text font-semibold">Group is locked</div>
+          <div className="text-sm text-text-muted max-w-xs">
+            Use your device biometrics to view this conversation.
+          </div>
+          {bioError && <ErrorMessage>{bioError}</ErrorMessage>}
+          <button
+            onClick={async () => {
+              setBioError(null);
+              const ok = await verifyBiometric(bioCredId);
+              if (ok) setUnlocked(true);
+              else setBioError("Authentication failed.");
+            }}
+            className="px-4 py-2 rounded-full bg-wa-green text-text-oncolor font-medium"
+          >
+            Unlock
+          </button>
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
       {inSelectionMode ? (
@@ -729,32 +1041,16 @@ function GroupChatInner({ groupId }: { groupId: string }) {
           back={undefined as unknown as string}
           right={
             <div className="flex items-center gap-1">
-              <IconButton
-                label="Star"
-                onClick={() => void bulkStar()}
-                className="text-text-oncolor"
-              >
+              <IconButton label="Star" onClick={() => void bulkStar()} className="text-text-oncolor">
                 <span className="text-lg">★</span>
               </IconButton>
-              <IconButton
-                label="Copy"
-                onClick={() => void bulkCopy()}
-                className="text-text-oncolor"
-              >
+              <IconButton label="Copy" onClick={() => void bulkCopy()} className="text-text-oncolor">
                 <span className="text-base">⧉</span>
               </IconButton>
-              <IconButton
-                label="Delete"
-                onClick={() => void bulkDelete()}
-                className="text-text-oncolor"
-              >
+              <IconButton label="Delete" onClick={() => void bulkDelete()} className="text-text-oncolor">
                 <span className="text-base">🗑</span>
               </IconButton>
-              <IconButton
-                label="Cancel"
-                onClick={clearSelection}
-                className="text-text-oncolor"
-              >
+              <IconButton label="Cancel" onClick={clearSelection} className="text-text-oncolor">
                 <span className="text-lg">✕</span>
               </IconButton>
             </div>
@@ -771,14 +1067,23 @@ function GroupChatInner({ groupId }: { groupId: string }) {
               <Avatar seed={group.id} size={36} />
               <div className="flex flex-col">
                 <span className="text-sm font-medium leading-tight">{group.name}</span>
-                <span className="text-[11px] text-text-oncolor/70">
-                  {group.members.length} members · tap for info
+                <span className="text-[11px] text-text-oncolor/70 inline-flex items-center gap-1">
+                  {group.members.length} members
+                  {ttlSeconds > 0 && <span>· ⏱ {ttlLabel(ttlSeconds)}</span>}
+                  {bioCredId && <span>· 🔒</span>}
                 </span>
               </div>
             </button>
           }
           right={
             <div className="flex items-center gap-1">
+              <IconButton
+                label="Search"
+                onClick={() => setSearchOpen((v) => !v)}
+                className="text-text-oncolor"
+              >
+                <SearchIcon />
+              </IconButton>
               <IconButton
                 label="Starred messages"
                 onClick={() => setStarredOpen(true)}
@@ -787,8 +1092,8 @@ function GroupChatInner({ groupId }: { groupId: string }) {
                 <span className="text-lg">★</span>
               </IconButton>
               <IconButton
-                label="Group info"
-                onClick={() => navigate(`/groups/${groupId}/settings`)}
+                label="More"
+                onClick={() => setMenuOpen(true)}
                 className="text-text-oncolor"
               >
                 <MoreVerticalIcon />
@@ -796,6 +1101,40 @@ function GroupChatInner({ groupId }: { groupId: string }) {
             </div>
           }
         />
+      )}
+
+      {pinnedMessage && (
+        <PinnedMessageBanner
+          row={pinnedMessage}
+          onJump={() => pinnedMessage.serverId && onScrollToMessage(pinnedMessage.serverId)}
+          onUnpin={async () => {
+            if (pinnedMessage.id !== undefined)
+              await setGroupMessagePinned(pinnedMessage.id, groupId, false);
+          }}
+        />
+      )}
+
+      {searchOpen && (
+        <div className="px-3 py-2 bg-panel border-b border-line flex items-center gap-2">
+          <SearchIcon className="text-text-muted" />
+          <input
+            autoFocus
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search in this group…"
+            className="flex-1 bg-transparent text-text placeholder:text-text-muted outline-none text-sm"
+          />
+          <button
+            type="button"
+            onClick={() => {
+              setSearchOpen(false);
+              setSearchQuery("");
+            }}
+            className="text-text-muted text-xs px-2 py-1"
+          >
+            Close
+          </button>
+        </div>
       )}
 
       {/* Message list */}
@@ -807,51 +1146,48 @@ function GroupChatInner({ groupId }: { groupId: string }) {
           <LockIcon className="w-3 h-3" /> End-to-end encrypted · sender keys
         </div>
 
-        {messages && messages.length === 0 ? (
+        {filteredMessages && filteredMessages.length === 0 ? (
           <EmptyState
             icon={<ChatIcon className="w-10 h-10" />}
-            title="No messages yet"
-            message="Say hi to the group — or create a poll!"
+            title={searchOpen && searchQuery ? "No matches" : "No messages yet"}
+            message={
+              searchOpen && searchQuery
+                ? "Try a different word."
+                : "Say hi to the group — or create a poll!"
+            }
           />
         ) : (
-          (messages ?? []).map((m) => {
-            const mine = m.senderUserId === userId;
-            const senderLabel =
-              memberMap.get(m.senderUserId) ?? m.senderUserId.slice(0, 8) + "…";
-
+          (filteredMessages ?? []).map((m) => {
             // Vote messages are silent — they update poll state only.
             if (m.pollVoteData) return null;
 
+            const mine = m.senderUserId === userId;
+            const senderLabel =
+              memberMap.get(m.senderUserId) ?? m.senderUserId.slice(0, 8) + "…";
             const selected = m.id !== undefined && selection.has(m.id);
-            const onRowClick = () => {
-              if (inSelectionMode && m.id !== undefined) toggleSelected(m.id);
-              else setActionFor(m);
-            };
-            const onRowLongPress = () => {
-              if (m.id !== undefined) toggleSelected(m.id);
-            };
 
-            // Poll bubble
-            if (m.pollData) {
-              return (
-                <div
-                  key={m.id ?? m.dedupKey}
-                  className={
-                    "flex flex-col rounded-md transition-colors " +
-                    (mine ? "items-end " : "items-start ") +
-                    (selected ? "bg-wa-green/15" : "")
-                  }
-                  onClick={onRowClick}
-                  onContextMenu={(e) => {
-                    e.preventDefault();
-                    onRowLongPress();
-                  }}
-                >
-                  {!mine && (
-                    <span className="text-[11px] text-text-muted ml-2 mb-0.5 font-mono">
-                      {senderLabel}
-                    </span>
-                  )}
+            return (
+              <MessageRowSwipe
+                key={m.id ?? m.dedupKey}
+                m={m}
+                mine={mine}
+                selected={selected}
+                inSelectionMode={inSelectionMode}
+                onTap={() => {
+                  if (inSelectionMode && m.id !== undefined) toggleSelected(m.id);
+                  else setActionFor(m);
+                }}
+                onLongPress={() => {
+                  if (m.id !== undefined) toggleSelected(m.id);
+                }}
+                onSwipeReply={() => handleReply(m)}
+              >
+                {!mine && (
+                  <span className="text-[11px] text-text-muted ml-2 mb-0.5 font-mono">
+                    {senderLabel}
+                  </span>
+                )}
+                {m.pollData ? (
                   <PollBubble
                     msg={m}
                     allMessages={messages ?? []}
@@ -859,108 +1195,74 @@ function GroupChatInner({ groupId }: { groupId: string }) {
                     onVote={handleVote}
                     isMine={mine}
                   />
-                </div>
-              );
-            }
-
-            const reactionEntries = Object.entries(m.reactions ?? {});
-            const reactionGroups = new Map<string, number>();
-            for (const [, e] of reactionEntries) {
-              reactionGroups.set(e, (reactionGroups.get(e) ?? 0) + 1);
-            }
-            const myReaction = m.reactions?.[userId ?? ""] ?? null;
-
-            return (
-              <div
-                key={m.id ?? m.dedupKey}
-                className={
-                  "flex flex-col rounded-md transition-colors " +
-                  (selected ? "bg-wa-green/15" : "")
-                }
-                onClick={onRowClick}
-                onContextMenu={(e) => {
-                  e.preventDefault();
-                  onRowLongPress();
-                }}
-              >
-                {!mine && (
-                  <span className="text-[11px] text-text-muted ml-2 mb-0.5 font-mono">
-                    {senderLabel}
-                  </span>
-                )}
-                <MessageBubble
-                  direction={mine ? "out" : "in"}
-                  time={
-                    new Date(m.createdAt).toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    }) + (m.editedAt ? " · edited" : "")
-                  }
-                  status={mine ? m.status : undefined}
-                >
-                  {m.deleted ? (
-                    <span className="italic text-text-muted">
-                      🚫 This message was deleted
-                    </span>
-                  ) : (
-                    <>
-                      {m.replyTo && (
-                        <div className="mb-1 -mx-1 px-2 py-1 rounded-md bg-black/15 border-l-2 border-wa-green text-[11.5px] leading-snug">
-                          <div className="text-wa-green font-medium">
-                            {m.replyTo.senderUserId === userId
-                              ? "You"
-                              : memberMap.get(m.replyTo.senderUserId) ??
-                                "Unknown"}
-                          </div>
-                          <div className="text-text-muted truncate max-w-[260px]">
-                            {m.replyTo.body || "[message]"}
-                          </div>
-                        </div>
-                      )}
-                      {m.starred && (
-                        <span className="inline-block mr-1 text-yellow-300">
-                          ★
-                        </span>
-                      )}
-                      {m.plaintext ? (
-                        renderMentionText(
-                          m.plaintext,
-                          fpDisplayMap,
-                          myFingerprint,
-                        )
-                      ) : (
-                        <span className="italic text-text-muted">[empty]</span>
-                      )}
-                    </>
-                  )}
-                </MessageBubble>
-                {reactionGroups.size > 0 && !m.deleted && (
-                  <div
-                    className={
-                      "mt-1 flex gap-1 " + (mine ? "justify-end mr-2" : "ml-2")
+                ) : (
+                  <MessageBubble
+                    direction={mine ? "out" : "in"}
+                    time={
+                      new Date(m.createdAt).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      }) + (m.editedAt ? " · edited" : "")
                     }
+                    status={mine ? m.status : undefined}
                   >
-                    {[...reactionGroups.entries()].map(([emo, count]) => (
-                      <button
-                        key={emo}
-                        type="button"
-                        onClick={(ev) => {
-                          ev.stopPropagation();
-                          void handleReact(m, emo);
-                        }}
-                        className={
-                          "px-1.5 py-0.5 rounded-full text-[11px] border " +
-                          (myReaction === emo
-                            ? "bg-wa-green/30 border-wa-green text-text"
-                            : "bg-surface border-line/50 text-text")
-                        }
-                      >
-                        {emo} {count > 1 ? count : ""}
-                      </button>
-                    ))}
-                  </div>
+                    {m.deleted ? (
+                      <span className="italic text-text-muted">
+                        🚫 This message was deleted
+                      </span>
+                    ) : (
+                      <>
+                        {m.replyTo && (
+                          <div className="mb-1 -mx-1 px-2 py-1 rounded-md bg-black/15 border-l-2 border-wa-green text-[11.5px] leading-snug">
+                            <div className="text-wa-green font-medium">
+                              {m.replyTo.senderUserId === userId
+                                ? "You"
+                                : memberMap.get(m.replyTo.senderUserId) ??
+                                  "Unknown"}
+                            </div>
+                            <div className="text-text-muted truncate max-w-[260px]">
+                              {m.replyTo.body || "[message]"}
+                            </div>
+                          </div>
+                        )}
+                        {m.starred && (
+                          <span className="inline-block mr-1 text-yellow-300">★</span>
+                        )}
+                        {m.pinned && (
+                          <span className="inline-block mr-1 text-wa-green">📌</span>
+                        )}
+                        {m.attachment?.kind === "image" && (
+                          <ImageAttachment att={m.attachment} />
+                        )}
+                        {m.attachment?.kind === "voice" && (
+                          <VoiceAttachment att={m.attachment} />
+                        )}
+                        {m.plaintext ? (
+                          <div className={m.attachment ? "mt-1" : undefined}>
+                            {renderMentionText(m.plaintext, fpDisplayMap, myFingerprint)}
+                          </div>
+                        ) : !m.attachment ? (
+                          <span className="italic text-text-muted">[empty]</span>
+                        ) : null}
+                        {m.linkPreview && (
+                          <LinkPreviewBlock preview={m.linkPreview} />
+                        )}
+                        {ttlRemainingLabel(m.expiresAt) && (
+                          <span className="ml-1 text-[10px] text-text-muted">
+                            ⏱ {ttlRemainingLabel(m.expiresAt)}
+                          </span>
+                        )}
+                      </>
+                    )}
+                  </MessageBubble>
                 )}
-              </div>
+                <Reactions
+                  m={m}
+                  mine={mine}
+                  myUserId={userId ?? ""}
+                  onReact={(emo) => void handleReact(m, emo)}
+                />
+              </MessageRowSwipe>
             );
           })
         )}
@@ -1021,56 +1323,32 @@ function GroupChatInner({ groupId }: { groupId: string }) {
         </div>
       )}
 
+      {/* Compose link preview card */}
+      {pendingPreview && (
+        <LinkPreviewCard
+          preview={pendingPreview}
+          loading={previewLoading}
+          onDismiss={() => setPendingPreview(null)}
+        />
+      )}
+
       {/* Composer */}
-      <div className="sticky bottom-0 bg-bg/95 backdrop-blur border-t border-line px-2 py-2 flex items-end gap-2">
-        {/* Poll button */}
-        <button
-          type="button"
-          onClick={() => setPollOpen(true)}
-          className="size-10 rounded-full text-text-muted hover:text-text hover:bg-white/10 flex items-center justify-center shrink-0 text-xl"
-          aria-label="Create poll"
-          title="Create poll"
-        >
-          📊
-        </button>
-
-        {/* Text area */}
-        <div className="flex-1 bg-surface rounded-3xl px-4 py-2 flex items-end">
-          <textarea
-            ref={textareaRef}
-            value={text}
-            onChange={handleTextChange}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                if (!sending && text.trim()) void send();
-              }
-              if (e.key === "Escape") setMentionQuery(null);
-            }}
-            rows={1}
-            placeholder="Message the group — type @ to mention"
-            className="w-full bg-transparent text-text placeholder:text-text-muted resize-none outline-none max-h-32"
-            style={{ minHeight: "24px" }}
-          />
-        </div>
-
-        {/* Send button */}
-        <button
-          onClick={() => void send()}
-          disabled={sending || !text.trim()}
-          className="size-12 rounded-full bg-wa-green text-text-oncolor flex items-center justify-center hover:bg-wa-green-dark transition disabled:opacity-50 wa-tap shrink-0"
-          aria-label="Send"
-        >
-          <SendIcon />
-        </button>
-      </div>
+      <Composer
+        text={text}
+        sending={sending}
+        onTextChange={handleTextChange}
+        textareaRef={textareaRef}
+        onSend={() => void send()}
+        onPickImage={(f) => void onPickImage(f)}
+        onSendVoice={(b, m, d) => void onSendVoice(b, m, d)}
+        onPoll={() => setPollOpen(true)}
+        onMentionEscape={() => setMentionQuery(null)}
+        onPickEmoji={(e) => setText(text + e)}
+      />
 
       {/* Poll composer modal */}
       {pollOpen && (
-        <PollComposer
-          onClose={() => setPollOpen(false)}
-          onSubmit={handleCreatePoll}
-        />
+        <PollComposer onClose={() => setPollOpen(false)} onSubmit={handleCreatePoll} />
       )}
 
       {/* Per-message action sheet */}
@@ -1078,17 +1356,120 @@ function GroupChatInner({ groupId }: { groupId: string }) {
         <MessageActionSheet
           msg={actionFor}
           mine={actionFor.senderUserId === userId}
+          editable={
+            actionFor.senderUserId === userId &&
+            !!actionFor.serverId &&
+            !actionFor.deleted &&
+            !!actionFor.plaintext &&
+            Date.now() - new Date(actionFor.createdAt).getTime() < EDIT_WINDOW_MS
+          }
           onClose={() => setActionFor(null)}
           onReply={() => handleReply(actionFor)}
           onReact={(emoji) => void handleReact(actionFor, emoji)}
           onStar={() => void handleStar(actionFor)}
+          onPin={() => void handlePin(actionFor)}
+          onForward={() => {
+            setForwardFor(actionFor);
+            setActionFor(null);
+          }}
           onCopy={() => void handleCopy(actionFor)}
           onSelect={() => {
             if (actionFor.id !== undefined) toggleSelected(actionFor.id);
             setActionFor(null);
           }}
+          onInfo={() => {
+            setInfoFor(actionFor);
+            setActionFor(null);
+          }}
+          onEdit={() => {
+            setEditFor(actionFor);
+            setActionFor(null);
+          }}
           onDeleteForMe={() => void handleDeleteForMe(actionFor)}
           onUnsend={() => void handleUnsend(actionFor)}
+          onBlockSender={() => {
+            const sid = actionFor.senderUserId;
+            setActionFor(null);
+            void handleBlockSender(sid);
+          }}
+          onReportSender={() => {
+            const sid = actionFor.senderUserId;
+            setActionFor(null);
+            void handleReportSender(sid);
+          }}
+        />
+      )}
+
+      {/* Edit dialog */}
+      {editFor && (
+        <EditMessageDialog
+          row={editFor}
+          onClose={() => setEditFor(null)}
+          onSubmit={handleEditSubmit}
+        />
+      )}
+
+      {/* Info dialog */}
+      {infoFor && (
+        <MessageInfoDialog row={infoFor} onClose={() => setInfoFor(null)} />
+      )}
+
+      {/* Forward picker */}
+      {forwardFor && (
+        <ForwardPicker
+          msg={forwardFor}
+          identity={identity}
+          fromGroupId={groupId}
+          onClose={() => setForwardFor(null)}
+          onForwarded={() => {
+            setForwardFor(null);
+            showToast("Forwarded");
+          }}
+        />
+      )}
+
+      {/* Group menu */}
+      {menuOpen && (
+        <GroupMenu
+          onClose={() => setMenuOpen(false)}
+          ttlLabel={ttlSeconds > 0 ? ttlLabel(ttlSeconds) : "Off"}
+          onTTL={() => {
+            setMenuOpen(false);
+            setTtlPickerOpen(true);
+          }}
+          biometricEnabled={!!bioCredId}
+          onToggleBiometric={() => {
+            setMenuOpen(false);
+            void onToggleBiometric();
+          }}
+          onSearch={() => {
+            setMenuOpen(false);
+            setSearchOpen(true);
+          }}
+          onShowStarred={() => {
+            setMenuOpen(false);
+            setStarredOpen(true);
+          }}
+          onClearChat={async () => {
+            setMenuOpen(false);
+            if (confirm("Clear all messages from this group on this device?")) {
+              await clearGroupHistory(groupId);
+              showToast("Cleared");
+            }
+          }}
+          onGroupInfo={() => {
+            setMenuOpen(false);
+            navigate(`/groups/${groupId}/settings`);
+          }}
+        />
+      )}
+
+      {/* TTL picker */}
+      {ttlPickerOpen && (
+        <TtlPicker
+          current={ttlSeconds}
+          onClose={() => setTtlPickerOpen(false)}
+          onPick={(s) => void applyTtl(s)}
         />
       )}
 
@@ -1117,6 +1498,290 @@ function GroupChatInner({ groupId }: { groupId: string }) {
   );
 }
 
+/* ─────────── Composer ─────────── */
+
+function Composer({
+  text,
+  sending,
+  onTextChange,
+  textareaRef,
+  onSend,
+  onPickImage,
+  onSendVoice,
+  onPoll,
+  onMentionEscape,
+  onPickEmoji,
+}: {
+  text: string;
+  sending: boolean;
+  onTextChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
+  textareaRef: React.Ref<HTMLTextAreaElement>;
+  onSend: () => void;
+  onPickImage: (f: File) => void;
+  onSendVoice: (bytes: Uint8Array, mime: string, durationMs: number) => void;
+  onPoll: () => void;
+  onMentionEscape: () => void;
+  onPickEmoji: (e: string) => void;
+}) {
+  const fileInput = useRef<HTMLInputElement>(null);
+  const [recording, setRecording] = useState<RecordingState | null>(null);
+  const [emojiOpen, setEmojiOpen] = useState(false);
+
+  if (recording) {
+    return (
+      <RecordingBar
+        rec={recording}
+        onCancel={() => {
+          recording.cancel();
+          setRecording(null);
+        }}
+        onSend={async () => {
+          const result = await recording.finish();
+          setRecording(null);
+          if (result) onSendVoice(result.bytes, result.mime, result.durationMs);
+        }}
+      />
+    );
+  }
+
+  return (
+    <div className="sticky bottom-0 bg-bg/95 backdrop-blur border-t border-line">
+      {emojiOpen && (
+        <div className="px-2 pb-2 pt-1">
+          <EmojiPicker
+            onPick={(e) => onPickEmoji(e)}
+            onClose={() => setEmojiOpen(false)}
+          />
+        </div>
+      )}
+      <div className="px-2 py-2 flex items-end gap-2">
+        <input
+          ref={fileInput}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) onPickImage(f);
+            e.target.value = "";
+          }}
+        />
+        {/* Poll */}
+        <button
+          type="button"
+          onClick={onPoll}
+          className="size-10 rounded-full text-text-muted hover:text-text hover:bg-white/10 flex items-center justify-center shrink-0 text-xl"
+          aria-label="Create poll"
+          title="Create poll"
+        >
+          📊
+        </button>
+        <div className="flex-1 bg-surface rounded-3xl px-2 py-1 flex items-end gap-1">
+          <button
+            type="button"
+            onClick={() => setEmojiOpen((v) => !v)}
+            className={
+              "size-9 rounded-full hover:bg-white/10 flex items-center justify-center shrink-0 text-xl " +
+              (emojiOpen ? "text-wa-green" : "text-text-muted hover:text-text")
+            }
+            aria-label="Open emoji picker"
+            aria-expanded={emojiOpen}
+          >
+            😊
+          </button>
+          <button
+            type="button"
+            onClick={() => fileInput.current?.click()}
+            disabled={sending}
+            className="size-9 rounded-full text-text-muted hover:text-text hover:bg-white/10 flex items-center justify-center shrink-0 disabled:opacity-50"
+            aria-label="Attach image"
+            title="Image"
+          >
+            <PaperclipIcon className="w-5 h-5" />
+          </button>
+          <textarea
+            ref={textareaRef}
+            value={text}
+            onChange={onTextChange}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                if (!sending && text.trim()) onSend();
+              }
+              if (e.key === "Escape") onMentionEscape();
+            }}
+            rows={1}
+            placeholder="Message the group — type @ to mention"
+            className="flex-1 bg-transparent text-text placeholder:text-text-muted resize-none outline-none max-h-32 py-1.5 px-1"
+            style={{ minHeight: "24px" }}
+          />
+        </div>
+        {text.trim() ? (
+          <button
+            onClick={onSend}
+            disabled={sending}
+            className="size-12 rounded-full bg-wa-green text-text-oncolor flex items-center justify-center hover:bg-wa-green-dark transition disabled:opacity-50 wa-tap shrink-0"
+            aria-label="Send"
+          >
+            <SendIcon />
+          </button>
+        ) : (
+          <button
+            onClick={async () => {
+              const r = await startRecording();
+              if (r.kind === "ok") setRecording(r.state);
+              else alert(r.message);
+            }}
+            disabled={sending}
+            className="size-12 rounded-full bg-wa-green text-text-oncolor flex items-center justify-center hover:bg-wa-green-dark transition disabled:opacity-50 wa-tap shrink-0"
+            aria-label="Record voice message"
+          >
+            <MicIcon className="w-6 h-6" />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ─────────── Swipe-to-reply row wrapper ─────────── */
+
+function MessageRowSwipe({
+  m,
+  mine,
+  selected,
+  inSelectionMode,
+  onTap,
+  onLongPress,
+  onSwipeReply,
+  children,
+}: {
+  m: GroupMessageRecord;
+  mine: boolean;
+  selected: boolean;
+  inSelectionMode: boolean;
+  onTap: () => void;
+  onLongPress: () => void;
+  onSwipeReply: () => void;
+  children: React.ReactNode;
+}) {
+  const [dx, setDx] = useState(0);
+  const startX = useRef<number | null>(null);
+  const pressTimer = useRef<number | null>(null);
+  const moved = useRef(false);
+
+  const startPress = () => {
+    moved.current = false;
+    if (pressTimer.current) clearTimeout(pressTimer.current);
+    pressTimer.current = window.setTimeout(() => {
+      if (!moved.current) onLongPress();
+    }, 450);
+  };
+  const cancelPress = () => {
+    if (pressTimer.current) {
+      clearTimeout(pressTimer.current);
+      pressTimer.current = null;
+    }
+  };
+
+  return (
+    <div
+      data-server-id={m.serverId ?? undefined}
+      className={
+        "flex flex-col rounded-md transition-colors relative " +
+        (mine ? "items-end " : "items-start ") +
+        (selected ? "bg-wa-green/15" : "")
+      }
+      onClick={() => {
+        if (Math.abs(dx) < 8) onTap();
+      }}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        onLongPress();
+      }}
+      onTouchStart={(e) => {
+        startX.current = e.touches[0]?.clientX ?? null;
+        startPress();
+      }}
+      onTouchMove={(e) => {
+        if (startX.current === null) return;
+        const x = e.touches[0]?.clientX ?? startX.current;
+        const delta = x - startX.current;
+        if (Math.abs(delta) > 6) {
+          moved.current = true;
+          cancelPress();
+        }
+        // Only allow swiping inward (right for incoming, left for outgoing)
+        const allowed = mine ? Math.min(0, delta) : Math.max(0, delta);
+        setDx(Math.max(-80, Math.min(80, allowed)));
+      }}
+      onTouchEnd={() => {
+        cancelPress();
+        if (Math.abs(dx) > 50 && !inSelectionMode) onSwipeReply();
+        setDx(0);
+        startX.current = null;
+      }}
+      style={{ transform: dx ? `translateX(${dx}px)` : undefined }}
+    >
+      {Math.abs(dx) > 12 && (
+        <span
+          className={
+            "absolute top-1/2 -translate-y-1/2 text-wa-green text-lg " +
+            (mine ? "right-[-28px]" : "left-[-28px]")
+          }
+          aria-hidden="true"
+        >
+          ↩
+        </span>
+      )}
+      {children}
+    </div>
+  );
+}
+
+/* ─────────── Reactions row ─────────── */
+
+function Reactions({
+  m,
+  mine,
+  myUserId,
+  onReact,
+}: {
+  m: GroupMessageRecord;
+  mine: boolean;
+  myUserId: string;
+  onReact: (emo: string) => void;
+}) {
+  if (m.deleted) return null;
+  const entries = Object.entries(m.reactions ?? {});
+  if (entries.length === 0) return null;
+  const groups = new Map<string, number>();
+  for (const [, e] of entries) groups.set(e, (groups.get(e) ?? 0) + 1);
+  const myReaction = m.reactions?.[myUserId] ?? null;
+  return (
+    <div className={"mt-1 flex gap-1 " + (mine ? "justify-end mr-2" : "ml-2")}>
+      {[...groups.entries()].map(([emo, count]) => (
+        <button
+          key={emo}
+          type="button"
+          onClick={(ev) => {
+            ev.stopPropagation();
+            onReact(emo);
+          }}
+          className={
+            "px-1.5 py-0.5 rounded-full text-[11px] border " +
+            (myReaction === emo
+              ? "bg-wa-green/30 border-wa-green text-text"
+              : "bg-surface border-line/50 text-text")
+          }
+        >
+          {emo} {count > 1 ? count : ""}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 /* ─────────── Action sheet (per-message) ─────────── */
 
 const QUICK_REACTS = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
@@ -1124,30 +1789,47 @@ const QUICK_REACTS = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
 function MessageActionSheet({
   msg,
   mine,
+  editable,
   onClose,
   onReply,
   onReact,
   onStar,
+  onPin,
+  onForward,
   onCopy,
   onSelect,
+  onInfo,
+  onEdit,
   onDeleteForMe,
   onUnsend,
+  onBlockSender,
+  onReportSender,
 }: {
   msg: GroupMessageRecord;
   mine: boolean;
+  editable: boolean;
   onClose: () => void;
   onReply: () => void;
   onReact: (emoji: string) => void;
   onStar: () => void;
+  onPin: () => void;
+  onForward: () => void;
   onCopy: () => void;
   onSelect: () => void;
+  onInfo: () => void;
+  onEdit: () => void;
   onDeleteForMe: () => void;
   onUnsend: () => void;
+  onBlockSender: () => void;
+  onReportSender: () => void;
 }) {
   const canCopy = !!msg.plaintext && !msg.deleted;
   const canReply = !msg.deleted && !!msg.serverId;
   const canReact = !msg.deleted && !!msg.serverId;
+  const canForward = !msg.deleted && !!msg.serverId;
+  const canPin = !msg.deleted && !!msg.serverId;
   const canUnsend = mine && !!msg.serverId && !msg.deleted;
+  const canModerate = !mine && !msg.deleted;
 
   return (
     <div
@@ -1155,7 +1837,7 @@ function MessageActionSheet({
       onClick={onClose}
     >
       <div
-        className="w-full sm:max-w-md bg-surface rounded-t-2xl border-t border-line p-3 space-y-2"
+        className="w-full sm:max-w-md bg-surface rounded-t-2xl border-t border-line p-3 space-y-2 max-h-[85vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {canReact && (
@@ -1173,15 +1855,23 @@ function MessageActionSheet({
           </div>
         )}
         <div className="divide-y divide-line/40">
-          {canReply && (
-            <SheetItem icon="↩" label="Reply" onClick={onReply} />
-          )}
+          {canReply && <SheetItem icon="↩" label="Reply" onClick={onReply} />}
+          {canForward && <SheetItem icon="➦" label="Forward" onClick={onForward} />}
           <SheetItem
             icon={msg.starred ? "★" : "☆"}
             label={msg.starred ? "Unstar" : "Star"}
             onClick={onStar}
           />
+          {canPin && (
+            <SheetItem
+              icon="📌"
+              label={msg.pinned ? "Unpin" : "Pin"}
+              onClick={onPin}
+            />
+          )}
+          {editable && <SheetItem icon="✎" label="Edit" onClick={onEdit} />}
           {canCopy && <SheetItem icon="⧉" label="Copy" onClick={onCopy} />}
+          <SheetItem icon="ℹ" label="Info" onClick={onInfo} />
           <SheetItem icon="☑" label="Select" onClick={onSelect} />
           <SheetItem
             icon="🗑"
@@ -1196,6 +1886,12 @@ function MessageActionSheet({
               onClick={onUnsend}
               danger
             />
+          )}
+          {canModerate && (
+            <>
+              <SheetItem icon="⛔" label="Block sender" onClick={onBlockSender} danger />
+              <SheetItem icon="🚩" label="Report sender" onClick={onReportSender} danger />
+            </>
           )}
         </div>
         <button
@@ -1233,6 +1929,274 @@ function SheetItem({
       <span className="w-6 text-center text-base">{icon}</span>
       <span>{label}</span>
     </button>
+  );
+}
+
+/* ─────────── Group menu ─────────── */
+
+function GroupMenu({
+  onClose,
+  ttlLabel,
+  onTTL,
+  biometricEnabled,
+  onToggleBiometric,
+  onSearch,
+  onShowStarred,
+  onClearChat,
+  onGroupInfo,
+}: {
+  onClose: () => void;
+  ttlLabel: string;
+  onTTL: () => void;
+  biometricEnabled: boolean;
+  onToggleBiometric: () => void;
+  onSearch: () => void;
+  onShowStarred: () => void;
+  onClearChat: () => void;
+  onGroupInfo: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/40 flex items-end justify-center"
+      onClick={onClose}
+    >
+      <div
+        className="w-full sm:max-w-md bg-surface rounded-t-2xl border-t border-line p-2"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="divide-y divide-line/40">
+          <SheetItem icon="ℹ" label="Group info" onClick={onGroupInfo} />
+          <SheetItem icon="🔍" label="Search in group" onClick={onSearch} />
+          <SheetItem icon="★" label="Starred messages" onClick={onShowStarred} />
+          <SheetItem
+            icon="⏱"
+            label={`Disappearing messages: ${ttlLabel}`}
+            onClick={onTTL}
+          />
+          <SheetItem
+            icon={biometricEnabled ? "🔓" : "🔒"}
+            label={biometricEnabled ? "Disable biometric lock" : "Enable biometric lock"}
+            onClick={onToggleBiometric}
+          />
+          <SheetItem icon="🗑" label="Clear chat" onClick={onClearChat} danger />
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="w-full text-center py-2 text-sm text-text-muted"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────── TTL picker ─────────── */
+
+function ttlLabel(secs: number): string {
+  return TTL_OPTIONS.find((o) => o.seconds === secs)?.label ?? `${secs}s`;
+}
+
+function TtlPicker({
+  current,
+  onClose,
+  onPick,
+}: {
+  current: number;
+  onClose: () => void;
+  onPick: (secs: number) => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center sm:justify-center"
+      onClick={onClose}
+    >
+      <div
+        className="w-full sm:max-w-sm bg-surface rounded-t-2xl sm:rounded-2xl border border-line p-2"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="px-3 py-2 text-sm font-semibold text-text">
+          Disappearing messages
+        </div>
+        <div className="divide-y divide-line/40">
+          {TTL_OPTIONS.map((o) => (
+            <button
+              key={o.seconds}
+              type="button"
+              onClick={() => onPick(o.seconds)}
+              className={
+                "w-full px-4 py-3 text-left text-sm flex items-center justify-between " +
+                (o.seconds === current
+                  ? "bg-wa-green/15 text-text"
+                  : "text-text hover:bg-white/5")
+              }
+            >
+              <span>{o.label}</span>
+              {o.seconds === current && (
+                <span className="text-wa-green">✓</span>
+              )}
+            </button>
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="w-full text-center py-2 text-sm text-text-muted"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────── Forward picker ─────────── */
+
+function ForwardPicker({
+  msg,
+  identity,
+  fromGroupId,
+  onClose,
+  onForwarded,
+}: {
+  msg: GroupMessageRecord;
+  identity: ReturnType<typeof useUnlockStore.getState>["identity"];
+  fromGroupId: string;
+  onClose: () => void;
+  onForwarded: () => void;
+}) {
+  const conns = trpc.connections.list.useQuery();
+  const groups = trpc.groups.list.useQuery();
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function buildEnvelope(): Promise<ChatEnvelope> {
+    if (msg.attachment?.kind === "image") {
+      return {
+        v: 2,
+        t: "image",
+        ...(msg.plaintext ? { body: msg.plaintext } : {}),
+        media: msg.attachment as MediaAttachment,
+      };
+    }
+    if (msg.attachment?.kind === "voice") {
+      return { v: 2, t: "voice", media: msg.attachment as MediaAttachment };
+    }
+    return { v: 2, t: "text", body: msg.plaintext || "" };
+  }
+
+  async function forwardToPeer(peerId: string) {
+    if (!identity) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      const env = await buildEnvelope();
+      await sendChatEnvelope(identity, peerId, env);
+      onForwarded();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Forward failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function forwardToGroup(targetGroupId: string) {
+    if (!identity) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      const env = await buildEnvelope();
+      await sendGroupChat(identity, targetGroupId, env);
+      onForwarded();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Forward failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center sm:justify-center"
+      onClick={onClose}
+    >
+      <div
+        className="w-full sm:max-w-md bg-surface rounded-t-2xl sm:rounded-2xl border border-line max-h-[85vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="px-4 py-3 border-b border-line text-base font-semibold text-text flex items-center justify-between">
+          <span>Forward message</span>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-text-muted hover:text-text px-1"
+          >
+            ✕
+          </button>
+        </div>
+        {err && (
+          <div className="px-4 pt-2">
+            <ErrorMessage>{err}</ErrorMessage>
+          </div>
+        )}
+        <div className="overflow-y-auto p-2">
+          {(groups.data ?? []).length > 0 && (
+            <div className="px-2 py-1 text-[11px] uppercase tracking-wide text-text-muted">
+              Groups
+            </div>
+          )}
+          {(groups.data ?? [])
+            .filter((g) => g.id !== fromGroupId)
+            .map((g) => (
+              <button
+                key={g.id}
+                type="button"
+                disabled={busy}
+                onClick={() => void forwardToGroup(g.id)}
+                className="w-full text-left px-3 py-3 hover:bg-white/5 flex items-center gap-3 disabled:opacity-50"
+              >
+                <Avatar seed={g.id} size={32} />
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm text-text truncate">{g.name}</div>
+                  <div className="text-[11px] text-text-muted">
+                    {g.memberCount} members
+                  </div>
+                </div>
+              </button>
+            ))}
+          {(conns.data ?? []).length > 0 && (
+            <div className="px-2 py-1 text-[11px] uppercase tracking-wide text-text-muted mt-2">
+              Contacts
+            </div>
+          )}
+          {(conns.data ?? []).map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              disabled={busy}
+              onClick={() => void forwardToPeer(c.peer.id)}
+              className="w-full text-left px-3 py-3 hover:bg-white/5 flex items-center gap-3 disabled:opacity-50"
+            >
+              <Avatar seed={c.peer.id} size={32} />
+              <div className="flex-1 min-w-0">
+                <div className="text-sm text-text font-mono truncate">
+                  {c.peer.fingerprint}
+                </div>
+                <div className="text-[11px] text-text-muted">
+                  {c.peer.accountType}
+                </div>
+              </div>
+            </button>
+          ))}
+          {(conns.data ?? []).length === 0 && (groups.data ?? []).length === 0 && (
+            <div className="text-center text-sm text-text-muted py-12">
+              No contacts or groups to forward to.
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 

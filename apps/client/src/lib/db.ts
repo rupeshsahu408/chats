@@ -271,6 +271,8 @@ export interface GroupMessageRecord {
   deleted?: boolean;
   /** Local-only: starred (bookmarked) by the current user. */
   starred?: boolean;
+  /** Local-only: pinned to the top of this group thread (one per group). */
+  pinned?: boolean;
 }
 
 /** A message scheduled to be sent at a future time (1:1 chats). */
@@ -837,6 +839,23 @@ export async function setChatMessagePinned(
       });
   }
   await db.chatMessages.update(id, { pinned });
+}
+
+/** Toggle the pinned bit on a single group message (one pin per group). */
+export async function setGroupMessagePinned(
+  id: number,
+  groupId: string,
+  pinned: boolean,
+): Promise<void> {
+  if (pinned) {
+    await db.groupMessages
+      .where("groupId")
+      .equals(groupId)
+      .modify((rec) => {
+        if (rec.pinned) rec.pinned = false;
+      });
+  }
+  await db.groupMessages.update(id, { pinned });
 }
 
 /** Wipe all chat history with a peer (local only). */

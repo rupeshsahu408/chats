@@ -83,9 +83,9 @@ import {
 } from "../lib/biometric";
 
 const POLL_MS = 3000;
-const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
+export const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 const MAX_VOICE_MS = 2 * 60 * 1000;
-const TTL_OPTIONS: { label: string; seconds: number }[] = [
+export const TTL_OPTIONS: { label: string; seconds: number }[] = [
   { label: "Off", seconds: 0 },
   { label: "24 hours", seconds: 60 * 60 * 24 },
   { label: "7 days", seconds: 60 * 60 * 24 * 7 },
@@ -1267,7 +1267,7 @@ function formatLastSeen(iso: string): string {
   return `${dateStr} at ${timeStr}`;
 }
 
-function ttlRemainingLabel(iso?: string): string | null {
+export function ttlRemainingLabel(iso?: string): string | null {
   if (!iso) return null;
   const ms = new Date(iso).getTime() - Date.now();
   if (ms <= 0) return "expired";
@@ -1789,7 +1789,7 @@ function ViewOnceBubble({ m, time }: { m: ChatMessageRecord; time: string }) {
   );
 }
 
-function LinkPreviewBlock({
+export function LinkPreviewBlock({
   preview,
 }: {
   preview: NonNullable<ChatMessageRecord["linkPreview"]>;
@@ -1828,7 +1828,7 @@ function LinkPreviewBlock({
   );
 }
 
-function ImageAttachment({ att }: { att: NonNullable<ChatMessageRecord["attachment"]> }) {
+export function ImageAttachment({ att }: { att: NonNullable<ChatMessageRecord["attachment"]> }) {
   const [url, setUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -1910,7 +1910,7 @@ function ImageAttachment({ att }: { att: NonNullable<ChatMessageRecord["attachme
   );
 }
 
-function VoiceAttachment({ att }: { att: NonNullable<ChatMessageRecord["attachment"]> }) {
+export function VoiceAttachment({ att }: { att: NonNullable<ChatMessageRecord["attachment"]> }) {
   const [url, setUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [playing, setPlaying] = useState(false);
@@ -2006,7 +2006,7 @@ function fmtTime(sec: number): string {
 
 /* ────────────────────────── Link preview card (compose) ────────────────────────── */
 
-function LinkPreviewCard({
+export function LinkPreviewCard({
   preview,
   loading,
   onDismiss,
@@ -2813,7 +2813,7 @@ function Composer({
   );
 }
 
-function RecordingBar({
+export function RecordingBar({
   onCancel,
   onSend,
 }: {
@@ -2863,12 +2863,12 @@ function RecordingBar({
 
 /* ────────────────────────── Recording impl ────────────────────────── */
 
-interface RecordingState {
+export interface RecordingState {
   cancel: () => void;
   finish: () => Promise<{ bytes: Uint8Array; mime: string; durationMs: number } | null>;
 }
 
-async function startRecording(): Promise<
+export async function startRecording(): Promise<
   { kind: "ok"; state: RecordingState } | { kind: "err"; message: string }
 > {
   if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
@@ -2972,7 +2972,7 @@ void envelopePreview;
  * `onDelete` / `onReact` callbacks.
  */
 /** 15-minute edit window mirrors WhatsApp's policy. Client-side only. */
-const EDIT_WINDOW_MS = 15 * 60 * 1000;
+export const EDIT_WINDOW_MS = 15 * 60 * 1000;
 
 function MessageActionMenu({
   row,
@@ -3222,12 +3222,16 @@ function DeleteMessageDialog({
  * Sticky banner under the AppBar showing the currently-pinned message.
  * Tap to scroll to the original; long-press the pin icon to unpin.
  */
-function PinnedMessageBanner({
+export function PinnedMessageBanner({
   row,
   onJump,
   onUnpin,
 }: {
-  row: ChatMessageRecord;
+  row: {
+    deleted?: boolean;
+    attachment?: ChatMessageRecord["attachment"];
+    plaintext?: string;
+  };
   onJump: () => void;
   onUnpin: () => void;
 }) {
@@ -3268,12 +3272,12 @@ function PinnedMessageBanner({
  * body, enforces the 15-minute window client-side, and submits the
  * edit via `editChatMessage` (which transmits a `t:"edit"` envelope).
  */
-function EditMessageDialog({
+export function EditMessageDialog({
   row,
   onClose,
   onSubmit,
 }: {
-  row: ChatMessageRecord;
+  row: { plaintext?: string; createdAt: string };
   onClose: () => void;
   onSubmit: (newBody: string) => Promise<void>;
 }) {
@@ -3339,11 +3343,16 @@ function EditMessageDialog({
 }
 
 /** Read-only sheet showing delivery + read timestamps for a message. */
-function MessageInfoDialog({
+export function MessageInfoDialog({
   row,
   onClose,
 }: {
-  row: ChatMessageRecord;
+  row: {
+    createdAt: string;
+    deliveredAt?: string;
+    readAt?: string;
+    editedAt?: string;
+  };
   onClose: () => void;
 }) {
   const fmt = (iso?: string) =>
@@ -3473,7 +3482,7 @@ function StarredMessagesDialog({
  * A modal sheet where the user picks a future date+time for a scheduled
  * message. Uses a native datetime-local input for simplicity.
  */
-function SchedulePickerSheet({
+export function SchedulePickerSheet({
   onClose,
   onSchedule,
 }: {
