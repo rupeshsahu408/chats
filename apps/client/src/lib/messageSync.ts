@@ -303,15 +303,18 @@ export async function pollAndDecrypt(
   for (const m of sorted) {
     if (m.groupId) {
       const result = await ingestGroupInboxMessage(m);
-      // Only ack if processed successfully. Leave "failed" messages un-acked
-      // so they remain in the server inbox and are retried on the next poll
-      // (by which time the SKDM should have been processed).
-      if (result !== "failed") {
-        acked.push(m.id);
-        if (result === "new") added += 1;
-      } else {
-        failed += 1;
-      }
+      // On the poll path we ALWAYS ack the message regardless of whether
+      // decryption succeeded. By this point the inbox has already been
+      // sorted so any SKDM in the same batch was processed first; if the
+      // sender key still isn't available the SKDM is genuinely missing and
+      // leaving the message un-acked would cause permanent inbox pollution
+      // (it would pile up on every poll and eventually crowd out 1:1 msgs
+      // past the server's 200-message limit). A placeholder was stored by
+      // ingestGroupInboxMessage when the key was missing; the WS push path
+      // handles the "SKDM arrives moments later" race via scheduleSkdmRetryPoll.
+      acked.push(m.id);
+      if (result === "new") added += 1;
+      else if (result === "failed") failed += 1;
       continue;
     }
     if (await hasChatMessageWithServerId(m.id)) {
