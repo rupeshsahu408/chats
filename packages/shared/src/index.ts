@@ -629,6 +629,11 @@ export type VerifyBotChallengeResult = z.infer<typeof VerifyBotChallengeResult>;
 export const SignupRandomV2Input = z.object({
   username: UsernameSchema,
   password: PasswordSchema,
+  /**
+   * Daily verification password. Required again every 24 hours
+   * before the user can access the main app.
+   */
+  verificationPassword: PasswordSchema,
   identityPublicKey: IdentityPublicKeySchema,
   /** Token issued by verifyBotChallenge. */
   botToken: z.string(),
@@ -640,6 +645,19 @@ export const LoginRandomV2Input = z.object({
   password: PasswordSchema,
 });
 export type LoginRandomV2Input = z.infer<typeof LoginRandomV2Input>;
+
+/** Daily verification password check (24-hour gate). */
+export const VerifyDailyPasswordInput = z.object({
+  password: PasswordSchema,
+});
+export type VerifyDailyPasswordInput = z.infer<typeof VerifyDailyPasswordInput>;
+
+export const VerifyDailyPasswordResult = z.object({
+  ok: z.boolean(),
+  /** Server time the verification was accepted, ISO 8601. */
+  verifiedAt: z.string(),
+});
+export type VerifyDailyPasswordResult = z.infer<typeof VerifyDailyPasswordResult>;
 
 /* ─────────── Profile ─────────── */
 

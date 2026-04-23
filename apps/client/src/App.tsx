@@ -31,6 +31,7 @@ import { SessionSync } from "./lib/SessionSync";
 import { useStealthPrefs } from "./lib/stealthPrefs";
 import { InstallPrompt } from "./components/InstallPrompt";
 import { PushPermissionPrompt } from "./components/PushPermissionPrompt";
+import { DailyVerificationGate } from "./components/DailyVerificationGate";
 
 export function App() {
   const [queryClient] = useState(
@@ -78,6 +79,7 @@ export function App() {
         </Routes>
         <InstallPrompt />
         <PushPermissionPrompt />
+        <DailyVerificationGate />
       </QueryClientProvider>
     </trpc.Provider>
   );

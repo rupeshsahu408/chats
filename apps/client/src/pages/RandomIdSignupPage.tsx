@@ -24,10 +24,12 @@ import { buildPrekeyBundle } from "../lib/prekeys";
 import { useUnlockStore } from "../lib/unlockStore";
 import { postAuthLandingPath } from "../lib/inviteRedirect";
 import { resizeAvatarToDataUrl } from "../lib/avatar";
+import { markDailyVerified } from "../lib/dailyVerification";
 
 type Step =
   | "username"
   | "password"
+  | "verification"
   | "puzzle"
   | "recovery"
   | "name"
@@ -67,7 +69,14 @@ export function RandomIdSignupPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
-  // Step 3 — puzzle
+  // Step 3 — daily verification password
+  const [verificationPassword, setVerificationPassword] = useState("");
+  const [confirmVerificationPassword, setConfirmVerificationPassword] =
+    useState("");
+  const [showVerificationPassword, setShowVerificationPassword] =
+    useState(false);
+
+  // Step 4 — puzzle
   const [botToken, setBotToken] = useState<string | null>(null);
 
   // Step 4 — recovery key (generated lazily once username+password+puzzle pass)
@@ -158,6 +167,7 @@ export function RandomIdSignupPage() {
       const r = await signup.mutateAsync({
         username,
         password,
+        verificationPassword,
         identityPublicKey: bytesToBase64(ed.publicKey),
         botToken,
       });
@@ -167,6 +177,13 @@ export function RandomIdSignupPage() {
         refreshExpiresIn: r.refreshExpiresIn,
         user: r.user,
       });
+      // Just verified during signup — start the 24h clock from now
+      // so the gate doesn't trigger immediately on first login.
+      try {
+        markDailyVerified(r.user.id);
+      } catch {
+        /* localStorage may be disabled */
+      }
 
       await saveIdentity({
         id: "self",
@@ -241,7 +258,7 @@ export function RandomIdSignupPage() {
     const canContinue =
       !!username && !localUsernameProblem && usernameAvailable === true;
     return (
-      <ScreenShell back="/" phase="Step 1 of 7 · Username">
+      <ScreenShell back="/" phase="Step 1 of 8 · Username">
         <div className="flex flex-col items-center gap-3 mb-2">
           <Logo />
           <h2 className="text-2xl font-semibold text-text">Pick a username</h2>
@@ -303,7 +320,7 @@ export function RandomIdSignupPage() {
     const canContinue =
       password.length >= 8 && confirmPassword === password && !mismatch;
     return (
-      <ScreenShell back="#" phase="Step 2 of 7 · Password">
+      <ScreenShell back="#" phase="Step 2 of 8 · Password">
         <div className="flex flex-col items-center gap-3 mb-2">
           <Logo />
           <h2 className="text-2xl font-semibold text-text">Set a password</h2>
@@ -357,7 +374,7 @@ export function RandomIdSignupPage() {
         </label>
 
         <PrimaryButton
-          onClick={() => setStep("puzzle")}
+          onClick={() => setStep("verification")}
           disabled={!canContinue}
         >
           Continue
@@ -369,9 +386,98 @@ export function RandomIdSignupPage() {
     );
   }
 
+  if (step === "verification") {
+    const tooShort =
+      verificationPassword.length > 0 && verificationPassword.length < 8;
+    const sameAsLogin =
+      verificationPassword.length >= 8 && verificationPassword === password;
+    const mismatch =
+      confirmVerificationPassword.length > 0 &&
+      confirmVerificationPassword !== verificationPassword;
+    const canContinue =
+      verificationPassword.length >= 8 &&
+      confirmVerificationPassword === verificationPassword &&
+      !mismatch;
+    return (
+      <ScreenShell back="#" phase="Step 3 of 8 · Daily verification">
+        <div className="flex flex-col items-center gap-3 mb-2">
+          <Logo />
+          <h2 className="text-2xl font-semibold text-text">
+            Set a daily verification password
+          </h2>
+          <p className="text-sm text-text-muted text-center">
+            For extra security, you'll be asked to enter this password
+            every 24 hours before opening the app. Make it different from
+            your login password.
+          </p>
+        </div>
+
+        <div>
+          <FieldLabel>Verification password</FieldLabel>
+          <TextInput
+            autoFocus
+            type={showVerificationPassword ? "text" : "password"}
+            value={verificationPassword}
+            onChange={(e) => setVerificationPassword(e.target.value)}
+            placeholder="At least 8 characters"
+            autoComplete="new-password"
+          />
+          {tooShort && (
+            <p className="text-xs text-red-500 mt-1">
+              At least 8 characters.
+            </p>
+          )}
+          {!tooShort && sameAsLogin && (
+            <p className="text-xs text-amber-500 mt-1">
+              Tip: pick something different from your login password.
+            </p>
+          )}
+        </div>
+
+        <div>
+          <FieldLabel>Confirm verification password</FieldLabel>
+          <TextInput
+            type={showVerificationPassword ? "text" : "password"}
+            value={confirmVerificationPassword}
+            onChange={(e) =>
+              setConfirmVerificationPassword(e.target.value)
+            }
+            placeholder="Type it again"
+            autoComplete="new-password"
+          />
+          {mismatch && (
+            <p className="text-xs text-red-500 mt-1">
+              Passwords don't match.
+            </p>
+          )}
+        </div>
+
+        <label className="flex items-center gap-2 text-sm text-text-muted">
+          <input
+            type="checkbox"
+            checked={showVerificationPassword}
+            onChange={(e) => setShowVerificationPassword(e.target.checked)}
+            className="accent-wa-green"
+          />
+          Show password
+        </label>
+
+        <PrimaryButton
+          onClick={() => setStep("puzzle")}
+          disabled={!canContinue}
+        >
+          Continue
+        </PrimaryButton>
+        <SecondaryButton onClick={() => setStep("password")}>
+          Back
+        </SecondaryButton>
+      </ScreenShell>
+    );
+  }
+
   if (step === "puzzle") {
     return (
-      <ScreenShell back="#" phase="Step 3 of 7 · Verify">
+      <ScreenShell back="#" phase="Step 4 of 8 · Verify">
         <div className="flex flex-col items-center gap-3 mb-2">
           <Logo />
           <h2 className="text-2xl font-semibold text-text">
@@ -397,7 +503,7 @@ export function RandomIdSignupPage() {
         >
           Continue
         </PrimaryButton>
-        <SecondaryButton onClick={() => setStep("password")}>
+        <SecondaryButton onClick={() => setStep("verification")}>
           Back
         </SecondaryButton>
       </ScreenShell>
@@ -407,7 +513,7 @@ export function RandomIdSignupPage() {
   if (step === "recovery") {
     const words = phrase ? phrase.split(" ") : [];
     return (
-      <ScreenShell back="#" phase="Step 4 of 7 · Recovery key">
+      <ScreenShell back="#" phase="Step 5 of 8 · Recovery key">
         <div className="flex flex-col items-center gap-3 mb-2">
           <Logo />
           <h2 className="text-2xl font-semibold text-text">
@@ -462,7 +568,7 @@ export function RandomIdSignupPage() {
 
   if (step === "name") {
     return (
-      <ScreenShell phase="Step 5 of 7 · Your name">
+      <ScreenShell phase="Step 6 of 8 · Your name">
         <div className="flex flex-col items-center gap-3 mb-2">
           <Logo />
           <h2 className="text-2xl font-semibold text-text">
@@ -492,7 +598,7 @@ export function RandomIdSignupPage() {
 
   if (step === "bio") {
     return (
-      <ScreenShell phase="Step 6 of 7 · Bio">
+      <ScreenShell phase="Step 7 of 8 · Bio">
         <div className="flex flex-col items-center gap-3 mb-2">
           <Logo />
           <h2 className="text-2xl font-semibold text-text">
@@ -525,7 +631,7 @@ export function RandomIdSignupPage() {
 
   if (step === "photo") {
     return (
-      <ScreenShell phase="Step 7 of 7 · Photo">
+      <ScreenShell phase="Step 8 of 8 · Photo">
         <PhotoStep
           username={username}
           avatarDataUrl={avatarDataUrl}

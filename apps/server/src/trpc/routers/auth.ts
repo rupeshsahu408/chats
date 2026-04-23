@@ -21,6 +21,8 @@ import {
   CheckUsernameResult,
   SignupRandomV2Input,
   LoginRandomV2Input,
+  VerifyDailyPasswordInput,
+  VerifyDailyPasswordResult,
   type AuthResult,
 } from "@veil/shared";
 import {
@@ -40,7 +42,7 @@ const RESERVED_USERNAMES = new Set<string>([
   "signin", "me", "you", "user", "users", "anonymous", "null",
   "undefined", "everyone", "nobody",
 ]);
-import { configuredProcedure, router } from "../init.js";
+import { configuredProcedure, protectedProcedure, router } from "../init.js";
 import { getDb, schema } from "../../db/index.js";
 import { hashIdentifier, phoneDiscoverySha, sha256Hex } from "../../lib/hash.js";
 import {
@@ -739,6 +741,10 @@ export const authRouter = router({
       const derivedRandomId = `username:${input.username}`;
 
       const passwordHash = await bcrypt.hash(input.password, 12);
+      const verificationPasswordHash = await bcrypt.hash(
+        input.verificationPassword,
+        12,
+      );
 
       const inserted = await db
         .insert(schema.users)
@@ -747,6 +753,7 @@ export const authRouter = router({
           randomId: derivedRandomId,
           username: input.username,
           passwordHash,
+          verificationPasswordHash,
           identityPubkey: pubkeyBytes,
         })
         .returning({ id: schema.users.id, createdAt: schema.users.createdAt });
@@ -804,6 +811,43 @@ export const authRouter = router({
       }
 
       return issueSession(ctx, row.id, "random", row.createdAt);
+    }),
+
+  /* ─────────── Daily verification (24h gate) ─────────── */
+
+  verifyDailyPassword: protectedProcedure
+    .input(VerifyDailyPasswordInput)
+    .output(VerifyDailyPasswordResult)
+    .mutation(async ({ input, ctx }) => {
+      const userLimit = rateLimit({
+        key: `verify-daily:user:${ctx.userId}`,
+        limit: 10,
+        windowSeconds: 10 * 60,
+      });
+      if (!userLimit.allowed) {
+        throw new TRPCError({
+          code: "TOO_MANY_REQUESTS",
+          message: "Too many attempts. Please wait a few minutes.",
+        });
+      }
+
+      const db = getDb();
+      const found = await db
+        .select({ hash: schema.users.verificationPasswordHash })
+        .from(schema.users)
+        .where(eq(schema.users.id, ctx.userId))
+        .limit(1);
+      const hash =
+        found[0]?.hash ??
+        "$2a$12$abcdefghijklmnopqrstuuabcdefghijklmnopqrstuvwxyz012345";
+      const ok = await bcrypt.compare(input.password, hash);
+      if (!found[0]?.hash || !ok) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "Wrong verification password.",
+        });
+      }
+      return { ok: true, verifiedAt: new Date().toISOString() };
     }),
 
   /* ─────────── Session management ─────────── */

@@ -75,6 +75,12 @@ export const users = pgTable(
     /** Argon2id hash of the user's password (random-ID accounts only). */
     passwordHash: text("password_hash"),
     /**
+     * bcrypt hash of the user's daily verification password.
+     * Required again every 24h before the user can access the main app.
+     * Random-ID accounts only.
+     */
+    verificationPasswordHash: text("verification_password_hash"),
+    /**
      * Public profile fields shown in chat headers, contact lists, etc.
      * All optional — UI falls back to the username (or random ID).
      */
