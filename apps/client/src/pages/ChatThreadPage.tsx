@@ -182,6 +182,7 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState<
     null | "main" | "ttl" | "seenTtl" | "safety" | "report" | "starred" | "scheduledList"
   >(null);
@@ -496,7 +497,25 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
       throw new Error("You need to unlock your account to schedule messages.");
     }
     const { scheduleServerMessage } = await import("../lib/scheduledServer");
-    await scheduleServerMessage(identity, peerId, text, scheduledFor);
+    const result = await scheduleServerMessage(
+      identity,
+      peerId,
+      text,
+      scheduledFor,
+    );
+    const when = new Date(result.scheduledFor);
+    const whenStr = when.toLocaleString([], {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+    setError(null);
+    setNotice(`Scheduled — will send ${whenStr}`);
+    window.setTimeout(() => {
+      setNotice((n) => (n && n.startsWith("Scheduled —") ? null : n));
+    }, 5000);
   }
 
   async function onPickImage(file: File) {
@@ -796,6 +815,23 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
       {error && (
         <div className="px-3 pb-2">
           <ErrorMessage>{error}</ErrorMessage>
+        </div>
+      )}
+
+      {notice && (
+        <div className="px-3 pb-2">
+          <div className="rounded-lg border border-wa-green/40 bg-wa-green/10 text-wa-green text-xs px-3 py-2 flex items-center gap-2">
+            <span>✓</span>
+            <span className="flex-1">{notice}</span>
+            <button
+              type="button"
+              onClick={() => setNotice(null)}
+              className="text-wa-green/70 hover:text-wa-green px-1"
+              aria-label="Dismiss"
+            >
+              ✕
+            </button>
+          </div>
         </div>
       )}
 
