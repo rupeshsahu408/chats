@@ -19,6 +19,7 @@ import {
   sendChatMessage,
 } from "../lib/messageSync";
 import { wsClient, wsTyping } from "../lib/wsClient";
+import { usePresenceStore } from "../lib/presenceStore";
 import {
   AppBar,
   Avatar,
@@ -174,6 +175,19 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
   const [pendingPreview, setPendingPreview] = useState<EnvelopeLinkPreview | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Peer online status — seeded from REST query, kept live via WS presence events.
+  const peerOnlineQuery = trpc.me.peerOnline.useQuery(
+    { peerId },
+    { enabled: !!peerId, refetchOnWindowFocus: true, staleTime: 30_000 },
+  );
+  const setPresenceOnline = usePresenceStore((s) => s.setOnline);
+  useEffect(() => {
+    if (peerOnlineQuery.data !== undefined) {
+      setPresenceOnline(peerId, peerOnlineQuery.data.online);
+    }
+  }, [peerOnlineQuery.data, peerId, setPresenceOnline]);
+  const peerOnline = usePresenceStore((s) => s.online[peerId] === true);
 
   // Typing indicator (peer → us).
   const [peerTyping, setPeerTyping] = useState(false);
@@ -474,6 +488,11 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
               <div className="text-[11px] text-text-oncolor/80 truncate inline-flex items-center gap-1">
                 {peerTyping ? (
                   <span>typing…</span>
+                ) : peerOnline ? (
+                  <span className="inline-flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-green-400 inline-block" />
+                    Online
+                  </span>
                 ) : (
                   <>
                     <LockIcon className="w-3 h-3" /> end-to-end encrypted

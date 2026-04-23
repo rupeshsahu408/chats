@@ -7,6 +7,7 @@ import { useStealthPrefs } from "./stealthPrefs";
 import { deleteExpiredChatMessages } from "./db";
 import { trpcClientProxy } from "./trpcClientProxy";
 import { reapExpiredGroupMessages, rotateMySenderKeyIfNeeded } from "./groupSync";
+import { usePresenceStore } from "./presenceStore";
 
 /**
  * App-wide background sync.
@@ -53,6 +54,8 @@ export function SessionSync() {
         void rotateMySenderKeyIfNeeded(identity, event.groupId).catch(() =>
           undefined,
         );
+      } else if (event.type === "presence") {
+        usePresenceStore.getState().setOnline(event.userId, event.online);
       }
     });
     return unsub;

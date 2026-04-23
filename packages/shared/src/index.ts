@@ -362,6 +362,12 @@ export const WsServerEventSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("pong"), t: z.number() }),
   /** Phase 7: a group I'm in changed (members, name, role, etc.). Client should refetch. */
   z.object({ type: z.literal("group_changed"), groupId: z.string().uuid() }),
+  /** Presence: a connected peer came online or went offline. */
+  z.object({
+    type: z.literal("presence"),
+    userId: UserIdSchema,
+    online: z.boolean(),
+  }),
 ]);
 export type WsServerEvent = z.infer<typeof WsServerEventSchema>;
 

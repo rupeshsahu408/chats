@@ -1,4 +1,4 @@
-import type { ReactNode, ButtonHTMLAttributes } from "react";
+import type { ReactNode, ButtonHTMLAttributes, CSSProperties } from "react";
 import { Link } from "react-router-dom";
 
 /* ─────────────────────────────────────────────────────────────
@@ -417,8 +417,10 @@ function StatusTicks({
     return <span className="opacity-70" aria-label="Sending">⏱</span>;
   if (status === "failed")
     return <span className="text-red-500" aria-label="Failed">!</span>;
+  if (status === "sent")
+    return <SingleTickIcon className="text-wa-tick" />;
   if (status === "read")
-    return <DoubleTickIcon className="text-sky-400" />;
+    return <DoubleTickIcon style={{ color: "#3897F0" }} />;
   return <DoubleTickIcon className="text-wa-tick" />;
 }
 
@@ -696,11 +698,44 @@ export function MoreVerticalIcon({ className }: { className?: string }) {
   );
 }
 
-export function DoubleTickIcon({ className }: { className?: string }) {
+export function DoubleTickIcon({
+  className,
+  style,
+}: {
+  className?: string;
+  style?: CSSProperties;
+}) {
   return (
-    <svg viewBox="0 0 18 12" className={"w-4 h-3 " + (className ?? "")} fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg
+      viewBox="0 0 18 12"
+      className={"w-4 h-3 " + (className ?? "")}
+      style={style}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       <polyline points="1 6.5 5 10.5 12 1.5" />
       <polyline points="6.5 6.5 10 10 17 1" />
+    </svg>
+  );
+}
+
+export function SingleTickIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 12 12"
+      className={"w-3 h-3 " + (className ?? "")}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <polyline points="1 6 4.5 10 11 1" />
     </svg>
   );
 }

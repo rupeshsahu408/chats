@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import websocketPlugin from "@fastify/websocket";
-import { eq, inArray, and, isNull } from "drizzle-orm";
+import { eq, inArray, and, isNull, or } from "drizzle-orm";
 import { WsClientEventSchema } from "@veil/shared";
 import { verifyAccessToken } from "./jwt.js";
 import { getDb, schema } from "../db/index.js";
@@ -9,6 +9,33 @@ import {
   registerSocket,
   unregisterSocket,
 } from "./wsHub.js";
+
+/** Look up all accepted connection peer IDs for a given user. */
+async function getConnectionPeerIds(userId: string): Promise<string[]> {
+  const db = getDb();
+  const rows = await db
+    .select({ userAId: schema.connections.userAId, userBId: schema.connections.userBId })
+    .from(schema.connections)
+    .where(
+      or(
+        eq(schema.connections.userAId, userId),
+        eq(schema.connections.userBId, userId),
+      ),
+    );
+  return rows.map((r) => (r.userAId === userId ? r.userBId : r.userAId));
+}
+
+/** Broadcast online/offline presence to all connected peers of a user. */
+async function broadcastPresence(userId: string, online: boolean): Promise<void> {
+  try {
+    const peerIds = await getConnectionPeerIds(userId);
+    for (const peerId of peerIds) {
+      publish(peerId, { type: "presence", userId, online });
+    }
+  } catch {
+    // Best-effort — don't crash the WS handler if DB is unavailable.
+  }
+}
 
 /**
  * Real-time relay used by `/ws`. Clients connect with their access token
@@ -53,6 +80,7 @@ export async function registerWebSocketRoutes(
     }
 
     registerSocket(userId, socket);
+    void broadcastPresence(userId, true);
     try {
       socket.send(JSON.stringify({ type: "hello", userId }));
     } catch {
@@ -159,10 +187,12 @@ export async function registerWebSocketRoutes(
     socket.on("close", () => {
       clearInterval(heartbeat);
       unregisterSocket(userId, socket);
+      void broadcastPresence(userId, false);
     });
     socket.on("error", () => {
       clearInterval(heartbeat);
       unregisterSocket(userId, socket);
+      void broadcastPresence(userId, false);
     });
   });
 }

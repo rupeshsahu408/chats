@@ -1,13 +1,16 @@
 import { TRPCError } from "@trpc/server";
 import { eq } from "drizzle-orm";
+import { z } from "zod";
 import {
   PublicUserSchema,
   SetX25519IdentityInput,
   OkSchema,
+  UserIdSchema,
   type PublicUser,
 } from "@veil/shared";
 import { protectedProcedure, router } from "../init.js";
 import { getDb, schema } from "../../db/index.js";
+import { isOnline } from "../../lib/wsHub.js";
 
 export const meRouter = router({
   get: protectedProcedure
@@ -73,5 +76,13 @@ export const meRouter = router({
         .set({ identityX25519Pubkey: pub })
         .where(eq(schema.users.id, ctx.userId));
       return { ok: true as const };
+    }),
+
+  /** Returns whether a peer is currently connected (online). */
+  peerOnline: protectedProcedure
+    .input(z.object({ peerId: UserIdSchema }))
+    .output(z.object({ online: z.boolean() }))
+    .query(({ input }) => {
+      return { online: isOnline(input.peerId) };
     }),
 });
