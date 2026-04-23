@@ -16,10 +16,16 @@ import {
   ChatIcon,
   Spinner,
   LockIcon,
+  UnlockIcon,
   SendIcon,
   SearchIcon,
   PaperclipIcon,
   MicIcon,
+  StarIcon,
+  CopyIcon,
+  TrashIcon,
+  InfoIcon,
+  TimerIcon,
 } from "../components/Layout";
 import { UnlockGate } from "../components/UnlockGate";
 import { EmojiPicker } from "../components/EmojiPicker";
@@ -1042,16 +1048,18 @@ function GroupChatInner({ groupId }: { groupId: string }) {
           right={
             <div className="flex items-center gap-1">
               <IconButton label="Star" onClick={() => void bulkStar()} className="text-text-oncolor">
-                <span className="text-lg">★</span>
+                <StarIcon className="w-5 h-5" />
               </IconButton>
               <IconButton label="Copy" onClick={() => void bulkCopy()} className="text-text-oncolor">
-                <span className="text-base">⧉</span>
+                <CopyIcon className="w-5 h-5" />
               </IconButton>
               <IconButton label="Delete" onClick={() => void bulkDelete()} className="text-text-oncolor">
-                <span className="text-base">🗑</span>
+                <TrashIcon className="w-5 h-5" />
               </IconButton>
               <IconButton label="Cancel" onClick={clearSelection} className="text-text-oncolor">
-                <span className="text-lg">✕</span>
+                <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M18 6 6 18M6 6l12 12" />
+                </svg>
               </IconButton>
             </div>
           }
@@ -1067,10 +1075,21 @@ function GroupChatInner({ groupId }: { groupId: string }) {
               <Avatar seed={group.id} size={36} />
               <div className="flex flex-col">
                 <span className="text-sm font-medium leading-tight">{group.name}</span>
-                <span className="text-[11px] text-text-oncolor/70 inline-flex items-center gap-1">
-                  {group.members.length} members
-                  {ttlSeconds > 0 && <span>· ⏱ {ttlLabel(ttlSeconds)}</span>}
-                  {bioCredId && <span>· 🔒</span>}
+                <span className="text-[11px] text-text-oncolor/70 truncate inline-flex items-center gap-1">
+                  <span>{group.members.length} members</span>
+                  {ttlSeconds > 0 && (
+                    <>
+                      <span>·</span>
+                      <TimerIcon className="w-3 h-3" />
+                      <span>{ttlLabel(ttlSeconds)}</span>
+                    </>
+                  )}
+                  {bioCredId && (
+                    <>
+                      <span>·</span>
+                      <LockIcon className="w-3 h-3" />
+                    </>
+                  )}
                 </span>
               </div>
             </button>
@@ -1083,13 +1102,6 @@ function GroupChatInner({ groupId }: { groupId: string }) {
                 className="text-text-oncolor"
               >
                 <SearchIcon />
-              </IconButton>
-              <IconButton
-                label="Starred messages"
-                onClick={() => setStarredOpen(true)}
-                className="text-text-oncolor"
-              >
-                <span className="text-lg">★</span>
               </IconButton>
               <IconButton
                 label="More"
@@ -1912,7 +1924,7 @@ function SheetItem({
   onClick,
   danger,
 }: {
-  icon: string;
+  icon: React.ReactNode;
   label: string;
   onClick: () => void;
   danger?: boolean;
@@ -1922,12 +1934,14 @@ function SheetItem({
       type="button"
       onClick={onClick}
       className={
-        "w-full px-3 py-3 text-left flex items-center gap-3 text-sm hover:bg-white/5 " +
+        "w-full px-4 py-3 text-left flex items-center gap-3 text-sm border-b border-line/40 last:border-b-0 hover:bg-white/5 " +
         (danger ? "text-red-400" : "text-text")
       }
     >
-      <span className="w-6 text-center text-base">{icon}</span>
-      <span>{label}</span>
+      <span className="w-5 h-5 flex items-center justify-center shrink-0">
+        {icon}
+      </span>
+      <span className="flex-1">{label}</span>
     </button>
   );
 }
@@ -1957,36 +1971,55 @@ function GroupMenu({
 }) {
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/40 flex items-end justify-center"
+      className="fixed inset-0 z-40 bg-black/40 flex items-end sm:items-center justify-center"
       onClick={onClose}
     >
       <div
-        className="w-full sm:max-w-md bg-surface rounded-t-2xl border-t border-line p-2"
+        className="bg-panel w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl border border-line overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="divide-y divide-line/40">
-          <SheetItem icon="ℹ" label="Group info" onClick={onGroupInfo} />
-          <SheetItem icon="🔍" label="Search in group" onClick={onSearch} />
-          <SheetItem icon="★" label="Starred messages" onClick={onShowStarred} />
-          <SheetItem
-            icon="⏱"
-            label={`Disappearing messages: ${ttlLabel}`}
-            onClick={onTTL}
-          />
-          <SheetItem
-            icon={biometricEnabled ? "🔓" : "🔒"}
-            label={biometricEnabled ? "Disable biometric lock" : "Enable biometric lock"}
-            onClick={onToggleBiometric}
-          />
-          <SheetItem icon="🗑" label="Clear chat" onClick={onClearChat} danger />
-        </div>
-        <button
-          type="button"
-          onClick={onClose}
-          className="w-full text-center py-2 text-sm text-text-muted"
-        >
-          Cancel
-        </button>
+        <SheetItem
+          icon={<InfoIcon className="w-5 h-5" />}
+          label="Group info"
+          onClick={onGroupInfo}
+        />
+        <SheetItem
+          icon={<SearchIcon className="w-5 h-5" />}
+          label="Search in group"
+          onClick={onSearch}
+        />
+        <SheetItem
+          icon={<StarIcon className="w-5 h-5" />}
+          label="Starred messages"
+          onClick={onShowStarred}
+        />
+        <SheetItem
+          icon={<TimerIcon className="w-5 h-5" />}
+          label={`Disappearing messages · ${ttlLabel}`}
+          onClick={onTTL}
+        />
+        <SheetItem
+          icon={
+            biometricEnabled ? (
+              <UnlockIcon className="w-5 h-5" />
+            ) : (
+              <LockIcon className="w-5 h-5" />
+            )
+          }
+          label={
+            biometricEnabled
+              ? "Remove biometric lock"
+              : "Lock chat with biometrics"
+          }
+          onClick={onToggleBiometric}
+          danger={biometricEnabled}
+        />
+        <SheetItem
+          icon={<TrashIcon className="w-5 h-5" />}
+          label="Clear chat"
+          onClick={onClearChat}
+          danger
+        />
       </div>
     </div>
   );
