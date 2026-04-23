@@ -38,8 +38,10 @@ class VeilWebSocketClient {
   private reconnectAttempt = 0;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+  private watchdogTimer: ReturnType<typeof setInterval> | null = null;
   private wantOpen = false;
   private currentToken: string | null = null;
+  private lastIncomingAt = 0;
 
   start(): void {
     this.wantOpen = true;
@@ -126,13 +128,27 @@ class VeilWebSocketClient {
 
     socket.onopen = () => {
       this.reconnectAttempt = 0;
+      this.lastIncomingAt = Date.now();
       if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
       this.heartbeatTimer = setInterval(() => {
         this.send({ type: "ping", t: Date.now() });
       }, 25_000);
+      // Watchdog: if we haven't heard anything (including pong) for 70s,
+      // the socket is a zombie — force-close so we reconnect cleanly.
+      if (this.watchdogTimer) clearInterval(this.watchdogTimer);
+      this.watchdogTimer = setInterval(() => {
+        if (Date.now() - this.lastIncomingAt > 70_000 && this.socket) {
+          try {
+            this.socket.close(4001, "watchdog");
+          } catch {
+            /* ignore */
+          }
+        }
+      }, 15_000);
     };
 
     socket.onmessage = (ev) => {
+      this.lastIncomingAt = Date.now();
       let parsed: unknown;
       try {
         parsed = JSON.parse(typeof ev.data === "string" ? ev.data : "");
@@ -154,6 +170,10 @@ class VeilWebSocketClient {
       if (this.heartbeatTimer) {
         clearInterval(this.heartbeatTimer);
         this.heartbeatTimer = null;
+      }
+      if (this.watchdogTimer) {
+        clearInterval(this.watchdogTimer);
+        this.watchdogTimer = null;
       }
       this.socket = null;
       if (this.wantOpen) this.scheduleReconnect();

@@ -99,19 +99,51 @@ export function SessionSync() {
     })();
   }, [identity, userId]);
 
-  // Polling fallback while the WS is down (also catches anything missed).
+  // Belt-and-braces inbox polling.
+  //
+  // The WebSocket *should* deliver every message live, but in production
+  // (Vercel ↔ Render, mobile Safari, suspended tabs, flaky proxies)
+  // sockets often enter a "zombie" state where `readyState === OPEN` but
+  // the server has already dropped the connection — so live `new_message`
+  // events silently never arrive. To stay correct we always poll on a
+  // background interval (slow when the WS looks healthy, fast when it
+  // doesn't) and also drain the inbox the moment the tab regains focus
+  // or the network comes back.
   useEffect(() => {
     if (!identity) return;
+
+    const drain = () => {
+      void pollAndDecrypt(identity).catch(() => undefined);
+    };
+
     if (pollRef.current) clearInterval(pollRef.current);
     pollRef.current = setInterval(() => {
-      if (wsClient.isOpen()) return;
-      void pollAndDecrypt(identity).catch(() => undefined);
-    }, 10_000);
+      // Always poll; just slow down when the WS looks alive.
+      drain();
+    }, wsClient.isOpen() ? 20_000 : 8_000);
+
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") drain();
+    };
+    const onFocus = () => drain();
+    const onOnline = () => drain();
+
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("focus", onFocus);
+    window.addEventListener("online", onOnline);
+
+    // Trigger an immediate drain when this effect first runs (covers the
+    // case where the user navigates back to a previously-loaded tab).
+    drain();
+
     return () => {
       if (pollRef.current) {
         clearInterval(pollRef.current);
         pollRef.current = null;
       }
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("online", onOnline);
     };
   }, [identity]);
 

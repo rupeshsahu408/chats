@@ -226,6 +226,17 @@ After PIN setup at signup, the client generates 1 signed prekey + 20 one-time pr
 - Effect: iOS Safari users in a normal browser tab never see the prompt (push doesn't work there pre-iOS 16.4 in-browser anyway). They get prompted only after they Add-to-Home-Screen and re-open Veil.
 - Settings → Notifications still works as the manual fallback for users who previously dismissed.
 
+## Receive-path resilience (v2)
+
+Production messaging on Vercel ↔ Render exposed a "zombie WebSocket" failure mode where `readyState === OPEN` but the server had already dropped the socket — every `new_message` event was lost and the original polling fallback (which only ran when `!wsClient.isOpen()`) skipped it.
+
+Fixes in `lib/SessionSync.tsx` + `lib/wsClient.ts`:
+- **Always poll**, even when the WS looks healthy (`20s` cadence when open, `8s` when closed). Guarantees worst-case message latency of 20s on any reachability problem.
+- **Drain on `visibilitychange` (visible), `focus`, and `online`** events — instant catch-up the moment a user returns to a backgrounded tab or the network reconnects.
+- **WS watchdog**: tracks `lastIncomingAt` (any message, including pongs); if 70s elapse with no traffic, force-close the socket so reconnect logic kicks in immediately instead of trusting a dead `readyState`.
+
+Diagnosed via direct prod-DB inspection: messages were being inserted but `delivered_at` was NULL for every recent row, proving the write path worked and the read path was the failure point.
+
 ## Next phase
 
 **Native iOS (Phase 8) and Android Play Store (Phase 9) are deferred.** The product launches as an installable PWA: Android users install via Chrome's prompt, iOS users use Add-to-Home-Screen (web push works on iOS 16.4+ once installed). Phase 7 wrap-up — manual e2e group test (3 accounts) + push verification — remains the only outstanding item before launch readiness.
