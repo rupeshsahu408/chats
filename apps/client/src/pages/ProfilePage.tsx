@@ -190,7 +190,6 @@ export function ProfilePage() {
 
           {/* Identity facts */}
           <Section title="Account">
-            <Row label="User ID" value={<span className="font-mono">{peer.id}</span>} />
             <Row
               label="Account type"
               value={<span className="capitalize">{peer.accountType}</span>}
@@ -198,10 +197,6 @@ export function ProfilePage() {
             <Row
               label="Joined"
               value={new Date(peer.createdAt).toLocaleDateString()}
-            />
-            <Row
-              label="Fingerprint"
-              value={<span className="font-mono">{peer.fingerprint}</span>}
             />
           </Section>
         </div>
