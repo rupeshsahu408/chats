@@ -189,6 +189,15 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
   }, [peerOnlineQuery.data, peerId, setPresenceOnline]);
   const peerOnline = usePresenceStore((s) => s.online[peerId] === true);
 
+  // Last seen timestamp — respects the peer's privacy setting.
+  const peerLastSeenQuery = trpc.me.peerLastSeen.useQuery(
+    { peerId },
+    { enabled: !!peerId, staleTime: 60_000, refetchOnWindowFocus: true },
+  );
+  const lastSeenLabel = peerLastSeenQuery.data?.lastSeenAt
+    ? formatLastSeen(peerLastSeenQuery.data.lastSeenAt)
+    : null;
+
   // Typing indicator (peer → us).
   const [peerTyping, setPeerTyping] = useState(false);
   useEffect(() => {
@@ -493,6 +502,8 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
                     <span className="w-1.5 h-1.5 rounded-full bg-green-400 inline-block" />
                     Online
                   </span>
+                ) : lastSeenLabel ? (
+                  <span>Last seen {lastSeenLabel}</span>
                 ) : (
                   <>
                     <LockIcon className="w-3 h-3" /> end-to-end encrypted
@@ -646,6 +657,41 @@ function Dot({ d }: { d: number }) {
       style={{ animationDelay: `${d}ms` }}
     />
   );
+}
+
+/**
+ * Format a lastSeenAt ISO timestamp into a human-friendly label.
+ * Examples: "today at 3:42 PM", "yesterday at 11:30 AM", "Monday at 9:00 AM"
+ */
+function formatLastSeen(iso: string): string {
+  const date = new Date(iso);
+  const now = new Date();
+
+  const timeStr = date.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterdayStart = new Date(dayStart.getTime() - 86_400_000);
+  const weekStart = new Date(dayStart.getTime() - 6 * 86_400_000);
+
+  if (date >= dayStart) {
+    return `today at ${timeStr}`;
+  }
+  if (date >= yesterdayStart) {
+    return `yesterday at ${timeStr}`;
+  }
+  if (date >= weekStart) {
+    const day = date.toLocaleDateString([], { weekday: "long" });
+    return `${day} at ${timeStr}`;
+  }
+  const dateStr = date.toLocaleDateString([], {
+    month: "short",
+    day: "numeric",
+    year: date.getFullYear() !== now.getFullYear() ? "numeric" : undefined,
+  });
+  return `${dateStr} at ${timeStr}`;
 }
 
 function ttlRemainingLabel(iso?: string): string | null {

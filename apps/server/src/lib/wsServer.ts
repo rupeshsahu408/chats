@@ -188,6 +188,12 @@ export async function registerWebSocketRoutes(
       clearInterval(heartbeat);
       unregisterSocket(userId, socket);
       void broadcastPresence(userId, false);
+      // Stamp lastSeenAt so the peer's "last seen" header shows an accurate time.
+      void getDb()
+        .update(schema.users)
+        .set({ lastSeenAt: new Date() })
+        .where(eq(schema.users.id, userId))
+        .catch(() => undefined);
     });
     socket.on("error", () => {
       clearInterval(heartbeat);

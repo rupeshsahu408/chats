@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import {
   PublicUserSchema,
@@ -84,5 +84,55 @@ export const meRouter = router({
     .output(z.object({ online: z.boolean() }))
     .query(({ input }) => {
       return { online: isOnline(input.peerId) };
+    }),
+
+  /**
+   * Returns the peer's last-seen timestamp, respecting their privacy setting.
+   * Returns null when the peer has hidden their last-seen from the requester.
+   */
+  peerLastSeen: protectedProcedure
+    .input(z.object({ peerId: UserIdSchema }))
+    .output(z.object({ lastSeenAt: z.string().nullable() }))
+    .query(async ({ ctx, input }) => {
+      const db = getDb();
+      const peer = await db
+        .select({
+          lastSeenAt: schema.users.lastSeenAt,
+          lastSeenPrivacy: schema.users.lastSeenPrivacy,
+        })
+        .from(schema.users)
+        .where(eq(schema.users.id, input.peerId))
+        .limit(1);
+
+      const row = peer[0];
+      if (!row) return { lastSeenAt: null };
+
+      const privacy = row.lastSeenPrivacy ?? "contacts";
+
+      if (privacy === "nobody") return { lastSeenAt: null };
+
+      if (privacy === "everyone") {
+        return { lastSeenAt: row.lastSeenAt?.toISOString() ?? null };
+      }
+
+      // privacy === "contacts" — only return if requester is a connection.
+      const [userA, userB] =
+        ctx.userId < input.peerId
+          ? [ctx.userId, input.peerId]
+          : [input.peerId, ctx.userId];
+
+      const conn = await db
+        .select({ id: schema.connections.userAId })
+        .from(schema.connections)
+        .where(
+          and(
+            eq(schema.connections.userAId, userA),
+            eq(schema.connections.userBId, userB),
+          ),
+        )
+        .limit(1);
+
+      if (conn.length === 0) return { lastSeenAt: null };
+      return { lastSeenAt: row.lastSeenAt?.toISOString() ?? null };
     }),
 });
