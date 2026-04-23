@@ -45,6 +45,11 @@ class VeilWebSocketClient {
 
   start(): void {
     this.wantOpen = true;
+    // Idempotent — connect() itself bails out if a socket is already
+    // open or connecting. Without this guard, calling start() on every
+    // token rotation would pile up parallel sockets and trigger the
+    // "WebSocket is closed before the connection is established"
+    // warning storm in production.
     this.connect();
   }
 
@@ -54,18 +59,19 @@ class VeilWebSocketClient {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
-    if (this.heartbeatTimer) {
-      clearInterval(this.heartbeatTimer);
-      this.heartbeatTimer = null;
-    }
+    this.clearTransportTimers();
     if (this.socket) {
+      const s = this.socket;
+      this.detachHandlers(s);
+      this.socket = null;
       try {
-        this.socket.close(1000, "client stop");
+        s.close(1000, "client stop");
       } catch {
         /* ignore */
       }
-      this.socket = null;
     }
+    this.currentToken = null;
+    this.reconnectAttempt = 0;
   }
 
   subscribe(fn: Listener): () => void {
@@ -94,19 +100,66 @@ class VeilWebSocketClient {
     if (token === this.currentToken) return;
     this.currentToken = token;
     if (this.wantOpen) {
-      if (this.socket) {
-        try {
-          this.socket.close(4000, "token refresh");
-        } catch {
-          /* ignore */
-        }
+      this.replaceSocket();
+    }
+  }
+
+  /**
+   * Tear down the current socket (if any) without letting its stale
+   * `onclose` clobber the brand-new socket we're about to create. We
+   * detach handlers first, then close, so the next connect() owns
+   * `this.socket` cleanly.
+   */
+  private replaceSocket(): void {
+    const stale = this.socket;
+    if (stale) {
+      this.detachHandlers(stale);
+      try {
+        stale.close(4000, "token refresh");
+      } catch {
+        /* ignore */
       }
-      this.connect();
+      this.socket = null;
+    }
+    this.clearTransportTimers();
+    this.connect();
+  }
+
+  private detachHandlers(s: WebSocket): void {
+    try {
+      s.onopen = null;
+      s.onmessage = null;
+      s.onclose = null;
+      s.onerror = null;
+    } catch {
+      /* ignore */
+    }
+  }
+
+  private clearTransportTimers(): void {
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
+    }
+    if (this.watchdogTimer) {
+      clearInterval(this.watchdogTimer);
+      this.watchdogTimer = null;
     }
   }
 
   private connect(): void {
     if (!this.wantOpen) return;
+    // Idempotent: don't pile up parallel sockets if one is already
+    // alive (or still negotiating). This is what was previously causing
+    // the "WebSocket is closed before the connection is established"
+    // warning storm whenever start()/refreshToken() ran twice in a row.
+    if (
+      this.socket &&
+      (this.socket.readyState === WebSocket.OPEN ||
+        this.socket.readyState === WebSocket.CONNECTING)
+    ) {
+      return;
+    }
     const token =
       this.currentToken ?? useAuthStore.getState().accessToken ?? null;
     if (!token) {
@@ -127,19 +180,21 @@ class VeilWebSocketClient {
     this.socket = socket;
 
     socket.onopen = () => {
+      // Guard against stale-socket callbacks: only act if this is the
+      // socket we currently own.
+      if (this.socket !== socket) return;
       this.reconnectAttempt = 0;
       this.lastIncomingAt = Date.now();
-      if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
+      this.clearTransportTimers();
       this.heartbeatTimer = setInterval(() => {
         this.send({ type: "ping", t: Date.now() });
       }, 25_000);
       // Watchdog: if we haven't heard anything (including pong) for 70s,
       // the socket is a zombie — force-close so we reconnect cleanly.
-      if (this.watchdogTimer) clearInterval(this.watchdogTimer);
       this.watchdogTimer = setInterval(() => {
-        if (Date.now() - this.lastIncomingAt > 70_000 && this.socket) {
+        if (Date.now() - this.lastIncomingAt > 70_000 && this.socket === socket) {
           try {
-            this.socket.close(4001, "watchdog");
+            socket.close(4001, "watchdog");
           } catch {
             /* ignore */
           }
@@ -148,7 +203,10 @@ class VeilWebSocketClient {
     };
 
     socket.onmessage = (ev) => {
-      this.lastIncomingAt = Date.now();
+      // Even messages on stale sockets are safe to dispatch (they
+      // already passed server auth), but we update lastIncomingAt only
+      // for the current one so the watchdog stays accurate.
+      if (this.socket === socket) this.lastIncomingAt = Date.now();
       let parsed: unknown;
       try {
         parsed = JSON.parse(typeof ev.data === "string" ? ev.data : "");
@@ -167,14 +225,11 @@ class VeilWebSocketClient {
     };
 
     socket.onclose = () => {
-      if (this.heartbeatTimer) {
-        clearInterval(this.heartbeatTimer);
-        this.heartbeatTimer = null;
-      }
-      if (this.watchdogTimer) {
-        clearInterval(this.watchdogTimer);
-        this.watchdogTimer = null;
-      }
+      // Ignore close events from stale sockets — they would otherwise
+      // null out `this.socket` (the brand-new one we just created) and
+      // trigger a spurious reconnect storm.
+      if (this.socket !== socket) return;
+      this.clearTransportTimers();
       this.socket = null;
       if (this.wantOpen) this.scheduleReconnect();
     };
