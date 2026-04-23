@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { trpc } from "../lib/trpc";
 import { useAuthStore } from "../lib/store";
@@ -9,6 +9,10 @@ import {
   Pill,
   ErrorMessage,
   LockIcon,
+  PrimaryButton,
+  SecondaryButton,
+  FieldLabel,
+  TextInput,
 } from "../components/Layout";
 import { MainShell } from "../components/MainShell";
 import { ScheduledMessagesSheet } from "../components/ScheduledMessagesSheet";
@@ -16,6 +20,7 @@ import { useThemeStore, type ThemeMode } from "../lib/themeStore";
 import { ensurePushSubscription, disablePushSubscription } from "../lib/push";
 import { clearIdentity } from "../lib/db";
 import { useStealthPrefs } from "../lib/stealthPrefs";
+import { resizeAvatarToDataUrl } from "../lib/avatar";
 
 export function SettingsPage() {
   const navigate = useNavigate();
@@ -77,21 +82,43 @@ export function SettingsPage() {
     navigate("/");
   }
 
+  const me = meQuery.data;
+  const headline =
+    me?.displayName?.trim() ||
+    (me?.username ? `@${me.username}` : "Your account");
+  const sub = me?.username ? `@${me.username}` : null;
+
   return (
     <MainShell active="settings" title="Settings">
       <div className="bg-panel">
         {/* Profile header */}
         <div className="flex items-center gap-4 px-4 py-5 border-b border-line">
-          <Avatar seed={user?.id ?? "self"} size={64} />
+          {me?.avatarDataUrl ? (
+            <img
+              src={me.avatarDataUrl}
+              alt=""
+              className="w-16 h-16 rounded-full object-cover ring-2 ring-line shrink-0"
+            />
+          ) : (
+            <Avatar
+              seed={me?.username || user?.id || "self"}
+              label={(me?.displayName || me?.username || "?").slice(0, 2)}
+              size={64}
+            />
+          )}
           <div className="min-w-0">
             <div className="font-semibold text-text text-lg truncate">
-              Your account
+              {headline}
             </div>
-            <div className="text-xs text-text-muted truncate font-mono">
-              {user?.id ?? "—"}
-            </div>
+            {sub && (
+              <div className="text-sm text-text-muted truncate">{sub}</div>
+            )}
+            {me?.bio && (
+              <div className="text-xs text-text-muted truncate mt-0.5">
+                {me.bio}
+              </div>
+            )}
             <div className="mt-1 flex items-center gap-2">
-              <Pill tone="accent">{user?.accountType ?? "—"}</Pill>
               {identity ? (
                 <Pill tone="ok">unlocked</Pill>
               ) : (
@@ -100,6 +127,12 @@ export function SettingsPage() {
             </div>
           </div>
         </div>
+
+        <SectionHeader>Profile</SectionHeader>
+        <ProfileEditor />
+
+        <SectionHeader>Security</SectionHeader>
+        <DailyPasswordEditor />
 
         <SectionHeader>Appearance</SectionHeader>
         <ThemeRow />
@@ -191,6 +224,399 @@ function SectionHeader({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
+
+/* ─────────── Profile editor (name / bio / photo) ─────────── */
+
+function ProfileEditor() {
+  const meQuery = trpc.me.get.useQuery(undefined, { retry: false });
+  const utils = trpc.useUtils();
+  const update = trpc.me.updateProfile.useMutation({
+    onSuccess: () => utils.me.get.invalidate(),
+  });
+
+  const [editing, setEditing] = useState<null | "name" | "bio" | "photo">(null);
+  const [displayName, setDisplayName] = useState("");
+  const [bio, setBio] = useState("");
+  const [avatarDataUrl, setAvatarDataUrl] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement | null>(null);
+
+  const me = meQuery.data;
+
+  function openName() {
+    setDisplayName(me?.displayName ?? "");
+    setError(null);
+    setEditing("name");
+  }
+  function openBio() {
+    setBio(me?.bio ?? "");
+    setError(null);
+    setEditing("bio");
+  }
+  function openPhoto() {
+    setAvatarDataUrl(me?.avatarDataUrl ?? null);
+    setError(null);
+    setEditing("photo");
+  }
+
+  async function saveName() {
+    setError(null);
+    setBusy(true);
+    try {
+      await update.mutateAsync({ displayName: displayName.trim() || null });
+      setEditing(null);
+    } catch (e) {
+      setError((e as { message?: string })?.message ?? "Update failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function saveBio() {
+    setError(null);
+    setBusy(true);
+    try {
+      await update.mutateAsync({ bio: bio.trim() || null });
+      setEditing(null);
+    } catch (e) {
+      setError((e as { message?: string })?.message ?? "Update failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function savePhoto() {
+    setError(null);
+    setBusy(true);
+    try {
+      await update.mutateAsync({ avatarDataUrl: avatarDataUrl ?? null });
+      setEditing(null);
+    } catch (e) {
+      setError((e as { message?: string })?.message ?? "Update failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setError(null);
+    setBusy(true);
+    try {
+      const url = await resizeAvatarToDataUrl(file);
+      setAvatarDataUrl(url);
+    } catch (ex) {
+      setError((ex as Error).message ?? "Could not load image.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
+      <SettingsRow
+        label="Name"
+        sub={me?.displayName?.trim() || "Add your display name"}
+        onClick={openName}
+      />
+      <SettingsRow
+        label="Bio"
+        sub={me?.bio?.trim() || "Add a short bio"}
+        onClick={openBio}
+      />
+      <SettingsRow
+        label="Profile photo"
+        sub={me?.avatarDataUrl ? "Tap to change or remove" : "Add a photo"}
+        onClick={openPhoto}
+      />
+
+      {editing && (
+        <Modal title={modalTitle(editing)} onClose={() => setEditing(null)}>
+          {editing === "name" && (
+            <>
+              <FieldLabel>Display name</FieldLabel>
+              <TextInput
+                autoFocus
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value.slice(0, 60))}
+                placeholder="Jane Doe"
+                autoComplete="name"
+              />
+              <p className="text-xs text-text-faint mt-1">
+                Optional. Up to 60 characters.
+              </p>
+              <ErrorMessage>{error}</ErrorMessage>
+              <div className="flex gap-2 mt-4">
+                <SecondaryButton onClick={() => setEditing(null)}>
+                  Cancel
+                </SecondaryButton>
+                <PrimaryButton onClick={saveName} loading={busy}>
+                  Save
+                </PrimaryButton>
+              </div>
+            </>
+          )}
+
+          {editing === "bio" && (
+            <>
+              <FieldLabel>Bio</FieldLabel>
+              <textarea
+                autoFocus
+                rows={3}
+                value={bio}
+                onChange={(e) => setBio(e.target.value.slice(0, 160))}
+                placeholder="Tell people a little about yourself"
+                className="w-full rounded-xl bg-surface border border-line text-text px-4 py-3 outline-none focus:border-wa-green transition resize-none text-sm"
+              />
+              <p className="text-xs text-text-faint text-right mt-1">
+                {bio.length}/160
+              </p>
+              <ErrorMessage>{error}</ErrorMessage>
+              <div className="flex gap-2 mt-4">
+                <SecondaryButton onClick={() => setEditing(null)}>
+                  Cancel
+                </SecondaryButton>
+                <PrimaryButton onClick={saveBio} loading={busy}>
+                  Save
+                </PrimaryButton>
+              </div>
+            </>
+          )}
+
+          {editing === "photo" && (
+            <>
+              <div className="flex flex-col items-center gap-3">
+                <div className="relative w-32 h-32 rounded-full overflow-hidden ring-2 ring-line bg-surface flex items-center justify-center">
+                  {avatarDataUrl ? (
+                    <img
+                      src={avatarDataUrl}
+                      alt=""
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-4xl font-semibold text-text-muted">
+                      {(me?.displayName || me?.username || "?")
+                        .charAt(0)
+                        .toUpperCase()}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <SecondaryButton onClick={() => fileRef.current?.click()}>
+                    {avatarDataUrl ? "Change photo" : "Choose photo"}
+                  </SecondaryButton>
+                  {avatarDataUrl && (
+                    <SecondaryButton onClick={() => setAvatarDataUrl(null)}>
+                      Remove
+                    </SecondaryButton>
+                  )}
+                </div>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={onPickFile}
+                  disabled={busy}
+                />
+                <p className="text-xs text-text-faint text-center">
+                  We'll resize it to 256×256.
+                </p>
+              </div>
+              <ErrorMessage>{error}</ErrorMessage>
+              <div className="flex gap-2 mt-4">
+                <SecondaryButton onClick={() => setEditing(null)}>
+                  Cancel
+                </SecondaryButton>
+                <PrimaryButton onClick={savePhoto} loading={busy}>
+                  Save
+                </PrimaryButton>
+              </div>
+            </>
+          )}
+        </Modal>
+      )}
+    </>
+  );
+}
+
+function modalTitle(s: "name" | "bio" | "photo"): string {
+  if (s === "name") return "Edit name";
+  if (s === "bio") return "Edit bio";
+  return "Profile photo";
+}
+
+/* ─────────── Daily verification password ─────────── */
+
+function DailyPasswordEditor() {
+  const set = trpc.auth.setVerificationPassword.useMutation();
+  const [open, setOpen] = useState(false);
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
+  const [confirmNext, setConfirmNext] = useState("");
+  const [show, setShow] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [okMsg, setOkMsg] = useState<string | null>(null);
+
+  function reset() {
+    setCurrent("");
+    setNext("");
+    setConfirmNext("");
+    setShow(false);
+    setError(null);
+  }
+
+  async function save() {
+    setError(null);
+    setOkMsg(null);
+    if (next.length < 8) {
+      setError("New password must be at least 8 characters.");
+      return;
+    }
+    if (next !== confirmNext) {
+      setError("Passwords don't match.");
+      return;
+    }
+    try {
+      await set.mutateAsync({
+        currentPassword: current || undefined,
+        newPassword: next,
+      });
+      setOkMsg("Daily verification password updated.");
+      setOpen(false);
+      reset();
+    } catch (e) {
+      setError(
+        (e as { message?: string })?.message ?? "Could not update password.",
+      );
+    }
+  }
+
+  return (
+    <>
+      <SettingsRow
+        label="Daily verification password"
+        sub={
+          okMsg ??
+          "Used every 24 hours to unlock the app. Tap to change."
+        }
+        onClick={() => {
+          reset();
+          setOkMsg(null);
+          setOpen(true);
+        }}
+      />
+
+      {open && (
+        <Modal
+          title="Change daily verification password"
+          onClose={() => {
+            setOpen(false);
+            reset();
+          }}
+        >
+          <div>
+            <FieldLabel>Current verification password</FieldLabel>
+            <TextInput
+              type={show ? "text" : "password"}
+              value={current}
+              onChange={(e) => setCurrent(e.target.value)}
+              placeholder="Leave blank if you never set one"
+              autoComplete="current-password"
+            />
+          </div>
+
+          <div className="mt-3">
+            <FieldLabel>New verification password</FieldLabel>
+            <TextInput
+              type={show ? "text" : "password"}
+              value={next}
+              onChange={(e) => setNext(e.target.value)}
+              placeholder="At least 8 characters"
+              autoComplete="new-password"
+            />
+          </div>
+
+          <div className="mt-3">
+            <FieldLabel>Confirm new password</FieldLabel>
+            <TextInput
+              type={show ? "text" : "password"}
+              value={confirmNext}
+              onChange={(e) => setConfirmNext(e.target.value)}
+              placeholder="Type it again"
+              autoComplete="new-password"
+            />
+          </div>
+
+          <label className="flex items-center gap-2 text-sm text-text-muted mt-3">
+            <input
+              type="checkbox"
+              checked={show}
+              onChange={(e) => setShow(e.target.checked)}
+              className="accent-wa-green"
+            />
+            Show passwords
+          </label>
+
+          <ErrorMessage>{error}</ErrorMessage>
+
+          <div className="flex gap-2 mt-4">
+            <SecondaryButton
+              onClick={() => {
+                setOpen(false);
+                reset();
+              }}
+            >
+              Cancel
+            </SecondaryButton>
+            <PrimaryButton onClick={save} loading={set.isPending}>
+              Save
+            </PrimaryButton>
+          </div>
+        </Modal>
+      )}
+    </>
+  );
+}
+
+/* ─────────── Generic modal ─────────── */
+
+function Modal({
+  title,
+  children,
+  onClose,
+}: {
+  title: string;
+  children: React.ReactNode;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-[90] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-sm rounded-2xl bg-bg border border-line p-5 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-text">{title}</h3>
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            className="text-text-muted hover:text-text text-2xl leading-none"
+          >
+            ×
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/* ─────────── Existing rows (unchanged) ─────────── */
 
 function PushRow() {
   const supported =

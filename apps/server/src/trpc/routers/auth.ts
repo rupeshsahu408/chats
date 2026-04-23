@@ -23,6 +23,8 @@ import {
   LoginRandomV2Input,
   VerifyDailyPasswordInput,
   VerifyDailyPasswordResult,
+  SetVerificationPasswordInput,
+  SetVerificationPasswordResult,
   type AuthResult,
 } from "@veil/shared";
 import {
@@ -848,6 +850,55 @@ export const authRouter = router({
         });
       }
       return { ok: true, verifiedAt: new Date().toISOString() };
+    }),
+
+  setVerificationPassword: protectedProcedure
+    .input(SetVerificationPasswordInput)
+    .output(SetVerificationPasswordResult)
+    .mutation(async ({ input, ctx }) => {
+      const userLimit = rateLimit({
+        key: `set-verify:user:${ctx.userId}`,
+        limit: 5,
+        windowSeconds: 10 * 60,
+      });
+      if (!userLimit.allowed) {
+        throw new TRPCError({
+          code: "TOO_MANY_REQUESTS",
+          message: "Too many attempts. Please wait a few minutes.",
+        });
+      }
+
+      const db = getDb();
+      const found = await db
+        .select({ hash: schema.users.verificationPasswordHash })
+        .from(schema.users)
+        .where(eq(schema.users.id, ctx.userId))
+        .limit(1);
+      const existing = found[0]?.hash ?? null;
+
+      if (existing) {
+        if (!input.currentPassword) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Current verification password is required.",
+          });
+        }
+        const ok = await bcrypt.compare(input.currentPassword, existing);
+        if (!ok) {
+          throw new TRPCError({
+            code: "UNAUTHORIZED",
+            message: "Current verification password is wrong.",
+          });
+        }
+      }
+
+      const newHash = await bcrypt.hash(input.newPassword, 12);
+      await db
+        .update(schema.users)
+        .set({ verificationPasswordHash: newHash })
+        .where(eq(schema.users.id, ctx.userId));
+
+      return { ok: true, updatedAt: new Date().toISOString() };
     }),
 
   /* ─────────── Session management ─────────── */

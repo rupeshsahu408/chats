@@ -652,6 +652,28 @@ export const VerifyDailyPasswordInput = z.object({
 });
 export type VerifyDailyPasswordInput = z.infer<typeof VerifyDailyPasswordInput>;
 
+/** Change the daily verification password (requires current one if set). */
+export const SetVerificationPasswordInput = z.object({
+  /**
+   * Current verification password. Required when one is already set.
+   * Can be omitted only by accounts that never picked one (legacy).
+   */
+  currentPassword: PasswordSchema.optional(),
+  newPassword: PasswordSchema,
+});
+export type SetVerificationPasswordInput = z.infer<
+  typeof SetVerificationPasswordInput
+>;
+
+export const SetVerificationPasswordResult = z.object({
+  ok: z.boolean(),
+  /** Server time the new password was stored, ISO 8601. */
+  updatedAt: z.string(),
+});
+export type SetVerificationPasswordResult = z.infer<
+  typeof SetVerificationPasswordResult
+>;
+
 export const VerifyDailyPasswordResult = z.object({
   ok: z.boolean(),
   /** Server time the verification was accepted, ISO 8601. */
