@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { trpc } from "../lib/trpc";
 import { useAuthStore } from "../lib/store";
@@ -41,6 +41,25 @@ export function ChatsPage() {
     [],
     [],
   );
+  const allChatPrefs = useLiveQuery(
+    () => db.chatPrefs.toArray(),
+    [],
+    [],
+  );
+  const pinnedPeers = useMemo(() => {
+    const set = new Set<string>();
+    for (const p of allChatPrefs ?? []) if (p.pinnedToTop) set.add(p.peerId);
+    return set;
+  }, [allChatPrefs]);
+  const mutedPeers = useMemo(() => {
+    const set = new Set<string>();
+    const now = Date.now();
+    for (const p of allChatPrefs ?? []) {
+      if (p.mutedUntil && new Date(p.mutedUntil).getTime() > now)
+        set.add(p.peerId);
+    }
+    return set;
+  }, [allChatPrefs]);
 
   useEffect(() => {
     if (!accessToken) navigate("/");
@@ -102,6 +121,10 @@ export function ChatsPage() {
       );
     })
     .sort((a, b) => {
+      // Pinned chats float to the top regardless of recency.
+      const ap = pinnedPeers.has(a.conn.peer.id) ? 1 : 0;
+      const bp = pinnedPeers.has(b.conn.peer.id) ? 1 : 0;
+      if (ap !== bp) return bp - ap;
       const at = a.last?.createdAt ?? "";
       const bt = b.last?.createdAt ?? "";
       return bt.localeCompare(at);
@@ -206,7 +229,17 @@ export function ChatsPage() {
                     </span>
                   ) : undefined
                 }
-                meta={last ? formatTime(last.createdAt) : undefined}
+                meta={
+                  <span className="inline-flex items-center gap-1">
+                    {pinnedPeers.has(conn.peer.id) && (
+                      <span title="Pinned" className="text-text-muted">📌</span>
+                    )}
+                    {mutedPeers.has(conn.peer.id) && (
+                      <span title="Muted" className="text-text-muted">🔕</span>
+                    )}
+                    {last && <span>{formatTime(last.createdAt)}</span>}
+                  </span>
+                }
                 badge={<UnreadBadge count={0} />}
               />
             ))

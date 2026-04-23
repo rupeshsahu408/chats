@@ -13,6 +13,7 @@ import {
   tombstoneChatMessageByServerId,
   tombstoneChatMessageById,
   applyReactionByServerId,
+  applyEditByServerId,
   db,
 } from "./db";
 import { decryptFromPeer, encryptToPeer } from "./signal/session";
@@ -104,6 +105,10 @@ async function applySideEffectEnvelope(
   }
   if (env.t === "rxn") {
     await applyReactionByServerId(env.target, fromUserId, env.emoji);
+    return true;
+  }
+  if (env.t === "edit") {
+    await applyEditByServerId(env.target, env.body, env.editedAt);
     return true;
   }
   return false;
@@ -437,6 +442,42 @@ export async function deleteMessageForEveryone(
     await trpcClientProxy().messages.deleteForEveryone.mutate({ id: row.serverId });
   } catch (e) {
     console.warn("delete-for-everyone server wipe failed", e);
+  }
+}
+
+/**
+ * Edit a previously-sent text message. Optimistically rewrites the
+ * local row's plaintext, then sends an `edit` envelope to the peer.
+ *
+ * Caller must pass a row that the current user actually sent and that
+ * has a server id (i.e. `pending`/`failed` rows can't be edited yet).
+ */
+export async function editChatMessage(
+  identity: UnlockedIdentity,
+  peerId: string,
+  row: ChatMessageRecord,
+  newBody: string,
+): Promise<void> {
+  if (!row.serverId) {
+    throw new Error("Message hasn't been sent yet — can't edit it.");
+  }
+  if (row.attachment) {
+    throw new Error("Only text messages can be edited.");
+  }
+  const editedAt = new Date().toISOString();
+  await applyEditByServerId(row.serverId, newBody, editedAt);
+  const env: ChatEnvelope = {
+    v: 2,
+    t: "edit",
+    target: row.serverId,
+    body: newBody,
+    editedAt,
+  };
+  try {
+    await transmitSideEffectEnvelope(identity, peerId, env);
+  } catch (e) {
+    console.warn("edit envelope failed", e);
+    throw e;
   }
 }
 

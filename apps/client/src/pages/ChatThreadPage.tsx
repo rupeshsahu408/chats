@@ -12,6 +12,9 @@ import {
   type ChatPrefRecord,
   deleteChatMessageById,
   tombstoneChatMessageById,
+  setChatMessageStarred,
+  setChatMessagePinned,
+  clearChatHistory,
 } from "../lib/db";
 import {
   consumeViewOnce,
@@ -21,6 +24,7 @@ import {
   sendChatMessage,
   sendReaction,
   deleteMessageForEveryone,
+  editChatMessage,
 } from "../lib/messageSync";
 import { EmojiPicker, ReactionPicker } from "../components/EmojiPicker";
 import { wsClient, wsTyping } from "../lib/wsClient";
@@ -42,6 +46,17 @@ import {
   TrashIcon,
   SendIcon,
   Spinner,
+  ReplyIcon,
+  SmileIcon,
+  StarIcon,
+  PinIcon,
+  CopyIcon,
+  ForwardIcon,
+  InfoIcon,
+  EditIcon,
+  BellOffIcon,
+  FlagIcon,
+  SearchIcon,
 } from "../components/Layout";
 import { UnlockGate } from "../components/UnlockGate";
 import {
@@ -135,6 +150,10 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
   const ttlSeconds = chatPref?.ttlSeconds ?? 0;
   const viewOnceDefault = chatPref?.viewOnceDefault ?? false;
   const biometricCredentialId = chatPref?.biometricCredentialId;
+  const pinnedToTop = !!chatPref?.pinnedToTop;
+  const mutedUntilIso = chatPref?.mutedUntil ?? "";
+  const isMuted =
+    !!mutedUntilIso && new Date(mutedUntilIso).getTime() > Date.now();
 
   // Biometric gate — must verify per visit if a credential is registered.
   const [unlocked, setUnlocked] = useState<boolean>(!biometricCredentialId);
@@ -162,8 +181,11 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState<
-    null | "main" | "ttl" | "safety" | "report"
+    null | "main" | "ttl" | "safety" | "report" | "starred"
   >(null);
+  /** Header search bar (in-chat search) visibility + query. */
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Per-message UX state: which message currently has the floating
   // action bar open, which one is showing the reaction picker, and the
@@ -171,10 +193,27 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
   const [actionFor, setActionFor] = useState<ChatMessageRecord | null>(null);
   const [reactFor, setReactFor] = useState<ChatMessageRecord | null>(null);
   const [deleteFor, setDeleteFor] = useState<ChatMessageRecord | null>(null);
+  const [editFor, setEditFor] = useState<ChatMessageRecord | null>(null);
+  const [infoFor, setInfoFor] = useState<ChatMessageRecord | null>(null);
   const [replyTo, setReplyTo] = useState<{
     row: ChatMessageRecord;
     ref: EnvelopeReplyRef;
   } | null>(null);
+
+  /** The single pinned message in this thread, if any (WhatsApp-style). */
+  const pinnedMessage = useMemo(
+    () => (messages ?? []).find((m) => m.pinned && !m.deleted) ?? null,
+    [messages],
+  );
+
+  /** Filter messages by the current in-chat search query (case-insensitive). */
+  const filteredMessages = useMemo(() => {
+    if (!searchOpen || !searchQuery.trim()) return messages ?? [];
+    const q = searchQuery.trim().toLowerCase();
+    return (messages ?? []).filter((m) =>
+      (m.plaintext ?? "").toLowerCase().includes(q),
+    );
+  }, [messages, searchOpen, searchQuery]);
 
   /** Build a reply ref from a row the user just tapped "Reply" on. */
   const buildReplyRef = useCallback(
@@ -579,43 +618,100 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
         }
         back="/chats"
         right={
-          <IconButton
-            label="More"
-            className="text-text-oncolor"
-            onClick={() => setMenuOpen("main")}
-          >
-            <MoreVerticalIcon />
-          </IconButton>
+          <div className="flex items-center gap-1">
+            {isMuted && (
+              <span
+                className="text-text-oncolor/80"
+                title={`Muted until ${new Date(mutedUntilIso).toLocaleString()}`}
+              >
+                <BellOffIcon className="w-4 h-4" />
+              </span>
+            )}
+            <IconButton
+              label="Search"
+              className="text-text-oncolor"
+              onClick={() => setSearchOpen((v) => !v)}
+            >
+              <SearchIcon />
+            </IconButton>
+            <IconButton
+              label="More"
+              className="text-text-oncolor"
+              onClick={() => setMenuOpen("main")}
+            >
+              <MoreVerticalIcon />
+            </IconButton>
+          </div>
         }
       />
+
+      {pinnedMessage && (
+        <PinnedMessageBanner
+          row={pinnedMessage}
+          onJump={() => pinnedMessage.serverId && onScrollToMessage(pinnedMessage.serverId)}
+          onUnpin={async () => {
+            if (pinnedMessage.id !== undefined)
+              await setChatMessagePinned(pinnedMessage.id, peerId, false);
+          }}
+        />
+      )}
+
+      {searchOpen && (
+        <div className="px-3 py-2 bg-panel border-b border-line flex items-center gap-2">
+          <SearchIcon className="text-text-muted" />
+          <input
+            autoFocus
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search in this chat…"
+            className="flex-1 bg-transparent text-text placeholder:text-text-muted outline-none text-sm"
+          />
+          <button
+            type="button"
+            onClick={() => {
+              setSearchOpen(false);
+              setSearchQuery("");
+            }}
+            className="text-text-muted text-xs px-2 py-1"
+          >
+            Close
+          </button>
+        </div>
+      )}
 
       <div
         ref={scrollRef}
         className="flex-1 min-h-0 overflow-y-auto bg-bg bg-chat-wallpaper bg-wallpaper px-3 py-4 flex flex-col gap-1"
       >
-        {!messages || messages.length === 0 ? (
+        {!filteredMessages || filteredMessages.length === 0 ? (
           <EmptyState
-            title="No messages yet"
-            message="Say hi to start the conversation."
+            title={searchOpen && searchQuery ? "No matches" : "No messages yet"}
+            message={
+              searchOpen && searchQuery
+                ? "Try a different search term."
+                : "Say hi to start the conversation."
+            }
           />
         ) : (
           (() => {
             // Index of the most-recent outbound "read" message — the
             // only one that gets a "Seen X ago" caption (Instagram-style).
             let lastReadOutIdx = -1;
-            for (let i = messages.length - 1; i >= 0; i--) {
-              const mm = messages[i]!;
+            for (let i = filteredMessages.length - 1; i >= 0; i--) {
+              const mm = filteredMessages[i]!;
               if (mm.direction === "out" && mm.status === "read" && mm.readAt) {
                 lastReadOutIdx = i;
                 break;
               }
             }
-            return messages.map((m, i) => (
+            return filteredMessages.map((m, i) => (
               <MessageRowSlot
                 key={m.id}
                 m={m}
                 myUserId={myId}
                 onAction={(row) => setActionFor(row)}
+                onQuickReply={(row) => setReplyTo({ row, ref: buildReplyRef(row) })}
+                onQuickReact={(row) => setReactFor(row)}
                 onJumpTo={onScrollToMessage}
                 showSeenAfter={i === lastReadOutIdx && m.readAt ? m.readAt : null}
               />
@@ -672,9 +768,80 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
             setReactFor(actionFor);
             setActionFor(null);
           }}
+          onEdit={() => {
+            setEditFor(actionFor);
+            setActionFor(null);
+          }}
+          onCopy={async () => {
+            const text = actionFor.plaintext ?? "";
+            setActionFor(null);
+            try {
+              await navigator.clipboard.writeText(text);
+            } catch {
+              setError("Couldn't copy to clipboard.");
+            }
+          }}
+          onStar={async () => {
+            const id = actionFor.id;
+            const next = !actionFor.starred;
+            setActionFor(null);
+            if (id !== undefined) await setChatMessageStarred(id, next);
+          }}
+          onPin={async () => {
+            const id = actionFor.id;
+            const next = !actionFor.pinned;
+            setActionFor(null);
+            if (id !== undefined) await setChatMessagePinned(id, peerId, next);
+          }}
+          onInfo={() => {
+            setInfoFor(actionFor);
+            setActionFor(null);
+          }}
           onDelete={() => {
             setDeleteFor(actionFor);
             setActionFor(null);
+          }}
+          onForward={() => {
+            const text = actionFor.plaintext ?? "";
+            setActionFor(null);
+            // Lightweight forward: pre-fill the composer. Full
+            // contact-picker forward is a Phase 2 feature.
+            if (text) setDraft((d) => (d ? d + "\n" + text : text));
+          }}
+          onReport={() => {
+            setActionFor(null);
+            setMenuOpen("report");
+          }}
+        />
+      )}
+
+      {editFor && (
+        <EditMessageDialog
+          row={editFor}
+          onClose={() => setEditFor(null)}
+          onSubmit={async (newBody) => {
+            const target = editFor;
+            setEditFor(null);
+            try {
+              await editChatMessage(identity, peerId, target, newBody);
+            } catch (e) {
+              setError(e instanceof Error ? e.message : "Couldn't edit message.");
+            }
+          }}
+        />
+      )}
+
+      {infoFor && (
+        <MessageInfoDialog row={infoFor} onClose={() => setInfoFor(null)} />
+      )}
+
+      {menuOpen === "starred" && (
+        <StarredMessagesDialog
+          peerId={peerId}
+          onClose={() => setMenuOpen(null)}
+          onJump={(serverId) => {
+            setMenuOpen(null);
+            onScrollToMessage(serverId);
           }}
         />
       )}
@@ -756,6 +923,34 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
             }
           }}
           onReport={() => setMenuOpen("report")}
+          pinnedToTop={pinnedToTop}
+          onTogglePinChat={() =>
+            void setChatPref(peerId, { pinnedToTop: !pinnedToTop })
+          }
+          isMuted={isMuted}
+          onToggleMute={() => {
+            if (isMuted) {
+              void setChatPref(peerId, { mutedUntil: "" });
+            } else {
+              // Mute for 8 hours by default — matches WhatsApp's middle option.
+              const until = new Date(
+                Date.now() + 8 * 60 * 60 * 1000,
+              ).toISOString();
+              void setChatPref(peerId, { mutedUntil: until });
+            }
+          }}
+          onSearch={() => setSearchOpen(true)}
+          onClearChat={() => {
+            if (
+              confirm(
+                `Clear all messages with ${displayName}? This only affects this device.`,
+              )
+            ) {
+              void clearChatHistory(peerId);
+            }
+            setMenuOpen(null);
+          }}
+          onShowStarred={() => setMenuOpen("starred")}
         />
       )}
       {menuOpen === "ttl" && (
@@ -913,12 +1108,16 @@ function MessageRowSlot({
   m,
   myUserId,
   onAction,
+  onQuickReply,
+  onQuickReact,
   onJumpTo,
   showSeenAfter,
 }: {
   m: ChatMessageRecord;
   myUserId: string;
   onAction: (row: ChatMessageRecord) => void;
+  onQuickReply: (row: ChatMessageRecord) => void;
+  onQuickReact: (row: ChatMessageRecord) => void;
   onJumpTo: (serverId: string) => void;
   showSeenAfter: string | null;
 }) {
@@ -932,7 +1131,7 @@ function MessageRowSlot({
   return (
     <div
       data-server-id={m.serverId ?? ""}
-      className="flex flex-col transition-shadow rounded-md"
+      className="group flex flex-col transition-shadow rounded-md"
       onContextMenu={(e) => {
         e.preventDefault();
         trigger();
@@ -961,6 +1160,8 @@ function MessageRowSlot({
         m={m}
         myUserId={myUserId}
         onAction={onAction}
+        onQuickReply={onQuickReply}
+        onQuickReact={onQuickReact}
         onJumpTo={onJumpTo}
       />
       {showSeenAfter && <SeenIndicator readAt={showSeenAfter} />}
@@ -972,13 +1173,26 @@ function MessageRow({
   m,
   myUserId,
   onAction,
+  onQuickReply,
+  onQuickReact,
   onJumpTo,
 }: {
   m: ChatMessageRecord;
   myUserId: string;
   onAction: (row: ChatMessageRecord) => void;
+  onQuickReply: (row: ChatMessageRecord) => void;
+  onQuickReact: (row: ChatMessageRecord) => void;
   onJumpTo: (serverId: string) => void;
 }) {
+  // Single 3-icon toolbar reused on every bubble variant.
+  const toolbar = !m.deleted ? (
+    <BubbleHoverAction
+      direction={m.direction}
+      onMenu={() => onAction(m)}
+      onReply={() => onQuickReply(m)}
+      onReact={() => onQuickReact(m)}
+    />
+  ) : null;
   const time = new Date(m.createdAt).toLocaleTimeString([], {
     hour: "2-digit",
     minute: "2-digit",
@@ -1023,12 +1237,29 @@ function MessageRow({
       />
     ) : null;
 
+  // Pin badge + edited label live inside the bubble's footer area.
+  const pinnedBadge = m.pinned ? (
+    <span className="ml-1 text-[10px] text-text-muted inline-flex items-center gap-0.5" title="Pinned">
+      <PinIcon className="w-3 h-3" />
+    </span>
+  ) : null;
+  const starredBadge = m.starred ? (
+    <span className="ml-1 text-[10px] text-yellow-400" title="Starred">★</span>
+  ) : null;
+  const editedLabel = m.editedAt ? (
+    <span className="ml-1 text-[10px] text-text-muted italic">(edited)</span>
+  ) : null;
+  const rowDir = m.direction === "out" ? "justify-end" : "justify-start";
+
   if (m.viewOnce) {
     return (
       <>
         {replyChip && <div className={m.direction === "out" ? "self-end" : "self-start"}>{replyChip}</div>}
-        <ViewOnceBubble m={m} time={time} />
-        <BubbleHoverAction direction={m.direction} onClick={() => onAction(m)} />
+        <div className={"flex items-stretch gap-1 " + rowDir}>
+          {m.direction === "out" && toolbar}
+          <ViewOnceBubble m={m} time={time} />
+          {m.direction === "in" && toolbar}
+        </div>
         {reactionsRow}
       </>
     );
@@ -1036,13 +1267,16 @@ function MessageRow({
   if (m.attachment?.kind === "image") {
     return (
       <>
-        <MessageBubble direction={m.direction} status={m.status} time={time}>
-          {replyChip}
-          <ImageAttachment att={m.attachment} />
-          {m.plaintext && <div className="mt-1">{m.plaintext}</div>}
-          {ttlBadge}
-        </MessageBubble>
-        <BubbleHoverAction direction={m.direction} onClick={() => onAction(m)} />
+        <div className={"flex items-stretch gap-1 " + rowDir}>
+          {m.direction === "out" && toolbar}
+          <MessageBubble direction={m.direction} status={m.status} time={time}>
+            {replyChip}
+            <ImageAttachment att={m.attachment} />
+            {m.plaintext && <div className="mt-1">{m.plaintext}</div>}
+            {ttlBadge}{pinnedBadge}{starredBadge}
+          </MessageBubble>
+          {m.direction === "in" && toolbar}
+        </div>
         {reactionsRow}
       </>
     );
@@ -1050,25 +1284,31 @@ function MessageRow({
   if (m.attachment?.kind === "voice") {
     return (
       <>
-        <MessageBubble direction={m.direction} status={m.status} time={time}>
-          {replyChip}
-          <VoiceAttachment att={m.attachment} />
-          {ttlBadge}
-        </MessageBubble>
-        <BubbleHoverAction direction={m.direction} onClick={() => onAction(m)} />
+        <div className={"flex items-stretch gap-1 " + rowDir}>
+          {m.direction === "out" && toolbar}
+          <MessageBubble direction={m.direction} status={m.status} time={time}>
+            {replyChip}
+            <VoiceAttachment att={m.attachment} />
+            {ttlBadge}{pinnedBadge}{starredBadge}
+          </MessageBubble>
+          {m.direction === "in" && toolbar}
+        </div>
         {reactionsRow}
       </>
     );
   }
   return (
     <>
-      <MessageBubble direction={m.direction} status={m.status} time={time}>
-        {replyChip}
-        {m.plaintext}
-        {m.linkPreview && <LinkPreviewBlock preview={m.linkPreview} />}
-        {ttlBadge}
-      </MessageBubble>
-      <BubbleHoverAction direction={m.direction} onClick={() => onAction(m)} />
+      <div className={"flex items-stretch gap-1 " + rowDir}>
+        {m.direction === "out" && toolbar}
+        <MessageBubble direction={m.direction} status={m.status} time={time}>
+          {replyChip}
+          {m.plaintext}
+          {m.linkPreview && <LinkPreviewBlock preview={m.linkPreview} />}
+          {editedLabel}{ttlBadge}{pinnedBadge}{starredBadge}
+        </MessageBubble>
+        {m.direction === "in" && toolbar}
+      </div>
       {reactionsRow}
     </>
   );
@@ -1165,25 +1405,60 @@ function ReactionsStrip({
  * hover, mirroring WhatsApp's behaviour. Mobile users use long-press
  * on the surrounding row instead.
  */
+/**
+ * Instagram-style 3-icon toolbar shown next to a message bubble on
+ * hover (desktop) or long-press (mobile). The three actions are:
+ *   1. ⋮  → open the full per-message menu
+ *   2. ↩  → quick reply
+ *   3. 😊 → quick react
+ *
+ * The toolbar is rendered as a single sibling of the bubble inside a
+ * `group` wrapper, so all three buttons fade in together when the user
+ * hovers anywhere on the row.
+ */
 function BubbleHoverAction({
   direction,
-  onClick,
+  onMenu,
+  onReply,
+  onReact,
 }: {
   direction: "in" | "out";
-  onClick: () => void;
+  onMenu: () => void;
+  onReply: () => void;
+  onReact: () => void;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label="Message actions"
+    <div
       className={
-        "hidden sm:flex -mt-1 size-5 rounded-full bg-surface/80 border border-line text-text-muted opacity-0 group-hover:opacity-100 transition items-center justify-center text-[10px] " +
-        (direction === "out" ? "self-end mr-1" : "self-start ml-1")
+        "flex items-center gap-1 self-center opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition " +
+        (direction === "out" ? "order-first mr-1" : "ml-1")
       }
     >
-      ▾
-    </button>
+      <button
+        type="button"
+        onClick={onMenu}
+        aria-label="More actions"
+        className="size-7 rounded-full bg-surface/90 border border-line text-text-muted hover:text-text hover:bg-surface flex items-center justify-center"
+      >
+        <MoreVerticalIcon className="w-4 h-4" />
+      </button>
+      <button
+        type="button"
+        onClick={onReply}
+        aria-label="Reply"
+        className="size-7 rounded-full bg-surface/90 border border-line text-text-muted hover:text-text hover:bg-surface flex items-center justify-center"
+      >
+        <ReplyIcon className="w-4 h-4" />
+      </button>
+      <button
+        type="button"
+        onClick={onReact}
+        aria-label="React"
+        className="size-7 rounded-full bg-surface/90 border border-line text-text-muted hover:text-text hover:bg-surface flex items-center justify-center"
+      >
+        <SmileIcon className="w-4 h-4" />
+      </button>
+    </div>
   );
 }
 
@@ -1514,6 +1789,13 @@ function ChatMenu({
   blockedByMe,
   onToggleBlock,
   onReport,
+  pinnedToTop,
+  onTogglePinChat,
+  isMuted,
+  onToggleMute,
+  onSearch,
+  onClearChat,
+  onShowStarred,
 }: {
   onClose: () => void;
   ttlLabel: string;
@@ -1526,9 +1808,44 @@ function ChatMenu({
   blockedByMe: boolean;
   onToggleBlock: () => void;
   onReport: () => void;
+  pinnedToTop: boolean;
+  onTogglePinChat: () => void;
+  isMuted: boolean;
+  onToggleMute: () => void;
+  onSearch: () => void;
+  onClearChat: () => void;
+  onShowStarred: () => void;
 }) {
   return (
     <Sheet onClose={onClose}>
+      <MenuItem
+        label={pinnedToTop ? "Unpin chat" : "Pin chat to top"}
+        onClick={() => {
+          onTogglePinChat();
+          onClose();
+        }}
+      />
+      <MenuItem
+        label={isMuted ? "Unmute notifications" : "Mute notifications"}
+        onClick={() => {
+          onToggleMute();
+          onClose();
+        }}
+      />
+      <MenuItem
+        label="Search in chat"
+        onClick={() => {
+          onSearch();
+          onClose();
+        }}
+      />
+      <MenuItem
+        label="Starred messages"
+        onClick={() => {
+          onShowStarred();
+          onClose();
+        }}
+      />
       <MenuItem label={`Disappearing messages · ${ttlLabel}`} onClick={onTTL} />
       <MenuItem
         label={`View-once images: ${viewOnceDefault ? "On" : "Off"}`}
@@ -1546,6 +1863,7 @@ function ChatMenu({
         }}
         danger={biometricEnabled}
       />
+      <MenuItem label="Clear chat" onClick={onClearChat} danger />
       <MenuItem
         label={blockedByMe ? "Unblock contact" : "Block contact"}
         onClick={onToggleBlock}
@@ -2100,20 +2418,45 @@ void envelopePreview;
  * delete dialog and reaction picker are spawned by the parent via the
  * `onDelete` / `onReact` callbacks.
  */
+/** 15-minute edit window mirrors WhatsApp's policy. Client-side only. */
+const EDIT_WINDOW_MS = 15 * 60 * 1000;
+
 function MessageActionMenu({
   row,
   onClose,
   onReply,
   onReact,
+  onEdit,
+  onCopy,
+  onStar,
+  onPin,
+  onInfo,
   onDelete,
+  onForward,
+  onReport,
 }: {
   row: ChatMessageRecord;
   onClose: () => void;
   onReply: () => void;
   onReact: () => void;
+  onEdit: () => void;
+  onCopy: () => void;
+  onStar: () => void;
+  onPin: () => void;
+  onInfo: () => void;
   onDelete: () => void;
+  onForward: () => void;
+  onReport: () => void;
 }) {
   const isOut = row.direction === "out";
+  const hasText = !!row.plaintext && row.plaintext.length > 0;
+  const isEditable =
+    isOut &&
+    !!row.serverId &&
+    !row.deleted &&
+    !row.attachment &&
+    hasText &&
+    Date.now() - new Date(row.createdAt).getTime() < EDIT_WINDOW_MS;
   return (
     <div
       className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center sm:justify-center"
@@ -2122,30 +2465,53 @@ function MessageActionMenu({
       aria-label="Message actions"
     >
       <div
-        className="w-full sm:max-w-sm bg-surface rounded-t-2xl sm:rounded-2xl border border-line shadow-sheet"
+        className="w-full sm:max-w-sm bg-surface rounded-t-2xl sm:rounded-2xl border border-line shadow-sheet max-h-[85vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        <ActionRow icon="↩" label="Reply" onClick={onReply} />
+        <ActionRow Icon={ReplyIcon} label="Reply" onClick={onReply} />
         <ActionRow
-          icon="😊"
+          Icon={SmileIcon}
           label="React"
           onClick={onReact}
           disabled={!row.serverId}
           hint={!row.serverId ? "Wait until sent" : undefined}
         />
-        {isOut && (
-          <ActionRow
-            icon="🗑"
-            label="Delete message"
-            onClick={onDelete}
-            destructive
-          />
+        {isEditable && (
+          <ActionRow Icon={EditIcon} label="Edit" onClick={onEdit} />
         )}
+        {hasText && (
+          <ActionRow Icon={CopyIcon} label="Copy" onClick={onCopy} />
+        )}
+        <ActionRow
+          Icon={(p) => <StarIcon {...p} filled={!!row.starred} />}
+          label={row.starred ? "Unstar" : "Star"}
+          onClick={onStar}
+        />
+        <ActionRow
+          Icon={PinIcon}
+          label={row.pinned ? "Unpin" : "Pin"}
+          onClick={onPin}
+          disabled={!row.serverId}
+        />
+        <ActionRow
+          Icon={ForwardIcon}
+          label="Forward"
+          onClick={onForward}
+        />
+        {isOut && (
+          <ActionRow Icon={InfoIcon} label="Info" onClick={onInfo} />
+        )}
+        <ActionRow
+          Icon={TrashIcon}
+          label={isOut ? "Delete message" : "Delete for me"}
+          onClick={onDelete}
+          destructive
+        />
         {!isOut && (
           <ActionRow
-            icon="🗑"
-            label="Delete for me"
-            onClick={onDelete}
+            Icon={FlagIcon}
+            label="Report"
+            onClick={onReport}
             destructive
           />
         )}
@@ -2162,14 +2528,14 @@ function MessageActionMenu({
 }
 
 function ActionRow({
-  icon,
+  Icon,
   label,
   onClick,
   destructive,
   disabled,
   hint,
 }: {
-  icon: string;
+  Icon: (props: { className?: string }) => JSX.Element;
   label: string;
   onClick: () => void;
   destructive?: boolean;
@@ -2187,7 +2553,9 @@ function ActionRow({
         " hover:bg-white/5"
       }
     >
-      <span className="text-xl w-6 text-center">{icon}</span>
+      <span className="w-6 flex items-center justify-center">
+        <Icon className="w-5 h-5" />
+      </span>
       <span className="flex-1">{label}</span>
       {hint && <span className="text-xs text-text-muted">{hint}</span>}
     </button>
@@ -2289,6 +2657,257 @@ function DeleteMessageDialog({
             Cancel
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/* ───────────── Phase-1 polish components: pin banner, edit, info, starred ───────────── */
+
+/**
+ * Sticky banner under the AppBar showing the currently-pinned message.
+ * Tap to scroll to the original; long-press the pin icon to unpin.
+ */
+function PinnedMessageBanner({
+  row,
+  onJump,
+  onUnpin,
+}: {
+  row: ChatMessageRecord;
+  onJump: () => void;
+  onUnpin: () => void;
+}) {
+  const preview = row.deleted
+    ? "Message deleted"
+    : row.attachment?.kind === "image"
+      ? "📷 Photo"
+      : row.attachment?.kind === "voice"
+        ? "🎙 Voice message"
+        : (row.plaintext ?? "").slice(0, 80);
+  return (
+    <div className="px-3 py-2 bg-panel/90 border-b border-line flex items-center gap-2">
+      <PinIcon className="w-4 h-4 text-wa-green" />
+      <button
+        type="button"
+        onClick={onJump}
+        className="flex-1 text-left min-w-0"
+      >
+        <div className="text-[10px] uppercase tracking-wide text-text-muted">
+          Pinned message
+        </div>
+        <div className="text-sm text-text truncate">{preview || "—"}</div>
+      </button>
+      <button
+        type="button"
+        onClick={onUnpin}
+        aria-label="Unpin"
+        className="text-text-muted hover:text-text px-1"
+      >
+        ×
+      </button>
+    </div>
+  );
+}
+
+/**
+ * Edit dialog for an outbound text message. Pre-fills the existing
+ * body, enforces the 15-minute window client-side, and submits the
+ * edit via `editChatMessage` (which transmits a `t:"edit"` envelope).
+ */
+function EditMessageDialog({
+  row,
+  onClose,
+  onSubmit,
+}: {
+  row: ChatMessageRecord;
+  onClose: () => void;
+  onSubmit: (newBody: string) => Promise<void>;
+}) {
+  const [text, setText] = useState(row.plaintext ?? "");
+  const [busy, setBusy] = useState(false);
+  const trimmed = text.trim();
+  const unchanged = trimmed === (row.plaintext ?? "").trim();
+  const tooOld =
+    Date.now() - new Date(row.createdAt).getTime() >= EDIT_WINDOW_MS;
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center px-4"
+      onClick={onClose}
+      role="dialog"
+      aria-label="Edit message"
+    >
+      <div
+        className="w-full max-w-md bg-surface rounded-2xl border border-line shadow-sheet p-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="text-base font-semibold text-text mb-1">
+          Edit message
+        </div>
+        <div className="text-xs text-text-muted mb-3">
+          Edits are visible to your contact and tagged "(edited)". You
+          can edit a message for up to 15 minutes after sending.
+        </div>
+        <textarea
+          autoFocus
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          rows={4}
+          maxLength={4000}
+          className="w-full bg-bg text-text rounded-md p-2 outline-none border border-line text-sm mb-3 resize-none"
+        />
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 rounded-xl text-text-muted hover:bg-white/5 text-sm"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            disabled={busy || !trimmed || unchanged || tooOld}
+            onClick={async () => {
+              setBusy(true);
+              try {
+                await onSubmit(trimmed);
+              } finally {
+                setBusy(false);
+              }
+            }}
+            className="px-4 py-2 rounded-xl bg-wa-green text-text-oncolor disabled:opacity-50 text-sm font-medium"
+          >
+            {tooOld ? "Too old" : busy ? "Saving…" : "Save"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Read-only sheet showing delivery + read timestamps for a message. */
+function MessageInfoDialog({
+  row,
+  onClose,
+}: {
+  row: ChatMessageRecord;
+  onClose: () => void;
+}) {
+  const fmt = (iso?: string) =>
+    iso ? new Date(iso).toLocaleString() : "—";
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center sm:justify-center"
+      onClick={onClose}
+      role="dialog"
+      aria-label="Message info"
+    >
+      <div
+        className="w-full sm:max-w-sm bg-surface rounded-t-2xl sm:rounded-2xl border border-line shadow-sheet p-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="text-base font-semibold text-text mb-3">
+          Message info
+        </div>
+        <InfoLine label="Sent" value={fmt(row.createdAt)} />
+        <InfoLine label="Delivered" value={fmt(row.deliveredAt)} />
+        <InfoLine label="Read" value={fmt(row.readAt)} />
+        {row.editedAt && <InfoLine label="Edited" value={fmt(row.editedAt)} />}
+        <button
+          type="button"
+          onClick={onClose}
+          className="w-full mt-3 px-4 py-2 rounded-xl text-text-muted hover:bg-white/5 text-sm"
+        >
+          Close
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function InfoLine({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between py-1.5 border-b border-line/60 last:border-b-0 text-sm">
+      <span className="text-text-muted">{label}</span>
+      <span className="text-text">{value}</span>
+    </div>
+  );
+}
+
+/**
+ * Browse all messages the user has starred in this conversation. Tap
+ * to jump to the original location in the thread.
+ */
+function StarredMessagesDialog({
+  peerId,
+  onClose,
+  onJump,
+}: {
+  peerId: string;
+  onClose: () => void;
+  onJump: (serverId: string) => void;
+}) {
+  const starred = useLiveQuery(
+    () =>
+      db.chatMessages
+        .where("peerId")
+        .equals(peerId)
+        .reverse()
+        .sortBy("createdAt")
+        .then((rows) =>
+          rows.filter((r) => r.starred && !r.deleted),
+        ),
+    [peerId],
+    [] as ChatMessageRecord[],
+  );
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center sm:justify-center"
+      onClick={onClose}
+      role="dialog"
+      aria-label="Starred messages"
+    >
+      <div
+        className="w-full sm:max-w-md bg-surface rounded-t-2xl sm:rounded-2xl border border-line shadow-sheet max-h-[80vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="px-4 py-3 border-b border-line text-base font-semibold text-text flex items-center gap-2">
+          <StarIcon className="w-4 h-4 text-yellow-400" filled />
+          Starred messages
+        </div>
+        {!starred || starred.length === 0 ? (
+          <div className="px-4 py-8 text-center text-sm text-text-muted">
+            No starred messages yet. Tap the star on any message to save it here.
+          </div>
+        ) : (
+          starred.map((m) => (
+            <button
+              key={m.id}
+              type="button"
+              onClick={() => m.serverId && onJump(m.serverId)}
+              disabled={!m.serverId}
+              className="w-full px-4 py-3 text-left border-b border-line/60 last:border-b-0 hover:bg-white/5 disabled:opacity-50"
+            >
+              <div className="text-[11px] text-text-muted">
+                {m.direction === "out" ? "You" : "Them"} ·{" "}
+                {new Date(m.createdAt).toLocaleString()}
+              </div>
+              <div className="text-sm text-text truncate">
+                {m.attachment?.kind === "image"
+                  ? "📷 Photo"
+                  : m.attachment?.kind === "voice"
+                    ? "🎙 Voice message"
+                    : m.plaintext || "—"}
+              </div>
+            </button>
+          ))
+        )}
+        <button
+          type="button"
+          onClick={onClose}
+          className="w-full px-4 py-3 text-text-muted text-sm border-t border-line"
+        >
+          Close
+        </button>
       </div>
     </div>
   );

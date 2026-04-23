@@ -134,6 +134,15 @@ export interface ChatMessageRecord {
    * grapheme. WhatsApp-style: each user has at most one reaction.
    */
   reactions?: Record<string, string>;
+  /**
+   * ISO timestamp of the most recent edit. When set, the bubble shows
+   * an "(edited)" label. Edits replace `plaintext` in place.
+   */
+  editedAt?: string;
+  /** Local-only: starred (bookmarked) by the current user. */
+  starred?: boolean;
+  /** Local-only: pinned to the top of this thread (one per chat). */
+  pinned?: boolean;
 }
 
 /** Per-peer chat preferences (TTL, view-once default, biometric lock). */
@@ -147,6 +156,10 @@ export interface ChatPrefRecord {
   viewOnceDefault?: boolean;
   /** WebAuthn credential id (base64url) required to open this thread. */
   biometricCredentialId?: string;
+  /** Pin this conversation to the top of the chats list. */
+  pinnedToTop?: boolean;
+  /** Mute notifications until this ISO timestamp. Empty = not muted. */
+  mutedUntil?: string;
   updatedAt: string;
 }
 
@@ -276,6 +289,19 @@ export class VeilDB extends Dexie {
     });
     // v7 — Phase 7: group chats. Sender-key state + per-group log.
     this.version(7).stores({
+      identity: "id",
+      prekeys: "id, kind, keyId",
+      chatSessions: "peerId, updatedAt",
+      chatMessages: "++id, peerId, createdAt, serverId, expiresAt",
+      unlocked: "id",
+      chatPrefs: "peerId, updatedAt",
+      userPrefs: "id",
+      groupSenderKeys: "id, [groupId+senderUserId+epoch], groupId, senderUserId",
+      groupMessages: "++id, groupId, createdAt, serverId, dedupKey, expiresAt",
+    });
+    // v8 — Phase 1 polish: edit/star/pin per message. New optional
+    // fields only; no schema-level index changes required.
+    this.version(8).stores({
       identity: "id",
       prekeys: "id, kind, keyId",
       chatSessions: "peerId, updatedAt",
@@ -490,6 +516,64 @@ export async function tombstoneChatMessageById(id: number): Promise<void> {
  * `reactions` map is rewritten atomically so concurrent updates from
  * the same user always pick the latest value.
  */
+/**
+ * Apply an inbound (or our own echoed) edit to a chat row identified
+ * by its server id. Replaces the plaintext body and stamps `editedAt`.
+ * No-op for media messages, deleted messages, or rows we don't have.
+ */
+export async function applyEditByServerId(
+  targetServerId: string,
+  newBody: string,
+  editedAt: string,
+): Promise<void> {
+  const row = await db.chatMessages
+    .where("serverId")
+    .equals(targetServerId)
+    .first();
+  if (!row || row.id === undefined) return;
+  if (row.deleted) return;
+  // Only text-style messages (no attachment) can be edited.
+  if (row.attachment) return;
+  await db.chatMessages.update(row.id, {
+    plaintext: newBody,
+    editedAt,
+  });
+}
+
+/** Toggle the local star flag on a message. */
+export async function setChatMessageStarred(
+  id: number,
+  starred: boolean,
+): Promise<void> {
+  await db.chatMessages.update(id, { starred });
+}
+
+/**
+ * Pin a single message to the top of a chat thread. Clears any other
+ * pinned message in the same thread (one-pin-per-chat, WhatsApp-style).
+ */
+export async function setChatMessagePinned(
+  id: number,
+  peerId: string,
+  pinned: boolean,
+): Promise<void> {
+  if (pinned) {
+    // Unpin anything else in this thread first.
+    await db.chatMessages
+      .where("peerId")
+      .equals(peerId)
+      .modify((rec) => {
+        if (rec.pinned) rec.pinned = false;
+      });
+  }
+  await db.chatMessages.update(id, { pinned });
+}
+
+/** Wipe all chat history with a peer (local only). */
+export async function clearChatHistory(peerId: string): Promise<void> {
+  await db.chatMessages.where("peerId").equals(peerId).delete();
+}
+
 export async function applyReactionByServerId(
   targetServerId: string,
   fromUserId: string,

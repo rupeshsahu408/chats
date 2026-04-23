@@ -103,13 +103,34 @@ export type ReactionEnvelope = {
   emoji: string;
 };
 
+/**
+ * Edit a previously-sent text message. Sender stamps the new body and
+ * an `editedAt` timestamp; the recipient overwrites the local row's
+ * `plaintext` and shows an "(edited)" marker.
+ *
+ * WhatsApp limits edits to ~15 minutes after send; we mirror that on
+ * the client UI but do not enforce it server-side (the server never
+ * sees the body so it cannot validate).
+ */
+export type EditMessage = {
+  v: 2;
+  t: "edit";
+  /** Server message id of the original message being edited. */
+  target: string;
+  /** New text body (replaces the original `body`). */
+  body: string;
+  /** ISO timestamp of when the edit was made. */
+  editedAt: string;
+};
+
 export type ChatEnvelope =
   | ({ v: 1 | 2; t: "text"; body: string } & EnvelopeExtras)
   | ({ v: 1 | 2; t: "image"; body?: string; media: MediaAttachment } & EnvelopeExtras)
   | ({ v: 1 | 2; t: "voice"; media: MediaAttachment } & EnvelopeExtras)
   | SenderKeyDistribution
   | DeleteForEveryone
-  | ReactionEnvelope;
+  | ReactionEnvelope
+  | EditMessage;
 
 export function encodeEnvelope(env: ChatEnvelope): string {
   return JSON.stringify(env);
@@ -156,6 +177,14 @@ export function decodeEnvelope(plaintext: string): ChatEnvelope {
       ) {
         return parsed as ChatEnvelope;
       }
+      if (
+        parsed.t === "edit" &&
+        typeof (parsed as { target?: unknown }).target === "string" &&
+        typeof (parsed as { body?: unknown }).body === "string" &&
+        typeof (parsed as { editedAt?: unknown }).editedAt === "string"
+      ) {
+        return parsed as ChatEnvelope;
+      }
     }
   } catch {
     /* fall through to plain text */
@@ -167,6 +196,8 @@ export function envelopePreview(env: ChatEnvelope): string {
   if (env.t === "skdm") return "";
   if (env.t === "del") return "🗑 Message deleted";
   if (env.t === "rxn") return env.emoji ? `Reacted ${env.emoji}` : "";
+  if (env.t === "edit") return env.body;
+  if (env.t !== "text" && env.t !== "image" && env.t !== "voice") return "";
   if (env.vo) return "👁 View-once message";
   if (env.t === "text") return env.body;
   if (env.t === "image") return env.body ? `📷 ${env.body}` : "📷 Photo";
