@@ -198,6 +198,9 @@ export async function sendGroupChat(
   const state = await ensureMySenderKey(identity, group);
 
   const dedupKey = `${identity.userId}:${state.epoch}:${state.n}`;
+  const hasTtl =
+    (envelope.t === "text" || envelope.t === "image" || envelope.t === "voice") &&
+    !!envelope.ttl;
   const localId = await appendGroupMessage({
     groupId,
     serverId: null,
@@ -207,11 +210,9 @@ export async function sendGroupChat(
     plaintext: envelope.t === "text" ? envelope.body : "",
     createdAt: new Date().toISOString(),
     status: "pending",
-    expiresAt:
-      (envelope.t === "text" || envelope.t === "image" || envelope.t === "voice") &&
-      envelope.ttl
-        ? new Date(Date.now() + envelope.ttl * 1000).toISOString()
-        : undefined,
+    expiresAt: hasTtl
+      ? new Date(Date.now() + (envelope as { ttl: number }).ttl * 1000).toISOString()
+      : undefined,
     attachment:
       envelope.t === "image" || envelope.t === "voice"
         ? { ...envelope.media, kind: envelope.t }
@@ -220,6 +221,14 @@ export async function sendGroupChat(
       (envelope.t === "text" || envelope.t === "image" || envelope.t === "voice") &&
       envelope.lp
         ? envelope.lp
+        : undefined,
+    pollData:
+      envelope.t === "poll"
+        ? { pollId: envelope.pollId, question: envelope.question, choices: envelope.choices }
+        : undefined,
+    pollVoteData:
+      envelope.t === "poll_vote"
+        ? { pollId: envelope.pollId, choiceIdx: envelope.choiceIdx }
         : undefined,
   } as Omit<GroupMessageRecord, "id">);
 
@@ -269,6 +278,27 @@ export async function sendGroupText(
   return sendGroupChat(identity, groupId, env);
 }
 
+export async function sendGroupPoll(
+  identity: UnlockedIdentity,
+  groupId: string,
+  pollId: string,
+  question: string,
+  choices: string[],
+): Promise<number> {
+  const env: ChatEnvelope = { v: 2, t: "poll", pollId, question, choices };
+  return sendGroupChat(identity, groupId, env);
+}
+
+export async function sendGroupPollVote(
+  identity: UnlockedIdentity,
+  groupId: string,
+  pollId: string,
+  choiceIdx: number,
+): Promise<number> {
+  const env: ChatEnvelope = { v: 2, t: "poll_vote", pollId, choiceIdx };
+  return sendGroupChat(identity, groupId, env);
+}
+
 /* ─────────────── Inbound group message ─────────────── */
 
 /**
@@ -308,9 +338,58 @@ export async function ingestGroupInboxMessage(
 
   const ptText = new TextDecoder().decode(ptBytes);
   const env = decodeEnvelope(ptText);
-  // Side-effect / control envelopes don't ride group fan-out today.
+
+  // Poll definition envelope.
+  if (env.t === "poll") {
+    await appendGroupMessage({
+      groupId: m.groupId,
+      serverId: m.id,
+      dedupKey,
+      senderUserId: header.header.sender,
+      direction: "in",
+      plaintext: "",
+      createdAt: m.createdAt,
+      status: "received",
+      pollData: {
+        pollId: env.pollId,
+        question: env.question,
+        choices: env.choices,
+      },
+    });
+    return "new";
+  }
+
+  // Poll vote envelope.
+  if (env.t === "poll_vote") {
+    await appendGroupMessage({
+      groupId: m.groupId,
+      serverId: m.id,
+      dedupKey,
+      senderUserId: header.header.sender,
+      direction: "in",
+      plaintext: "",
+      createdAt: m.createdAt,
+      status: "received",
+      pollVoteData: {
+        pollId: env.pollId,
+        choiceIdx: env.choiceIdx,
+      },
+    });
+    return "new";
+  }
+
+  // Side-effect / control envelopes don't ride group fan-out.
   if (env.t !== "text" && env.t !== "image" && env.t !== "voice") {
     return "duplicate";
+  }
+
+  // Extract @mention tokens (format: @<8-char-fingerprint>)
+  const mentionPattern = /@([a-f0-9]{8})/gi;
+  const mentions: string[] = [];
+  let mm: RegExpExecArray | null;
+  while ((mm = mentionPattern.exec(env.t === "text" ? env.body : "")) !== null) {
+    const token = mm[1];
+    if (token !== undefined && !mentions.includes(token)) mentions.push(token);
   }
 
   await appendGroupMessage({
@@ -328,6 +407,7 @@ export async function ingestGroupInboxMessage(
         ? { ...env.media, kind: env.t }
         : undefined,
     linkPreview: env.lp,
+    ...(mentions.length > 0 ? { mentions } : {}),
   });
   return "new";
 }

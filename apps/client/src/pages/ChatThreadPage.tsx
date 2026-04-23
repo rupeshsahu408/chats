@@ -7,6 +7,7 @@ import { useUnlockStore } from "../lib/unlockStore";
 import {
   db,
   type ChatMessageRecord,
+  type ScheduledMessageRecord,
   getChatPref,
   setChatPref,
   type ChatPrefRecord,
@@ -15,6 +16,10 @@ import {
   setChatMessageStarred,
   setChatMessagePinned,
   clearChatHistory,
+  saveScheduledMessage,
+  getAllPendingScheduledMessages,
+  markScheduledMessageSent,
+  deleteScheduledMessage,
 } from "../lib/db";
 import {
   consumeViewOnce,
@@ -182,7 +187,7 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState<
-    null | "main" | "ttl" | "seenTtl" | "safety" | "report" | "starred"
+    null | "main" | "ttl" | "seenTtl" | "safety" | "report" | "starred" | "scheduledList"
   >(null);
   /** Header search bar (in-chat search) visibility + query. */
   const [searchOpen, setSearchOpen] = useState(false);
@@ -486,6 +491,41 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
       setSending(false);
     }
   }
+
+  // Schedule a message to be sent later.
+  async function onScheduleMessage(text: string, scheduledFor: string) {
+    await saveScheduledMessage({
+      peerId,
+      text,
+      scheduledFor,
+      sent: false,
+      createdAt: new Date().toISOString(),
+    });
+  }
+
+  // Every 60 s, check for pending scheduled messages that are due.
+  useEffect(() => {
+    async function checkDue() {
+      const pending = await getAllPendingScheduledMessages();
+      const now = Date.now();
+      for (const rec of pending) {
+        if (rec.peerId !== peerId) continue;
+        if (new Date(rec.scheduledFor).getTime() > now) continue;
+        if (rec.id === undefined) continue;
+        try {
+          await sendChatMessage(identity, peerId, rec.text, {
+            ttlSeconds: ttlSeconds || undefined,
+          });
+          await markScheduledMessageSent(rec.id);
+        } catch (e) {
+          console.warn("Failed to send scheduled message", e);
+        }
+      }
+    }
+    void checkDue();
+    const interval = setInterval(() => void checkDue(), 60_000);
+    return () => clearInterval(interval);
+  }, [identity, peerId, ttlSeconds]);
 
   async function onPickImage(file: File) {
     setSending(true);
@@ -870,6 +910,7 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
           viewOnceDefault={viewOnceDefault}
           replyTo={replyTo}
           onClearReply={() => setReplyTo(null)}
+          onSchedule={onScheduleMessage}
         />
       )}
 
@@ -963,6 +1004,13 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
             setMenuOpen(null);
             onScrollToMessage(serverId);
           }}
+        />
+      )}
+
+      {menuOpen === "scheduledList" && (
+        <ScheduledMessagesSheet
+          peerId={peerId}
+          onClose={() => setMenuOpen(null)}
         />
       )}
 
@@ -1077,6 +1125,7 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
             setSelectMode(true);
             setSelectedIds(new Set());
           }}
+          onShowScheduled={() => setMenuOpen("scheduledList")}
         />
       )}
       {menuOpen === "ttl" && (
@@ -1987,6 +2036,7 @@ function ChatMenu({
   onClearChat,
   onShowStarred,
   onSelectMessages,
+  onShowScheduled,
 }: {
   onClose: () => void;
   ttlLabel: string;
@@ -2009,6 +2059,7 @@ function ChatMenu({
   onClearChat: () => void;
   onShowStarred: () => void;
   onSelectMessages: () => void;
+  onShowScheduled: () => void;
 }) {
   return (
     <Sheet onClose={onClose}>
@@ -2044,6 +2095,13 @@ function ChatMenu({
         label="Starred messages"
         onClick={() => {
           onShowStarred();
+          onClose();
+        }}
+      />
+      <MenuItem
+        label="Scheduled messages"
+        onClick={() => {
+          onShowScheduled();
           onClose();
         }}
       />
@@ -2543,6 +2601,7 @@ function Composer({
   viewOnceDefault,
   replyTo,
   onClearReply,
+  onSchedule,
 }: {
   draft: string;
   setDraft: (v: string) => void;
@@ -2553,7 +2612,9 @@ function Composer({
   viewOnceDefault: boolean;
   replyTo: { row: ChatMessageRecord; ref: EnvelopeReplyRef } | null;
   onClearReply: () => void;
+  onSchedule: (text: string, scheduledFor: string) => Promise<void>;
 }) {
+  const [schedulePickerOpen, setSchedulePickerOpen] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const [recording, setRecording] = useState<RecordingState | null>(null);
   const [emojiOpen, setEmojiOpen] = useState(false);
@@ -2576,6 +2637,7 @@ function Composer({
   }
 
   return (
+    <>
     <div className="sticky bottom-0 bg-bg/95 backdrop-blur border-t border-line">
       {replyTo && (
         <div className="px-3 py-2 border-b border-line bg-surface/40 flex items-start gap-2">
@@ -2663,14 +2725,27 @@ function Composer({
         />
       </div>
       {draft.trim() ? (
-        <button
-          onClick={onSendText}
-          disabled={sending}
-          className="size-12 rounded-full bg-wa-green text-text-oncolor flex items-center justify-center hover:bg-wa-green-dark transition disabled:opacity-50 wa-tap shrink-0"
-          aria-label="Send"
-        >
-          <SendIcon />
-        </button>
+        <>
+          {/* Schedule button — only visible when there's text to schedule */}
+          <button
+            type="button"
+            onClick={() => setSchedulePickerOpen(true)}
+            disabled={sending}
+            className="size-10 rounded-full text-text-muted hover:text-text hover:bg-white/10 flex items-center justify-center shrink-0 text-xl disabled:opacity-50"
+            aria-label="Schedule message"
+            title="Schedule message"
+          >
+            🕐
+          </button>
+          <button
+            onClick={onSendText}
+            disabled={sending}
+            className="size-12 rounded-full bg-wa-green text-text-oncolor flex items-center justify-center hover:bg-wa-green-dark transition disabled:opacity-50 wa-tap shrink-0"
+            aria-label="Send"
+          >
+            <SendIcon />
+          </button>
+        </>
       ) : (
         <button
           onClick={async () => {
@@ -2687,6 +2762,18 @@ function Composer({
       )}
       </div>
     </div>
+
+    {schedulePickerOpen && draft.trim() && (
+      <SchedulePickerSheet
+        onClose={() => setSchedulePickerOpen(false)}
+        onSchedule={async (iso) => {
+          await onSchedule(draft.trim(), iso);
+          setDraft("");
+          setSchedulePickerOpen(false);
+        }}
+      />
+    )}
+    </>
   );
 }
 
@@ -3332,6 +3419,221 @@ function StarredMessagesDialog({
             </button>
           ))
         )}
+        <button
+          type="button"
+          onClick={onClose}
+          className="w-full px-4 py-3 text-text-muted text-sm border-t border-line"
+        >
+          Close
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ────────────────────────── Schedule picker ────────────────────────── */
+
+/**
+ * A modal sheet where the user picks a future date+time for a scheduled
+ * message. Uses a native datetime-local input for simplicity.
+ */
+function SchedulePickerSheet({
+  onClose,
+  onSchedule,
+}: {
+  onClose: () => void;
+  onSchedule: (iso: string) => Promise<void>;
+}) {
+  // Default to 1 hour from now, rounded to nearest minute.
+  const defaultDate = useMemo(() => {
+    const d = new Date(Date.now() + 60 * 60 * 1000);
+    d.setSeconds(0, 0);
+    // datetime-local value format: YYYY-MM-DDTHH:mm
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return (
+      d.getFullYear() +
+      "-" +
+      pad(d.getMonth() + 1) +
+      "-" +
+      pad(d.getDate()) +
+      "T" +
+      pad(d.getHours()) +
+      ":" +
+      pad(d.getMinutes())
+    );
+  }, []);
+
+  const [value, setValue] = useState(defaultDate);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  // Minimum allowed datetime = 1 minute from now.
+  const minDate = useMemo(() => {
+    const d = new Date(Date.now() + 60 * 1000);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return (
+      d.getFullYear() +
+      "-" +
+      pad(d.getMonth() + 1) +
+      "-" +
+      pad(d.getDate()) +
+      "T" +
+      pad(d.getHours()) +
+      ":" +
+      pad(d.getMinutes())
+    );
+  }, []);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center"
+      onClick={onClose}
+    >
+      <div
+        className="w-full sm:max-w-sm bg-surface rounded-t-2xl sm:rounded-2xl border border-line p-4 space-y-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between">
+          <div className="font-semibold text-text flex items-center gap-2">
+            <span>🕐</span> Schedule message
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-text-muted hover:text-text px-1"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div>
+          <label className="text-xs text-text-muted mb-1.5 block">
+            Send at (your local time)
+          </label>
+          <input
+            type="datetime-local"
+            value={value}
+            min={minDate}
+            onChange={(e) => setValue(e.target.value)}
+            className="w-full bg-bg text-text rounded-lg px-3 py-2 border border-line outline-none text-sm"
+          />
+        </div>
+
+        {err && <div className="text-xs text-red-400">{err}</div>}
+
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 py-2.5 rounded-xl border border-line text-text text-sm"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            disabled={busy || !value}
+            onClick={async () => {
+              const ts = new Date(value).getTime();
+              if (isNaN(ts) || ts < Date.now() + 30_000) {
+                setErr("Please pick a time at least 1 minute in the future.");
+                return;
+              }
+              setBusy(true);
+              setErr(null);
+              try {
+                await onSchedule(new Date(value).toISOString());
+              } catch (e) {
+                setErr(e instanceof Error ? e.message : "Failed to schedule.");
+              } finally {
+                setBusy(false);
+              }
+            }}
+            className="flex-1 py-2.5 rounded-xl bg-wa-green text-text-oncolor text-sm font-medium disabled:opacity-50"
+          >
+            {busy ? "Scheduling…" : "Schedule"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ────────────────────────── Scheduled messages list ────────────────────────── */
+
+function ScheduledMessagesSheet({
+  peerId,
+  onClose,
+}: {
+  peerId: string;
+  onClose: () => void;
+}) {
+  const scheduled = useLiveQuery(
+    () =>
+      db.scheduledMessages
+        .where("peerId")
+        .equals(peerId)
+        .filter((r) => !r.sent)
+        .toArray()
+        .then((rows) =>
+          rows.sort(
+            (a, b) =>
+              new Date(a.scheduledFor).getTime() -
+              new Date(b.scheduledFor).getTime(),
+          ),
+        ),
+    [peerId],
+    [] as ScheduledMessageRecord[],
+  );
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center"
+      onClick={onClose}
+    >
+      <div
+        className="w-full sm:max-w-md bg-surface rounded-t-2xl sm:rounded-2xl border border-line shadow-sheet max-h-[80vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="px-4 py-3 border-b border-line text-base font-semibold text-text flex items-center gap-2">
+          <span>🕐</span> Scheduled messages
+        </div>
+
+        {!scheduled || scheduled.length === 0 ? (
+          <div className="px-4 py-8 text-center text-sm text-text-muted">
+            No scheduled messages for this chat.
+          </div>
+        ) : (
+          scheduled.map((rec) => (
+            <div
+              key={rec.id}
+              className="px-4 py-3 border-b border-line/60 last:border-b-0 flex items-start gap-3"
+            >
+              <div className="flex-1 min-w-0">
+                <div className="text-[11px] text-text-muted mb-0.5">
+                  Sends at{" "}
+                  {new Date(rec.scheduledFor).toLocaleString([], {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  })}
+                </div>
+                <div className="text-sm text-text truncate">{rec.text}</div>
+              </div>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (rec.id !== undefined) {
+                    await deleteScheduledMessage(rec.id);
+                  }
+                }}
+                className="shrink-0 text-text-muted hover:text-red-400 text-xs px-2 py-1 rounded hover:bg-white/5"
+                aria-label="Cancel scheduled message"
+              >
+                Cancel
+              </button>
+            </div>
+          ))
+        )}
+
         <button
           type="button"
           onClick={onClose}

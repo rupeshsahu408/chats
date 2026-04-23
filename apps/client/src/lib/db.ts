@@ -240,6 +240,32 @@ export interface GroupMessageRecord {
   expiresAt?: string;
   attachment?: ChatMessageRecord["attachment"];
   linkPreview?: ChatMessageRecord["linkPreview"];
+  /** Present for messages of type "poll". */
+  pollData?: {
+    pollId: string;
+    question: string;
+    choices: string[];
+  };
+  /** Present for messages of type "poll_vote". */
+  pollVoteData?: {
+    pollId: string;
+    /** Index into choices array. -1 means remove vote. */
+    choiceIdx: number;
+  };
+  /** @mention user-ids embedded in the message, extracted at ingest time. */
+  mentions?: string[];
+}
+
+/** A message scheduled to be sent at a future time (1:1 chats). */
+export interface ScheduledMessageRecord {
+  id?: number;
+  peerId: string;
+  text: string;
+  /** ISO timestamp when the message should be sent. */
+  scheduledFor: string;
+  /** Whether the message has already been sent. */
+  sent: boolean;
+  createdAt: string;
 }
 
 export class VeilDB extends Dexie {
@@ -252,6 +278,7 @@ export class VeilDB extends Dexie {
   userPrefs!: Table<UserPrefRecord, "self">;
   groupSenderKeys!: Table<GroupSenderKeyRecord, string>;
   groupMessages!: Table<GroupMessageRecord, number>;
+  scheduledMessages!: Table<ScheduledMessageRecord, number>;
 
   constructor() {
     super("veil");
@@ -318,6 +345,21 @@ export class VeilDB extends Dexie {
       groupSenderKeys: "id, [groupId+senderUserId+epoch], groupId, senderUserId",
       groupMessages: "++id, groupId, createdAt, serverId, dedupKey, expiresAt",
     });
+    // v9 — Message scheduling + group polls + @mentions.
+    // groupMessages gains optional pollData/pollVoteData/mentions fields (no index change).
+    // New scheduledMessages table for locally-queued scheduled 1:1 messages.
+    this.version(9).stores({
+      identity: "id",
+      prekeys: "id, kind, keyId",
+      chatSessions: "peerId, updatedAt",
+      chatMessages: "++id, peerId, createdAt, serverId, expiresAt",
+      unlocked: "id",
+      chatPrefs: "peerId, updatedAt",
+      userPrefs: "id",
+      groupSenderKeys: "id, [groupId+senderUserId+epoch], groupId, senderUserId",
+      groupMessages: "++id, groupId, createdAt, serverId, dedupKey, expiresAt",
+      scheduledMessages: "++id, peerId, scheduledFor, sent",
+    });
   }
 }
 
@@ -341,6 +383,39 @@ export async function clearIdentity(): Promise<void> {
   await db.userPrefs.clear();
   await db.groupSenderKeys.clear();
   await db.groupMessages.clear();
+  await db.scheduledMessages.clear();
+}
+
+/* ─────────── Scheduled messages ─────────── */
+
+export async function saveScheduledMessage(
+  rec: Omit<ScheduledMessageRecord, "id">,
+): Promise<number> {
+  return (await db.scheduledMessages.add(rec)) as number;
+}
+
+export async function getPendingScheduledMessages(
+  peerId: string,
+): Promise<ScheduledMessageRecord[]> {
+  return await db.scheduledMessages
+    .where("peerId")
+    .equals(peerId)
+    .filter((r) => !r.sent)
+    .toArray();
+}
+
+export async function getAllPendingScheduledMessages(): Promise<ScheduledMessageRecord[]> {
+  return await db.scheduledMessages
+    .filter((r) => !r.sent)
+    .toArray();
+}
+
+export async function markScheduledMessageSent(id: number): Promise<void> {
+  await db.scheduledMessages.update(id, { sent: true });
+}
+
+export async function deleteScheduledMessage(id: number): Promise<void> {
+  await db.scheduledMessages.delete(id);
 }
 
 /* ─────────── Phase 7: Group helpers ─────────── */

@@ -260,6 +260,27 @@ The always-on poll exposed a pre-existing race: the WS push and a poll drain (or
 
 `SessionBootstrap` was updated so a signed-in user landing on `/` or `/welcome` is still bounced to `/chats`.
 
+## Phase 7.5 — Power features (implemented)
+
+### Message Scheduling (1:1 chats)
+- New `ScheduledMessageRecord` interface + `scheduledMessages` Dexie table (v9, index on `peerId, scheduledFor, sent`).
+- `onScheduleMessage(text, scheduledFor)` saves a record to IndexedDB; helper functions: `saveScheduledMessage`, `getAllPendingScheduledMessages`, `markScheduledMessageSent`, `deleteScheduledMessage`.
+- A `useEffect` in `ChatThreadInner` polls every 60 s, finds due messages for the current peer, calls `sendChatMessage`, and marks them sent.
+- UI: a 🕐 clock button appears in the composer when text is present; tapping opens `SchedulePickerSheet` (native `datetime-local` input). A "Scheduled messages" item in the 3-dot menu opens `ScheduledMessagesSheet` (live Dexie query, Cancel per row).
+
+### @Mentions in Group Chats
+- Mention tokens: `@<8-hex-fingerprint>` embedded in plaintext.
+- Ingest: `groupSync.ts` `ingestGroupInboxMessage` now extracts mention tokens and stores them in `GroupMessageRecord.mentions[]`.
+- Autocomplete: typing `@` in the group composer triggers a live-filtered dropdown of member fingerprints; selecting one inserts `@<fingerprint> ` at the cursor.
+- Rendering: `renderMentionText` splits message text on `@<fp>` tokens and wraps each in a highlighted `<span>` (green for own mention, white/10 for others).
+
+### Group Polls
+- New envelope types `PollEnvelope` (`t: "poll"`) and `PollVoteEnvelope` (`t: "poll_vote"`) in `messageEnvelope.ts`; both added to `ChatEnvelope` union.
+- `GroupMessageRecord` gains optional `pollData` (`{pollId, question, choices}`) and `pollVoteData` (`{pollId, choiceIdx}`) fields (no Dexie index change needed — v9).
+- Send helpers: `sendGroupPoll` and `sendGroupPollVote` in `groupSync.ts`.
+- UI: 📊 poll button in the group composer opens `PollComposer` modal (question + up to 8 options). Received polls render as `PollBubble` with live vote aggregation, progress bars, and tap-to-vote/retract (choiceIdx -1 retracts).
+- Poll-vote messages are invisible in the message list — they update `PollBubble` state only.
+
 ## Next phase
 
 **Native iOS (Phase 8) and Android Play Store (Phase 9) are deferred.** The product launches as an installable PWA: Android users install via Chrome's prompt, iOS users use Add-to-Home-Screen (web push works on iOS 16.4+ once installed). Phase 7 wrap-up — manual e2e group test (3 accounts) + push verification — remains the only outstanding item before launch readiness.

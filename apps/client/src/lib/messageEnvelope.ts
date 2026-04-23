@@ -123,6 +123,31 @@ export type EditMessage = {
   editedAt: string;
 };
 
+/**
+ * Group poll. Sent as a group message; carries the poll definition.
+ * Votes arrive as separate `poll_vote` envelopes referencing this pollId.
+ */
+export type PollEnvelope = {
+  v: 2;
+  t: "poll";
+  /** Stable client-generated UUID for this poll. */
+  pollId: string;
+  question: string;
+  choices: string[];
+};
+
+/**
+ * Cast or retract a vote on a group poll. choiceIdx = -1 removes
+ * the sender's vote.
+ */
+export type PollVoteEnvelope = {
+  v: 2;
+  t: "poll_vote";
+  pollId: string;
+  /** 0-based index into the choices array. -1 = remove vote. */
+  choiceIdx: number;
+};
+
 export type ChatEnvelope =
   | ({ v: 1 | 2; t: "text"; body: string } & EnvelopeExtras)
   | ({ v: 1 | 2; t: "image"; body?: string; media: MediaAttachment } & EnvelopeExtras)
@@ -130,7 +155,9 @@ export type ChatEnvelope =
   | SenderKeyDistribution
   | DeleteForEveryone
   | ReactionEnvelope
-  | EditMessage;
+  | EditMessage
+  | PollEnvelope
+  | PollVoteEnvelope;
 
 export function encodeEnvelope(env: ChatEnvelope): string {
   return JSON.stringify(env);
@@ -185,6 +212,21 @@ export function decodeEnvelope(plaintext: string): ChatEnvelope {
       ) {
         return parsed as ChatEnvelope;
       }
+      if (
+        parsed.t === "poll" &&
+        typeof (parsed as { pollId?: unknown }).pollId === "string" &&
+        typeof (parsed as { question?: unknown }).question === "string" &&
+        Array.isArray((parsed as { choices?: unknown }).choices)
+      ) {
+        return parsed as ChatEnvelope;
+      }
+      if (
+        parsed.t === "poll_vote" &&
+        typeof (parsed as { pollId?: unknown }).pollId === "string" &&
+        typeof (parsed as { choiceIdx?: unknown }).choiceIdx === "number"
+      ) {
+        return parsed as ChatEnvelope;
+      }
     }
   } catch {
     /* fall through to plain text */
@@ -197,6 +239,8 @@ export function envelopePreview(env: ChatEnvelope): string {
   if (env.t === "del") return "🗑 Message deleted";
   if (env.t === "rxn") return env.emoji ? `Reacted ${env.emoji}` : "";
   if (env.t === "edit") return env.body;
+  if (env.t === "poll") return `📊 Poll: ${env.question}`;
+  if (env.t === "poll_vote") return "";
   if (env.t !== "text" && env.t !== "image" && env.t !== "voice") return "";
   if (env.vo) return "👁 View-once message";
   if (env.t === "text") return env.body;
