@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { useAuthStore } from "./store";
 import { useUnlockStore } from "./unlockStore";
 import { wsClient } from "./wsClient";
-import { applyDeliveryReceipt, applyReadReceipt, ingestInboxMessage, pollAndDecrypt, restorePeerHistory } from "./messageSync";
+import { applyDeliveryReceipt, applyReadReceipt, ingestInboxMessage, pollAndDecrypt, restorePeerHistory, syncOutboundReceipts } from "./messageSync";
 import { useStealthPrefs } from "./stealthPrefs";
 import { deleteExpiredChatMessages } from "./db";
 import { trpcClientProxy } from "./trpcClientProxy";
@@ -119,6 +119,7 @@ export function SessionSync() {
 
     const drain = () => {
       void pollAndDecrypt(identity).catch(() => undefined);
+      void syncOutboundReceipts().catch(() => undefined);
     };
 
     if (pollRef.current) clearInterval(pollRef.current);

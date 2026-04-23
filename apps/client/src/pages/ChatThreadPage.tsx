@@ -537,7 +537,26 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
             message="Say hi to start the conversation."
           />
         ) : (
-          messages.map((m) => <MessageRow key={m.id} m={m} />)
+          (() => {
+            // Index of the most-recent outbound "read" message — the
+            // only one that gets a "Seen X ago" caption (Instagram-style).
+            let lastReadOutIdx = -1;
+            for (let i = messages.length - 1; i >= 0; i--) {
+              const mm = messages[i]!;
+              if (mm.direction === "out" && mm.status === "read" && mm.readAt) {
+                lastReadOutIdx = i;
+                break;
+              }
+            }
+            return messages.map((m, i) => (
+              <div key={m.id} className="flex flex-col">
+                <MessageRow m={m} />
+                {i === lastReadOutIdx && m.readAt && (
+                  <SeenIndicator readAt={m.readAt} />
+                )}
+              </div>
+            ));
+          })()
         )}
         {peerTyping && (
           <div className="self-start text-xs text-text-muted bg-wa-bubble-in px-3 py-2 rounded-2xl shadow-bubble">
@@ -706,6 +725,44 @@ function ttlRemainingLabel(iso?: string): string | null {
   if (hr < 24) return `${hr}h`;
   const d = Math.round(hr / 24);
   return `${d}d`;
+}
+
+/* ────────────────────────── Seen indicator ────────────────────────── */
+
+/**
+ * Instagram-style "Seen <relative time>" caption rendered under the
+ * latest read outbound message. Re-renders every 30s via the parent's
+ * tick so the relative label stays fresh without a per-bubble timer.
+ */
+function SeenIndicator({ readAt }: { readAt: string }) {
+  return (
+    <div
+      className="self-end text-[10.5px] text-text-muted/80 mt-0.5 mr-1 select-none"
+      title={new Date(readAt).toLocaleString()}
+    >
+      Seen {formatSeenAgo(readAt)}
+    </div>
+  );
+}
+
+function formatSeenAgo(iso: string): string {
+  const then = new Date(iso).getTime();
+  const now = Date.now();
+  const sec = Math.max(0, Math.round((now - then) / 1000));
+  if (sec < 45) return "just now";
+  const min = Math.round(sec / 60);
+  if (min < 2) return "1 minute ago";
+  if (min < 60) return `${min} minutes ago`;
+  const hr = Math.round(min / 60);
+  if (hr < 2) return "1 hour ago";
+  if (hr < 24) return `${hr} hours ago`;
+  const d = Math.round(hr / 24);
+  if (d < 2) return "yesterday";
+  if (d < 7) return `${d} days ago`;
+  return new Date(iso).toLocaleDateString([], {
+    month: "short",
+    day: "numeric",
+  });
 }
 
 /* ────────────────────────── Bubble row ────────────────────────── */

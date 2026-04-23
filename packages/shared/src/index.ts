@@ -312,6 +312,10 @@ export const HistoryMessageSchema = z.object({
   createdAt: z.string(),
   expiresAt: z.string().nullable().optional(),
   groupId: z.string().uuid().nullable().optional(),
+  /** When the recipient's device acknowledged receipt. */
+  deliveredAt: z.string().nullable().optional(),
+  /** When the recipient opened the message. */
+  readAt: z.string().nullable().optional(),
 });
 export type HistoryMessage = z.infer<typeof HistoryMessageSchema>;
 
@@ -319,6 +323,25 @@ export const MarkReadInput = z.object({
   ids: z.array(z.string().uuid()).max(500),
 });
 export type MarkReadInput = z.infer<typeof MarkReadInput>;
+
+/* Receipt catch-up: poll the latest delivered/read state for a batch of
+ * outbound messages. Used to recover after a missed WS event. */
+export const FetchReceiptsInput = z.object({
+  ids: z.array(z.string().uuid()).min(1).max(500),
+});
+export type FetchReceiptsInput = z.infer<typeof FetchReceiptsInput>;
+
+export const MessageReceiptSchema = z.object({
+  id: z.string().uuid(),
+  deliveredAt: z.string().nullable(),
+  readAt: z.string().nullable(),
+});
+export type MessageReceipt = z.infer<typeof MessageReceiptSchema>;
+
+export const FetchReceiptsResult = z.object({
+  receipts: z.array(MessageReceiptSchema),
+});
+export type FetchReceiptsResult = z.infer<typeof FetchReceiptsResult>;
 
 export const FetchHistoryInput = z.object({
   peerId: UserIdSchema,

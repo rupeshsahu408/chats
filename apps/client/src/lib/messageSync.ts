@@ -328,6 +328,44 @@ export async function applyReadReceipt(
   await markChatMessageRead(messageId, at);
 }
 
+/**
+ * Catch-up: pull authoritative delivered/read state from the server for
+ * any outbound messages that aren't yet "read". Used on focus, network
+ * reconnect, WS reopen, and a slow background timer to recover from
+ * missed `delivery_receipt` / `read_receipt` WS events.
+ */
+export async function syncOutboundReceipts(): Promise<void> {
+  const pending = await db.chatMessages
+    .where("direction")
+    .equals("out")
+    .and(
+      (m) =>
+        !!m.serverId &&
+        m.status !== "read" &&
+        m.status !== "failed" &&
+        m.status !== "pending",
+    )
+    .toArray();
+  if (pending.length === 0) return;
+
+  // Cap each call; chunk if needed.
+  const ids = pending.map((m) => m.serverId!).slice(0, 500);
+  try {
+    const { receipts } = await trpcClientProxy().messages.fetchReceipts.query({
+      ids,
+    });
+    for (const r of receipts) {
+      if (r.readAt) {
+        await markChatMessageRead(r.id, r.readAt);
+      } else if (r.deliveredAt) {
+        await markChatMessageDelivered(r.id, r.deliveredAt);
+      }
+    }
+  } catch (e) {
+    console.warn("syncOutboundReceipts failed", e);
+  }
+}
+
 /* ─────────────────────── History restore ─────────────────────── */
 
 const HISTORY_PAGE = 100;
@@ -380,14 +418,21 @@ async function persistHistoryEntry(
   const otherPeer = isOutbound ? m.recipientUserId : m.senderUserId;
 
   if (isOutbound) {
+    const status: ChatMessageRecord["status"] = m.readAt
+      ? "read"
+      : m.deliveredAt
+        ? "delivered"
+        : "sent";
     await appendChatMessage({
       peerId: otherPeer,
       serverId: m.id,
       direction: "out",
       plaintext: "[sent on another device]",
       createdAt: m.createdAt,
-      status: "sent",
+      status,
       ...(m.expiresAt ? { expiresAt: m.expiresAt } : {}),
+      ...(m.deliveredAt ? { deliveredAt: m.deliveredAt } : {}),
+      ...(m.readAt ? { readAt: m.readAt } : {}),
     });
     return true;
   }

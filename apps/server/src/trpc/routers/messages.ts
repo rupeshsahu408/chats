@@ -8,6 +8,8 @@ import {
   MarkReadInput,
   FetchHistoryInput,
   FetchHistoryResult,
+  FetchReceiptsInput,
+  FetchReceiptsResult,
   OkSchema,
   SendGroupMessageInput,
   SendGroupMessageResult,
@@ -15,6 +17,7 @@ import {
   FetchGroupHistoryResult,
   type InboxMessage,
   type HistoryMessage,
+  type MessageReceipt,
   type GroupHistoryMessage,
 } from "@veil/shared";
 import { protectedProcedure, router } from "../init.js";
@@ -357,8 +360,46 @@ export const messagesRouter = router({
           createdAt: r.createdAt.toISOString(),
           expiresAt: r.expiresAt ? r.expiresAt.toISOString() : null,
           groupId: r.groupId ?? null,
+          deliveredAt: r.deliveredAt ? r.deliveredAt.toISOString() : null,
+          readAt: r.readAt ? r.readAt.toISOString() : null,
         })),
         hasMore,
+      };
+    }),
+
+  /**
+   * Catch-up endpoint for read/delivered receipts. The sender calls this
+   * for any outbound messages whose status is still "sent" or "delivered"
+   * — typically on tab focus, network reconnect, or WS reopen — so missed
+   * `delivery_receipt`/`read_receipt` events are recovered without waiting
+   * for the next message.
+   *
+   * Only returns rows that the caller actually sent (no info leak).
+   */
+  fetchReceipts: protectedProcedure
+    .input(FetchReceiptsInput)
+    .output(FetchReceiptsResult)
+    .query(async ({ ctx, input }): Promise<{ receipts: MessageReceipt[] }> => {
+      const db = getDb();
+      const rows = await db
+        .select({
+          id: schema.messages.id,
+          deliveredAt: schema.messages.deliveredAt,
+          readAt: schema.messages.readAt,
+        })
+        .from(schema.messages)
+        .where(
+          and(
+            inArray(schema.messages.id, input.ids),
+            eq(schema.messages.senderUserId, ctx.userId),
+          ),
+        );
+      return {
+        receipts: rows.map((r) => ({
+          id: r.id,
+          deliveredAt: r.deliveredAt ? r.deliveredAt.toISOString() : null,
+          readAt: r.readAt ? r.readAt.toISOString() : null,
+        })),
       };
     }),
 
