@@ -38,16 +38,23 @@ function envelopeToRecordFields(
   serverExpiresAt?: string | null,
 ): Pick<
   ChatMessageRecord,
-  "plaintext" | "attachment" | "viewOnce" | "linkPreview" | "expiresAt" | "replyTo"
+  | "plaintext"
+  | "attachment"
+  | "viewOnce"
+  | "linkPreview"
+  | "expiresAt"
+  | "replyTo"
+  | "seenTtlSeconds"
 > {
   const expiresAt = serverExpiresAt ?? deriveExpiry(env);
   const extras: Pick<
     ChatMessageRecord,
-    "viewOnce" | "linkPreview" | "expiresAt" | "replyTo"
+    "viewOnce" | "linkPreview" | "expiresAt" | "replyTo" | "seenTtlSeconds"
   > = {};
   // Narrow: only payload envelopes carry these flags.
   if (env.t === "text" || env.t === "image" || env.t === "voice") {
     if (env.vo) extras.viewOnce = true;
+    if (env.sttl && env.sttl > 0) extras.seenTtlSeconds = env.sttl;
     if (env.lp) extras.linkPreview = env.lp;
     if (env.re) {
       extras.replyTo = {
@@ -417,6 +424,7 @@ export async function sendChatMessage(
   plaintext: string,
   opts: {
     ttlSeconds?: number;
+    seenTtlSeconds?: number;
     linkPreview?: import("./messageEnvelope").EnvelopeLinkPreview;
     replyTo?: import("./messageEnvelope").EnvelopeReplyRef;
     viewOnce?: boolean;
@@ -424,6 +432,7 @@ export async function sendChatMessage(
 ): Promise<number> {
   const env: ChatEnvelope = { v: 2, t: "text", body: plaintext };
   if (opts.ttlSeconds && opts.ttlSeconds > 0) env.ttl = opts.ttlSeconds;
+  if (opts.seenTtlSeconds && opts.seenTtlSeconds > 0) env.sttl = opts.seenTtlSeconds;
   if (opts.linkPreview) env.lp = opts.linkPreview;
   if (opts.replyTo) env.re = opts.replyTo;
   if (opts.viewOnce) env.vo = true;

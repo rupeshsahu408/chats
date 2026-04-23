@@ -90,6 +90,14 @@ export interface ChatMessageRecord {
    */
   expiresAt?: string;
   /**
+   * Sender-driven "seen TTL" (Scene Setting), seconds. When the
+   * recipient opens this message, both sides stamp expiresAt =
+   * readAt + seenTtlSeconds. Stored on the row so each message
+   * remembers the value it was sent with — independent of either
+   * device's current preference.
+   */
+  seenTtlSeconds?: number;
+  /**
    * View-once: client deletes the message + media as soon as the
    * recipient opens it.
    */
@@ -786,8 +794,15 @@ export async function markChatMessageRead(
   // actually read it. Receiver-side stamping happens in ChatThreadPage
   // when inbound messages are marked read.
   if (row.direction === "out" && !row.expiresAt) {
-    const pref = await db.chatPrefs.get(row.peerId);
-    const secs = pref?.seenTtlSeconds ?? 0;
+    // Prefer the per-message seenTtl that travelled with the envelope
+    // so sender + receiver expire on the exact same value. Fall back to
+    // the local pref for legacy rows that pre-date the per-message
+    // field.
+    let secs = row.seenTtlSeconds ?? 0;
+    if (secs <= 0) {
+      const pref = await db.chatPrefs.get(row.peerId);
+      secs = pref?.seenTtlSeconds ?? 0;
+    }
     if (secs > 0) {
       const base = new Date(readAt).getTime();
       const due = Number.isFinite(base) ? base : Date.now();

@@ -411,20 +411,24 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
     if (unread.length === 0) return;
     void reportRead(unread).catch(() => undefined);
     // Also flip local status so the UI doesn't keep retrying.
-    // If seenTtlSeconds is set, stamp expiresAt = now + seenTtlSeconds so the
-    // message auto-deletes from this device after the chosen duration.
+    // Stamp expiresAt = now + (per-message seenTtl from the sender's
+    // envelope, falling back to this device's chat pref). Per-message
+    // wins so both sides delete in lockstep using the sender's chosen
+    // duration even if the receiver has a different (or no) preference.
     const readNow = new Date().toISOString();
-    const seenExpiry =
-      seenTtlSeconds > 0
-        ? new Date(Date.now() + seenTtlSeconds * 1000).toISOString()
-        : undefined;
+    const readNowMs = Date.now();
     void db.chatMessages
       .where("peerId").equals(peerId)
       .modify((rec) => {
         if (rec.direction === "in" && rec.status !== "read" && !rec.viewOnce && rec.serverId && unread.includes(rec.serverId)) {
           rec.status = "read";
           rec.readAt = readNow;
-          if (seenExpiry) rec.expiresAt = seenExpiry;
+          if (!rec.expiresAt) {
+            const secs = rec.seenTtlSeconds ?? seenTtlSeconds;
+            if (secs > 0) {
+              rec.expiresAt = new Date(readNowMs + secs * 1000).toISOString();
+            }
+          }
         }
       })
       .catch(() => undefined);
@@ -515,6 +519,7 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
     try {
       await sendChatMessage(identity, peerId, text, {
         ttlSeconds: ttlSeconds || undefined,
+        seenTtlSeconds: seenTtlSeconds || undefined,
         linkPreview: pendingPreview ?? undefined,
         replyTo: replyTo?.ref,
         viewOnce: oneShotViewOnce || undefined,
@@ -589,6 +594,7 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
         ...(caption ? { body: caption } : {}),
         media,
         ...(ttlSeconds ? { ttl: ttlSeconds } : {}),
+        ...(seenTtlSeconds > 0 ? { sttl: seenTtlSeconds } : {}),
         ...(viewOnceDefault || oneShotViewOnce ? { vo: true } : {}),
         ...(replyTo ? { re: replyTo.ref } : {}),
       });
@@ -620,6 +626,7 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
         t: "voice",
         media,
         ...(ttlSeconds ? { ttl: ttlSeconds } : {}),
+        ...(seenTtlSeconds > 0 ? { sttl: seenTtlSeconds } : {}),
       });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't send voice note.");

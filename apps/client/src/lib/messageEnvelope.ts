@@ -51,6 +51,14 @@ export interface EnvelopeReplyRef {
 export interface EnvelopeExtras {
   /** Disappearing-message TTL, seconds. */
   ttl?: number;
+  /**
+   * Seen-TTL ("Scene Setting"), seconds. Sender-driven disappearing
+   * timer that starts the moment the *recipient* opens the message.
+   * Both sides apply the same value so the message is wiped from both
+   * devices in lockstep instead of relying on each device's local
+   * preference (which may differ).
+   */
+  sttl?: number;
   /** View-once. */
   vo?: boolean;
   /** Link preview metadata. */
