@@ -72,7 +72,12 @@ export function RandomLoginPage() {
       // device, we're done. Otherwise we need the recovery key to
       // re-derive Ed25519/X25519.
       const local = await loadIdentity().catch(() => null);
-      if (local && local.userId === r.user.id) {
+      if (
+        local &&
+        local.userId === r.user.id &&
+        local.encX25519PrivateKey &&
+        local.x25519PublicKey
+      ) {
         await setUnlocked({
           userId: r.user.id,
           ed25519: {

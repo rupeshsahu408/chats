@@ -665,7 +665,7 @@ export const authRouter = router({
   checkUsername: configuredProcedure
     .input(CheckUsernameInput)
     .output(CheckUsernameResult)
-    .query(async ({ input }) => {
+    .mutation(async ({ input }) => {
       if (RESERVED_USERNAMES.has(input.username)) {
         return { available: false, reason: "reserved" as const };
       }
