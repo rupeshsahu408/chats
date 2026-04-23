@@ -344,6 +344,31 @@ export const groupsRouter = router({
       return { ok: true as const };
     }),
 
+  /**
+   * Admin only: force-bump the group epoch so every member redistributes
+   * their sender key. Useful as a one-tap recovery if any member's
+   * sender key got out of sync (e.g. a missed `group_changed` event).
+   */
+  rotateKeys: protectedProcedure
+    .input(GroupIdInput)
+    .mutation(async ({ ctx, input }) => {
+      const db = getDb();
+      const me = ctx.userId;
+      const myMem = await loadMyMembership(db, input.groupId, me);
+      if (!myMem) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Group not found." });
+      }
+      if (myMem.role !== "admin") {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Only admins can re-share encryption keys.",
+        });
+      }
+      const epoch = await bumpEpoch(db, input.groupId);
+      await notifyMembers(db, input.groupId);
+      return { ok: true as const, epoch };
+    }),
+
   /** Admin only: rename / set description. */
   updateMeta: protectedProcedure
     .input(UpdateGroupMetaInput)

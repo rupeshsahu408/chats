@@ -78,6 +78,10 @@ function Inner({ groupId }: { groupId: string }) {
     onSuccess: () => utils.groups.get.invalidate({ groupId }),
   });
   const leave = trpc.groups.leave.useMutation();
+  const rotateKeys = trpc.groups.rotateKeys.useMutation({
+    onSuccess: () => utils.groups.get.invalidate({ groupId }),
+  });
+  const [rotateNote, setRotateNote] = useState<string | null>(null);
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -194,6 +198,23 @@ function Inner({ groupId }: { groupId: string }) {
       setAdding(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to add members");
+    }
+  }
+
+  async function reshareKeys() {
+    if (
+      !confirm(
+        "Re-share encryption keys with everyone in this group? Use this if some members can't read recent messages.",
+      )
+    )
+      return;
+    setError(null);
+    setRotateNote(null);
+    try {
+      const r = await rotateKeys.mutateAsync({ groupId });
+      setRotateNote(`Keys re-shared. New epoch: ${r.epoch}.`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to re-share keys");
     }
   }
 
@@ -378,6 +399,23 @@ function Inner({ groupId }: { groupId: string }) {
             })}
           </ul>
         </div>
+
+        {isAdmin && (
+          <div className="bg-panel mt-2 border-y border-line">
+            <SettingsRow
+              label={
+                rotateKeys.isPending
+                  ? "Re-sharing encryption keys…"
+                  : "Re-share encryption keys"
+              }
+              onClick={rotateKeys.isPending ? undefined : reshareKeys}
+              right={<ChevronRightIcon />}
+            />
+            {rotateNote && (
+              <p className="px-4 pb-3 text-xs text-text-muted">{rotateNote}</p>
+            )}
+          </div>
+        )}
 
         <div className="bg-panel mt-2 border-y border-line">
           <SettingsRow
