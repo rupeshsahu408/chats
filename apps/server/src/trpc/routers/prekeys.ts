@@ -1,5 +1,6 @@
 import { TRPCError } from "@trpc/server";
 import { and, eq, isNull, sql, or } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import {
   UploadPrekeysInputV2,
   PrekeyStatusSchema,
@@ -47,18 +48,24 @@ async function canCommunicate(
     .limit(1);
   if (conn.length > 0) return true;
 
-  // Shared-group fallback: do `me` and `peer` belong to any common group?
-  const sharedGroup = await db.execute(sql`
-    SELECT 1
-    FROM ${schema.groupMembers} AS gm_me
-    JOIN ${schema.groupMembers} AS gm_peer
-      ON gm_me.group_id = gm_peer.group_id
-    WHERE gm_me.user_id = ${me}
-      AND gm_peer.user_id = ${peer}
-    LIMIT 1
-  `);
-  const rows = (sharedGroup as unknown as { rows?: unknown[] }).rows ?? [];
-  return rows.length > 0;
+  // Shared-group fallback via a self-join on group_members. Using
+  // raw db.execute(sql) here is fragile because the result shape
+  // differs between drizzle drivers (postgres-js returns an array,
+  // node-postgres returns { rows }) — go through drizzle's typed
+  // select so it works on both.
+  const peerGm = alias(schema.groupMembers, "peer_gm");
+  const shared = await db
+    .select({ id: schema.groupMembers.id })
+    .from(schema.groupMembers)
+    .innerJoin(peerGm, eq(peerGm.groupId, schema.groupMembers.groupId))
+    .where(
+      and(
+        eq(schema.groupMembers.userId, me),
+        eq(peerGm.userId, peer),
+      ),
+    )
+    .limit(1);
+  return shared.length > 0;
 }
 
 export const prekeysRouter = router({
