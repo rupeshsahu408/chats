@@ -8,6 +8,7 @@ import { deleteExpiredChatMessages } from "./db";
 import { trpcClientProxy } from "./trpcClientProxy";
 import { reapExpiredGroupMessages, rotateMySenderKeyIfNeeded } from "./groupSync";
 import { usePresenceStore } from "./presenceStore";
+import { useScheduledMessageSender } from "./scheduledSender";
 
 /**
  * App-wide background sync.
@@ -67,6 +68,10 @@ export function SessionSync() {
   useEffect(() => {
     void useStealthPrefs.getState().hydrate();
   }, []);
+
+  // App-wide scheduled-message dispatcher. Runs whenever the identity
+  // is unlocked, regardless of which page the user is currently on.
+  useScheduledMessageSender(identity);
 
   // Reap locally-expired messages on a 60s tick (also runs on inbox poll).
   useEffect(() => {

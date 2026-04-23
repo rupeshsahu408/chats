@@ -7,7 +7,6 @@ import { useUnlockStore } from "../lib/unlockStore";
 import {
   db,
   type ChatMessageRecord,
-  type ScheduledMessageRecord,
   getChatPref,
   setChatPref,
   type ChatPrefRecord,
@@ -17,10 +16,8 @@ import {
   setChatMessagePinned,
   clearChatHistory,
   saveScheduledMessage,
-  getAllPendingScheduledMessages,
-  markScheduledMessageSent,
-  deleteScheduledMessage,
 } from "../lib/db";
+import { ScheduledMessagesSheet } from "../components/ScheduledMessagesSheet";
 import {
   consumeViewOnce,
   pollAndDecrypt,
@@ -492,7 +489,9 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
     }
   }
 
-  // Schedule a message to be sent later.
+  // Schedule a message to be sent later. The actual send is performed by
+  // the app-wide scheduledSender (mounted in SessionSync), so it fires
+  // even when this page is not currently open.
   async function onScheduleMessage(text: string, scheduledFor: string) {
     await saveScheduledMessage({
       peerId,
@@ -502,30 +501,6 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
       createdAt: new Date().toISOString(),
     });
   }
-
-  // Every 60 s, check for pending scheduled messages that are due.
-  useEffect(() => {
-    async function checkDue() {
-      const pending = await getAllPendingScheduledMessages();
-      const now = Date.now();
-      for (const rec of pending) {
-        if (rec.peerId !== peerId) continue;
-        if (new Date(rec.scheduledFor).getTime() > now) continue;
-        if (rec.id === undefined) continue;
-        try {
-          await sendChatMessage(identity, peerId, rec.text, {
-            ttlSeconds: ttlSeconds || undefined,
-          });
-          await markScheduledMessageSent(rec.id);
-        } catch (e) {
-          console.warn("Failed to send scheduled message", e);
-        }
-      }
-    }
-    void checkDue();
-    const interval = setInterval(() => void checkDue(), 60_000);
-    return () => clearInterval(interval);
-  }, [identity, peerId, ttlSeconds]);
 
   async function onPickImage(file: File) {
     setSending(true);
@@ -3444,23 +3419,17 @@ function SchedulePickerSheet({
   onClose: () => void;
   onSchedule: (iso: string) => Promise<void>;
 }) {
-  // Default to 1 hour from now, rounded to nearest minute.
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const toLocalInput = (d: Date) =>
+    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
+      d.getHours(),
+    )}:${pad(d.getMinutes())}`;
+
+  // Default to 1 hour from now, rounded to the nearest minute.
   const defaultDate = useMemo(() => {
     const d = new Date(Date.now() + 60 * 60 * 1000);
     d.setSeconds(0, 0);
-    // datetime-local value format: YYYY-MM-DDTHH:mm
-    const pad = (n: number) => String(n).padStart(2, "0");
-    return (
-      d.getFullYear() +
-      "-" +
-      pad(d.getMonth() + 1) +
-      "-" +
-      pad(d.getDate()) +
-      "T" +
-      pad(d.getHours()) +
-      ":" +
-      pad(d.getMinutes())
-    );
+    return toLocalInput(d);
   }, []);
 
   const [value, setValue] = useState(defaultDate);
@@ -3468,21 +3437,43 @@ function SchedulePickerSheet({
   const [err, setErr] = useState<string | null>(null);
 
   // Minimum allowed datetime = 1 minute from now.
-  const minDate = useMemo(() => {
-    const d = new Date(Date.now() + 60 * 1000);
-    const pad = (n: number) => String(n).padStart(2, "0");
-    return (
-      d.getFullYear() +
-      "-" +
-      pad(d.getMonth() + 1) +
-      "-" +
-      pad(d.getDate()) +
-      "T" +
-      pad(d.getHours()) +
-      ":" +
-      pad(d.getMinutes())
-    );
+  const minDate = useMemo(
+    () => toLocalInput(new Date(Date.now() + 60 * 1000)),
+    [],
+  );
+
+  // Quick-pick chips: human-friendly common targets.
+  const quickPicks = useMemo(() => {
+    const now = new Date();
+    function at(date: Date, hour: number, minute = 0) {
+      const d = new Date(date);
+      d.setHours(hour, minute, 0, 0);
+      return d;
+    }
+    function plus(ms: number) {
+      const d = new Date(now.getTime() + ms);
+      d.setSeconds(0, 0);
+      return d;
+    }
+    const tomorrow = new Date(now);
+    tomorrow.setDate(now.getDate() + 1);
+    const nextMonday = new Date(now);
+    const daysUntilMon = (8 - now.getDay()) % 7 || 7;
+    nextMonday.setDate(now.getDate() + daysUntilMon);
+    return [
+      { label: "In 1 hour", date: plus(60 * 60 * 1000) },
+      { label: "In 3 hours", date: plus(3 * 60 * 60 * 1000) },
+      { label: "Tomorrow 9 AM", date: at(tomorrow, 9) },
+      { label: "Tomorrow 8 PM", date: at(tomorrow, 20) },
+      { label: "Next Mon 9 AM", date: at(nextMonday, 9) },
+    ];
   }, []);
+
+  const previewIso = useMemo(() => {
+    const ts = new Date(value).getTime();
+    if (isNaN(ts)) return null;
+    return new Date(ts);
+  }, [value]);
 
   return (
     <div
@@ -3508,6 +3499,24 @@ function SchedulePickerSheet({
 
         <div>
           <label className="text-xs text-text-muted mb-1.5 block">
+            Quick pick
+          </label>
+          <div className="flex flex-wrap gap-1.5">
+            {quickPicks.map((q) => (
+              <button
+                key={q.label}
+                type="button"
+                onClick={() => setValue(toLocalInput(q.date))}
+                className="text-xs px-2.5 py-1 rounded-full border border-line text-text hover:bg-white/5"
+              >
+                {q.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <label className="text-xs text-text-muted mb-1.5 block">
             Send at (your local time)
           </label>
           <input
@@ -3517,6 +3526,18 @@ function SchedulePickerSheet({
             onChange={(e) => setValue(e.target.value)}
             className="w-full bg-bg text-text rounded-lg px-3 py-2 border border-line outline-none text-sm"
           />
+          {previewIso && (
+            <div className="text-[11px] text-text-muted mt-1.5">
+              Sends{" "}
+              {previewIso.toLocaleString([], {
+                weekday: "short",
+                month: "short",
+                day: "numeric",
+                hour: "numeric",
+                minute: "2-digit",
+              })}
+            </div>
+          )}
         </div>
 
         {err && <div className="text-xs text-red-400">{err}</div>}
@@ -3553,94 +3574,6 @@ function SchedulePickerSheet({
             {busy ? "Scheduling…" : "Schedule"}
           </button>
         </div>
-      </div>
-    </div>
-  );
-}
-
-/* ────────────────────────── Scheduled messages list ────────────────────────── */
-
-function ScheduledMessagesSheet({
-  peerId,
-  onClose,
-}: {
-  peerId: string;
-  onClose: () => void;
-}) {
-  const scheduled = useLiveQuery(
-    () =>
-      db.scheduledMessages
-        .where("peerId")
-        .equals(peerId)
-        .filter((r) => !r.sent)
-        .toArray()
-        .then((rows) =>
-          rows.sort(
-            (a, b) =>
-              new Date(a.scheduledFor).getTime() -
-              new Date(b.scheduledFor).getTime(),
-          ),
-        ),
-    [peerId],
-    [] as ScheduledMessageRecord[],
-  );
-
-  return (
-    <div
-      className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center"
-      onClick={onClose}
-    >
-      <div
-        className="w-full sm:max-w-md bg-surface rounded-t-2xl sm:rounded-2xl border border-line shadow-sheet max-h-[80vh] overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="px-4 py-3 border-b border-line text-base font-semibold text-text flex items-center gap-2">
-          <span>🕐</span> Scheduled messages
-        </div>
-
-        {!scheduled || scheduled.length === 0 ? (
-          <div className="px-4 py-8 text-center text-sm text-text-muted">
-            No scheduled messages for this chat.
-          </div>
-        ) : (
-          scheduled.map((rec) => (
-            <div
-              key={rec.id}
-              className="px-4 py-3 border-b border-line/60 last:border-b-0 flex items-start gap-3"
-            >
-              <div className="flex-1 min-w-0">
-                <div className="text-[11px] text-text-muted mb-0.5">
-                  Sends at{" "}
-                  {new Date(rec.scheduledFor).toLocaleString([], {
-                    dateStyle: "medium",
-                    timeStyle: "short",
-                  })}
-                </div>
-                <div className="text-sm text-text truncate">{rec.text}</div>
-              </div>
-              <button
-                type="button"
-                onClick={async () => {
-                  if (rec.id !== undefined) {
-                    await deleteScheduledMessage(rec.id);
-                  }
-                }}
-                className="shrink-0 text-text-muted hover:text-red-400 text-xs px-2 py-1 rounded hover:bg-white/5"
-                aria-label="Cancel scheduled message"
-              >
-                Cancel
-              </button>
-            </div>
-          ))
-        )}
-
-        <button
-          type="button"
-          onClick={onClose}
-          className="w-full px-4 py-3 text-text-muted text-sm border-t border-line"
-        >
-          Close
-        </button>
       </div>
     </div>
   );

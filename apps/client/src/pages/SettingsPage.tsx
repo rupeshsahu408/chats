@@ -11,10 +11,12 @@ import {
   LockIcon,
 } from "../components/Layout";
 import { MainShell } from "../components/MainShell";
+import { ScheduledMessagesSheet } from "../components/ScheduledMessagesSheet";
 import { useThemeStore, type ThemeMode } from "../lib/themeStore";
 import { ensurePushSubscription, disablePushSubscription } from "../lib/push";
-import { clearIdentity } from "../lib/db";
+import { clearIdentity, db } from "../lib/db";
 import { useStealthPrefs } from "../lib/stealthPrefs";
+import { useLiveQuery } from "dexie-react-hooks";
 
 export function SettingsPage() {
   const navigate = useNavigate();
@@ -33,6 +35,13 @@ export function SettingsPage() {
     retry: false,
   });
   const logout = trpc.auth.logout.useMutation();
+  const [scheduledOpen, setScheduledOpen] = useState(false);
+  const pendingScheduledCount = useLiveQuery(
+    async () =>
+      (await db.scheduledMessages.filter((r) => !r.sent).toArray()).length,
+    [],
+    0,
+  );
 
   useEffect(() => {
     if (!accessToken) navigate("/");
@@ -121,6 +130,15 @@ export function SettingsPage() {
           sub="Generate a private link or QR"
           to="/invite"
         />
+        <SettingsRow
+          label="Scheduled messages"
+          sub={
+            pendingScheduledCount && pendingScheduledCount > 0
+              ? `${pendingScheduledCount} pending across all chats`
+              : "View and manage messages waiting to send"
+          }
+          onClick={() => setScheduledOpen(true)}
+        />
         {meQuery.data && (
           <SettingsRow
             label="Member since"
@@ -153,6 +171,13 @@ export function SettingsPage() {
           Sessions stay signed in for 90 days. PIN once per browser.
         </p>
       </div>
+
+      {scheduledOpen && (
+        <ScheduledMessagesSheet
+          peerId={null}
+          onClose={() => setScheduledOpen(false)}
+        />
+      )}
     </MainShell>
   );
 }

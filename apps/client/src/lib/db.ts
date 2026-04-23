@@ -266,6 +266,14 @@ export interface ScheduledMessageRecord {
   /** Whether the message has already been sent. */
   sent: boolean;
   createdAt: string;
+  /** ISO timestamp when the message was actually delivered (set on success). */
+  sentAt?: string;
+  /** Number of failed send attempts so far. */
+  attempts?: number;
+  /** ISO timestamp of the most recent attempt. */
+  lastAttemptAt?: string;
+  /** Last error message, if the most recent attempt failed. */
+  lastError?: string;
 }
 
 export class VeilDB extends Dexie {
@@ -411,11 +419,49 @@ export async function getAllPendingScheduledMessages(): Promise<ScheduledMessage
 }
 
 export async function markScheduledMessageSent(id: number): Promise<void> {
-  await db.scheduledMessages.update(id, { sent: true });
+  await db.scheduledMessages.update(id, {
+    sent: true,
+    sentAt: new Date().toISOString(),
+    lastError: undefined,
+  });
+}
+
+export async function markScheduledMessageFailed(
+  id: number,
+  errorMessage: string,
+): Promise<void> {
+  const rec = await db.scheduledMessages.get(id);
+  await db.scheduledMessages.update(id, {
+    attempts: (rec?.attempts ?? 0) + 1,
+    lastAttemptAt: new Date().toISOString(),
+    lastError: errorMessage,
+  });
 }
 
 export async function deleteScheduledMessage(id: number): Promise<void> {
   await db.scheduledMessages.delete(id);
+}
+
+/**
+ * Remove records that were already delivered more than `olderThanMs`
+ * milliseconds ago. Keeps the local DB tidy without losing recent history.
+ */
+export async function purgeOldSentScheduledMessages(
+  olderThanMs: number = 7 * 24 * 60 * 60 * 1000,
+): Promise<number> {
+  const cutoff = Date.now() - olderThanMs;
+  const stale = await db.scheduledMessages
+    .filter(
+      (r) =>
+        !!r.sent &&
+        !!r.sentAt &&
+        new Date(r.sentAt).getTime() < cutoff,
+    )
+    .toArray();
+  for (const rec of stale) {
+    if (rec.id !== undefined) await db.scheduledMessages.delete(rec.id);
+  }
+  return stale.length;
 }
 
 /* ─────────── Phase 7: Group helpers ─────────── */
