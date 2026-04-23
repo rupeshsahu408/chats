@@ -27,9 +27,15 @@ import {
   TrashIcon,
   InfoIcon,
   TimerIcon,
+  ReplyIcon,
+  SmileIcon,
+  PinIcon,
+  ForwardIcon,
+  EditIcon,
+  FlagIcon,
 } from "../components/Layout";
 import { UnlockGate } from "../components/UnlockGate";
-import { EmojiPicker } from "../components/EmojiPicker";
+import { EmojiPicker, ReactionPicker } from "../components/EmojiPicker";
 import {
   db,
   deleteGroupMessageById,
@@ -424,6 +430,7 @@ function GroupChatInner({ groupId }: { groupId: string }) {
   // Phase 1 parity state.
   const [replyTo, setReplyTo] = useState<GroupMessageRecord | null>(null);
   const [actionFor, setActionFor] = useState<GroupMessageRecord | null>(null);
+  const [reactFor, setReactFor] = useState<GroupMessageRecord | null>(null);
   const [editFor, setEditFor] = useState<GroupMessageRecord | null>(null);
   const [infoFor, setInfoFor] = useState<GroupMessageRecord | null>(null);
   const [forwardFor, setForwardFor] = useState<GroupMessageRecord | null>(null);
@@ -1250,6 +1257,21 @@ function GroupChatInner({ groupId }: { groupId: string }) {
                     isMine={mine}
                   />
                 ) : (
+                  <div
+                    className={
+                      "group flex items-center gap-1 " +
+                      (mine ? "flex-row" : "flex-row")
+                    }
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {!m.deleted && !inSelectionMode && mine && (
+                      <BubbleHoverAction
+                        direction="out"
+                        onMenu={() => setActionFor(m)}
+                        onReply={() => handleReply(m)}
+                        onReact={() => setReactFor(m)}
+                      />
+                    )}
                   <MessageBubble
                     direction={mine ? "out" : "in"}
                     time={
@@ -1309,6 +1331,15 @@ function GroupChatInner({ groupId }: { groupId: string }) {
                       </>
                     )}
                   </MessageBubble>
+                    {!m.deleted && !inSelectionMode && !mine && (
+                      <BubbleHoverAction
+                        direction="in"
+                        onMenu={() => setActionFor(m)}
+                        onReply={() => handleReply(m)}
+                        onReact={() => setReactFor(m)}
+                      />
+                    )}
+                  </div>
                 )}
                 <Reactions
                   m={m}
@@ -1450,6 +1481,20 @@ function GroupChatInner({ groupId }: { groupId: string }) {
             const sid = actionFor.senderUserId;
             setActionFor(null);
             void handleReportSender(sid);
+          }}
+        />
+      )}
+
+      {/* Quick reaction picker (from hover toolbar smile button) */}
+      {reactFor && (
+        <ReactionPickerSheet
+          row={reactFor}
+          myUserId={userId ?? ""}
+          onClose={() => setReactFor(null)}
+          onPick={(emoji) => {
+            const target = reactFor;
+            setReactFor(null);
+            if (target) void handleReact(target, emoji);
           }}
         />
       )}
@@ -1909,33 +1954,65 @@ function MessageActionSheet({
           </div>
         )}
         <div className="divide-y divide-line/40">
-          {canReply && <SheetItem icon="↩" label="Reply" onClick={onReply} />}
-          {canForward && <SheetItem icon="➦" label="Forward" onClick={onForward} />}
+          {canReply && (
+            <SheetItem
+              icon={<ReplyIcon className="w-5 h-5" />}
+              label="Reply"
+              onClick={onReply}
+            />
+          )}
+          {canForward && (
+            <SheetItem
+              icon={<ForwardIcon className="w-5 h-5" />}
+              label="Forward"
+              onClick={onForward}
+            />
+          )}
           <SheetItem
-            icon={msg.starred ? "★" : "☆"}
+            icon={<StarIcon className="w-5 h-5" filled={!!msg.starred} />}
             label={msg.starred ? "Unstar" : "Star"}
             onClick={onStar}
           />
           {canPin && (
             <SheetItem
-              icon="📌"
+              icon={<PinIcon className="w-5 h-5" />}
               label={msg.pinned ? "Unpin" : "Pin"}
               onClick={onPin}
             />
           )}
-          {editable && <SheetItem icon="✎" label="Edit" onClick={onEdit} />}
-          {canCopy && <SheetItem icon="⧉" label="Copy" onClick={onCopy} />}
-          <SheetItem icon="ℹ" label="Info" onClick={onInfo} />
-          <SheetItem icon="☑" label="Select" onClick={onSelect} />
+          {editable && (
+            <SheetItem
+              icon={<EditIcon className="w-5 h-5" />}
+              label="Edit"
+              onClick={onEdit}
+            />
+          )}
+          {canCopy && (
+            <SheetItem
+              icon={<CopyIcon className="w-5 h-5" />}
+              label="Copy"
+              onClick={onCopy}
+            />
+          )}
           <SheetItem
-            icon="🗑"
+            icon={<InfoIcon className="w-5 h-5" />}
+            label="Info"
+            onClick={onInfo}
+          />
+          <SheetItem
+            icon={<CheckSquareIcon className="w-5 h-5" />}
+            label="Select"
+            onClick={onSelect}
+          />
+          <SheetItem
+            icon={<TrashIcon className="w-5 h-5" />}
             label="Delete for me"
             onClick={onDeleteForMe}
             danger
           />
           {canUnsend && (
             <SheetItem
-              icon="🚫"
+              icon={<TrashIcon className="w-5 h-5" />}
               label="Unsend for everyone"
               onClick={onUnsend}
               danger
@@ -1943,8 +2020,18 @@ function MessageActionSheet({
           )}
           {canModerate && (
             <>
-              <SheetItem icon="⛔" label="Block sender" onClick={onBlockSender} danger />
-              <SheetItem icon="🚩" label="Report sender" onClick={onReportSender} danger />
+              <SheetItem
+                icon={<BlockIcon className="w-5 h-5" />}
+                label="Block sender"
+                onClick={onBlockSender}
+                danger
+              />
+              <SheetItem
+                icon={<FlagIcon className="w-5 h-5" />}
+                label="Report sender"
+                onClick={onReportSender}
+                danger
+              />
             </>
           )}
         </div>
@@ -2378,5 +2465,107 @@ function StarredSheet({
         </div>
       </div>
     </div>
+  );
+}
+
+/* ─────────── Bubble hover toolbar (3-dots, reply, react) ─────────── */
+
+function BubbleHoverAction({
+  direction,
+  onMenu,
+  onReply,
+  onReact,
+}: {
+  direction: "in" | "out";
+  onMenu: () => void;
+  onReply: () => void;
+  onReact: () => void;
+}) {
+  const stop = (handler: () => void) => (e: React.MouseEvent) => {
+    e.stopPropagation();
+    handler();
+  };
+  return (
+    <div
+      className={
+        "flex items-center gap-1 self-center opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition " +
+        (direction === "out" ? "order-first mr-1" : "ml-1")
+      }
+    >
+      <button
+        type="button"
+        onClick={stop(onMenu)}
+        aria-label="More actions"
+        className="size-7 rounded-full bg-surface/90 border border-line text-text-muted hover:text-text hover:bg-surface flex items-center justify-center"
+      >
+        <MoreVerticalIcon className="w-4 h-4" />
+      </button>
+      <button
+        type="button"
+        onClick={stop(onReply)}
+        aria-label="Reply"
+        className="size-7 rounded-full bg-surface/90 border border-line text-text-muted hover:text-text hover:bg-surface flex items-center justify-center"
+      >
+        <ReplyIcon className="w-4 h-4" />
+      </button>
+      <button
+        type="button"
+        onClick={stop(onReact)}
+        aria-label="React"
+        className="size-7 rounded-full bg-surface/90 border border-line text-text-muted hover:text-text hover:bg-surface flex items-center justify-center"
+      >
+        <SmileIcon className="w-4 h-4" />
+      </button>
+    </div>
+  );
+}
+
+/* ─────────── Quick reaction picker ─────────── */
+
+function ReactionPickerSheet({
+  row,
+  myUserId,
+  onClose,
+  onPick,
+}: {
+  row: GroupMessageRecord;
+  myUserId: string;
+  onClose: () => void;
+  onPick: (emoji: string) => void;
+}) {
+  const mine = row.reactions?.[myUserId] ?? "";
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center px-4"
+      onClick={onClose}
+      role="dialog"
+      aria-label="React"
+    >
+      <div onClick={(e) => e.stopPropagation()}>
+        <ReactionPicker value={mine} onPick={onPick} onClose={onClose} />
+      </div>
+    </div>
+  );
+}
+
+/* ─────────── Inline icons (Select, Block) ─────────── */
+
+function CheckSquareIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+      strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <rect x="3" y="3" width="18" height="18" rx="3" />
+      <path d="m8 12 3 3 5-6" />
+    </svg>
+  );
+}
+
+function BlockIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+      strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <circle cx="12" cy="12" r="9" />
+      <line x1="5.6" y1="5.6" x2="18.4" y2="18.4" />
+    </svg>
   );
 }
