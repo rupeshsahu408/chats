@@ -480,6 +480,18 @@ export async function deleteChatMessageById(id: number): Promise<void> {
 }
 
 /**
+ * Hard-delete the local row matching a given server id. Used by the
+ * "Unsend" flow so the message disappears completely on the receiver's
+ * device with no tombstone or trace in the UI.
+ */
+export async function deleteChatMessageByServerId(
+  serverId: string,
+): Promise<void> {
+  const row = await db.chatMessages.where("serverId").equals(serverId).first();
+  if (row && row.id !== undefined) await db.chatMessages.delete(row.id);
+}
+
+/**
  * Replace a chat message with a "deleted for everyone" tombstone. Wipes
  * body, attachment, link preview and reply ref so nothing of the
  * original is recoverable from the local row.

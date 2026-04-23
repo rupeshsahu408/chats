@@ -12,6 +12,7 @@ import {
   deleteExpiredChatMessages,
   tombstoneChatMessageByServerId,
   tombstoneChatMessageById,
+  deleteChatMessageByServerId,
   applyReactionByServerId,
   applyEditByServerId,
   db,
@@ -100,7 +101,8 @@ async function applySideEffectEnvelope(
   fromUserId: string,
 ): Promise<boolean> {
   if (env.t === "del") {
-    await tombstoneChatMessageByServerId(env.target);
+    // "Unsend" — hard-delete on the receiver. No tombstone, no trace.
+    await deleteChatMessageByServerId(env.target);
     return true;
   }
   if (env.t === "rxn") {
@@ -431,8 +433,12 @@ export async function deleteMessageForEveryone(
   }
   const env: ChatEnvelope = { v: 2, t: "del", target: row.serverId };
   // Mutate local first so the UI feels instant; if network fails the
-  // peer will just not see the unsend.
-  if (row.id !== undefined) await tombstoneChatMessageById(row.id);
+  // peer will just not see the unsend. "Unsend" hard-deletes on this
+  // device too — no tombstone, no trace in the chat.
+  if (row.id !== undefined) {
+    const { deleteChatMessageById } = await import("./db");
+    await deleteChatMessageById(row.id);
+  }
   try {
     await transmitSideEffectEnvelope(identity, peerId, env);
   } catch (e) {

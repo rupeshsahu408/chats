@@ -200,6 +200,25 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
     ref: EnvelopeReplyRef;
   } | null>(null);
 
+  // Bulk selection mode (top-menu → "Select messages"). Holds the
+  // local `id`s of the selected rows; the action bar at the bottom
+  // shows Delete/Unsend depending on what's been ticked.
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const exitSelectMode = useCallback(() => {
+    setSelectMode(false);
+    setSelectedIds(new Set());
+  }, []);
+  const toggleSelected = useCallback((id: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
   /** The single pinned message in this thread, if any (WhatsApp-style). */
   const pinnedMessage = useMemo(
     () => (messages ?? []).find((m) => m.pinned && !m.deleted) ?? null,
@@ -645,6 +664,26 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
         }
       />
 
+      {selectMode && (
+        <SelectionTopBar
+          count={selectedIds.size}
+          allSelected={(() => {
+            const ids = (filteredMessages ?? [])
+              .map((m) => m.id)
+              .filter((x): x is number => x !== undefined);
+            return ids.length > 0 && ids.every((id) => selectedIds.has(id));
+          })()}
+          onSelectAll={() => {
+            const ids = (filteredMessages ?? [])
+              .map((m) => m.id)
+              .filter((x): x is number => x !== undefined);
+            const all = ids.length > 0 && ids.every((id) => selectedIds.has(id));
+            setSelectedIds(all ? new Set() : new Set(ids));
+          }}
+          onCancel={exitSelectMode}
+        />
+      )}
+
       {pinnedMessage && (
         <PinnedMessageBanner
           row={pinnedMessage}
@@ -714,6 +753,11 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
                 onQuickReact={(row) => setReactFor(row)}
                 onJumpTo={onScrollToMessage}
                 showSeenAfter={i === lastReadOutIdx && m.readAt ? m.readAt : null}
+                selectMode={selectMode}
+                selected={m.id !== undefined && selectedIds.has(m.id)}
+                onToggleSelect={() => {
+                  if (m.id !== undefined) toggleSelected(m.id);
+                }}
               />
             ));
           })()
@@ -741,17 +785,83 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
         />
       )}
 
-      <Composer
-        draft={draft}
-        setDraft={onDraftChange}
-        sending={sending}
-        onSendText={onSendText}
-        onPickImage={onPickImage}
-        onSendVoice={onSendVoice}
-        viewOnceDefault={viewOnceDefault}
-        replyTo={replyTo}
-        onClearReply={() => setReplyTo(null)}
-      />
+      {selectMode ? (
+        <SelectionActionBar
+          count={selectedIds.size}
+          busy={bulkBusy}
+          canUnsend={(() => {
+            if (selectedIds.size === 0) return false;
+            const byId = new Map<number, ChatMessageRecord>();
+            for (const m of messages ?? []) {
+              if (m.id !== undefined) byId.set(m.id, m);
+            }
+            for (const id of selectedIds) {
+              const row = byId.get(id);
+              // Hide Unsend the moment any selected row is inbound
+              // or has no serverId (never reached the server, so
+              // there is nothing to recall on the peer).
+              if (!row || row.direction !== "out" || !row.serverId) return false;
+              if (row.deleted) return false;
+            }
+            return true;
+          })()}
+          onDeleteLocal={async () => {
+            if (selectedIds.size === 0) return;
+            setBulkBusy(true);
+            try {
+              for (const id of selectedIds) {
+                await deleteChatMessageById(id);
+              }
+              exitSelectMode();
+            } catch (e) {
+              setError(
+                e instanceof Error
+                  ? `Delete failed: ${e.message}`
+                  : "Delete failed.",
+              );
+            } finally {
+              setBulkBusy(false);
+            }
+          }}
+          onUnsend={async () => {
+            if (selectedIds.size === 0) return;
+            setBulkBusy(true);
+            const byId = new Map<number, ChatMessageRecord>();
+            for (const m of messages ?? []) {
+              if (m.id !== undefined) byId.set(m.id, m);
+            }
+            try {
+              for (const id of selectedIds) {
+                const row = byId.get(id);
+                if (!row) continue;
+                try {
+                  await deleteMessageForEveryone(identity, peerId, row);
+                } catch {
+                  // Best-effort fallback: at least remove the row
+                  // locally so it disappears from this device.
+                  await deleteChatMessageById(id);
+                }
+              }
+              exitSelectMode();
+            } finally {
+              setBulkBusy(false);
+            }
+          }}
+          onCancel={exitSelectMode}
+        />
+      ) : (
+        <Composer
+          draft={draft}
+          setDraft={onDraftChange}
+          sending={sending}
+          onSendText={onSendText}
+          onPickImage={onPickImage}
+          onSendVoice={onSendVoice}
+          viewOnceDefault={viewOnceDefault}
+          replyTo={replyTo}
+          onClearReply={() => setReplyTo(null)}
+        />
+      )}
 
       {actionFor && (
         <MessageActionMenu
@@ -881,13 +991,13 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
             try {
               await deleteMessageForEveryone(identity, peerId, row);
             } catch (e) {
-              // Fall back to local-only so the bubble at least
+              // Fall back to local-only so the message at least
               // disappears from this device.
-              if (row.id !== undefined) await tombstoneChatMessageById(row.id);
+              if (row.id !== undefined) await deleteChatMessageById(row.id);
               setError(
                 e instanceof Error
-                  ? `Delete-for-everyone failed: ${e.message}`
-                  : "Delete-for-everyone failed.",
+                  ? `Unsend failed: ${e.message}`
+                  : "Unsend failed.",
               );
             }
           }}
@@ -951,6 +1061,10 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
             setMenuOpen(null);
           }}
           onShowStarred={() => setMenuOpen("starred")}
+          onSelectMessages={() => {
+            setSelectMode(true);
+            setSelectedIds(new Set());
+          }}
         />
       )}
       {menuOpen === "ttl" && (
@@ -1112,6 +1226,9 @@ function MessageRowSlot({
   onQuickReact,
   onJumpTo,
   showSeenAfter,
+  selectMode,
+  selected,
+  onToggleSelect,
 }: {
   m: ChatMessageRecord;
   myUserId: string;
@@ -1120,18 +1237,29 @@ function MessageRowSlot({
   onQuickReact: (row: ChatMessageRecord) => void;
   onJumpTo: (serverId: string) => void;
   showSeenAfter: string | null;
+  selectMode: boolean;
+  selected: boolean;
+  onToggleSelect: () => void;
 }) {
   // Long-press / right-click on the bubble area opens the action bar.
   const pressTimer = useRef<number | null>(null);
   const movedRef = useRef(false);
   const trigger = () => {
     if (m.deleted) return;
-    onAction(m);
+    if (selectMode) onToggleSelect();
+    else onAction(m);
   };
   return (
     <div
       data-server-id={m.serverId ?? ""}
-      className="group flex flex-col transition-shadow rounded-md"
+      className={
+        "group flex flex-col transition-shadow rounded-md " +
+        (selectMode ? "cursor-pointer " : "") +
+        (selected ? "bg-wa-green/15 -mx-3 px-3" : "")
+      }
+      onClick={() => {
+        if (selectMode) onToggleSelect();
+      }}
       onContextMenu={(e) => {
         e.preventDefault();
         trigger();
@@ -1163,6 +1291,8 @@ function MessageRowSlot({
         onQuickReply={onQuickReply}
         onQuickReact={onQuickReact}
         onJumpTo={onJumpTo}
+        selectMode={selectMode}
+        selected={selected}
       />
       {showSeenAfter && <SeenIndicator readAt={showSeenAfter} />}
     </div>
@@ -1176,6 +1306,8 @@ function MessageRow({
   onQuickReply,
   onQuickReact,
   onJumpTo,
+  selectMode,
+  selected,
 }: {
   m: ChatMessageRecord;
   myUserId: string;
@@ -1183,15 +1315,32 @@ function MessageRow({
   onQuickReply: (row: ChatMessageRecord) => void;
   onQuickReact: (row: ChatMessageRecord) => void;
   onJumpTo: (serverId: string) => void;
+  selectMode: boolean;
+  selected: boolean;
 }) {
-  // Single 3-icon toolbar reused on every bubble variant.
-  const toolbar = !m.deleted ? (
-    <BubbleHoverAction
-      direction={m.direction}
-      onMenu={() => onAction(m)}
-      onReply={() => onQuickReply(m)}
-      onReact={() => onQuickReact(m)}
-    />
+  // Single 3-icon toolbar reused on every bubble variant. Hidden in
+  // bulk-select mode (the row tap is the only interaction then).
+  const toolbar =
+    !m.deleted && !selectMode ? (
+      <BubbleHoverAction
+        direction={m.direction}
+        onMenu={() => onAction(m)}
+        onReply={() => onQuickReply(m)}
+        onReact={() => onQuickReact(m)}
+      />
+    ) : null;
+  const checkmark = selectMode ? (
+    <span
+      aria-hidden="true"
+      className={
+        "self-center shrink-0 size-5 rounded-full border flex items-center justify-center text-[11px] " +
+        (selected
+          ? "bg-wa-green border-wa-green text-text-oncolor"
+          : "border-line text-transparent")
+      }
+    >
+      ✓
+    </span>
   ) : null;
   const time = new Date(m.createdAt).toLocaleTimeString([], {
     hour: "2-digit",
@@ -1256,6 +1405,7 @@ function MessageRow({
       <>
         {replyChip && <div className={m.direction === "out" ? "self-end" : "self-start"}>{replyChip}</div>}
         <div className={"flex items-stretch gap-1 " + rowDir}>
+          {checkmark}
           {m.direction === "out" && toolbar}
           <ViewOnceBubble m={m} time={time} />
           {m.direction === "in" && toolbar}
@@ -1268,6 +1418,7 @@ function MessageRow({
     return (
       <>
         <div className={"flex items-stretch gap-1 " + rowDir}>
+          {checkmark}
           {m.direction === "out" && toolbar}
           <MessageBubble direction={m.direction} status={m.status} time={time}>
             {replyChip}
@@ -1285,6 +1436,7 @@ function MessageRow({
     return (
       <>
         <div className={"flex items-stretch gap-1 " + rowDir}>
+          {checkmark}
           {m.direction === "out" && toolbar}
           <MessageBubble direction={m.direction} status={m.status} time={time}>
             {replyChip}
@@ -1300,6 +1452,7 @@ function MessageRow({
   return (
     <>
       <div className={"flex items-stretch gap-1 " + rowDir}>
+        {checkmark}
         {m.direction === "out" && toolbar}
         <MessageBubble direction={m.direction} status={m.status} time={time}>
           {replyChip}
@@ -1796,6 +1949,7 @@ function ChatMenu({
   onSearch,
   onClearChat,
   onShowStarred,
+  onSelectMessages,
 }: {
   onClose: () => void;
   ttlLabel: string;
@@ -1815,9 +1969,17 @@ function ChatMenu({
   onSearch: () => void;
   onClearChat: () => void;
   onShowStarred: () => void;
+  onSelectMessages: () => void;
 }) {
   return (
     <Sheet onClose={onClose}>
+      <MenuItem
+        label="Select messages"
+        onClick={() => {
+          onSelectMessages();
+          onClose();
+        }}
+      />
       <MenuItem
         label={pinnedToTop ? "Unpin chat" : "Pin chat to top"}
         onClick={() => {
@@ -2102,6 +2264,100 @@ function MenuItem({
 }
 
 /* ────────────────────────── Composer ────────────────────────── */
+
+/**
+ * Sticky top bar that takes over the chat header while the user is in
+ * bulk-select mode. Shows a count, a "Select all" toggle, and an X to
+ * leave selection mode.
+ */
+function SelectionTopBar({
+  count,
+  allSelected,
+  onSelectAll,
+  onCancel,
+}: {
+  count: number;
+  allSelected: boolean;
+  onSelectAll: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div className="px-3 py-2 bg-wa-green text-text-oncolor flex items-center gap-3 border-b border-line">
+      <button
+        type="button"
+        aria-label="Cancel selection"
+        onClick={onCancel}
+        className="text-xl leading-none px-1"
+      >
+        ✕
+      </button>
+      <div className="flex-1 font-medium text-sm">
+        {count === 0 ? "Select messages" : `${count} selected`}
+      </div>
+      <button
+        type="button"
+        onClick={onSelectAll}
+        className="text-xs px-2 py-1 rounded bg-black/15 hover:bg-black/25"
+      >
+        {allSelected ? "Deselect all" : "Select all"}
+      </button>
+    </div>
+  );
+}
+
+/**
+ * Footer action bar shown in place of the composer while bulk-select
+ * mode is active. Renders Delete (always) and Unsend (only when every
+ * selected row is an outbound message that has actually been sent).
+ */
+function SelectionActionBar({
+  count,
+  busy,
+  canUnsend,
+  onDeleteLocal,
+  onUnsend,
+  onCancel,
+}: {
+  count: number;
+  busy: boolean;
+  canUnsend: boolean;
+  onDeleteLocal: () => void;
+  onUnsend: () => void;
+  onCancel: () => void;
+}) {
+  const disabled = busy || count === 0;
+  return (
+    <div className="px-3 py-2 bg-panel border-t border-line flex items-center gap-2">
+      <button
+        type="button"
+        onClick={onCancel}
+        disabled={busy}
+        className="px-3 py-2 text-sm text-text-muted disabled:opacity-50"
+      >
+        Cancel
+      </button>
+      <div className="flex-1" />
+      <button
+        type="button"
+        onClick={onDeleteLocal}
+        disabled={disabled}
+        className="px-3 py-2 rounded-md bg-wa-bubble-in text-text text-sm font-medium disabled:opacity-50"
+      >
+        Delete{count > 0 ? ` (${count})` : ""}
+      </button>
+      {canUnsend && (
+        <button
+          type="button"
+          onClick={onUnsend}
+          disabled={disabled}
+          className="px-3 py-2 rounded-md bg-red-600 text-white text-sm font-medium disabled:opacity-50"
+        >
+          Unsend{count > 0 ? ` (${count})` : ""}
+        </button>
+      )}
+    </div>
+  );
+}
 
 function Composer({
   draft,
@@ -2594,12 +2850,12 @@ function ReactionPickerSheet({
 }
 
 /**
- * Three-button confirm dialog matching WhatsApp's unsend UX:
- *   [Delete for me] [Delete for everyone] [Cancel]
+ * Three-button confirm dialog:
+ *   [Unsend] [Delete for me] [Cancel]
  *
- * "Delete for everyone" is hidden for inbound messages (you can't
- * unsend something you didn't send). The grace window is enforced by
- * the server endpoint, but we don't gate it client-side beyond that.
+ * "Unsend" is hidden for inbound messages — you can only unsend your
+ * own. Unsend hard-deletes the message on both devices with no
+ * tombstone or "deleted" placeholder anywhere in the UI.
  */
 function DeleteMessageDialog({
   row,
@@ -2613,6 +2869,7 @@ function DeleteMessageDialog({
   onDeleteForEveryone: () => void | Promise<void>;
 }) {
   const isOut = row.direction === "out";
+  const canUnsend = isOut && !!row.serverId;
   return (
     <div
       className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center px-4"
@@ -2628,18 +2885,18 @@ function DeleteMessageDialog({
           Delete message?
         </div>
         <div className="text-sm text-text-muted mb-4">
-          {isOut
-            ? "You can delete this message for yourself or remove it for everyone in this chat."
+          {canUnsend
+            ? "Unsend removes this message from both your chat and theirs, with no trace. Delete for me only removes it from this device."
             : "This message will be removed from this device only."}
         </div>
         <div className="flex flex-col gap-2">
-          {isOut && (
+          {canUnsend && (
             <button
               type="button"
               onClick={() => void onDeleteForEveryone()}
               className="w-full px-4 py-2.5 rounded-xl bg-red-500/15 text-red-300 hover:bg-red-500/25 transition text-sm font-medium"
             >
-              Delete for everyone
+              Unsend
             </button>
           )}
           <button
