@@ -21,9 +21,11 @@ import {
   getEarliestGroupMessageTime,
   getSenderKey,
   hasGroupMessageDedup,
+  listPendingDecryptRows,
   putSenderKey,
   setGroupMessageStatus,
   tombstoneGroupMessageByServerId,
+  updateGroupMessage,
   type GroupMessageRecord,
   type GroupSenderKeyRecord,
 } from "./db";
@@ -355,21 +357,157 @@ export async function handleIncomingSenderKey(
   skdm: SenderKeyDistribution,
 ): Promise<void> {
   const existing = await getSenderKey(skdm.gid, senderUserId, skdm.ep);
-  if (existing) {
-    // Re-installation: skip — keeping our advanced state is safer.
-    return;
+  if (!existing) {
+    const rec: GroupSenderKeyRecord = {
+      id: `${skdm.gid}:${senderUserId}:${skdm.ep}`,
+      groupId: skdm.gid,
+      senderUserId,
+      epoch: skdm.ep,
+      chainKey: skdm.ck,
+      n: 0,
+      skipped: "{}",
+      updatedAt: new Date().toISOString(),
+    };
+    await putSenderKey(rec);
   }
-  const rec: GroupSenderKeyRecord = {
-    id: `${skdm.gid}:${senderUserId}:${skdm.ep}`,
-    groupId: skdm.gid,
-    senderUserId,
-    epoch: skdm.ep,
-    chainKey: skdm.ck,
-    n: 0,
-    skipped: "{}",
-    updatedAt: new Date().toISOString(),
-  };
-  await putSenderKey(rec);
+  // Whether the key is brand-new or pre-existing, sweep any
+  // placeholder rows from this sender at this epoch. New key → first
+  // chance to decrypt; existing key → may have advanced past skipped
+  // counters that are now finally fillable.
+  await retryPendingDecrypts(skdm.gid, senderUserId, skdm.ep).catch(
+    () => undefined,
+  );
+}
+
+/**
+ * Retry decryption of every "Decrypting…" placeholder row for
+ * `(groupId, senderUserId, epoch)` using the now-installed sender
+ * key. On success the row is updated in place and `pendingDecrypt`
+ * is cleared.
+ *
+ * Side-effect envelopes (rxn / edit / del) found in the buffered
+ * ciphertext are applied against the existing message log and their
+ * own placeholder row is removed (they don't render as their own row).
+ */
+export async function retryPendingDecrypts(
+  groupId: string,
+  senderUserId: string,
+  epoch: number,
+): Promise<void> {
+  const pending = await listPendingDecryptRows(groupId, senderUserId, epoch);
+  if (pending.length === 0) return;
+
+  // Order by counter so we feed the chain key in the same sequence
+  // it was generated, minimising "skipped" bookkeeping.
+  const decoded = pending
+    .map((row) => {
+      try {
+        const h = decodeGroupHeader(row.pendingDecrypt!.header);
+        return { row, header: h };
+      } catch {
+        return null;
+      }
+    })
+    .filter(
+      (x): x is { row: GroupMessageRecord; header: ReturnType<typeof decodeGroupHeader> } =>
+        x !== null,
+    )
+    .sort((a, b) => a.header.header.n - b.header.header.n);
+
+  for (const { row, header } of decoded) {
+    const rec = await getSenderKey(groupId, senderUserId, epoch);
+    if (!rec) return;
+    const state = recToState(rec);
+    let ptBytes: Uint8Array | null = null;
+    try {
+      ptBytes = await groupDecrypt(
+        state,
+        header.bytes,
+        header.header,
+        base64ToBytes(row.pendingDecrypt!.ciphertext),
+      );
+      await putSenderKey(stateToRec(state));
+    } catch {
+      // Couldn't decrypt this one — leave the placeholder so a future
+      // SKDM (e.g. one that reseeds skipped keys) can try again.
+      continue;
+    }
+    if (!ptBytes) continue;
+
+    let env: ReturnType<typeof decodeEnvelope>;
+    try {
+      env = decodeEnvelope(new TextDecoder().decode(ptBytes));
+    } catch {
+      continue;
+    }
+
+    if (row.id === undefined) continue;
+
+    // Side-effect envelopes mutate other rows; the placeholder row
+    // itself shouldn't render so we remove it.
+    if (env.t === "del") {
+      await tombstoneGroupMessageByServerId(env.target);
+      await updateGroupMessage(row.id, { pendingDecrypt: undefined, deleted: true, plaintext: "" });
+      continue;
+    }
+    if (env.t === "rxn") {
+      await applyGroupReactionByServerId(env.target, senderUserId, env.emoji);
+      await updateGroupMessage(row.id, { pendingDecrypt: undefined, deleted: true, plaintext: "" });
+      continue;
+    }
+    if (env.t === "edit") {
+      await applyGroupEditByServerId(env.target, env.body, env.editedAt);
+      await updateGroupMessage(row.id, { pendingDecrypt: undefined, deleted: true, plaintext: "" });
+      continue;
+    }
+    if (env.t === "skdm" || env.t === "skreq") {
+      await updateGroupMessage(row.id, { pendingDecrypt: undefined, deleted: true, plaintext: "" });
+      continue;
+    }
+
+    // Resolve replyTo for text/image/voice if present.
+    let replyTo: GroupMessageRecord["replyTo"] | undefined;
+    if (
+      (env.t === "text" || env.t === "image" || env.t === "voice") &&
+      env.re
+    ) {
+      const orig = await findGroupMessageByServerId(env.re.id);
+      replyTo = {
+        serverId: env.re.id,
+        body: env.re.body,
+        senderUserId: orig?.senderUserId ?? "",
+      };
+    }
+
+    await updateGroupMessage(row.id, {
+      pendingDecrypt: undefined,
+      plaintext:
+        env.t === "text"
+          ? env.body
+          : env.t === "image"
+            ? (env.body ?? "")
+            : env.t === "voice"
+              ? ""
+              : "",
+      attachment:
+        env.t === "image" || env.t === "voice"
+          ? { ...env.media, kind: env.t }
+          : undefined,
+      linkPreview:
+        (env.t === "text" || env.t === "image" || env.t === "voice") && env.lp
+          ? env.lp
+          : undefined,
+      pollData:
+        env.t === "poll"
+          ? { pollId: env.pollId, question: env.question, choices: env.choices }
+          : undefined,
+      pollVoteData:
+        env.t === "poll_vote"
+          ? { pollId: env.pollId, choiceIdx: env.choiceIdx }
+          : undefined,
+      replyTo,
+    });
+  }
 }
 
 /* ─────────────── Send group message ─────────────── */
@@ -643,7 +781,27 @@ export async function ingestGroupInboxMessage(
         header.header.sender,
       ).catch(() => undefined);
     }
-    return "failed";
+    // Store a *pending* placeholder row that retains the header +
+    // ciphertext. retryPendingDecrypts (called from
+    // handleIncomingSenderKey) will recover the real plaintext as
+    // soon as the matching SKDM lands.
+    await appendGroupMessage({
+      groupId: m.groupId,
+      serverId: m.id,
+      dedupKey,
+      senderUserId: header.header.sender,
+      direction: "in",
+      plaintext: "Decrypting…",
+      createdAt: m.createdAt,
+      status: "received",
+      pendingDecrypt: {
+        header: m.header,
+        ciphertext: m.ciphertext,
+        epoch: header.header.ep,
+      },
+      ...(m.expiresAt ? { expiresAt: m.expiresAt } : {}),
+    } as Omit<GroupMessageRecord, "id">);
+    return "new";
   }
   const state = recToState(rec);
   const ct = base64ToBytes(m.ciphertext);
@@ -875,7 +1033,9 @@ async function persistGroupHistoryEntry(
   const dedupKey = `${header.header.sender}:${header.header.ep}:${header.header.n}`;
   if (await hasGroupMessageDedup(dedupKey)) return false;
 
-  // Helper: store a placeholder when we can't decrypt.
+  // Helper: store a placeholder when we can't decrypt. We keep the
+  // header + ciphertext in `pendingDecrypt` so retryPendingDecrypts
+  // can recover the real plaintext later, once the SKDM arrives.
   const storePlaceholder = async () => {
     await appendGroupMessage({
       groupId,
@@ -883,9 +1043,14 @@ async function persistGroupHistoryEntry(
       dedupKey,
       senderUserId: m.senderUserId,
       direction: "in",
-      plaintext: "[encrypted — couldn't decrypt on this device]",
+      plaintext: "Decrypting…",
       createdAt: m.createdAt,
       status: "received",
+      pendingDecrypt: {
+        header: m.header,
+        ciphertext: m.ciphertext,
+        epoch: header.header.ep,
+      },
       ...(m.expiresAt ? { expiresAt: m.expiresAt } : {}),
     } as Omit<GroupMessageRecord, "id">);
   };

@@ -281,6 +281,19 @@ export interface GroupMessageRecord {
   starred?: boolean;
   /** Local-only: pinned to the top of this group thread (one per group). */
   pinned?: boolean;
+  /**
+   * Set on placeholder rows where we couldn't decrypt because the
+   * sender key for `(groupId, senderUserId, epoch)` wasn't available
+   * yet. We keep the wire bytes around so that as soon as the SKDM
+   * lands we can retry decryption in place and replace the placeholder
+   * with the real plaintext — no "[encrypted — couldn't decrypt on
+   * this device]" rows leaking into the UI permanently.
+   */
+  pendingDecrypt?: {
+    header: string;
+    ciphertext: string;
+    epoch: number;
+  };
 }
 
 /** A message scheduled to be sent at a future time (1:1 chats). */
@@ -562,6 +575,35 @@ export async function listGroupMessages(
     .equals(groupId)
     .toArray();
   return rows.sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1));
+}
+
+/**
+ * Return every pending-decrypt row in `groupId` whose stored epoch
+ * matches `epoch` and whose sender is `senderUserId`. Used by the SKDM
+ * arrival handler to retry decryption in place.
+ */
+export async function listPendingDecryptRows(
+  groupId: string,
+  senderUserId: string,
+  epoch: number,
+): Promise<GroupMessageRecord[]> {
+  const rows = await db.groupMessages
+    .where("groupId")
+    .equals(groupId)
+    .toArray();
+  return rows.filter(
+    (r) =>
+      r.pendingDecrypt !== undefined &&
+      r.pendingDecrypt.epoch === epoch &&
+      r.senderUserId === senderUserId,
+  );
+}
+
+export async function updateGroupMessage(
+  localId: number,
+  patch: Partial<GroupMessageRecord>,
+): Promise<void> {
+  await db.groupMessages.update(localId, patch);
 }
 
 export async function deleteExpiredGroupMessages(): Promise<void> {
