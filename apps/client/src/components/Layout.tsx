@@ -382,7 +382,7 @@ export function MessageBubble({
   direction: "in" | "out";
   children: ReactNode;
   time?: string;
-  status?: "pending" | "sent" | "failed" | "received" | "read";
+  status?: "pending" | "sent" | "delivered" | "failed" | "received" | "read";
 }) {
   const isOut = direction === "out";
   return (
@@ -411,17 +411,19 @@ export function MessageBubble({
 function StatusTicks({
   status,
 }: {
-  status: "pending" | "sent" | "failed" | "received" | "read";
+  status: "pending" | "sent" | "delivered" | "failed" | "received" | "read";
 }) {
   if (status === "pending")
-    return <span className="opacity-70" aria-label="Sending">⏱</span>;
+    return <span className="opacity-70 text-[10px]" aria-label="Sending">⏱</span>;
   if (status === "failed")
-    return <span className="text-red-500" aria-label="Failed">!</span>;
+    return <span className="text-red-500 text-[10px]" aria-label="Failed">!</span>;
   if (status === "sent")
     return <SingleTickIcon className="text-wa-tick" />;
+  if (status === "delivered")
+    return <DoubleTickIcon className="text-wa-tick" />;
   if (status === "read")
-    return <DoubleTickIcon style={{ color: "#3897F0" }} />;
-  return <DoubleTickIcon className="text-wa-tick" />;
+    return <ReadDoubleTickIcon />;
+  return null;
 }
 
 /** Sticky bottom message-composer bar. */
@@ -719,6 +721,33 @@ export function DoubleTickIcon({
     >
       <polyline points="1 6.5 5 10.5 12 1.5" />
       <polyline points="6.5 6.5 10 10 17 1" />
+    </svg>
+  );
+}
+
+/**
+ * Double-tick shown when the peer has read the message.
+ * Uses a pink-to-magenta gradient: rgb(247,52,130) → rgb(220,40,180).
+ */
+function ReadDoubleTickIcon() {
+  return (
+    <svg
+      viewBox="0 0 18 12"
+      className="w-4 h-3"
+      fill="none"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <defs>
+        <linearGradient id="veil-read-grad" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="rgb(247,52,130)" />
+          <stop offset="100%" stopColor="rgb(220,40,180)" />
+        </linearGradient>
+      </defs>
+      <polyline points="1 6.5 5 10.5 12 1.5" stroke="url(#veil-read-grad)" />
+      <polyline points="6.5 6.5 10 10 17 1" stroke="url(#veil-read-grad)" />
     </svg>
   );
 }

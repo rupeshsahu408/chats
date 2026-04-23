@@ -67,11 +67,13 @@ export interface ChatMessageRecord {
   plaintext: string;
   createdAt: string;
   /**
-   * For outbound: 'pending' | 'sent' | 'failed' | 'read'.
+   * For outbound: 'pending' | 'sent' | 'delivered' | 'failed' | 'read'.
    * For inbound: 'received'.
-   * 'read' = peer has reported they've opened the message.
+   * 'delivered' = peer device received it. 'read' = peer opened it.
    */
-  status: "pending" | "sent" | "failed" | "received" | "read";
+  status: "pending" | "sent" | "delivered" | "failed" | "received" | "read";
+  /** When the recipient's device acknowledged receipt (delivery receipt). */
+  deliveredAt?: string;
   /** When the recipient (or for outbound: us) read it. */
   readAt?: string;
   /**
@@ -402,6 +404,18 @@ export async function deleteExpiredChatMessages(): Promise<number> {
   if (expired.length === 0) return 0;
   await db.chatMessages.bulkDelete(expired.map((m) => m.id!).filter((x) => x !== undefined));
   return expired.length;
+}
+
+export async function markChatMessageDelivered(
+  serverId: string,
+  deliveredAt: string,
+): Promise<void> {
+  const row = await db.chatMessages.where("serverId").equals(serverId).first();
+  if (!row || row.id === undefined) return;
+  // Only promote to "delivered" if the message hasn't already been read.
+  if (row.status === "sent" || row.status === "pending") {
+    await db.chatMessages.update(row.id, { status: "delivered", deliveredAt });
+  }
 }
 
 export async function markChatMessageRead(

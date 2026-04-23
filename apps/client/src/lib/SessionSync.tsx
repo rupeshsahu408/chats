@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { useAuthStore } from "./store";
 import { useUnlockStore } from "./unlockStore";
 import { wsClient } from "./wsClient";
-import { applyReadReceipt, ingestInboxMessage, pollAndDecrypt, restorePeerHistory } from "./messageSync";
+import { applyDeliveryReceipt, applyReadReceipt, ingestInboxMessage, pollAndDecrypt, restorePeerHistory } from "./messageSync";
 import { useStealthPrefs } from "./stealthPrefs";
 import { deleteExpiredChatMessages } from "./db";
 import { trpcClientProxy } from "./trpcClientProxy";
@@ -46,6 +46,8 @@ export function SessionSync() {
     const unsub = wsClient.subscribe((event) => {
       if (event.type === "new_message") {
         void ingestInboxMessage(identity, event.message);
+      } else if (event.type === "delivery_receipt") {
+        void applyDeliveryReceipt(event.messageId, event.at).catch(() => undefined);
       } else if (event.type === "read_receipt") {
         void applyReadReceipt(event.messageId, event.at).catch(() => undefined);
       } else if (event.type === "group_changed") {

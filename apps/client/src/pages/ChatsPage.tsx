@@ -17,6 +17,7 @@ import {
   ChatIcon,
   PrimaryButton,
   DoubleTickIcon,
+  SingleTickIcon,
 } from "../components/Layout";
 import { MainShell } from "../components/MainShell";
 import { UnlockGate } from "../components/UnlockGate";
@@ -68,7 +69,7 @@ export function ChatsPage() {
   // Build "last message" map per peer.
   const lastByPeer = new Map<
     string,
-    { preview: string; createdAt: string; direction: "in" | "out" }
+    { preview: string; createdAt: string; direction: "in" | "out"; status: string }
   >();
   for (const m of allMessages ?? []) {
     if (!lastByPeer.has(m.peerId)) {
@@ -82,6 +83,7 @@ export function ChatsPage() {
         preview,
         createdAt: m.createdAt,
         direction: m.direction,
+        status: m.status,
       });
     }
   }
@@ -188,7 +190,17 @@ export function ChatsPage() {
                   last ? (
                     <span className="inline-flex items-center gap-1">
                       {last.direction === "out" && (
-                        <DoubleTickIcon className="text-wa-tick" />
+                        last.status === "sent" ? (
+                          <SingleTickIcon className="text-wa-tick shrink-0" />
+                        ) : last.status === "delivered" ? (
+                          <DoubleTickIcon className="text-wa-tick shrink-0" />
+                        ) : last.status === "read" ? (
+                          <DoubleTickIcon className="shrink-0" style={{ color: "rgb(247,52,130)" }} />
+                        ) : last.status === "pending" ? (
+                          <span className="text-[10px] opacity-70 shrink-0">⏱</span>
+                        ) : (
+                          <DoubleTickIcon className="text-wa-tick shrink-0" />
+                        )
                       )}
                       <span className="truncate">{last.preview}</span>
                     </span>

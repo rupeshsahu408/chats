@@ -7,6 +7,7 @@ import {
   setChatMessageStatus,
   hasChatMessageWithServerId,
   getEarliestChatMessageTime,
+  markChatMessageDelivered,
   markChatMessageRead,
   deleteExpiredChatMessages,
   db,
@@ -309,6 +310,14 @@ export async function reportRead(serverIds: string[]): Promise<void> {
       console.warn("markRead HTTP fallback failed", e);
     }
   }
+}
+
+/** Apply an inbound delivery_receipt event to the local outbox. */
+export async function applyDeliveryReceipt(
+  messageId: string,
+  at: string,
+): Promise<void> {
+  await markChatMessageDelivered(messageId, at);
 }
 
 /** Apply an inbound read_receipt event to the local outbox. */

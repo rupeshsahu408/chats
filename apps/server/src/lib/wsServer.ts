@@ -5,6 +5,7 @@ import { WsClientEventSchema } from "@veil/shared";
 import { verifyAccessToken } from "./jwt.js";
 import { getDb, schema } from "../db/index.js";
 import {
+  isOnline,
   publish,
   registerSocket,
   unregisterSocket,
@@ -81,6 +82,21 @@ export async function registerWebSocketRoutes(
 
     registerSocket(userId, socket);
     void broadcastPresence(userId, true);
+    // Immediately catch the newly-connected user up on which of their peers
+    // are already online.  This makes presence bidirectional even when the
+    // two sides connected at very different times.
+    void (async () => {
+      try {
+        const peerIds = await getConnectionPeerIds(userId);
+        for (const peerId of peerIds) {
+          if (isOnline(peerId)) {
+            publish(userId, { type: "presence", userId: peerId, online: true });
+          }
+        }
+      } catch {
+        /* best-effort */
+      }
+    })();
     try {
       socket.send(JSON.stringify({ type: "hello", userId }));
     } catch {
