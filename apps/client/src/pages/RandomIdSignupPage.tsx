@@ -93,7 +93,7 @@ export function RandomIdSignupPage() {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const checkUsername = trpc.auth.checkUsername.useMutation();
+  const trpcUtils = trpc.useUtils();
   const signup = trpc.auth.signupRandomV2.useMutation();
   const updateProfile = trpc.me.updateProfile.useMutation();
   const uploadPrekeys = trpc.prekeys.upload.useMutation();
@@ -112,7 +112,7 @@ export function RandomIdSignupPage() {
     const handle = setTimeout(async () => {
       setCheckingUsername(true);
       try {
-        const r = await checkUsername.mutateAsync({ username });
+        const r = await trpcUtils.auth.checkUsername.fetch({ username });
         setUsernameAvailable(r.available);
         if (!r.available) {
           setUsernameError(
