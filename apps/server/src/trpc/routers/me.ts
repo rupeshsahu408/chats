@@ -6,6 +6,8 @@ import {
   SetX25519IdentityInput,
   OkSchema,
   UserIdSchema,
+  UpdateProfileInput,
+  UsernameSchema,
   type PublicUser,
 } from "@veil/shared";
 import { protectedProcedure, router } from "../init.js";
@@ -22,6 +24,10 @@ export const meRouter = router({
           id: schema.users.id,
           accountType: schema.users.accountType,
           createdAt: schema.users.createdAt,
+          username: schema.users.username,
+          displayName: schema.users.displayName,
+          bio: schema.users.bio,
+          avatarDataUrl: schema.users.avatarDataUrl,
         })
         .from(schema.users)
         .where(eq(schema.users.id, ctx.userId))
@@ -32,6 +38,109 @@ export const meRouter = router({
         id: row.id,
         accountType: row.accountType,
         createdAt: row.createdAt.toISOString(),
+        username: row.username ?? null,
+        displayName: row.displayName ?? null,
+        bio: row.bio ?? null,
+        avatarDataUrl: row.avatarDataUrl ?? null,
+      };
+    }),
+
+  /**
+   * Update the optional public profile fields. Username is intentionally
+   * NOT editable here — it is set once at signup and permanent. Pass
+   * `null` for any field to clear it; omit a field to leave it unchanged.
+   */
+  updateProfile: protectedProcedure
+    .input(UpdateProfileInput)
+    .output(PublicUserSchema)
+    .mutation(async ({ ctx, input }): Promise<PublicUser> => {
+      const db = getDb();
+
+      const patch: Record<string, string | null> = {};
+      if (input.displayName !== undefined) {
+        patch.displayName = input.displayName ? input.displayName : null;
+      }
+      if (input.bio !== undefined) {
+        patch.bio = input.bio ? input.bio : null;
+      }
+      if (input.avatarDataUrl !== undefined) {
+        if (input.avatarDataUrl !== null) {
+          if (!/^data:image\/(png|jpeg|jpg|webp);base64,/.test(input.avatarDataUrl)) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "avatarDataUrl must be an image/png|jpeg|webp data URL.",
+            });
+          }
+        }
+        patch.avatarDataUrl = input.avatarDataUrl;
+      }
+
+      if (Object.keys(patch).length > 0) {
+        await db
+          .update(schema.users)
+          .set(patch)
+          .where(eq(schema.users.id, ctx.userId));
+      }
+
+      const found = await db
+        .select({
+          id: schema.users.id,
+          accountType: schema.users.accountType,
+          createdAt: schema.users.createdAt,
+          username: schema.users.username,
+          displayName: schema.users.displayName,
+          bio: schema.users.bio,
+          avatarDataUrl: schema.users.avatarDataUrl,
+        })
+        .from(schema.users)
+        .where(eq(schema.users.id, ctx.userId))
+        .limit(1);
+      const row = found[0];
+      if (!row) throw new TRPCError({ code: "NOT_FOUND" });
+      return {
+        id: row.id,
+        accountType: row.accountType,
+        createdAt: row.createdAt.toISOString(),
+        username: row.username ?? null,
+        displayName: row.displayName ?? null,
+        bio: row.bio ?? null,
+        avatarDataUrl: row.avatarDataUrl ?? null,
+      };
+    }),
+
+  /**
+   * Public profile lookup by username. Used by chat headers, contact
+   * lists and the discover-by-username flow so we can show the
+   * displayName + avatar instead of the random ID.
+   */
+  lookupByUsername: protectedProcedure
+    .input(z.object({ username: UsernameSchema }))
+    .output(PublicUserSchema.nullable())
+    .query(async ({ input }) => {
+      const db = getDb();
+      const found = await db
+        .select({
+          id: schema.users.id,
+          accountType: schema.users.accountType,
+          createdAt: schema.users.createdAt,
+          username: schema.users.username,
+          displayName: schema.users.displayName,
+          bio: schema.users.bio,
+          avatarDataUrl: schema.users.avatarDataUrl,
+        })
+        .from(schema.users)
+        .where(eq(schema.users.username, input.username))
+        .limit(1);
+      const row = found[0];
+      if (!row) return null;
+      return {
+        id: row.id,
+        accountType: row.accountType,
+        createdAt: row.createdAt.toISOString(),
+        username: row.username ?? null,
+        displayName: row.displayName ?? null,
+        bio: row.bio ?? null,
+        avatarDataUrl: row.avatarDataUrl ?? null,
       };
     }),
 

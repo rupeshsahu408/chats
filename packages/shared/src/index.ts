@@ -76,6 +76,14 @@ export const PublicUserSchema = z.object({
   id: UserIdSchema,
   accountType: AccountTypeSchema,
   createdAt: z.string(),
+  /** Public Instagram-style handle. Null only for legacy accounts. */
+  username: z.string().nullable().optional(),
+  /** Optional human-friendly display name (first + last, free text). */
+  displayName: z.string().nullable().optional(),
+  /** Optional bio (max 160 chars). */
+  bio: z.string().nullable().optional(),
+  /** Optional inline base64 data URL for the profile photo. */
+  avatarDataUrl: z.string().nullable().optional(),
 });
 export type PublicUser = z.infer<typeof PublicUserSchema>;
 
@@ -546,6 +554,109 @@ export const LoginRandomInput = z.object({
   signature: z.string().regex(/^[A-Za-z0-9+/]+=*$/).min(80).max(100),
 });
 export type LoginRandomInput = z.infer<typeof LoginRandomInput>;
+
+/* ─────────── Username / Password / Bot Challenge ─────────── */
+
+/**
+ * Instagram-style handle. Lowercase letters, digits, dot and underscore.
+ * 3–24 chars. Must start with a letter or digit. Reserved against case
+ * collisions server-side.
+ */
+export const UsernameSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .min(3, "Username must be at least 3 characters")
+  .max(24, "Username must be 24 characters or fewer")
+  .regex(
+    /^[a-z0-9][a-z0-9._]{2,23}$/,
+    "Use letters, numbers, dot or underscore only",
+  );
+export type Username = z.infer<typeof UsernameSchema>;
+
+export const PasswordSchema = z
+  .string()
+  .min(8, "Password must be at least 8 characters")
+  .max(128);
+export type Password = z.infer<typeof PasswordSchema>;
+
+export const CheckUsernameInput = z.object({ username: UsernameSchema });
+export const CheckUsernameResult = z.object({
+  available: z.boolean(),
+  reason: z.enum(["taken", "reserved"]).nullable().optional(),
+});
+export type CheckUsernameResult = z.infer<typeof CheckUsernameResult>;
+
+/**
+ * Slide-to-verify bot challenge. The server picks a random horizontal
+ * `gapX` (0..puzzleWidth-pieceWidth), renders a colourful background
+ * with a piece-shaped hole at that X, and returns:
+ *   - challengeId      → opaque server-state handle
+ *   - background       → SVG data URL with the hole
+ *   - piece            → SVG data URL of the piece to drag
+ *   - puzzleWidth/Height + pieceWidth/Height for layout
+ *   - expiresInSeconds
+ * The client lets the user drag the piece horizontally and posts the
+ * final X to verifyBotChallenge, which returns a one-time token good
+ * for the next signup attempt.
+ */
+export const IssueBotChallengeResult = z.object({
+  challengeId: z.string(),
+  background: z.string(),
+  piece: z.string(),
+  puzzleWidth: z.number().int().positive(),
+  puzzleHeight: z.number().int().positive(),
+  pieceWidth: z.number().int().positive(),
+  pieceHeight: z.number().int().positive(),
+  /** Y of the piece (fixed by the server). */
+  pieceY: z.number().int().nonnegative(),
+  expiresInSeconds: z.number().int().positive(),
+});
+export type IssueBotChallengeResult = z.infer<typeof IssueBotChallengeResult>;
+
+export const VerifyBotChallengeInput = z.object({
+  challengeId: z.string(),
+  /** The X position the user dropped the piece at. */
+  guessX: z.number().int().nonnegative(),
+});
+export const VerifyBotChallengeResult = z.object({
+  ok: z.boolean(),
+  /** One-shot, short-lived token to attach to the next signup mutation. */
+  token: z.string().nullable().optional(),
+});
+export type VerifyBotChallengeResult = z.infer<typeof VerifyBotChallengeResult>;
+
+export const SignupRandomV2Input = z.object({
+  username: UsernameSchema,
+  password: PasswordSchema,
+  identityPublicKey: IdentityPublicKeySchema,
+  /** Token issued by verifyBotChallenge. */
+  botToken: z.string(),
+});
+export type SignupRandomV2Input = z.infer<typeof SignupRandomV2Input>;
+
+export const LoginRandomV2Input = z.object({
+  username: UsernameSchema,
+  password: PasswordSchema,
+});
+export type LoginRandomV2Input = z.infer<typeof LoginRandomV2Input>;
+
+/* ─────────── Profile ─────────── */
+
+export const UpdateProfileInput = z.object({
+  displayName: z.string().trim().max(60).nullable().optional(),
+  bio: z.string().trim().max(160).nullable().optional(),
+  /**
+   * Base64 data URL (image/png, image/jpeg, image/webp). Capped at
+   * ~64 KB after the client resizes to ≤256×256. Pass `null` to clear.
+   */
+  avatarDataUrl: z
+    .string()
+    .max(96 * 1024)
+    .nullable()
+    .optional(),
+});
+export type UpdateProfileInput = z.infer<typeof UpdateProfileInput>;
 
 /* ─────────── Phase 4: Contact Discovery ─────────── */
 

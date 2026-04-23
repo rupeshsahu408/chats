@@ -66,6 +66,27 @@ export const users = pgTable(
     phoneSha: text("phone_sha"),
     /** Random user ID for Option C accounts. */
     randomId: text("random_id"),
+    /**
+     * Public, Instagram-style handle. Unique, case-insensitive,
+     * permanent (cannot be changed once set). Optional only for legacy
+     * accounts that pre-date the username flow.
+     */
+    username: text("username"),
+    /** Argon2id hash of the user's password (random-ID accounts only). */
+    passwordHash: text("password_hash"),
+    /**
+     * Public profile fields shown in chat headers, contact lists, etc.
+     * All optional — UI falls back to the username (or random ID).
+     */
+    displayName: text("display_name"),
+    bio: text("bio"),
+    /**
+     * Inline base64 data URL of the user's profile photo, capped at
+     * ~64 KB after client-side resize. Inlined (rather than blob
+     * storage) so it can be served alongside any user lookup with no
+     * extra round-trip and no presigned URL plumbing.
+     */
+    avatarDataUrl: text("avatar_data_url"),
     /** Raw Ed25519 identity public key (32 bytes). Used for signatures + fingerprint. */
     identityPubkey: bytea("identity_pubkey").notNull(),
     /** Raw X25519 identity public key (32 bytes). Used for X3DH ECDH. Phase 3+. */
@@ -89,6 +110,9 @@ export const users = pgTable(
     randomIdIdx: uniqueIndex("users_random_id_idx")
       .on(t.randomId)
       .where(sql`${t.randomId} IS NOT NULL`),
+    usernameIdx: uniqueIndex("users_username_idx")
+      .on(sql`lower(${t.username})`)
+      .where(sql`${t.username} IS NOT NULL`),
   }),
 );
 
