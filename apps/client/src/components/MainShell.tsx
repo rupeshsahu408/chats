@@ -8,6 +8,7 @@ import {
   PeopleIcon,
   SettingsIcon,
 } from "./Layout";
+import { WsHealthDot } from "./WsHealthDot";
 
 /**
  * Shared shell for the three primary tabs: Chats, People, Settings.
@@ -29,11 +30,14 @@ export function MainShell({
       <AppBar
         title={title}
         right={
-          rightActions ?? (
-            <IconButton label="Menu" className="text-text-oncolor">
-              <MoreVerticalIcon />
-            </IconButton>
-          )
+          <>
+            <WsHealthDot />
+            {rightActions ?? (
+              <IconButton label="Menu" className="text-text-oncolor">
+                <MoreVerticalIcon />
+              </IconButton>
+            )}
+          </>
         }
       />
       <TabStrip active={active} />
