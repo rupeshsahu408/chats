@@ -3,6 +3,8 @@ import { useNavigate, useParams } from "react-router-dom";
 import { trpc } from "../lib/trpc";
 import { useAuthStore } from "../lib/store";
 import { useUnlockStore } from "../lib/unlockStore";
+import { usePresenceStore } from "../lib/presenceStore";
+import { formatLastSeen } from "../lib/lastSeen";
 import {
   AppBar,
   Avatar,
@@ -94,6 +96,44 @@ function Inner({ groupId }: { groupId: string }) {
     () => new Set((groupQuery.data?.members ?? []).map((m) => m.userId)),
     [groupQuery.data],
   );
+
+  // Other members' user IDs — used to look up live presence + last seen.
+  const otherMemberIds = useMemo(
+    () =>
+      (groupQuery.data?.members ?? [])
+        .map((m) => m.userId)
+        .filter((id) => id !== userId),
+    [groupQuery.data, userId],
+  );
+
+  const peersOnlineQuery = trpc.me.peersOnline.useQuery(
+    { peerIds: otherMemberIds },
+    { enabled: otherMemberIds.length > 0, refetchInterval: 30_000 },
+  );
+  const peersLastSeenQuery = trpc.me.peersLastSeen.useQuery(
+    { peerIds: otherMemberIds },
+    { enabled: otherMemberIds.length > 0, refetchInterval: 60_000 },
+  );
+
+  const setPresenceOnline = usePresenceStore((s) => s.setOnline);
+  useEffect(() => {
+    const list = peersOnlineQuery.data?.online;
+    if (!list) return;
+    const onlineSet = new Set(list);
+    for (const id of otherMemberIds) {
+      setPresenceOnline(id, onlineSet.has(id));
+    }
+  }, [peersOnlineQuery.data, otherMemberIds, setPresenceOnline]);
+
+  const presenceMap = usePresenceStore((s) => s.online);
+
+  const lastSeenMap = useMemo(() => {
+    const m = new Map<string, string | null>();
+    for (const row of peersLastSeenQuery.data?.lastSeen ?? []) {
+      m.set(row.userId, row.lastSeenAt);
+    }
+    return m;
+  }, [peersLastSeenQuery.data]);
 
   if (groupQuery.isLoading) {
     return (
@@ -232,20 +272,49 @@ function Inner({ groupId }: { groupId: string }) {
           <ul className="divide-y divide-line">
             {group.members.map((m) => {
               const isMe = m.userId === userId;
+              const isOnline = !isMe && presenceMap[m.userId] === true;
+              const lastSeenAt = isMe ? null : lastSeenMap.get(m.userId) ?? null;
+              const presenceLabel = isMe
+                ? null
+                : isOnline
+                  ? "Online"
+                  : lastSeenAt
+                    ? `Last seen ${formatLastSeen(lastSeenAt)}`
+                    : null;
               return (
                 <li
                   key={m.userId}
                   className="flex items-center gap-3 px-4 py-3"
                 >
-                  <Avatar seed={m.userId} size={40} />
+                  <div className="relative shrink-0">
+                    <Avatar seed={m.userId} size={40} />
+                    {isOnline && (
+                      <span
+                        aria-hidden="true"
+                        className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-green-400 border-2 border-panel"
+                      />
+                    )}
+                  </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-mono truncate text-text">
                       {isMe
                         ? "You"
                         : m.fingerprint || m.userId.slice(0, 8) + "…"}
                     </div>
-                    <div className="text-xs text-text-muted capitalize">
-                      {m.role}
+                    <div className="text-xs text-text-muted capitalize truncate">
+                      {presenceLabel ? (
+                        <span
+                          className={
+                            "normal-case " +
+                            (isOnline ? "text-green-400" : "text-text-muted")
+                          }
+                        >
+                          {presenceLabel}
+                          <span className="text-text-muted"> · {m.role}</span>
+                        </span>
+                      ) : (
+                        m.role
+                      )}
                     </div>
                   </div>
                   {isAdmin && !isMe && (

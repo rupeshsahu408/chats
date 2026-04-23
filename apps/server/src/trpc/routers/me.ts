@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray, or } from "drizzle-orm";
 import { z } from "zod";
 import {
   PublicUserSchema,
@@ -146,5 +146,72 @@ export const meRouter = router({
 
       if (conn.length === 0) return { lastSeenAt: null };
       return { lastSeenAt: row.lastSeenAt?.toISOString() ?? null };
+    }),
+
+  /**
+   * Batched version of `peerLastSeen` — returns each peer's last-seen ISO
+   * timestamp (or null when hidden by privacy / no connection).
+   */
+  peersLastSeen: protectedProcedure
+    .input(z.object({ peerIds: z.array(UserIdSchema).max(500) }))
+    .output(
+      z.object({
+        lastSeen: z.array(
+          z.object({
+            userId: UserIdSchema,
+            lastSeenAt: z.string().nullable(),
+          }),
+        ),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      if (input.peerIds.length === 0) return { lastSeen: [] };
+      const db = getDb();
+      const rows = await db
+        .select({
+          id: schema.users.id,
+          lastSeenAt: schema.users.lastSeenAt,
+          lastSeenPrivacy: schema.users.lastSeenPrivacy,
+        })
+        .from(schema.users)
+        .where(inArray(schema.users.id, input.peerIds));
+
+      // Pull the requester's connections once so "contacts"-privacy peers
+      // can be resolved without N queries.
+      const myConns = await db
+        .select({
+          a: schema.connections.userAId,
+          b: schema.connections.userBId,
+        })
+        .from(schema.connections)
+        .where(
+          or(
+            eq(schema.connections.userAId, ctx.userId),
+            eq(schema.connections.userBId, ctx.userId),
+          ),
+        );
+      const connected = new Set<string>();
+      for (const c of myConns) {
+        connected.add(c.a === ctx.userId ? c.b : c.a);
+      }
+
+      const byId = new Map<string, (typeof rows)[number]>();
+      for (const r of rows) byId.set(r.id, r);
+
+      const lastSeen = input.peerIds.map((peerId) => {
+        const row = byId.get(peerId);
+        if (!row) return { userId: peerId, lastSeenAt: null };
+        const privacy = row.lastSeenPrivacy ?? "contacts";
+        if (privacy === "nobody") return { userId: peerId, lastSeenAt: null };
+        if (privacy === "contacts" && !connected.has(peerId)) {
+          return { userId: peerId, lastSeenAt: null };
+        }
+        return {
+          userId: peerId,
+          lastSeenAt: row.lastSeenAt?.toISOString() ?? null,
+        };
+      });
+
+      return { lastSeen };
     }),
 });

@@ -30,6 +30,7 @@ import {
 import { EmojiPicker, ReactionPicker } from "../components/EmojiPicker";
 import { wsClient, wsTyping } from "../lib/wsClient";
 import { usePresenceStore } from "../lib/presenceStore";
+import { formatLastSeen } from "../lib/lastSeen";
 import {
   AppBar,
   Avatar,
@@ -1230,41 +1231,6 @@ function Dot({ d }: { d: number }) {
       style={{ animationDelay: `${d}ms` }}
     />
   );
-}
-
-/**
- * Format a lastSeenAt ISO timestamp into a human-friendly label.
- * Examples: "today at 3:42 PM", "yesterday at 11:30 AM", "Monday at 9:00 AM"
- */
-function formatLastSeen(iso: string): string {
-  const date = new Date(iso);
-  const now = new Date();
-
-  const timeStr = date.toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-
-  const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const yesterdayStart = new Date(dayStart.getTime() - 86_400_000);
-  const weekStart = new Date(dayStart.getTime() - 6 * 86_400_000);
-
-  if (date >= dayStart) {
-    return `today at ${timeStr}`;
-  }
-  if (date >= yesterdayStart) {
-    return `yesterday at ${timeStr}`;
-  }
-  if (date >= weekStart) {
-    const day = date.toLocaleDateString([], { weekday: "long" });
-    return `${day} at ${timeStr}`;
-  }
-  const dateStr = date.toLocaleDateString([], {
-    month: "short",
-    day: "numeric",
-    year: date.getFullYear() !== now.getFullYear() ? "numeric" : undefined,
-  });
-  return `${dateStr} at ${timeStr}`;
 }
 
 export function ttlRemainingLabel(iso?: string): string | null {
