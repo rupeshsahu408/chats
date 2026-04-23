@@ -420,6 +420,36 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
       .catch(() => undefined);
   }, [messages, peerId, seenTtlSeconds, unlocked]);
 
+  // Precise per-message expiry timers. The 60s background sweep is too
+  // coarse for short TTLs (e.g. 8s "Seen settings"), so for any message
+  // currently in view that has an `expiresAt`, schedule a setTimeout that
+  // fires exactly when it's due and reaps just that row from Dexie.
+  useEffect(() => {
+    if (!messages || messages.length === 0) return;
+    const now = Date.now();
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    for (const m of messages) {
+      if (!m.expiresAt || m.id === undefined) continue;
+      const due = new Date(m.expiresAt).getTime();
+      const delay = due - now;
+      if (delay <= 0) {
+        // Already past due — delete immediately.
+        void db.chatMessages.delete(m.id).catch(() => undefined);
+        continue;
+      }
+      // Cap delay to avoid setTimeout overflow (~24.8 days).
+      const safeDelay = Math.min(delay, 2_147_000_000);
+      const id = m.id;
+      const t = setTimeout(() => {
+        void db.chatMessages.delete(id).catch(() => undefined);
+      }, safeDelay);
+      timers.push(t);
+    }
+    return () => {
+      for (const t of timers) clearTimeout(t);
+    };
+  }, [messages]);
+
   // Auto-scroll to bottom on new messages.
   useEffect(() => {
     const el = scrollRef.current;
