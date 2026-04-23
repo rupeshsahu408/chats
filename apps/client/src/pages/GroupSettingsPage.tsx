@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { trpc } from "../lib/trpc";
 import { useAuthStore } from "../lib/store";
@@ -16,6 +16,7 @@ import {
   FieldLabel,
   SettingsRow,
   ChevronRightIcon,
+  ChatIcon,
 } from "../components/Layout";
 import { UnlockGate } from "../components/UnlockGate";
 import { resetLocalGroup } from "../lib/groupSync";
@@ -134,6 +135,13 @@ function Inner({ groupId }: { groupId: string }) {
     }
     return m;
   }, [peersLastSeenQuery.data]);
+
+  // Set of peer IDs the current user is connected to — controls whether
+  // the "Message" swipe action is available on a member row.
+  const connectedPeerIds = useMemo(
+    () => new Set((connections.data ?? []).map((c) => c.peer.id)),
+    [connections.data],
+  );
 
   if (groupQuery.isLoading) {
     return (
@@ -281,10 +289,14 @@ function Inner({ groupId }: { groupId: string }) {
                   : lastSeenAt
                     ? `Last seen ${formatLastSeen(lastSeenAt)}`
                     : null;
+              const canDM = !isMe && connectedPeerIds.has(m.userId);
+              const memberLabel = m.fingerprint || m.userId.slice(0, 8) + "…";
+
               return (
-                <li
+                <MemberRow
                   key={m.userId}
-                  className="flex items-center gap-3 px-4 py-3"
+                  canDM={canDM}
+                  onDM={() => navigate(`/chats/${m.userId}`)}
                 >
                   <div className="relative shrink-0">
                     <Avatar seed={m.userId} size={40} />
@@ -297,9 +309,7 @@ function Inner({ groupId }: { groupId: string }) {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-mono truncate text-text">
-                      {isMe
-                        ? "You"
-                        : m.fingerprint || m.userId.slice(0, 8) + "…"}
+                      {isMe ? "You" : memberLabel}
                     </div>
                     <div className="text-xs text-text-muted capitalize truncate">
                       {presenceLabel ? (
@@ -317,27 +327,40 @@ function Inner({ groupId }: { groupId: string }) {
                       )}
                     </div>
                   </div>
+                  {canDM && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/chats/${m.userId}`);
+                      }}
+                      aria-label={`Message ${memberLabel}`}
+                      className="shrink-0 w-9 h-9 rounded-full text-wa-green hover:bg-wa-green/10 flex items-center justify-center"
+                    >
+                      <ChatIcon className="w-5 h-5" />
+                    </button>
+                  )}
                   {isAdmin && !isMe && (
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 shrink-0">
                       <button
                         className="text-xs text-text-muted underline"
-                        onClick={() =>
+                        onClick={(e) => {
+                          e.stopPropagation();
                           setRole.mutate({
                             groupId,
                             userId: m.userId,
                             role: m.role === "admin" ? "member" : "admin",
-                          })
-                        }
+                          });
+                        }}
                       >
                         {m.role === "admin" ? "Demote" : "Make admin"}
                       </button>
                       <button
                         className="text-xs text-red-500 underline"
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation();
                           if (
-                            confirm(
-                              `Remove ${m.fingerprint || m.userId.slice(0, 8) + "…"} from the group?`,
-                            )
+                            confirm(`Remove ${memberLabel} from the group?`)
                           ) {
                             removeMember.mutate({
                               groupId,
@@ -350,7 +373,7 @@ function Inner({ groupId }: { groupId: string }) {
                       </button>
                     </div>
                   )}
-                </li>
+                </MemberRow>
               );
             })}
           </ul>
@@ -448,5 +471,113 @@ function Inner({ groupId }: { groupId: string }) {
         </div>
       )}
     </>
+  );
+}
+
+/* ─────────── Swipe-to-DM member row ─────────── */
+
+const SWIPE_REVEAL = 88; // px revealed when fully swiped
+const SWIPE_TRIGGER = 56; // px needed to trigger DM on release
+
+function MemberRow({
+  canDM,
+  onDM,
+  children,
+}: {
+  canDM: boolean;
+  onDM: () => void;
+  children: React.ReactNode;
+}) {
+  const [dx, setDx] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const startXRef = useRef<number | null>(null);
+  const startYRef = useRef<number | null>(null);
+  const lockedRef = useRef<"x" | "y" | null>(null);
+
+  const reset = () => {
+    setDx(0);
+    startXRef.current = null;
+    startYRef.current = null;
+    lockedRef.current = null;
+    setDragging(false);
+  };
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    if (!canDM) return;
+    const t = e.touches[0];
+    if (!t) return;
+    startXRef.current = t.clientX;
+    startYRef.current = t.clientY;
+    lockedRef.current = null;
+    setDragging(true);
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    if (!canDM || startXRef.current == null || startYRef.current == null) return;
+    const t = e.touches[0];
+    if (!t) return;
+    const dxRaw = t.clientX - startXRef.current;
+    const dyRaw = t.clientY - startYRef.current;
+
+    // Decide axis on first significant movement so vertical scrolling keeps
+    // working while only horizontal drags engage the swipe.
+    if (lockedRef.current == null) {
+      if (Math.abs(dxRaw) < 6 && Math.abs(dyRaw) < 6) return;
+      lockedRef.current = Math.abs(dxRaw) > Math.abs(dyRaw) ? "x" : "y";
+    }
+    if (lockedRef.current !== "x") return;
+
+    // Only allow leftward swipes; clamp to the reveal width.
+    const next = Math.max(-SWIPE_REVEAL, Math.min(0, dxRaw));
+    setDx(next);
+  };
+
+  const onTouchEnd = () => {
+    if (!canDM) return reset();
+    if (-dx >= SWIPE_TRIGGER) {
+      // Snap fully open then fire — feels more responsive than waiting.
+      setDx(-SWIPE_REVEAL);
+      window.setTimeout(() => {
+        reset();
+        onDM();
+      }, 80);
+      return;
+    }
+    reset();
+  };
+
+  const revealOpacity = Math.min(1, -dx / SWIPE_TRIGGER);
+
+  return (
+    <li className="relative overflow-hidden">
+      {/* Reveal action behind the row */}
+      {canDM && (
+        <div
+          aria-hidden="true"
+          className="absolute inset-y-0 right-0 flex items-center justify-center bg-wa-green text-text-oncolor"
+          style={{
+            width: SWIPE_REVEAL,
+            opacity: revealOpacity,
+          }}
+        >
+          <ChatIcon className="w-5 h-5" />
+          <span className="ml-2 text-xs font-medium">Message</span>
+        </div>
+      )}
+      <div
+        className="flex items-center gap-3 px-4 py-3 bg-panel"
+        style={{
+          transform: `translateX(${dx}px)`,
+          transition: dragging ? "none" : "transform 160ms ease",
+          touchAction: "pan-y",
+        }}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        onTouchCancel={reset}
+      >
+        {children}
+      </div>
+    </li>
   );
 }
