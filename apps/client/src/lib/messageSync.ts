@@ -348,6 +348,15 @@ export async function pollAndDecrypt(
       added += 1;
     } catch (err) {
       console.error("Failed to decrypt message", m.id, err);
+      // Ack even on decryption failure to prevent permanent inbox overflow.
+      // Signal session failures are not transient — retrying on the next
+      // poll will produce the same error, and an ever-growing pile of
+      // undecryptable messages will crowd 1:1 messages past the server's
+      // 200-message fetch cap. The WS push path (ingestInboxMessageInner)
+      // handles the brief "SKDM not yet arrived" window without acking so
+      // we don't lose group messages in that race; this poll path cleans up
+      // whatever the WS path left behind.
+      acked.push(m.id);
       failed += 1;
     }
   }
