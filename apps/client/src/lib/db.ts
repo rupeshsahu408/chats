@@ -152,6 +152,12 @@ export interface ChatPrefRecord {
    * Default TTL applied to outgoing messages, in seconds. 0 / undefined = off.
    */
   ttlSeconds?: number;
+  /**
+   * Auto-delete messages from this device a set number of seconds after they
+   * are seen (read). 0 / undefined = off. Applies to inbound messages only on
+   * the receiver's device.
+   */
+  seenTtlSeconds?: number;
   /** Whether new images default to view-once. */
   viewOnceDefault?: boolean;
   /** WebAuthn credential id (base64url) required to open this thread. */

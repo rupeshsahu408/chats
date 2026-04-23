@@ -148,6 +148,7 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
     undefined as ChatPrefRecord | undefined,
   );
   const ttlSeconds = chatPref?.ttlSeconds ?? 0;
+  const seenTtlSeconds = chatPref?.seenTtlSeconds ?? 0;
   const viewOnceDefault = chatPref?.viewOnceDefault ?? false;
   const biometricCredentialId = chatPref?.biometricCredentialId;
   const pinnedToTop = !!chatPref?.pinnedToTop;
@@ -181,7 +182,7 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState<
-    null | "main" | "ttl" | "safety" | "report" | "starred"
+    null | "main" | "ttl" | "seenTtl" | "safety" | "report" | "starred"
   >(null);
   /** Header search bar (in-chat search) visibility + query. */
   const [searchOpen, setSearchOpen] = useState(false);
@@ -398,16 +399,24 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
     if (unread.length === 0) return;
     void reportRead(unread).catch(() => undefined);
     // Also flip local status so the UI doesn't keep retrying.
+    // If seenTtlSeconds is set, stamp expiresAt = now + seenTtlSeconds so the
+    // message auto-deletes from this device after the chosen duration.
+    const readNow = new Date().toISOString();
+    const seenExpiry =
+      seenTtlSeconds > 0
+        ? new Date(Date.now() + seenTtlSeconds * 1000).toISOString()
+        : undefined;
     void db.chatMessages
       .where("peerId").equals(peerId)
       .modify((rec) => {
         if (rec.direction === "in" && rec.status !== "read" && !rec.viewOnce && rec.serverId && unread.includes(rec.serverId)) {
           rec.status = "read";
-          rec.readAt = new Date().toISOString();
+          rec.readAt = readNow;
+          if (seenExpiry) rec.expiresAt = seenExpiry;
         }
       })
       .catch(() => undefined);
-  }, [messages, peerId, unlocked]);
+  }, [messages, peerId, seenTtlSeconds, unlocked]);
 
   // Auto-scroll to bottom on new messages.
   useEffect(() => {
@@ -565,6 +574,7 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
   }
 
   const ttlLabel = TTL_OPTIONS.find((o) => o.seconds === ttlSeconds)?.label ?? "Off";
+  const seenTtlLabel = seenTtlSeconds > 0 ? formatSeenTtl(seenTtlSeconds) : "Off";
 
   if (!unlocked) {
     return (
@@ -1009,6 +1019,8 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
           onClose={() => setMenuOpen(null)}
           ttlLabel={ttlLabel}
           onTTL={() => setMenuOpen("ttl")}
+          seenTtlLabel={seenTtlLabel}
+          onSeenTtl={() => setMenuOpen("seenTtl")}
           onSafety={() => setMenuOpen("safety")}
           onToggleBiometric={onToggleBiometric}
           biometricEnabled={!!biometricCredentialId}
@@ -1073,6 +1085,16 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
           onClose={() => setMenuOpen(null)}
           onPick={(secs) => {
             void setChatPref(peerId, { ttlSeconds: secs });
+            setMenuOpen(null);
+          }}
+        />
+      )}
+      {menuOpen === "seenTtl" && (
+        <SeenTTLPicker
+          current={seenTtlSeconds}
+          onClose={() => setMenuOpen(null)}
+          onPick={(secs) => {
+            void setChatPref(peerId, { seenTtlSeconds: secs });
             setMenuOpen(null);
           }}
         />
@@ -1208,6 +1230,19 @@ function formatSeenAgo(iso: string): string {
     month: "short",
     day: "numeric",
   });
+}
+
+/** Format a seenTtlSeconds value as a human-readable string, e.g. "2h 30m 10s". */
+function formatSeenTtl(secs: number): string {
+  if (secs <= 0) return "Off";
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  const s = secs % 60;
+  const parts: string[] = [];
+  if (h > 0) parts.push(`${h}h`);
+  if (m > 0) parts.push(`${m}m`);
+  if (s > 0) parts.push(`${s}s`);
+  return parts.join(" ");
 }
 
 /* ────────────────────────── Bubble row ────────────────────────── */
@@ -1934,6 +1969,8 @@ function ChatMenu({
   onClose,
   ttlLabel,
   onTTL,
+  seenTtlLabel,
+  onSeenTtl,
   onSafety,
   onToggleBiometric,
   biometricEnabled,
@@ -1954,6 +1991,8 @@ function ChatMenu({
   onClose: () => void;
   ttlLabel: string;
   onTTL: () => void;
+  seenTtlLabel: string;
+  onSeenTtl: () => void;
   onSafety: () => void;
   onToggleBiometric: () => void;
   biometricEnabled: boolean;
@@ -2009,6 +2048,7 @@ function ChatMenu({
         }}
       />
       <MenuItem label={`Disappearing messages · ${ttlLabel}`} onClick={onTTL} />
+      <MenuItem label={`Seen settings · ${seenTtlLabel}`} onClick={onSeenTtl} />
       <MenuItem
         label={`View-once images: ${viewOnceDefault ? "On" : "Off"}`}
         onClick={() => {
@@ -2154,6 +2194,140 @@ function TTLPicker({
           onClick={() => onPick(o.seconds)}
         />
       ))}
+    </Sheet>
+  );
+}
+
+/**
+ * Seen Settings picker — lets the user choose how long after a message is
+ * read before it auto-deletes from their device. Uses H / M / S drum columns.
+ */
+function SeenTTLPicker({
+  current,
+  onClose,
+  onPick,
+}: {
+  current: number;
+  onClose: () => void;
+  onPick: (secs: number) => void;
+}) {
+  const [hours, setHours] = useState(Math.floor(current / 3600));
+  const [minutes, setMinutes] = useState(Math.floor((current % 3600) / 60));
+  const [seconds, setSeconds] = useState(current % 60);
+
+  const total = hours * 3600 + minutes * 60 + seconds;
+  const preview = total > 0 ? formatSeenTtl(total) : "Off (disabled)";
+
+  function DrumColumn({
+    value,
+    max,
+    label,
+    onChange,
+  }: {
+    value: number;
+    max: number;
+    label: string;
+    onChange: (v: number) => void;
+  }) {
+    return (
+      <div className="flex flex-col items-center gap-1 flex-1">
+        <span className="text-[10px] text-text-muted uppercase tracking-wider mb-1">
+          {label}
+        </span>
+        <button
+          type="button"
+          onClick={() => onChange(value === max ? 0 : value + 1)}
+          className="size-8 flex items-center justify-center rounded-md text-text-muted hover:text-text hover:bg-white/10 text-lg select-none"
+          aria-label={`Increase ${label}`}
+        >
+          ▲
+        </button>
+        <div className="w-14 h-10 flex items-center justify-center bg-bg rounded-lg border border-line text-text text-xl font-mono font-semibold select-none tabular-nums">
+          {String(value).padStart(2, "0")}
+        </div>
+        <button
+          type="button"
+          onClick={() => onChange(value === 0 ? max : value - 1)}
+          className="size-8 flex items-center justify-center rounded-md text-text-muted hover:text-text hover:bg-white/10 text-lg select-none"
+          aria-label={`Decrease ${label}`}
+        >
+          ▼
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <Sheet onClose={onClose} title="Seen settings">
+      <div className="px-4 pt-1 pb-4 space-y-4">
+        <p className="text-xs text-text-muted leading-relaxed">
+          Messages you <span className="text-text font-medium">receive</span> will
+          automatically be deleted from this device after you see them, once the
+          chosen time has passed. Set all to zero to disable.
+        </p>
+
+        {/* H / M / S drum columns */}
+        <div className="flex items-center justify-center gap-3 py-2">
+          <DrumColumn value={hours} max={23} label="Hours" onChange={setHours} />
+          <span className="text-2xl text-text-muted font-bold mt-4">:</span>
+          <DrumColumn value={minutes} max={59} label="Min" onChange={setMinutes} />
+          <span className="text-2xl text-text-muted font-bold mt-4">:</span>
+          <DrumColumn value={seconds} max={59} label="Sec" onChange={setSeconds} />
+        </div>
+
+        {/* Quick presets */}
+        <div className="space-y-1">
+          <div className="text-[10px] text-text-muted uppercase tracking-wider px-1">Quick presets</div>
+          <div className="grid grid-cols-3 gap-1.5">
+            {[
+              { label: "Off", secs: 0 },
+              { label: "30 sec", secs: 30 },
+              { label: "1 min", secs: 60 },
+              { label: "5 min", secs: 300 },
+              { label: "30 min", secs: 1800 },
+              { label: "1 hour", secs: 3600 },
+              { label: "6 hours", secs: 21600 },
+              { label: "12 hours", secs: 43200 },
+              { label: "1 day", secs: 86400 },
+            ].map((p) => (
+              <button
+                key={p.secs}
+                type="button"
+                onClick={() => {
+                  setHours(Math.floor(p.secs / 3600));
+                  setMinutes(Math.floor((p.secs % 3600) / 60));
+                  setSeconds(p.secs % 60);
+                }}
+                className={
+                  "px-2 py-1.5 rounded-md text-xs font-medium border transition-colors " +
+                  (total === p.secs
+                    ? "bg-wa-green text-text-oncolor border-transparent"
+                    : "bg-surface border-line text-text hover:bg-white/10")
+                }
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Preview + confirm */}
+        <div className="flex items-center justify-between gap-3 pt-1">
+          <div className="text-sm text-text-muted">
+            Delete after:{" "}
+            <span className={total > 0 ? "text-wa-green font-semibold" : "text-text"}>
+              {preview}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => onPick(total)}
+            className="px-4 py-2 rounded-xl bg-wa-green text-text-oncolor text-sm font-medium hover:bg-wa-green-dark transition"
+          >
+            Save
+          </button>
+        </div>
+      </div>
     </Sheet>
   );
 }
