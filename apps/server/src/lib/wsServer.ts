@@ -195,6 +195,7 @@ export async function registerWebSocketRoutes(
           type: "typing",
           from: userId,
           typing: event.typing,
+          ...(event.kind ? { kind: event.kind } : {}),
         });
         return;
       }

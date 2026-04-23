@@ -265,7 +265,15 @@ export function wsMarkRead(ids: string[]): boolean {
   return wsClient.send({ type: "mark_read", ids });
 }
 
-/** Send an ephemeral typing indicator to a peer. Best-effort; not retried. */
-export function wsTyping(to: string, typing: boolean): boolean {
-  return wsClient.send({ type: "typing", to, typing });
+/**
+ * Send an ephemeral typing/activity indicator to a peer. Best-effort; not
+ * retried. `kind` lets the peer's UI show "typing…", "recording…" or
+ * "choosing a photo…" instead of a generic indicator.
+ */
+export function wsTyping(
+  to: string,
+  typing: boolean,
+  kind?: "text" | "voice" | "photo",
+): boolean {
+  return wsClient.send({ type: "typing", to, typing, ...(kind ? { kind } : {}) });
 }

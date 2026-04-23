@@ -327,18 +327,30 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
     ? formatLastSeen(peerLastSeenQuery.data.lastSeenAt)
     : null;
 
-  // Typing indicator (peer → us).
-  const [peerTyping, setPeerTyping] = useState(false);
+  // Peer activity (typing / recording / choosing a photo).
+  type ActivityKind = "text" | "voice" | "photo";
+  const [peerActivity, setPeerActivity] = useState<{
+    typing: boolean;
+    kind: ActivityKind;
+  }>({ typing: false, kind: "text" });
+  const peerTyping = peerActivity.typing;
   useEffect(() => {
     let clear: ReturnType<typeof setTimeout> | null = null;
     const unsub = wsClient.subscribe((event) => {
       if (event.type === "typing" && event.from === peerId) {
+        const kind = (event.kind ?? "text") as ActivityKind;
         if (event.typing) {
-          setPeerTyping(true);
+          setPeerActivity({ typing: true, kind });
           if (clear) clearTimeout(clear);
-          clear = setTimeout(() => setPeerTyping(false), 5000);
+          // Voice/photo activities can legitimately last longer than text
+          // typing — give them a more generous safety timeout.
+          const ms = kind === "text" ? 5000 : 12000;
+          clear = setTimeout(
+            () => setPeerActivity((a) => ({ ...a, typing: false })),
+            ms,
+          );
         } else {
-          setPeerTyping(false);
+          setPeerActivity((a) => ({ ...a, typing: false }));
         }
       }
     });
@@ -348,14 +360,27 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
     };
   }, [peerId]);
 
-  // Outgoing typing indicator (debounced).
+  // Outgoing activity indicator (debounced + kind-aware).
   const typingPrefs = useStealthPrefs((s) => s.prefs?.typingIndicatorsEnabled);
   const lastTypingRef = useRef(0);
   const stopTypingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const sendTyping = useCallback(
-    (typing: boolean) => {
+  // Track which kind is currently "live" so we can cleanly cancel it before
+  // switching (e.g. text → voice) and never leave a stale indicator hanging.
+  const activeKindRef = useRef<ActivityKind | null>(null);
+  const sendActivity = useCallback(
+    (typing: boolean, kind: ActivityKind = "text") => {
       if (!typingPrefs) return;
-      wsTyping(peerId, typing);
+      if (typing) {
+        if (activeKindRef.current && activeKindRef.current !== kind) {
+          wsTyping(peerId, false, activeKindRef.current);
+        }
+        activeKindRef.current = kind;
+        wsTyping(peerId, true, kind);
+      } else {
+        const k = activeKindRef.current ?? kind;
+        activeKindRef.current = null;
+        wsTyping(peerId, false, k);
+      }
     },
     [peerId, typingPrefs],
   );
@@ -365,20 +390,44 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
     const now = Date.now();
     if (now - lastTypingRef.current > 2500) {
       lastTypingRef.current = now;
-      sendTyping(true);
+      sendActivity(true, "text");
     }
     if (stopTypingTimer.current) clearTimeout(stopTypingTimer.current);
     stopTypingTimer.current = setTimeout(() => {
       lastTypingRef.current = 0;
-      sendTyping(false);
+      sendActivity(false, "text");
     }, 3500);
   }
+  // Instant-hide on tab background, blur, or navigation away — no one wants
+  // a stale "typing…" visible to the peer when we've put the app down.
+  useEffect(() => {
+    if (!typingPrefs) return;
+    const stop = () => {
+      if (stopTypingTimer.current) {
+        clearTimeout(stopTypingTimer.current);
+        stopTypingTimer.current = null;
+      }
+      lastTypingRef.current = 0;
+      if (activeKindRef.current) sendActivity(false, activeKindRef.current);
+    };
+    const onVis = () => {
+      if (document.visibilityState === "hidden") stop();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    window.addEventListener("blur", stop);
+    window.addEventListener("pagehide", stop);
+    return () => {
+      document.removeEventListener("visibilitychange", onVis);
+      window.removeEventListener("blur", stop);
+      window.removeEventListener("pagehide", stop);
+    };
+  }, [sendActivity, typingPrefs]);
   useEffect(() => {
     return () => {
       if (stopTypingTimer.current) clearTimeout(stopTypingTimer.current);
-      sendTyping(false);
+      if (activeKindRef.current) sendActivity(false, activeKindRef.current);
     };
-  }, [sendTyping]);
+  }, [sendActivity]);
 
   // Poll for new messages while we're on this thread.
   useEffect(() => {
@@ -528,7 +577,7 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
       setPendingPreview(null);
       setReplyTo(null);
       setOneShotViewOnce(false);
-      sendTyping(false);
+      sendActivity(false, "text");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't send.");
     } finally {
@@ -722,7 +771,13 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
               </div>
               <div className="text-[11px] text-text-oncolor/80 truncate inline-flex items-center gap-1">
                 {peerTyping ? (
-                  <span>typing…</span>
+                  <span>
+                    {peerActivity.kind === "voice"
+                      ? "recording…"
+                      : peerActivity.kind === "photo"
+                        ? "choosing a photo…"
+                        : "typing…"}
+                  </span>
                 ) : peerOnline ? (
                   <span className="inline-flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-green-400 inline-block" />
@@ -879,10 +934,27 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
           })()
         )}
         {peerTyping && (
-          <div className="self-start text-xs text-text-muted bg-wa-bubble-in px-3 py-2 rounded-2xl shadow-bubble">
-            <span className="inline-flex gap-0.5 items-end">
-              <Dot d={0} /><Dot d={150} /><Dot d={300} />
-            </span>
+          <div className="self-start text-xs text-text-muted bg-wa-bubble-in px-3 py-2 rounded-2xl shadow-bubble animate-bubble-in-in">
+            {peerActivity.kind === "voice" ? (
+              <span className="inline-flex items-center gap-1.5">
+                <span className="inline-flex gap-0.5 items-end">
+                  <RecBar d={0} />
+                  <RecBar d={120} />
+                  <RecBar d={240} />
+                  <RecBar d={360} />
+                </span>
+                <span>recording</span>
+              </span>
+            ) : peerActivity.kind === "photo" ? (
+              <span className="inline-flex items-center gap-1.5">
+                <span aria-hidden>📷</span>
+                <span>choosing a photo</span>
+              </span>
+            ) : (
+              <span className="inline-flex gap-0.5 items-end">
+                <Dot d={0} /><Dot d={150} /><Dot d={300} />
+              </span>
+            )}
           </div>
         )}
       </div>
@@ -988,7 +1060,12 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
           setDraft={onDraftChange}
           sending={sending}
           onSendText={onSendText}
-          onPickImage={onPickImage}
+          onPickImage={(f) => {
+            // Whatever they picked, the "choosing a photo" activity is over
+            // before the encrypted upload starts.
+            sendActivity(false, "photo");
+            onPickImage(f);
+          }}
           onSendVoice={onSendVoice}
           viewOnceDefault={viewOnceDefault}
           oneShotViewOnce={oneShotViewOnce}
@@ -996,6 +1073,7 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
           replyTo={replyTo}
           onClearReply={() => setReplyTo(null)}
           onSchedule={onScheduleMessage}
+          onActivity={sendActivity}
         />
       )}
 
@@ -1275,6 +1353,16 @@ function Dot({ d }: { d: number }) {
     <span
       className="size-1.5 rounded-full bg-text-muted animate-bounce"
       style={{ animationDelay: `${d}ms` }}
+    />
+  );
+}
+
+/** Animated audio-style bar used by the "recording…" peer indicator. */
+function RecBar({ d }: { d: number }) {
+  return (
+    <span
+      className="inline-block w-0.5 h-3 rounded-full bg-wa-green animate-tap-pulse"
+      style={{ animationDelay: `${d}ms`, animationDuration: "900ms" }}
     />
   );
 }
@@ -2831,6 +2919,7 @@ function Composer({
   replyTo,
   onClearReply,
   onSchedule,
+  onActivity,
 }: {
   draft: string;
   setDraft: (v: string) => void;
@@ -2844,11 +2933,15 @@ function Composer({
   replyTo: { row: ChatMessageRecord; ref: EnvelopeReplyRef } | null;
   onClearReply: () => void;
   onSchedule: (text: string, scheduledFor: string) => Promise<void>;
+  onActivity?: (typing: boolean, kind: "text" | "voice" | "photo") => void;
 }) {
   const [schedulePickerOpen, setSchedulePickerOpen] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const [recording, setRecording] = useState<RecordingState | null>(null);
   const [emojiOpen, setEmojiOpen] = useState(false);
+  // Auto-cancel "choosing a photo…" if the OS file dialog is dismissed —
+  // we have no `cancel` event, so we rely on focus returning + a timeout.
+  const photoActivityTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   if (recording) {
     return (
@@ -2857,10 +2950,12 @@ function Composer({
         onCancel={() => {
           recording.cancel();
           setRecording(null);
+          onActivity?.(false, "voice");
         }}
         onSend={async () => {
           const result = await recording.finish();
           setRecording(null);
+          onActivity?.(false, "voice");
           if (result) onSendVoice(result.bytes, result.mime, result.durationMs);
         }}
       />
@@ -2932,7 +3027,16 @@ function Composer({
         </button>
         <button
           type="button"
-          onClick={() => fileInput.current?.click()}
+          onClick={() => {
+            // Tell the peer we're "choosing a photo" the moment the OS
+            // dialog opens, and auto-clear after 30s in case they cancel.
+            onActivity?.(true, "photo");
+            if (photoActivityTimer.current) clearTimeout(photoActivityTimer.current);
+            photoActivityTimer.current = setTimeout(() => {
+              onActivity?.(false, "photo");
+            }, 30_000);
+            fileInput.current?.click();
+          }}
           disabled={sending}
           className="size-9 rounded-full text-text-muted hover:text-text hover:bg-white/10 flex items-center justify-center shrink-0 disabled:opacity-50"
           aria-label={
@@ -3015,8 +3119,12 @@ function Composer({
         <button
           onClick={async () => {
             const r = await startRecording();
-            if (r.kind === "ok") setRecording(r.state);
-            else alert(r.message);
+            if (r.kind === "ok") {
+              setRecording(r.state);
+              onActivity?.(true, "voice");
+            } else {
+              alert(r.message);
+            }
           }}
           disabled={sending}
           className="size-12 rounded-full bg-wa-green text-text-oncolor flex items-center justify-center hover:bg-wa-green-dark transition disabled:opacity-50 wa-tap shrink-0"

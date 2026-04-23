@@ -486,11 +486,16 @@ export const WsServerEventSchema = z.discriminatedUnion("type", [
     at: z.string(),
   }),
   z.object({
-    /** Ephemeral typing indicator from a peer. Never persisted. */
+    /** Ephemeral typing/activity indicator from a peer. Never persisted. */
     type: z.literal("typing"),
     from: UserIdSchema,
-    /** True = started typing, false = stopped. */
+    /** True = activity started, false = stopped. */
     typing: z.boolean(),
+    /**
+     * What kind of activity is happening. Defaults to "text" when omitted
+     * so older clients keep working unchanged.
+     */
+    kind: z.enum(["text", "voice", "photo"]).optional(),
   }),
   z.object({ type: z.literal("pong"), t: z.number() }),
   /** Phase 7: a group I'm in changed (members, name, role, etc.). Client should refetch. */
@@ -519,6 +524,8 @@ export const WsClientEventSchema = z.discriminatedUnion("type", [
     /** The peer to notify. */
     to: UserIdSchema,
     typing: z.boolean(),
+    /** Activity kind — what the local user is doing right now. */
+    kind: z.enum(["text", "voice", "photo"]).optional(),
   }),
 ]);
 export type WsClientEvent = z.infer<typeof WsClientEventSchema>;
