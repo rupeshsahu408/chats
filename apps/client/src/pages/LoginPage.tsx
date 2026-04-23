@@ -75,16 +75,15 @@ export function LoginPage() {
             title="Email"
             sub="6-digit OTP to your inbox"
             onClick={() => setStep("email-input")}
+            disabled
+            comingSoon
           />
           <LoginOption
             title="Phone"
-            sub={
-              isFirebaseConfigured()
-                ? "SMS verification"
-                : "Firebase not configured — see .env.example"
-            }
+            sub="SMS verification"
             onClick={() => navigate("/login/phone")}
-            disabled={!isFirebaseConfigured()}
+            disabled
+            comingSoon
           />
           <LoginOption
             title="Random ID"
@@ -177,20 +176,29 @@ function LoginOption({
   sub,
   onClick,
   disabled,
+  comingSoon,
 }: {
   title: string;
   sub: string;
   onClick: () => void;
   disabled?: boolean;
+  comingSoon?: boolean;
 }) {
   return (
     <button
       onClick={disabled ? undefined : onClick}
       disabled={disabled}
-      className="w-full text-left rounded-xl border border-line bg-surface px-4 py-3 hover:bg-elevated transition flex items-center justify-between disabled:opacity-40 disabled:pointer-events-none"
+      className="w-full text-left rounded-xl border border-line bg-surface px-4 py-3 hover:bg-elevated transition flex items-center justify-between disabled:opacity-60 disabled:pointer-events-none"
     >
       <div>
-        <div className="font-medium">{title}</div>
+        <div className="font-medium flex items-center gap-2">
+          <span>{title}</span>
+          {comingSoon && (
+            <span className="text-[10px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded-full bg-wa-green/15 text-wa-green-dark dark:text-wa-green border border-wa-green/30">
+              Coming soon
+            </span>
+          )}
+        </div>
         <div className="text-xs text-text-muted">{sub}</div>
       </div>
       <span className="text-text-faint">→</span>

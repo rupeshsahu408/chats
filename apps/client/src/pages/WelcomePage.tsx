@@ -55,18 +55,16 @@ export function WelcomePage() {
             <SignupOption
               to="/signup/phone"
               title="Phone number"
-              sub={
-                firebaseReady
-                  ? "SMS verification"
-                  : "Requires Firebase setup"
-              }
-              available={firebaseReady}
+              sub="SMS verification"
+              available={false}
+              comingSoon
             />
             <SignupOption
               to="/signup/email"
               title="Email"
               sub="6-digit code to your inbox"
-              available
+              available={false}
+              comingSoon
             />
             <SignupOption
               to="/signup/random"
@@ -99,16 +97,25 @@ function SignupOption({
   title,
   sub,
   available,
+  comingSoon,
 }: {
   to: string;
   title: string;
   sub: string;
   available?: boolean;
+  comingSoon?: boolean;
 }) {
   const inner = (
     <div className="w-full text-left rounded-xl bg-surface border border-line px-4 py-3 hover:bg-elevated transition flex items-center justify-between gap-3 wa-tap">
       <div className="min-w-0">
-        <div className="font-medium text-text">{title}</div>
+        <div className="font-medium text-text flex items-center gap-2">
+          <span>{title}</span>
+          {comingSoon && (
+            <span className="text-[10px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded-full bg-wa-green/15 text-wa-green-dark dark:text-wa-green border border-wa-green/30">
+              Coming soon
+            </span>
+          )}
+        </div>
         <div className="text-xs text-text-muted truncate">{sub}</div>
       </div>
       <ChevronRightIcon className="text-text-muted shrink-0" />
@@ -116,7 +123,12 @@ function SignupOption({
   );
   if (!available) {
     return (
-      <div className="opacity-50 pointer-events-none select-none">{inner}</div>
+      <div
+        aria-disabled="true"
+        className="opacity-60 pointer-events-none select-none"
+      >
+        {inner}
+      </div>
     );
   }
   return <Link to={to}>{inner}</Link>;
