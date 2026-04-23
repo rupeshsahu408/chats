@@ -87,6 +87,18 @@ export const meRouter = router({
     }),
 
   /**
+   * Returns online status for many peers in a single round-trip.
+   * Used by the group chat header to show "N online" without N queries.
+   */
+  peersOnline: protectedProcedure
+    .input(z.object({ peerIds: z.array(UserIdSchema).max(500) }))
+    .output(z.object({ online: z.array(UserIdSchema) }))
+    .query(({ input }) => {
+      const online = input.peerIds.filter((id) => isOnline(id));
+      return { online };
+    }),
+
+  /**
    * Returns the peer's last-seen timestamp, respecting their privacy setting.
    * Returns null when the peer has hidden their last-seen from the requester.
    */

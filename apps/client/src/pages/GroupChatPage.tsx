@@ -5,6 +5,7 @@ import { trpc } from "../lib/trpc";
 import { trpcClientProxy } from "../lib/trpcClientProxy";
 import { useAuthStore } from "../lib/store";
 import { useUnlockStore } from "../lib/unlockStore";
+import { usePresenceStore } from "../lib/presenceStore";
 import {
   AppBar,
   Avatar,
@@ -618,6 +619,38 @@ function GroupChatInner({ groupId }: { groupId: string }) {
     [groupQuery.data, userId],
   );
 
+  // Other members' user IDs — used to look up live presence in the header.
+  const otherMemberIds = useMemo(
+    () =>
+      (groupQuery.data?.members ?? [])
+        .map((m) => m.userId)
+        .filter((id) => id !== userId),
+    [groupQuery.data, userId],
+  );
+
+  // Initial presence snapshot (single round-trip) plus periodic refresh
+  // in case we miss a WS event. Live updates from `usePresenceStore` are
+  // merged on top, so per-user transitions are reflected immediately.
+  const peersOnlineQuery = trpc.me.peersOnline.useQuery(
+    { peerIds: otherMemberIds },
+    { enabled: otherMemberIds.length > 0, refetchInterval: 30_000 },
+  );
+  const setPresenceOnline = usePresenceStore((s) => s.setOnline);
+  useEffect(() => {
+    const list = peersOnlineQuery.data?.online;
+    if (!list) return;
+    const onlineSet = new Set(list);
+    for (const id of otherMemberIds) {
+      setPresenceOnline(id, onlineSet.has(id));
+    }
+  }, [peersOnlineQuery.data, otherMemberIds, setPresenceOnline]);
+
+  const presenceMap = usePresenceStore((s) => s.online);
+  const onlineCount = useMemo(
+    () => otherMemberIds.reduce((n, id) => n + (presenceMap[id] === true ? 1 : 0), 0),
+    [otherMemberIds, presenceMap],
+  );
+
   // Filtered suggestions based on what's been typed after `@`
   const mentionSuggestions = useMemo(() => {
     if (mentionQuery === null) return [];
@@ -1077,6 +1110,15 @@ function GroupChatInner({ groupId }: { groupId: string }) {
                 <span className="text-sm font-medium leading-tight">{group.name}</span>
                 <span className="text-[11px] text-text-oncolor/70 truncate inline-flex items-center gap-1">
                   <span>{group.members.length} members</span>
+                  {onlineCount > 0 && (
+                    <>
+                      <span>·</span>
+                      <span className="inline-flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-green-400 inline-block" />
+                        {onlineCount} online
+                      </span>
+                    </>
+                  )}
                   {ttlSeconds > 0 && (
                     <>
                       <span>·</span>
