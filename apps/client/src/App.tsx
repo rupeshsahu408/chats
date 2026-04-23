@@ -28,6 +28,7 @@ import { ConnectionsPage } from "./pages/ConnectionsPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { SessionSync } from "./lib/SessionSync";
 import { useStealthPrefs } from "./lib/stealthPrefs";
+import { InstallPrompt } from "./components/InstallPrompt";
 
 export function App() {
   const [queryClient] = useState(
@@ -72,6 +73,7 @@ export function App() {
           <Route path="/i/:token" element={<InviteRedeemPage />} />
           <Route path="*" element={<WelcomePage />} />
         </Routes>
+        <InstallPrompt />
       </QueryClientProvider>
     </trpc.Provider>
   );

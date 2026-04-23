@@ -204,9 +204,18 @@ After PIN setup at signup, the client generates 1 signed prekey + 20 one-time pr
 - **Client orchestrator:** `lib/groupSync.ts` — `ensureMySenderKey`, `rotateMySenderKeyIfNeeded`, `sendGroupChat`/`sendGroupText`, `ingestGroupInboxMessage`, `handleIncomingSenderKey`, `resetLocalGroup`, `reapExpiredGroupMessages`.
 - **UI:** `/groups` (list + create-group dialog from connections), `/groups/:groupId` (chat with sender labels + auto-scroll + history restore), `/groups/:groupId/settings` (members list, add/remove, promote/demote, edit name/desc, leave). Tab toggle on `/chats` ↔ `/groups`.
 
+## PWA install prompts (cross-phase polish)
+
+- `components/InstallPrompt.tsx` is mounted globally in `App.tsx`.
+- **Android / desktop Chrome:** captures `beforeinstallprompt`, suppresses the default mini-bar, and renders an in-app banner with "Install" → calls `prompt()`.
+- **iOS Safari:** detects iOS + Safari (excluding in-app browsers like Instagram/FB/Line/Chrome-iOS) and renders a banner whose "Show me how" opens a 3-step "Add to Home Screen" instruction sheet (Share icon → Add to Home Screen → Add).
+- Hidden when already in standalone mode (`display-mode: standalone` or `navigator.standalone`).
+- Dismissals persist for 7 days in `localStorage` (`veil:install-prompt:dismissed-at`) to avoid nagging.
+- Listens for `appinstalled` to clear the banner immediately on install.
+
 ## Next phase
 
-**Phase 7 wrap-up — manual e2e test (3-account group), confirm push notifications, then move to Phase 8.**
+**Native iOS (Phase 8) and Android Play Store (Phase 9) are deferred.** The product launches as an installable PWA: Android users install via Chrome's prompt, iOS users use Add-to-Home-Screen (web push works on iOS 16.4+ once installed). Phase 7 wrap-up — manual e2e group test (3 accounts) + push verification — remains the only outstanding item before launch readiness.
 
 ## User preferences
 
