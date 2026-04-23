@@ -33,6 +33,43 @@ function conversationIdFor(a: string, b: string): string {
   return a < b ? `${a}:${b}` : `${b}:${a}`;
 }
 
+/**
+ * True if `me` is allowed to send a 1:1 message to `peer`. Either
+ * they're directly connected, or they share at least one group — the
+ * latter is required so group members can transparently exchange
+ * Sender Key Distribution Messages over the 1:1 ratchet without first
+ * having to be each other's contacts.
+ */
+async function canCommunicateDirectly(
+  db: ReturnType<typeof getDb>,
+  me: string,
+  peer: string,
+): Promise<boolean> {
+  const [a, b] = me < peer ? [me, peer] : [peer, me];
+  const conn = await db
+    .select({ id: schema.connections.id })
+    .from(schema.connections)
+    .where(
+      and(
+        eq(schema.connections.userAId, a),
+        eq(schema.connections.userBId, b),
+      ),
+    )
+    .limit(1);
+  if (conn.length > 0) return true;
+  const sharedGroup = await db.execute(sql`
+    SELECT 1
+    FROM ${schema.groupMembers} AS gm_me
+    JOIN ${schema.groupMembers} AS gm_peer
+      ON gm_me.group_id = gm_peer.group_id
+    WHERE gm_me.user_id = ${me}
+      AND gm_peer.user_id = ${peer}
+    LIMIT 1
+  `);
+  const rows = (sharedGroup as unknown as { rows?: unknown[] }).rows ?? [];
+  return rows.length > 0;
+}
+
 function bufToB64(b: Buffer | Uint8Array): string {
   return Buffer.from(b).toString("base64");
 }
@@ -52,18 +89,12 @@ export const messagesRouter = router({
           message: "You can't send a message to yourself.",
         });
       }
-      const [a, b] = me < peer ? [me, peer] : [peer, me];
-      const conn = await db
-        .select({ id: schema.connections.id })
-        .from(schema.connections)
-        .where(
-          and(
-            eq(schema.connections.userAId, a),
-            eq(schema.connections.userBId, b),
-          ),
-        )
-        .limit(1);
-      if (conn.length === 0) {
+      // Direct connection OR shared-group are both valid: group
+      // members must be able to exchange Sender Key Distribution
+      // Messages over the 1:1 ratchet even when they aren't in each
+      // other's contacts.
+      const allowed = await canCommunicateDirectly(db, me, peer);
+      if (!allowed) {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "You can only message people you're connected with.",

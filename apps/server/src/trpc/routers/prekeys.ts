@@ -21,6 +21,46 @@ function bufferToB64(b: Buffer | Uint8Array): string {
   return Buffer.from(b).toString("base64");
 }
 
+/**
+ * True if `me` is allowed to talk to `peer` over the 1:1 ratchet —
+ * either because they're directly connected, OR because they share at
+ * least one group. The shared-group case is what lets group members
+ * transparently exchange Sender Key Distribution Messages even when
+ * they aren't in each other's contacts. Without this, group messages
+ * between non-connected members silently fail to encrypt.
+ */
+async function canCommunicate(
+  db: ReturnType<typeof getDb>,
+  me: string,
+  peer: string,
+): Promise<boolean> {
+  const [a, b] = me < peer ? [me, peer] : [peer, me];
+  const conn = await db
+    .select({ id: schema.connections.id })
+    .from(schema.connections)
+    .where(
+      and(
+        eq(schema.connections.userAId, a),
+        eq(schema.connections.userBId, b),
+      ),
+    )
+    .limit(1);
+  if (conn.length > 0) return true;
+
+  // Shared-group fallback: do `me` and `peer` belong to any common group?
+  const sharedGroup = await db.execute(sql`
+    SELECT 1
+    FROM ${schema.groupMembers} AS gm_me
+    JOIN ${schema.groupMembers} AS gm_peer
+      ON gm_me.group_id = gm_peer.group_id
+    WHERE gm_me.user_id = ${me}
+      AND gm_peer.user_id = ${peer}
+    LIMIT 1
+  `);
+  const rows = (sharedGroup as unknown as { rows?: unknown[] }).rows ?? [];
+  return rows.length > 0;
+}
+
 export const prekeysRouter = router({
   /**
    * Upload (replace) the signed prekey and append one-time prekeys.
@@ -149,18 +189,8 @@ export const prekeysRouter = router({
       const me = ctx.userId;
       const peer = input.userId;
       if (peer !== me) {
-        const [a, b] = me < peer ? [me, peer] : [peer, me];
-        const conn = await db
-          .select({ id: schema.connections.id })
-          .from(schema.connections)
-          .where(
-            and(
-              eq(schema.connections.userAId, a),
-              eq(schema.connections.userBId, b),
-            ),
-          )
-          .limit(1);
-        if (conn.length === 0) {
+        const allowed = await canCommunicate(db, me, peer);
+        if (!allowed) {
           throw new TRPCError({
             code: "FORBIDDEN",
             message: "Not connected to this user.",
@@ -185,19 +215,11 @@ export const prekeysRouter = router({
       const me = ctx.userId;
       const peer = input.peerId;
 
-      // Must be connected.
-      const [a, b] = me < peer ? [me, peer] : [peer, me];
-      const conn = await db
-        .select({ id: schema.connections.id })
-        .from(schema.connections)
-        .where(
-          and(
-            eq(schema.connections.userAId, a),
-            eq(schema.connections.userBId, b),
-          ),
-        )
-        .limit(1);
-      if (conn.length === 0) {
+      // Must be connected — directly OR via a shared group (so group
+      // members can exchange Sender Key Distribution Messages without
+      // first having to be each other's 1:1 contacts).
+      const allowed = await canCommunicate(db, me, peer);
+      if (!allowed) {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "Not connected to this user.",
