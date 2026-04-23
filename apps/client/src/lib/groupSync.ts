@@ -13,12 +13,16 @@
 import { trpcClientProxy } from "./trpcClientProxy";
 import {
   appendGroupMessage,
+  applyGroupEditByServerId,
+  applyGroupReactionByServerId,
   deleteExpiredGroupMessages,
   deleteSenderKeysForGroup,
+  findGroupMessageByServerId,
   getSenderKey,
   hasGroupMessageDedup,
   putSenderKey,
   setGroupMessageStatus,
+  tombstoneGroupMessageByServerId,
   type GroupMessageRecord,
   type GroupSenderKeyRecord,
 } from "./db";
@@ -201,6 +205,19 @@ export async function sendGroupChat(
   const hasTtl =
     (envelope.t === "text" || envelope.t === "image" || envelope.t === "voice") &&
     !!envelope.ttl;
+  // Resolve replyTo into a stored sub-doc (denormalised for the UI).
+  let replyTo: GroupMessageRecord["replyTo"] | undefined;
+  if (
+    (envelope.t === "text" || envelope.t === "image" || envelope.t === "voice") &&
+    envelope.re
+  ) {
+    const orig = await findGroupMessageByServerId(envelope.re.id);
+    replyTo = {
+      serverId: envelope.re.id,
+      body: envelope.re.body,
+      senderUserId: orig?.senderUserId ?? "",
+    };
+  }
   const localId = await appendGroupMessage({
     groupId,
     serverId: null,
@@ -230,6 +247,7 @@ export async function sendGroupChat(
       envelope.t === "poll_vote"
         ? { pollId: envelope.pollId, choiceIdx: envelope.choiceIdx }
         : undefined,
+    ...(replyTo ? { replyTo } : {}),
   } as Omit<GroupMessageRecord, "id">);
 
   try {
@@ -297,6 +315,122 @@ export async function sendGroupPollVote(
 ): Promise<number> {
   const env: ChatEnvelope = { v: 2, t: "poll_vote", pollId, choiceIdx };
   return sendGroupChat(identity, groupId, env);
+}
+
+/**
+ * Send (or clear) the current user's reaction on a group message.
+ * Optimistically updates the local row, then fans out an `rxn`
+ * envelope through the sender-key channel.
+ */
+export async function sendGroupReaction(
+  identity: UnlockedIdentity,
+  groupId: string,
+  targetServerId: string,
+  emoji: string,
+): Promise<void> {
+  await applyGroupReactionByServerId(targetServerId, identity.userId, emoji);
+  const env: ChatEnvelope = { v: 2, t: "rxn", target: targetServerId, emoji };
+  try {
+    await broadcastSideEffectEnvelope(identity, groupId, env);
+  } catch (e) {
+    console.warn("group reaction envelope failed", e);
+  }
+}
+
+/**
+ * Edit a previously-sent text message in a group. Optimistically
+ * rewrites the local row, then broadcasts the new body to every member.
+ */
+export async function sendGroupEdit(
+  identity: UnlockedIdentity,
+  groupId: string,
+  row: GroupMessageRecord,
+  newBody: string,
+): Promise<void> {
+  if (!row.serverId) {
+    throw new Error("Message hasn't been sent yet — can't edit it.");
+  }
+  if (row.attachment) {
+    throw new Error("Only text messages can be edited.");
+  }
+  if (row.senderUserId !== identity.userId) {
+    throw new Error("You can only edit your own messages.");
+  }
+  const editedAt = new Date().toISOString();
+  await applyGroupEditByServerId(row.serverId, newBody, editedAt);
+  const env: ChatEnvelope = {
+    v: 2,
+    t: "edit",
+    target: row.serverId,
+    body: newBody,
+    editedAt,
+  };
+  try {
+    await broadcastSideEffectEnvelope(identity, groupId, env);
+  } catch (e) {
+    console.warn("group edit envelope failed", e);
+    throw e;
+  }
+}
+
+/**
+ * "Unsend for everyone" in a group. Tombstones the local row, fans out
+ * a `del` envelope, and asks the server to wipe the persisted ciphertext
+ * legs so a fresh device's history fetch can't restore the body.
+ */
+export async function sendGroupDeleteForEveryone(
+  identity: UnlockedIdentity,
+  groupId: string,
+  row: GroupMessageRecord,
+): Promise<void> {
+  if (!row.serverId) {
+    // Never reached the server — local hard-delete is enough.
+    if (row.id !== undefined) {
+      const { deleteGroupMessageById } = await import("./db");
+      await deleteGroupMessageById(row.id);
+    }
+    return;
+  }
+  await tombstoneGroupMessageByServerId(row.serverId);
+  const env: ChatEnvelope = { v: 2, t: "del", target: row.serverId };
+  try {
+    await broadcastSideEffectEnvelope(identity, groupId, env);
+  } catch (e) {
+    console.warn("group delete envelope failed", e);
+  }
+  try {
+    await trpcClientProxy().messages.deleteForEveryone.mutate({
+      id: row.serverId,
+    });
+  } catch (e) {
+    console.warn("group delete server wipe failed", e);
+  }
+}
+
+/**
+ * Encrypt a side-effect envelope (rxn / edit / del) under the current
+ * sender key and fan it out to every other group member. Does NOT
+ * persist a local row — the caller already mutated local state.
+ */
+async function broadcastSideEffectEnvelope(
+  identity: UnlockedIdentity,
+  groupId: string,
+  envelope: ChatEnvelope,
+): Promise<void> {
+  const group = await loadGroup(groupId);
+  const state = await ensureMySenderKey(identity, group);
+  const wire = new TextEncoder().encode(encodeEnvelope(envelope));
+  const { headerB64, ciphertextB64 } = await groupEncrypt(state, wire);
+  await putSenderKey(stateToRec(state));
+  const recipients = group.members
+    .filter((m) => m.userId !== identity.userId)
+    .map((m) => ({
+      recipientUserId: m.userId,
+      header: headerB64,
+      ciphertext: ciphertextB64,
+    }));
+  if (recipients.length === 0) return;
+  await trpcClientProxy().messages.sendGroup.mutate({ groupId, recipients });
 }
 
 /* ─────────────── Inbound group message ─────────────── */
@@ -378,7 +512,25 @@ export async function ingestGroupInboxMessage(
     return "new";
   }
 
-  // Side-effect / control envelopes don't ride group fan-out.
+  // Side-effect envelopes mutate an existing row instead of creating one.
+  if (env.t === "del") {
+    await tombstoneGroupMessageByServerId(env.target);
+    return "new";
+  }
+  if (env.t === "rxn") {
+    await applyGroupReactionByServerId(
+      env.target,
+      header.header.sender,
+      env.emoji,
+    );
+    return "new";
+  }
+  if (env.t === "edit") {
+    await applyGroupEditByServerId(env.target, env.body, env.editedAt);
+    return "new";
+  }
+
+  // Anything else that isn't text / image / voice has no row to render.
   if (env.t !== "text" && env.t !== "image" && env.t !== "voice") {
     return "duplicate";
   }
@@ -390,6 +542,17 @@ export async function ingestGroupInboxMessage(
   while ((mm = mentionPattern.exec(env.t === "text" ? env.body : "")) !== null) {
     const token = mm[1];
     if (token !== undefined && !mentions.includes(token)) mentions.push(token);
+  }
+
+  // Resolve replyTo (re) into a stored sub-doc.
+  let replyTo: GroupMessageRecord["replyTo"] | undefined;
+  if (env.re) {
+    const orig = await findGroupMessageByServerId(env.re.id);
+    replyTo = {
+      serverId: env.re.id,
+      body: env.re.body,
+      senderUserId: orig?.senderUserId ?? "",
+    };
   }
 
   await appendGroupMessage({
@@ -408,6 +571,7 @@ export async function ingestGroupInboxMessage(
         : undefined,
     linkPreview: env.lp,
     ...(mentions.length > 0 ? { mentions } : {}),
+    ...(replyTo ? { replyTo } : {}),
   });
   return "new";
 }

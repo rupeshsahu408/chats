@@ -254,6 +254,23 @@ export interface GroupMessageRecord {
   };
   /** @mention user-ids embedded in the message, extracted at ingest time. */
   mentions?: string[];
+  /** Reply reference (set when this message quotes another). */
+  replyTo?: {
+    serverId: string;
+    body: string;
+    senderUserId: string;
+  };
+  /** Per-user emoji reactions, keyed by senderUserId. */
+  reactions?: Record<string, string>;
+  /** ISO timestamp of when this message was edited (if at all). */
+  editedAt?: string;
+  /**
+   * "Unsent for everyone" tombstone. When true, the row is kept but
+   * shown as a placeholder in the UI.
+   */
+  deleted?: boolean;
+  /** Local-only: starred (bookmarked) by the current user. */
+  starred?: boolean;
 }
 
 /** A message scheduled to be sent at a future time (1:1 chats). */
@@ -366,6 +383,21 @@ export class VeilDB extends Dexie {
       userPrefs: "id",
       groupSenderKeys: "id, [groupId+senderUserId+epoch], groupId, senderUserId",
       groupMessages: "++id, groupId, createdAt, serverId, dedupKey, expiresAt",
+      scheduledMessages: "++id, peerId, scheduledFor, sent",
+    });
+    // v10 — Group chat parity: replyTo / reactions / editedAt / deleted /
+    // starred fields on groupMessages. Add `starred` index for the
+    // Starred messages sheet.
+    this.version(10).stores({
+      identity: "id",
+      prekeys: "id, kind, keyId",
+      chatSessions: "peerId, updatedAt",
+      chatMessages: "++id, peerId, createdAt, serverId, expiresAt",
+      unlocked: "id",
+      chatPrefs: "peerId, updatedAt",
+      userPrefs: "id",
+      groupSenderKeys: "id, [groupId+senderUserId+epoch], groupId, senderUserId",
+      groupMessages: "++id, groupId, createdAt, serverId, dedupKey, expiresAt, starred",
       scheduledMessages: "++id, peerId, scheduledFor, sent",
     });
   }
@@ -528,6 +560,90 @@ export async function deleteExpiredGroupMessages(): Promise<void> {
     .where("expiresAt")
     .belowOrEqual(nowIso)
     .delete();
+}
+
+/* ─────────── Group message: per-row mutators ─────────── */
+
+/** Apply an inbound (or echoed) edit to a group row by serverId. */
+export async function applyGroupEditByServerId(
+  targetServerId: string,
+  newBody: string,
+  editedAt: string,
+): Promise<void> {
+  const row = await db.groupMessages
+    .where("serverId")
+    .equals(targetServerId)
+    .first();
+  if (!row || row.id === undefined) return;
+  if (row.deleted) return;
+  if (row.attachment) return;
+  await db.groupMessages.update(row.id, { plaintext: newBody, editedAt });
+}
+
+/** Add/clear a per-user reaction on a group row. */
+export async function applyGroupReactionByServerId(
+  targetServerId: string,
+  fromUserId: string,
+  emoji: string,
+): Promise<void> {
+  const row = await db.groupMessages
+    .where("serverId")
+    .equals(targetServerId)
+    .first();
+  if (!row || row.id === undefined) return;
+  const next = { ...(row.reactions ?? {}) };
+  if (emoji) next[fromUserId] = emoji;
+  else delete next[fromUserId];
+  await db.groupMessages.update(row.id, { reactions: next });
+}
+
+/**
+ * "Unsend for everyone" tombstone: clear the body / attachment and mark
+ * `deleted` so the UI shows a placeholder. We keep the row so reply
+ * chips that reference it still resolve.
+ */
+export async function tombstoneGroupMessageByServerId(
+  targetServerId: string,
+): Promise<void> {
+  const row = await db.groupMessages
+    .where("serverId")
+    .equals(targetServerId)
+    .first();
+  if (!row || row.id === undefined) return;
+  await db.groupMessages.update(row.id, {
+    deleted: true,
+    plaintext: "",
+    attachment: undefined,
+    linkPreview: undefined,
+    pollData: undefined,
+    reactions: undefined,
+    editedAt: undefined,
+  });
+}
+
+/** Local-only: hard-delete a single group row by local id. */
+export async function deleteGroupMessageById(id: number): Promise<void> {
+  await db.groupMessages.delete(id);
+}
+
+/** Wipe all messages in a group from this device. */
+export async function clearGroupHistory(groupId: string): Promise<void> {
+  await db.groupMessages.where("groupId").equals(groupId).delete();
+}
+
+/** Toggle the local star flag on a group message. */
+export async function setGroupMessageStarred(
+  id: number,
+  starred: boolean,
+): Promise<void> {
+  await db.groupMessages.update(id, { starred });
+}
+
+/** Look up a group row by serverId (for reply quote resolution). */
+export async function findGroupMessageByServerId(
+  serverId: string,
+): Promise<GroupMessageRecord | undefined> {
+  return await db.groupMessages.where("serverId").equals(serverId).first();
 }
 
 /* ─────────── Chat prefs (per-peer) ─────────── */

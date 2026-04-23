@@ -19,14 +19,24 @@ import {
   SendIcon,
 } from "../components/Layout";
 import { UnlockGate } from "../components/UnlockGate";
-import { db, type GroupMessageRecord } from "../lib/db";
+import {
+  db,
+  deleteGroupMessageById,
+  setGroupMessageStarred,
+  type GroupMessageRecord,
+} from "../lib/db";
 import {
   ensureMySenderKey,
   ingestGroupInboxMessage,
+  sendGroupChat,
   sendGroupText,
   sendGroupPoll,
   sendGroupPollVote,
+  sendGroupReaction,
+  sendGroupEdit,
+  sendGroupDeleteForEveryone,
 } from "../lib/groupSync";
+import type { ChatEnvelope } from "../lib/messageEnvelope";
 import { pollAndDecrypt } from "../lib/messageSync";
 
 /* ─────────── Public page shell ─────────── */
@@ -360,6 +370,29 @@ function GroupChatInner({ groupId }: { groupId: string }) {
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [mentionAnchor, setMentionAnchor] = useState(0);
 
+  // Phase 1 parity state.
+  const [replyTo, setReplyTo] = useState<GroupMessageRecord | null>(null);
+  const [actionFor, setActionFor] = useState<GroupMessageRecord | null>(null);
+  const [selection, setSelection] = useState<Set<number>>(new Set());
+  const [starredOpen, setStarredOpen] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+
+  const showToast = useCallback((msg: string) => {
+    setToast(msg);
+    window.setTimeout(() => setToast(null), 1600);
+  }, []);
+
+  const inSelectionMode = selection.size > 0;
+  const toggleSelected = useCallback((id: number) => {
+    setSelection((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+  const clearSelection = useCallback(() => setSelection(new Set()), []);
+
   const messages = useLiveQuery(
     () =>
       db.groupMessages
@@ -511,8 +544,22 @@ function GroupChatInner({ groupId }: { groupId: string }) {
     setSending(true);
     setError(null);
     try {
-      await sendGroupText(identity, groupId, trimmed);
+      if (replyTo && replyTo.serverId) {
+        const env: ChatEnvelope = {
+          v: 2,
+          t: "text",
+          body: trimmed,
+          re: {
+            id: replyTo.serverId,
+            body: (replyTo.plaintext || "[attachment]").slice(0, 120),
+          },
+        };
+        await sendGroupChat(identity, groupId, env);
+      } else {
+        await sendGroupText(identity, groupId, trimmed);
+      }
       setText("");
+      setReplyTo(null);
       setMentionQuery(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to send");
@@ -520,6 +567,117 @@ function GroupChatInner({ groupId }: { groupId: string }) {
       setSending(false);
     }
   }
+
+  /* ---- Per-message actions ---- */
+
+  const handleReply = useCallback((m: GroupMessageRecord) => {
+    setReplyTo(m);
+    setActionFor(null);
+    setTimeout(() => textareaRef.current?.focus(), 0);
+  }, []);
+
+  const handleReact = useCallback(
+    async (m: GroupMessageRecord, emoji: string) => {
+      if (!m.serverId) {
+        showToast("Wait for the message to send first.");
+        return;
+      }
+      const mine = m.senderUserId === userId;
+      const current = m.reactions?.[userId ?? ""] ?? "";
+      // Toggling the same emoji clears it.
+      const next = current === emoji ? "" : emoji;
+      setActionFor(null);
+      try {
+        await sendGroupReaction(identity, groupId, m.serverId, next);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Reaction failed.");
+      }
+      void mine;
+    },
+    [identity, groupId, userId, showToast],
+  );
+
+  const handleStar = useCallback(
+    async (m: GroupMessageRecord) => {
+      if (m.id === undefined) return;
+      await setGroupMessageStarred(m.id, !m.starred);
+      setActionFor(null);
+      showToast(m.starred ? "Unstarred" : "Starred");
+    },
+    [showToast],
+  );
+
+  const handleCopy = useCallback(
+    async (m: GroupMessageRecord) => {
+      try {
+        await navigator.clipboard.writeText(m.plaintext || "");
+        showToast("Copied");
+      } catch {
+        showToast("Copy failed");
+      }
+      setActionFor(null);
+    },
+    [showToast],
+  );
+
+  const handleDeleteForMe = useCallback(
+    async (m: GroupMessageRecord) => {
+      if (m.id === undefined) return;
+      await deleteGroupMessageById(m.id);
+      setActionFor(null);
+    },
+    [],
+  );
+
+  const handleUnsend = useCallback(
+    async (m: GroupMessageRecord) => {
+      setActionFor(null);
+      try {
+        await sendGroupDeleteForEveryone(identity, groupId, m);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Couldn't unsend.");
+      }
+    },
+    [identity, groupId],
+  );
+
+  /* ---- Bulk actions ---- */
+
+  const bulkRows = useMemo(
+    () => (messages ?? []).filter((m) => m.id !== undefined && selection.has(m.id)),
+    [messages, selection],
+  );
+
+  const bulkDelete = useCallback(async () => {
+    for (const m of bulkRows) {
+      if (m.id !== undefined) await deleteGroupMessageById(m.id);
+    }
+    clearSelection();
+  }, [bulkRows, clearSelection]);
+
+  const bulkStar = useCallback(async () => {
+    const allStarred = bulkRows.every((m) => m.starred);
+    for (const m of bulkRows) {
+      if (m.id !== undefined) await setGroupMessageStarred(m.id, !allStarred);
+    }
+    clearSelection();
+    showToast(allStarred ? "Unstarred" : "Starred");
+  }, [bulkRows, clearSelection, showToast]);
+
+  const bulkCopy = useCallback(async () => {
+    const blob = bulkRows
+      .filter((m) => !m.deleted)
+      .map((m) => m.plaintext)
+      .filter(Boolean)
+      .join("\n");
+    try {
+      await navigator.clipboard.writeText(blob);
+      showToast("Copied");
+    } catch {
+      showToast("Copy failed");
+    }
+    clearSelection();
+  }, [bulkRows, clearSelection, showToast]);
 
   async function handleCreatePoll(question: string, choices: string[]) {
     const pollId = crypto.randomUUID();
@@ -561,32 +719,84 @@ function GroupChatInner({ groupId }: { groupId: string }) {
 
   return (
     <>
-      <AppBar
-        back="/groups"
-        title={
-          <button
-            onClick={() => navigate(`/groups/${groupId}/settings`)}
-            className="flex items-center gap-2 text-left"
-          >
-            <Avatar seed={group.id} size={36} />
-            <div className="flex flex-col">
-              <span className="text-sm font-medium leading-tight">{group.name}</span>
-              <span className="text-[11px] text-text-oncolor/70">
-                {group.members.length} members · tap for info
-              </span>
+      {inSelectionMode ? (
+        <AppBar
+          title={
+            <span className="text-sm font-medium">
+              {selection.size} selected
+            </span>
+          }
+          back={undefined as unknown as string}
+          right={
+            <div className="flex items-center gap-1">
+              <IconButton
+                label="Star"
+                onClick={() => void bulkStar()}
+                className="text-text-oncolor"
+              >
+                <span className="text-lg">★</span>
+              </IconButton>
+              <IconButton
+                label="Copy"
+                onClick={() => void bulkCopy()}
+                className="text-text-oncolor"
+              >
+                <span className="text-base">⧉</span>
+              </IconButton>
+              <IconButton
+                label="Delete"
+                onClick={() => void bulkDelete()}
+                className="text-text-oncolor"
+              >
+                <span className="text-base">🗑</span>
+              </IconButton>
+              <IconButton
+                label="Cancel"
+                onClick={clearSelection}
+                className="text-text-oncolor"
+              >
+                <span className="text-lg">✕</span>
+              </IconButton>
             </div>
-          </button>
-        }
-        right={
-          <IconButton
-            label="Group info"
-            onClick={() => navigate(`/groups/${groupId}/settings`)}
-            className="text-text-oncolor"
-          >
-            <MoreVerticalIcon />
-          </IconButton>
-        }
-      />
+          }
+        />
+      ) : (
+        <AppBar
+          back="/groups"
+          title={
+            <button
+              onClick={() => navigate(`/groups/${groupId}/settings`)}
+              className="flex items-center gap-2 text-left"
+            >
+              <Avatar seed={group.id} size={36} />
+              <div className="flex flex-col">
+                <span className="text-sm font-medium leading-tight">{group.name}</span>
+                <span className="text-[11px] text-text-oncolor/70">
+                  {group.members.length} members · tap for info
+                </span>
+              </div>
+            </button>
+          }
+          right={
+            <div className="flex items-center gap-1">
+              <IconButton
+                label="Starred messages"
+                onClick={() => setStarredOpen(true)}
+                className="text-text-oncolor"
+              >
+                <span className="text-lg">★</span>
+              </IconButton>
+              <IconButton
+                label="Group info"
+                onClick={() => navigate(`/groups/${groupId}/settings`)}
+                className="text-text-oncolor"
+              >
+                <MoreVerticalIcon />
+              </IconButton>
+            </div>
+          }
+        />
+      )}
 
       {/* Message list */}
       <div
@@ -612,12 +822,30 @@ function GroupChatInner({ groupId }: { groupId: string }) {
             // Vote messages are silent — they update poll state only.
             if (m.pollVoteData) return null;
 
+            const selected = m.id !== undefined && selection.has(m.id);
+            const onRowClick = () => {
+              if (inSelectionMode && m.id !== undefined) toggleSelected(m.id);
+              else setActionFor(m);
+            };
+            const onRowLongPress = () => {
+              if (m.id !== undefined) toggleSelected(m.id);
+            };
+
             // Poll bubble
             if (m.pollData) {
               return (
                 <div
                   key={m.id ?? m.dedupKey}
-                  className={"flex flex-col " + (mine ? "items-end" : "items-start")}
+                  className={
+                    "flex flex-col rounded-md transition-colors " +
+                    (mine ? "items-end " : "items-start ") +
+                    (selected ? "bg-wa-green/15" : "")
+                  }
+                  onClick={onRowClick}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    onRowLongPress();
+                  }}
                 >
                   {!mine && (
                     <span className="text-[11px] text-text-muted ml-2 mb-0.5 font-mono">
@@ -635,9 +863,26 @@ function GroupChatInner({ groupId }: { groupId: string }) {
               );
             }
 
-            // Regular text bubble
+            const reactionEntries = Object.entries(m.reactions ?? {});
+            const reactionGroups = new Map<string, number>();
+            for (const [, e] of reactionEntries) {
+              reactionGroups.set(e, (reactionGroups.get(e) ?? 0) + 1);
+            }
+            const myReaction = m.reactions?.[userId ?? ""] ?? null;
+
             return (
-              <div key={m.id ?? m.dedupKey} className="flex flex-col">
+              <div
+                key={m.id ?? m.dedupKey}
+                className={
+                  "flex flex-col rounded-md transition-colors " +
+                  (selected ? "bg-wa-green/15" : "")
+                }
+                onClick={onRowClick}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  onRowLongPress();
+                }}
+              >
                 {!mine && (
                   <span className="text-[11px] text-text-muted ml-2 mb-0.5 font-mono">
                     {senderLabel}
@@ -645,18 +890,76 @@ function GroupChatInner({ groupId }: { groupId: string }) {
                 )}
                 <MessageBubble
                   direction={mine ? "out" : "in"}
-                  time={new Date(m.createdAt).toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
+                  time={
+                    new Date(m.createdAt).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    }) + (m.editedAt ? " · edited" : "")
+                  }
                   status={mine ? m.status : undefined}
                 >
-                  {m.plaintext ? (
-                    renderMentionText(m.plaintext, fpDisplayMap, myFingerprint)
+                  {m.deleted ? (
+                    <span className="italic text-text-muted">
+                      🚫 This message was deleted
+                    </span>
                   ) : (
-                    <span className="italic text-text-muted">[empty]</span>
+                    <>
+                      {m.replyTo && (
+                        <div className="mb-1 -mx-1 px-2 py-1 rounded-md bg-black/15 border-l-2 border-wa-green text-[11.5px] leading-snug">
+                          <div className="text-wa-green font-medium">
+                            {m.replyTo.senderUserId === userId
+                              ? "You"
+                              : memberMap.get(m.replyTo.senderUserId) ??
+                                "Unknown"}
+                          </div>
+                          <div className="text-text-muted truncate max-w-[260px]">
+                            {m.replyTo.body || "[message]"}
+                          </div>
+                        </div>
+                      )}
+                      {m.starred && (
+                        <span className="inline-block mr-1 text-yellow-300">
+                          ★
+                        </span>
+                      )}
+                      {m.plaintext ? (
+                        renderMentionText(
+                          m.plaintext,
+                          fpDisplayMap,
+                          myFingerprint,
+                        )
+                      ) : (
+                        <span className="italic text-text-muted">[empty]</span>
+                      )}
+                    </>
                   )}
                 </MessageBubble>
+                {reactionGroups.size > 0 && !m.deleted && (
+                  <div
+                    className={
+                      "mt-1 flex gap-1 " + (mine ? "justify-end mr-2" : "ml-2")
+                    }
+                  >
+                    {[...reactionGroups.entries()].map(([emo, count]) => (
+                      <button
+                        key={emo}
+                        type="button"
+                        onClick={(ev) => {
+                          ev.stopPropagation();
+                          void handleReact(m, emo);
+                        }}
+                        className={
+                          "px-1.5 py-0.5 rounded-full text-[11px] border " +
+                          (myReaction === emo
+                            ? "bg-wa-green/30 border-wa-green text-text"
+                            : "bg-surface border-line/50 text-text")
+                        }
+                      >
+                        {emo} {count > 1 ? count : ""}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             );
           })
@@ -686,6 +989,35 @@ function GroupChatInner({ groupId }: { groupId: string }) {
               <span>@{m.fingerprint}</span>
             </button>
           ))}
+        </div>
+      )}
+
+      {/* Reply chip above composer */}
+      {replyTo && (
+        <div className="px-3 pt-2 -mb-1">
+          <div className="bg-surface border-l-2 border-wa-green rounded-md px-3 py-2 flex items-start gap-2">
+            <div className="flex-1 min-w-0">
+              <div className="text-[11px] text-wa-green font-medium">
+                Replying to{" "}
+                {replyTo.senderUserId === userId
+                  ? "yourself"
+                  : memberMap.get(replyTo.senderUserId) ?? "Unknown"}
+              </div>
+              <div className="text-xs text-text-muted truncate">
+                {replyTo.deleted
+                  ? "[deleted]"
+                  : replyTo.plaintext || "[attachment]"}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setReplyTo(null)}
+              className="text-text-muted hover:text-text px-1"
+              aria-label="Cancel reply"
+            >
+              ✕
+            </button>
+          </div>
         </div>
       )}
 
@@ -740,6 +1072,272 @@ function GroupChatInner({ groupId }: { groupId: string }) {
           onSubmit={handleCreatePoll}
         />
       )}
+
+      {/* Per-message action sheet */}
+      {actionFor && (
+        <MessageActionSheet
+          msg={actionFor}
+          mine={actionFor.senderUserId === userId}
+          onClose={() => setActionFor(null)}
+          onReply={() => handleReply(actionFor)}
+          onReact={(emoji) => void handleReact(actionFor, emoji)}
+          onStar={() => void handleStar(actionFor)}
+          onCopy={() => void handleCopy(actionFor)}
+          onSelect={() => {
+            if (actionFor.id !== undefined) toggleSelected(actionFor.id);
+            setActionFor(null);
+          }}
+          onDeleteForMe={() => void handleDeleteForMe(actionFor)}
+          onUnsend={() => void handleUnsend(actionFor)}
+        />
+      )}
+
+      {/* Starred messages sheet */}
+      {starredOpen && (
+        <StarredSheet
+          groupId={groupId}
+          memberMap={memberMap}
+          fpDisplayMap={fpDisplayMap}
+          myFingerprint={myFingerprint}
+          myUserId={userId ?? ""}
+          onClose={() => setStarredOpen(false)}
+          onUnstar={(m) => {
+            if (m.id !== undefined) void setGroupMessageStarred(m.id, false);
+          }}
+        />
+      )}
+
+      {/* Lightweight toast */}
+      {toast && (
+        <div className="fixed left-1/2 -translate-x-1/2 bottom-24 z-50 bg-black/80 text-white text-xs px-3 py-1.5 rounded-full">
+          {toast}
+        </div>
+      )}
     </>
+  );
+}
+
+/* ─────────── Action sheet (per-message) ─────────── */
+
+const QUICK_REACTS = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
+
+function MessageActionSheet({
+  msg,
+  mine,
+  onClose,
+  onReply,
+  onReact,
+  onStar,
+  onCopy,
+  onSelect,
+  onDeleteForMe,
+  onUnsend,
+}: {
+  msg: GroupMessageRecord;
+  mine: boolean;
+  onClose: () => void;
+  onReply: () => void;
+  onReact: (emoji: string) => void;
+  onStar: () => void;
+  onCopy: () => void;
+  onSelect: () => void;
+  onDeleteForMe: () => void;
+  onUnsend: () => void;
+}) {
+  const canCopy = !!msg.plaintext && !msg.deleted;
+  const canReply = !msg.deleted && !!msg.serverId;
+  const canReact = !msg.deleted && !!msg.serverId;
+  const canUnsend = mine && !!msg.serverId && !msg.deleted;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/40 flex items-end justify-center"
+      onClick={onClose}
+    >
+      <div
+        className="w-full sm:max-w-md bg-surface rounded-t-2xl border-t border-line p-3 space-y-2"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {canReact && (
+          <div className="flex justify-around py-1">
+            {QUICK_REACTS.map((e) => (
+              <button
+                key={e}
+                type="button"
+                onClick={() => onReact(e)}
+                className="text-2xl size-11 rounded-full hover:bg-white/10 flex items-center justify-center"
+              >
+                {e}
+              </button>
+            ))}
+          </div>
+        )}
+        <div className="divide-y divide-line/40">
+          {canReply && (
+            <SheetItem icon="↩" label="Reply" onClick={onReply} />
+          )}
+          <SheetItem
+            icon={msg.starred ? "★" : "☆"}
+            label={msg.starred ? "Unstar" : "Star"}
+            onClick={onStar}
+          />
+          {canCopy && <SheetItem icon="⧉" label="Copy" onClick={onCopy} />}
+          <SheetItem icon="☑" label="Select" onClick={onSelect} />
+          <SheetItem
+            icon="🗑"
+            label="Delete for me"
+            onClick={onDeleteForMe}
+            danger
+          />
+          {canUnsend && (
+            <SheetItem
+              icon="🚫"
+              label="Unsend for everyone"
+              onClick={onUnsend}
+              danger
+            />
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="w-full text-center py-2 text-sm text-text-muted"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function SheetItem({
+  icon,
+  label,
+  onClick,
+  danger,
+}: {
+  icon: string;
+  label: string;
+  onClick: () => void;
+  danger?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={
+        "w-full px-3 py-3 text-left flex items-center gap-3 text-sm hover:bg-white/5 " +
+        (danger ? "text-red-400" : "text-text")
+      }
+    >
+      <span className="w-6 text-center text-base">{icon}</span>
+      <span>{label}</span>
+    </button>
+  );
+}
+
+/* ─────────── Starred messages sheet ─────────── */
+
+function StarredSheet({
+  groupId,
+  memberMap,
+  fpDisplayMap,
+  myFingerprint,
+  myUserId,
+  onClose,
+  onUnstar,
+}: {
+  groupId: string;
+  memberMap: Map<string, string>;
+  fpDisplayMap: Map<string, string>;
+  myFingerprint: string;
+  myUserId: string;
+  onClose: () => void;
+  onUnstar: (m: GroupMessageRecord) => void;
+}) {
+  const rows = useLiveQuery(
+    () =>
+      db.groupMessages
+        .where("groupId")
+        .equals(groupId)
+        .filter((m) => m.starred === true)
+        .toArray()
+        .then((r) => r.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))),
+    [groupId],
+    [] as GroupMessageRecord[],
+  );
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center"
+      onClick={onClose}
+    >
+      <div
+        className="w-full sm:max-w-md bg-surface rounded-t-2xl sm:rounded-2xl border border-line max-h-[80vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-4 py-3 border-b border-line">
+          <div className="font-semibold text-text flex items-center gap-2">
+            <span className="text-yellow-300">★</span> Starred messages
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-text-muted hover:text-text px-1"
+          >
+            ✕
+          </button>
+        </div>
+        <div className="overflow-y-auto p-2">
+          {rows.length === 0 ? (
+            <div className="text-center text-text-muted text-sm py-12">
+              No starred messages yet. Long-press a message to star it.
+            </div>
+          ) : (
+            <ul className="space-y-2">
+              {rows.map((m) => (
+                <li
+                  key={m.id ?? m.dedupKey}
+                  className="bg-bg border border-line rounded-lg p-2.5"
+                >
+                  <div className="flex items-center justify-between text-[11px] text-text-muted mb-1">
+                    <span className="font-mono">
+                      {m.senderUserId === myUserId
+                        ? "You"
+                        : memberMap.get(m.senderUserId) ??
+                          m.senderUserId.slice(0, 8) + "…"}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => onUnstar(m)}
+                      className="text-yellow-300 hover:text-yellow-400"
+                      title="Unstar"
+                    >
+                      ★
+                    </button>
+                  </div>
+                  <div className="text-sm text-text break-words">
+                    {m.deleted ? (
+                      <span className="italic text-text-muted">
+                        🚫 deleted
+                      </span>
+                    ) : (
+                      renderMentionText(
+                        m.plaintext || "[message]",
+                        fpDisplayMap,
+                        myFingerprint,
+                      )
+                    )}
+                  </div>
+                  <div className="text-[10.5px] text-text-muted mt-1">
+                    {new Date(m.createdAt).toLocaleString()}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
