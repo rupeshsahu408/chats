@@ -84,7 +84,7 @@ export function ScheduledMessagesSheet({
       onClick={onClose}
     >
       <div
-        className="w-full sm:max-w-md bg-surface rounded-t-2xl sm:rounded-2xl border border-line shadow-sheet max-h-[80vh] overflow-y-auto"
+        className="w-full sm:max-w-md md:max-w-lg bg-surface rounded-t-2xl sm:rounded-2xl border border-line shadow-sheet max-h-[80vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="px-4 py-3 border-b border-line text-base font-semibold text-text flex items-center gap-2 sticky top-0 bg-surface z-10">

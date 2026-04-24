@@ -43,8 +43,8 @@ export function ScreenShell({
           )}
         </header>
       )}
-      <div className="flex-1 flex flex-col items-center justify-center px-6 py-8">
-        <div className="w-full max-w-md flex flex-col gap-5">{children}</div>
+      <div className="flex-1 flex flex-col items-center justify-center px-6 py-8 md:px-10 md:py-12">
+        <div className="w-full max-w-md md:max-w-lg flex flex-col gap-5">{children}</div>
       </div>
     </main>
   );

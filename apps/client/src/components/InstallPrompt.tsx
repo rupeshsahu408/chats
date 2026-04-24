@@ -163,7 +163,7 @@ function Banner({
     <div
       role="dialog"
       aria-label={title}
-      className="fixed left-2 right-2 bottom-2 sm:left-auto sm:right-4 sm:bottom-4 sm:max-w-sm z-50 bg-panel text-text border border-line rounded-xl shadow-lg p-3 flex items-start gap-3"
+      className="fixed left-2 right-2 bottom-2 sm:left-auto sm:right-4 sm:bottom-4 sm:max-w-sm md:max-w-md z-50 bg-panel text-text border border-line rounded-xl shadow-lg p-3 flex items-start gap-3"
       style={{ paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom))" }}
     >
       <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-brand/15 flex items-center justify-center text-brand">
@@ -215,7 +215,7 @@ function IosInstructionsSheet({ onClose }: { onClose: () => void }) {
         aria-hidden="true"
       />
       <div
-        className="relative w-full sm:max-w-md bg-panel text-text border-t sm:border border-line sm:rounded-2xl rounded-t-2xl shadow-2xl p-5"
+        className="relative w-full sm:max-w-md md:max-w-lg bg-panel text-text border-t sm:border border-line sm:rounded-2xl rounded-t-2xl shadow-2xl p-5"
         style={{ paddingBottom: "calc(1.25rem + env(safe-area-inset-bottom))" }}
       >
         <div className="flex items-center justify-between mb-3">

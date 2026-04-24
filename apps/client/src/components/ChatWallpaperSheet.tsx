@@ -79,7 +79,7 @@ export function ChatWallpaperSheet({
       onClick={onClose}
     >
       <div
-        className="bg-panel w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl border border-line overflow-hidden max-h-[90vh] flex flex-col"
+        className="bg-panel w-full sm:max-w-md md:max-w-lg rounded-t-2xl sm:rounded-2xl border border-line overflow-hidden max-h-[90vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

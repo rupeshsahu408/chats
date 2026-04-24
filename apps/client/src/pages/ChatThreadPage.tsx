@@ -3176,7 +3176,7 @@ function Sheet({
       onClick={onClose}
     >
       <div
-        className="bg-panel w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl border border-line overflow-hidden"
+        className="bg-panel w-full sm:max-w-md md:max-w-lg rounded-t-2xl sm:rounded-2xl border border-line overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {title && (
@@ -3940,7 +3940,7 @@ function MessageActionMenu({
       aria-label="Message actions"
     >
       <div
-        className="w-full sm:max-w-sm bg-surface rounded-t-2xl sm:rounded-2xl border border-line shadow-sheet max-h-[85vh] overflow-y-auto"
+        className="w-full sm:max-w-sm md:max-w-md bg-surface rounded-t-2xl sm:rounded-2xl border border-line shadow-sheet max-h-[85vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <ActionRow Icon={ReplyIcon} label="Reply" onClick={onReply} />
@@ -4295,7 +4295,7 @@ export function MessageInfoDialog({
       aria-label="Message info"
     >
       <div
-        className="w-full sm:max-w-sm bg-surface rounded-t-2xl sm:rounded-2xl border border-line shadow-sheet p-4"
+        className="w-full sm:max-w-sm md:max-w-md bg-surface rounded-t-2xl sm:rounded-2xl border border-line shadow-sheet p-4"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="text-base font-semibold text-text mb-3">
@@ -4360,7 +4360,7 @@ function StarredMessagesDialog({
       aria-label="Starred messages"
     >
       <div
-        className="w-full sm:max-w-md bg-surface rounded-t-2xl sm:rounded-2xl border border-line shadow-sheet max-h-[80vh] overflow-y-auto"
+        className="w-full sm:max-w-md md:max-w-lg bg-surface rounded-t-2xl sm:rounded-2xl border border-line shadow-sheet max-h-[80vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="px-4 py-3 border-b border-line text-base font-semibold text-text flex items-center gap-2">
@@ -4481,7 +4481,7 @@ export function SchedulePickerSheet({
       onClick={onClose}
     >
       <div
-        className="w-full sm:max-w-sm bg-surface rounded-t-2xl sm:rounded-2xl border border-line p-4 space-y-4"
+        className="w-full sm:max-w-sm md:max-w-md bg-surface rounded-t-2xl sm:rounded-2xl border border-line p-4 space-y-4"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">

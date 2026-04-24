@@ -39,7 +39,7 @@ export function QuickActionsSheet({
       aria-label="Quick actions"
     >
       <div
-        className="w-full sm:max-w-md bg-surface rounded-t-2xl sm:rounded-2xl border border-line shadow-sheet max-h-[85vh] overflow-y-auto"
+        className="w-full sm:max-w-md md:max-w-lg bg-surface rounded-t-2xl sm:rounded-2xl border border-line shadow-sheet max-h-[85vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="px-4 pt-3 pb-2 flex items-center justify-between">

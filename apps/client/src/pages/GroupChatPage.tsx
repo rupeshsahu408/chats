@@ -1966,7 +1966,7 @@ function MessageActionSheet({
       onClick={onClose}
     >
       <div
-        className="w-full sm:max-w-md bg-surface rounded-t-2xl border-t border-line p-3 space-y-2 max-h-[85vh] overflow-y-auto"
+        className="w-full sm:max-w-md md:max-w-lg bg-surface rounded-t-2xl border-t border-line p-3 space-y-2 max-h-[85vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {canReact && (
@@ -2143,7 +2143,7 @@ function GroupMenu({
       onClick={onClose}
     >
       <div
-        className="bg-panel w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl border border-line overflow-hidden"
+        className="bg-panel w-full sm:max-w-md md:max-w-lg rounded-t-2xl sm:rounded-2xl border border-line overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         <SheetItem
@@ -2234,7 +2234,7 @@ function TtlPicker({
       onClick={onClose}
     >
       <div
-        className="w-full sm:max-w-sm bg-surface rounded-t-2xl sm:rounded-2xl border border-line p-2"
+        className="w-full sm:max-w-sm md:max-w-md bg-surface rounded-t-2xl sm:rounded-2xl border border-line p-2"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="px-3 py-2 text-sm font-semibold text-text">
@@ -2343,7 +2343,7 @@ function ForwardPicker({
       onClick={onClose}
     >
       <div
-        className="w-full sm:max-w-md bg-surface rounded-t-2xl sm:rounded-2xl border border-line max-h-[85vh] flex flex-col"
+        className="w-full sm:max-w-md md:max-w-lg bg-surface rounded-t-2xl sm:rounded-2xl border border-line max-h-[85vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="px-4 py-3 border-b border-line text-base font-semibold text-text flex items-center justify-between">
@@ -2458,7 +2458,7 @@ function StarredSheet({
       onClick={onClose}
     >
       <div
-        className="w-full sm:max-w-md bg-surface rounded-t-2xl sm:rounded-2xl border border-line max-h-[80vh] flex flex-col"
+        className="w-full sm:max-w-md md:max-w-lg bg-surface rounded-t-2xl sm:rounded-2xl border border-line max-h-[80vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-4 py-3 border-b border-line">

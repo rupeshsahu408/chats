@@ -183,7 +183,7 @@ export function EmojiPicker({
   return (
     <div
       ref={ref}
-      className="bg-surface border border-line rounded-2xl shadow-sheet w-[300px] max-w-[90vw]"
+      className="bg-surface border border-line rounded-2xl shadow-sheet w-[320px] sm:w-[360px] md:w-[420px] max-w-[90vw]"
       role="dialog"
       aria-label="Emoji picker"
     >
@@ -215,7 +215,7 @@ function EmojiGrid({ onPick }: { onPick: (emoji: string) => void }) {
           </button>
         ))}
       </div>
-      <div className="grid grid-cols-8 gap-0.5 p-2 max-h-56 overflow-y-auto">
+      <div className="grid grid-cols-8 sm:grid-cols-9 md:grid-cols-10 gap-0.5 p-2 max-h-56 md:max-h-72 overflow-y-auto">
         {cat.emojis.map((e, idx) => (
           <button
             key={`${e}-${idx}`}
