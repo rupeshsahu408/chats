@@ -33,6 +33,7 @@ import {
   ForwardIcon,
   EditIcon,
   FlagIcon,
+  SparklesIcon,
 } from "../components/Layout";
 import { UnlockGate } from "../components/UnlockGate";
 import { peerLabel } from "../lib/peerLabel";
@@ -63,6 +64,8 @@ import {
 } from "../lib/groupSync";
 import { sendChatEnvelope } from "../lib/messageSync";
 import { MessageText } from "../lib/markdown";
+import { PollComposer } from "../components/Poll";
+import { QuickActionsSheet } from "../components/QuickActionsSheet";
 import {
   type ChatEnvelope,
   type EnvelopeLinkPreview,
@@ -319,135 +322,6 @@ function PollBubble({
   );
 }
 
-/* ─────────── Poll composer modal ─────────── */
-
-function PollComposer({
-  onClose,
-  onSubmit,
-}: {
-  onClose: () => void;
-  onSubmit: (question: string, choices: string[]) => Promise<void>;
-}) {
-  const [question, setQuestion] = useState("");
-  const [choices, setChoices] = useState(["", ""]);
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-
-  const valid =
-    question.trim().length > 0 &&
-    choices.filter((c) => c.trim().length > 0).length >= 2;
-
-  return (
-    <div
-      className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center"
-      onClick={onClose}
-    >
-      <div
-        className="w-full sm:max-w-md bg-surface rounded-t-2xl sm:rounded-2xl border border-line p-4 space-y-3 max-h-[90vh] overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between">
-          <div className="font-semibold text-text">Create poll</div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-text-muted hover:text-text px-1"
-          >
-            ✕
-          </button>
-        </div>
-
-        <div>
-          <label className="text-xs text-text-muted mb-1 block">Question</label>
-          <input
-            autoFocus
-            value={question}
-            onChange={(e) => setQuestion(e.target.value)}
-            maxLength={200}
-            placeholder="Ask the group something…"
-            className="w-full bg-bg text-text rounded-lg px-3 py-2 border border-line outline-none text-sm"
-          />
-        </div>
-
-        <div>
-          <label className="text-xs text-text-muted mb-1 block">
-            Options (min 2, max 8)
-          </label>
-          <div className="space-y-1.5">
-            {choices.map((c, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <input
-                  value={c}
-                  onChange={(e) => {
-                    const next = [...choices];
-                    next[i] = e.target.value;
-                    setChoices(next);
-                  }}
-                  maxLength={100}
-                  placeholder={`Option ${i + 1}`}
-                  className="flex-1 bg-bg text-text rounded-lg px-3 py-2 border border-line outline-none text-sm"
-                />
-                {choices.length > 2 && (
-                  <button
-                    type="button"
-                    onClick={() => setChoices(choices.filter((_, j) => j !== i))}
-                    className="text-text-muted hover:text-red-400 text-sm px-1"
-                  >
-                    ✕
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-          {choices.length < 8 && (
-            <button
-              type="button"
-              onClick={() => setChoices([...choices, ""])}
-              className="mt-2 text-xs text-wa-green hover:underline"
-            >
-              + Add option
-            </button>
-          )}
-        </div>
-
-        {err && <div className="text-xs text-red-400">{err}</div>}
-
-        <div className="flex gap-2 pt-1">
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex-1 py-2 rounded-xl border border-line text-text text-sm"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            disabled={busy || !valid}
-            onClick={async () => {
-              setBusy(true);
-              setErr(null);
-              try {
-                await onSubmit(
-                  question.trim(),
-                  choices.map((c) => c.trim()).filter((c) => c.length > 0),
-                );
-                onClose();
-              } catch (e) {
-                setErr(e instanceof Error ? e.message : "Failed to create poll.");
-              } finally {
-                setBusy(false);
-              }
-            }}
-            className="flex-1 py-2 rounded-xl bg-wa-green text-text-oncolor text-sm font-medium disabled:opacity-50"
-          >
-            {busy ? "Sending…" : "Send poll"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 /* ─────────── Main inner component ─────────── */
 
 function GroupChatInner({ groupId }: { groupId: string }) {
@@ -482,6 +356,7 @@ function GroupChatInner({ groupId }: { groupId: string }) {
   // Phase 1 parity state.
   const [replyTo, setReplyTo] = useState<GroupMessageRecord | null>(null);
   const [actionFor, setActionFor] = useState<GroupMessageRecord | null>(null);
+  const [quickActionsFor, setQuickActionsFor] = useState<string | null>(null);
   const [reactFor, setReactFor] = useState<GroupMessageRecord | null>(null);
   const [editFor, setEditFor] = useState<GroupMessageRecord | null>(null);
   const [infoFor, setInfoFor] = useState<GroupMessageRecord | null>(null);
@@ -1611,6 +1486,18 @@ function GroupChatInner({ groupId }: { groupId: string }) {
             setActionFor(null);
             void handleReportSender(sid);
           }}
+          onQuickActions={() => {
+            const text = actionFor.plaintext ?? "";
+            setActionFor(null);
+            if (text) setQuickActionsFor(text);
+          }}
+        />
+      )}
+
+      {quickActionsFor && (
+        <QuickActionsSheet
+          text={quickActionsFor}
+          onClose={() => setQuickActionsFor(null)}
         />
       )}
 
@@ -2044,6 +1931,7 @@ function MessageActionSheet({
   onUnsend,
   onBlockSender,
   onReportSender,
+  onQuickActions,
 }: {
   msg: GroupMessageRecord;
   mine: boolean;
@@ -2062,6 +1950,7 @@ function MessageActionSheet({
   onUnsend: () => void;
   onBlockSender: () => void;
   onReportSender: () => void;
+  onQuickActions: () => void;
 }) {
   const canCopy = !!msg.plaintext && !msg.deleted;
   const canReply = !msg.deleted && !!msg.serverId;
@@ -2133,6 +2022,13 @@ function MessageActionSheet({
               icon={<CopyIcon className="w-5 h-5" />}
               label="Copy"
               onClick={onCopy}
+            />
+          )}
+          {canCopy && (
+            <SheetItem
+              icon={<SparklesIcon className="w-5 h-5" />}
+              label="Quick actions"
+              onClick={onQuickActions}
             />
           )}
           <SheetItem

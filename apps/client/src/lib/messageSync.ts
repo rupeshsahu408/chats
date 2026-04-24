@@ -48,6 +48,8 @@ function envelopeToRecordFields(
   | "expiresAt"
   | "replyTo"
   | "seenTtlSeconds"
+  | "pollData"
+  | "pollVoteData"
 > {
   const expiresAt = serverExpiresAt ?? deriveExpiry(env);
   const extras: Pick<
@@ -86,6 +88,24 @@ function envelopeToRecordFields(
     return {
       plaintext: "",
       attachment: { ...env.media, kind: "voice" },
+      ...extras,
+    };
+  }
+  if (env.t === "poll") {
+    return {
+      plaintext: env.question,
+      pollData: {
+        pollId: env.pollId,
+        question: env.question,
+        choices: env.choices,
+      },
+      ...extras,
+    };
+  }
+  if (env.t === "poll_vote") {
+    return {
+      plaintext: "",
+      pollVoteData: { pollId: env.pollId, choiceIdx: env.choiceIdx },
       ...extras,
     };
   }
@@ -466,6 +486,36 @@ export async function sendChatMessage(
   if (opts.linkPreview) env.lp = opts.linkPreview;
   if (opts.replyTo) env.re = opts.replyTo;
   if (opts.viewOnce) env.vo = true;
+  return sendChatEnvelope(identity, peerId, env);
+}
+
+/**
+ * Create a poll in a 1:1 chat. Both peers see the same encrypted
+ * poll envelope and aggregate votes locally — the server only sees
+ * ciphertext.
+ */
+export async function sendChatPoll(
+  identity: UnlockedIdentity,
+  peerId: string,
+  pollId: string,
+  question: string,
+  choices: string[],
+): Promise<number> {
+  const env: ChatEnvelope = { v: 2, t: "poll", pollId, question, choices };
+  return sendChatEnvelope(identity, peerId, env);
+}
+
+/**
+ * Cast or retract a vote on a 1:1 poll. choiceIdx = -1 removes the
+ * sender's vote.
+ */
+export async function sendChatPollVote(
+  identity: UnlockedIdentity,
+  peerId: string,
+  pollId: string,
+  choiceIdx: number,
+): Promise<number> {
+  const env: ChatEnvelope = { v: 2, t: "poll_vote", pollId, choiceIdx };
   return sendChatEnvelope(identity, peerId, env);
 }
 

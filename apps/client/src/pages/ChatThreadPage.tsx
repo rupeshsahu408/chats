@@ -24,10 +24,14 @@ import {
   reportRead,
   sendChatEnvelope,
   sendChatMessage,
+  sendChatPoll,
+  sendChatPollVote,
   sendReaction,
   deleteMessageForEveryone,
   editChatMessage,
 } from "../lib/messageSync";
+import { PollComposer, PollCard } from "../components/Poll";
+import { QuickActionsSheet } from "../components/QuickActionsSheet";
 import { EmojiPicker, ReactionPicker } from "../components/EmojiPicker";
 import { wsClient, wsTyping } from "../lib/wsClient";
 import { usePresenceStore } from "../lib/presenceStore";
@@ -60,6 +64,8 @@ import {
   BellOffIcon,
   FlagIcon,
   SearchIcon,
+  SparklesIcon,
+  PollIcon,
 } from "../components/Layout";
 import { UnlockGate } from "../components/UnlockGate";
 import { peerLabel, peerSubLabel } from "../lib/peerLabel";
@@ -234,6 +240,8 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
   const [deleteFor, setDeleteFor] = useState<ChatMessageRecord | null>(null);
   const [editFor, setEditFor] = useState<ChatMessageRecord | null>(null);
   const [infoFor, setInfoFor] = useState<ChatMessageRecord | null>(null);
+  const [quickActionsFor, setQuickActionsFor] = useState<string | null>(null);
+  const [pollOpen, setPollOpen] = useState(false);
   const [replyTo, setReplyTo] = useState<{
     row: ChatMessageRecord;
     ref: EnvelopeReplyRef;
@@ -269,12 +277,32 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
 
   /** Filter messages by the current in-chat search query (case-insensitive). */
   const filteredMessages = useMemo(() => {
-    if (!searchOpen || !searchQuery.trim()) return messages ?? [];
+    // Vote envelopes are silent — they update poll bubble state only,
+    // they never appear as their own row.
+    const visible = (messages ?? []).filter((m) => !m.pollVoteData);
+    if (!searchOpen || !searchQuery.trim()) return visible;
     const q = searchQuery.trim().toLowerCase();
-    return (messages ?? []).filter((m) =>
+    return visible.filter((m) =>
       (m.plaintext ?? "").toLowerCase().includes(q),
     );
   }, [messages, searchOpen, searchQuery]);
+
+  /**
+   * Send (or retract) the current user's vote on a 1:1 poll. The
+   * vote envelope is encrypted to the peer; both devices then
+   * aggregate counts locally from their own message log.
+   */
+  const handleChatPollVote = useCallback(
+    async (pollId: string, choiceIdx: number) => {
+      if (!identity || !peerId) return;
+      try {
+        await sendChatPollVote(identity, peerId, pollId, choiceIdx);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Vote failed");
+      }
+    },
+    [identity, peerId],
+  );
 
   /** Build a reply ref from a row the user just tapped "Reply" on. */
   const buildReplyRef = useCallback(
@@ -1017,11 +1045,13 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
               <MessageRowSlot
                 key={m.id}
                 m={m}
+                allMessages={messages ?? []}
                 myUserId={myId}
                 onAction={(row) => setActionFor(row)}
                 onQuickReply={(row) => setReplyTo({ row, ref: buildReplyRef(row) })}
                 onQuickReact={(row) => setReactFor(row)}
                 onJumpTo={onScrollToMessage}
+                onPollVote={handleChatPollVote}
                 showSeenAfter={i === lastReadOutIdx && m.readAt ? m.readAt : null}
                 selectMode={selectMode}
                 selected={m.id !== undefined && selectedIds.has(m.id)}
@@ -1173,6 +1203,7 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
           onClearReply={() => setReplyTo(null)}
           onSchedule={onScheduleMessage}
           onActivity={sendActivity}
+          onCreatePoll={() => setPollOpen(true)}
         />
       )}
 
@@ -1234,6 +1265,29 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
           onReport={() => {
             setActionFor(null);
             setMenuOpen("report");
+          }}
+          onQuickActions={() => {
+            const text = (actionFor.plaintext ?? "").trim();
+            setActionFor(null);
+            if (text) setQuickActionsFor(text);
+          }}
+        />
+      )}
+
+      {quickActionsFor && (
+        <QuickActionsSheet
+          text={quickActionsFor}
+          onClose={() => setQuickActionsFor(null)}
+        />
+      )}
+
+      {pollOpen && (
+        <PollComposer
+          onClose={() => setPollOpen(false)}
+          onSubmit={async (question, choices) => {
+            if (!identity) return;
+            const pollId = crypto.randomUUID();
+            await sendChatPoll(identity, peerId, pollId, question, choices);
           }}
         />
       )}
@@ -1573,22 +1627,26 @@ function formatSeenTtl(secs: number): string {
  */
 function MessageRowSlot({
   m,
+  allMessages,
   myUserId,
   onAction,
   onQuickReply,
   onQuickReact,
   onJumpTo,
+  onPollVote,
   showSeenAfter,
   selectMode,
   selected,
   onToggleSelect,
 }: {
   m: ChatMessageRecord;
+  allMessages: ChatMessageRecord[];
   myUserId: string;
   onAction: (row: ChatMessageRecord) => void;
   onQuickReply: (row: ChatMessageRecord) => void;
   onQuickReact: (row: ChatMessageRecord) => void;
   onJumpTo: (serverId: string) => void;
+  onPollVote: (pollId: string, choiceIdx: number) => void;
   showSeenAfter: string | null;
   selectMode: boolean;
   selected: boolean;
@@ -1695,11 +1753,13 @@ function MessageRowSlot({
       )}
       <MessageRow
         m={m}
+        allMessages={allMessages}
         myUserId={myUserId}
         onAction={onAction}
         onQuickReply={onQuickReply}
         onQuickReact={onQuickReact}
         onJumpTo={onJumpTo}
+        onPollVote={onPollVote}
         selectMode={selectMode}
         selected={selected}
       />
@@ -1710,20 +1770,24 @@ function MessageRowSlot({
 
 function MessageRow({
   m,
+  allMessages,
   myUserId,
   onAction,
   onQuickReply,
   onQuickReact,
   onJumpTo,
+  onPollVote,
   selectMode,
   selected,
 }: {
   m: ChatMessageRecord;
+  allMessages: ChatMessageRecord[];
   myUserId: string;
   onAction: (row: ChatMessageRecord) => void;
   onQuickReply: (row: ChatMessageRecord) => void;
   onQuickReact: (row: ChatMessageRecord) => void;
   onJumpTo: (serverId: string) => void;
+  onPollVote: (pollId: string, choiceIdx: number) => void;
   selectMode: boolean;
   selected: boolean;
 }) {
@@ -1808,6 +1872,48 @@ function MessageRow({
     <span className="ml-1 text-[10px] text-text-muted italic">(edited)</span>
   ) : null;
   const rowDir = m.direction === "out" ? "justify-end" : "justify-start";
+
+  // Poll bubble — counts and "my vote" are aggregated locally from
+  // every poll_vote row that references this poll's id, regardless of
+  // direction (each peer keeps a row for every vote they cast or
+  // received). Vote rows themselves are filtered out of the list.
+  if (m.pollData) {
+    const poll = m.pollData;
+    let myVote = -1;
+    let theirVote = -1;
+    for (const row of allMessages) {
+      if (row.pollVoteData?.pollId !== poll.pollId) continue;
+      if (row.direction === "out") myVote = row.pollVoteData.choiceIdx;
+      else theirVote = row.pollVoteData.choiceIdx;
+    }
+    const counts = poll.choices.map((_, i) => {
+      let c = 0;
+      if (myVote === i) c++;
+      if (theirVote === i) c++;
+      return c;
+    });
+    const totalVotes = (myVote >= 0 ? 1 : 0) + (theirVote >= 0 ? 1 : 0);
+    return (
+      <>
+        <div className={"flex items-stretch gap-1 " + rowDir}>
+          {checkmark}
+          {m.direction === "out" && toolbar}
+          <PollCard
+            question={poll.question}
+            choices={poll.choices}
+            counts={counts}
+            myVote={myVote}
+            totalVotes={totalVotes}
+            createdAt={m.createdAt}
+            isMine={m.direction === "out"}
+            onVote={(choiceIdx) => onPollVote(poll.pollId, choiceIdx)}
+          />
+          {m.direction === "in" && toolbar}
+        </div>
+        {reactionsRow}
+      </>
+    );
+  }
 
   if (m.viewOnce) {
     return (
@@ -3217,6 +3323,7 @@ function Composer({
   onClearReply,
   onSchedule,
   onActivity,
+  onCreatePoll,
 }: {
   draft: string;
   setDraft: (v: string) => void;
@@ -3231,6 +3338,7 @@ function Composer({
   onClearReply: () => void;
   onSchedule: (text: string, scheduledFor: string) => Promise<void>;
   onActivity?: (typing: boolean, kind: "text" | "voice" | "photo") => void;
+  onCreatePoll: () => void;
 }) {
   const [schedulePickerOpen, setSchedulePickerOpen] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -3410,6 +3518,16 @@ function Composer({
           ) : (
             <PaperclipIcon className="w-5 h-5" />
           )}
+        </button>
+        <button
+          type="button"
+          onClick={onCreatePoll}
+          disabled={sending}
+          className="size-9 rounded-full text-text-muted hover:text-text hover:bg-white/10 flex items-center justify-center shrink-0 disabled:opacity-50"
+          aria-label="Create poll"
+          title="Create poll"
+        >
+          <PollIcon className="w-5 h-5" />
         </button>
         <button
           type="button"
@@ -3789,6 +3907,7 @@ function MessageActionMenu({
   onDelete,
   onForward,
   onReport,
+  onQuickActions,
 }: {
   row: ChatMessageRecord;
   onClose: () => void;
@@ -3802,6 +3921,7 @@ function MessageActionMenu({
   onDelete: () => void;
   onForward: () => void;
   onReport: () => void;
+  onQuickActions: () => void;
 }) {
   const isOut = row.direction === "out";
   const hasText = !!row.plaintext && row.plaintext.length > 0;
@@ -3836,6 +3956,14 @@ function MessageActionMenu({
         )}
         {hasText && (
           <ActionRow Icon={CopyIcon} label="Copy" onClick={onCopy} />
+        )}
+        {hasText && (
+          <ActionRow
+            Icon={SparklesIcon}
+            label="Quick actions"
+            onClick={onQuickActions}
+            hint="Calc · Define · Translate"
+          />
         )}
         <ActionRow
           Icon={(p) => <StarIcon {...p} filled={!!row.starred} />}

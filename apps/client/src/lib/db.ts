@@ -171,6 +171,22 @@ export interface ChatMessageRecord {
   starred?: boolean;
   /** Local-only: pinned to the top of this thread (one per chat). */
   pinned?: boolean;
+  /** Present for messages of type "poll". */
+  pollData?: {
+    pollId: string;
+    question: string;
+    choices: string[];
+  };
+  /**
+   * Present for messages of type "poll_vote". Vote rows are persisted
+   * locally so we can aggregate counts deterministically, but the
+   * renderer hides them — only the original poll bubble shows.
+   */
+  pollVoteData?: {
+    pollId: string;
+    /** Index into choices array. -1 means "remove my vote". */
+    choiceIdx: number;
+  };
 }
 
 /** Per-peer chat preferences (TTL, view-once default, biometric lock). */
@@ -527,6 +543,21 @@ export class VeilDB extends Dexie {
     // no new indices required since vault filtering is done in JS over
     // the small `chatPrefs` table.
     this.version(11).stores({
+      identity: "id",
+      prekeys: "id, kind, keyId",
+      chatSessions: "peerId, updatedAt",
+      chatMessages: "++id, peerId, createdAt, serverId, expiresAt",
+      unlocked: "id",
+      chatPrefs: "peerId, updatedAt",
+      userPrefs: "id",
+      groupSenderKeys: "id, [groupId+senderUserId+epoch], groupId, senderUserId",
+      groupMessages: "++id, groupId, createdAt, serverId, dedupKey, expiresAt, starred",
+      scheduledMessages: "++id, peerId, scheduledFor, sent",
+    });
+    // v12 — 1:1 polls. `chatMessages` gains optional `pollData` /
+    // `pollVoteData` fields (no index change required since aggregation
+    // is done in JS over the existing per-peer index).
+    this.version(12).stores({
       identity: "id",
       prekeys: "id, kind, keyId",
       chatSessions: "peerId, updatedAt",

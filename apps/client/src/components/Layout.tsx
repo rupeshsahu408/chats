@@ -1245,6 +1245,26 @@ export function FlagIcon({ className }: { className?: string }) {
   );
 }
 
+export function SparklesIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={"w-5 h-5 " + (className ?? "")} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 3l1.7 4.6L18 9l-4.3 1.4L12 15l-1.7-4.6L6 9l4.3-1.4z" />
+      <path d="M19 14l.8 2.2L22 17l-2.2.8L19 20l-.8-2.2L16 17l2.2-.8z" />
+      <path d="M5 16l.6 1.6L7 18l-1.4.4L5 20l-.6-1.6L3 18l1.4-.4z" />
+    </svg>
+  );
+}
+
+export function PollIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={"w-5 h-5 " + (className ?? "")} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <line x1="6" y1="20" x2="6" y2="11" />
+      <line x1="12" y1="20" x2="12" y2="4" />
+      <line x1="18" y1="20" x2="18" y2="14" />
+    </svg>
+  );
+}
+
 export function LockIcon({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" className={"w-4 h-4 " + (className ?? "")} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
