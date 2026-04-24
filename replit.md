@@ -268,19 +268,21 @@ The always-on poll exposed a pre-existing race: the WS push and a poll drain (or
 
 ## Public landing page
 
-`pages/LandingPage.tsx` is the new public entry at `/`. The previous signup-options screen moved to `/welcome`. Self-contained marketing page (no auth, no tRPC, no app shell):
+`pages/LandingPage.tsx` is the public entry at `/`. The previous signup-options screen moved to `/welcome`. Self-contained marketing page (no auth, no tRPC, no app shell).
 
-- Sticky transparent → blurred nav with mobile drawer.
-- Hero with gradient headline, dual CTAs ("Get started" → `/welcome`, "See how it works" → `#how`), and an animated phone mockup.
-- Trust bar with 4 stat tiles.
-- 9-card feature grid (encryption, no phone needed, disappearing messages, group chats, voice/media, push, stealth mode, multi-device PWA, open source).
-- "How it works" three-step explainer.
-- Security section with X3DH / Double Ratchet / zero-knowledge / open-source breakdown plus a faux code panel.
-- Veil-vs-typical-messenger comparison table.
-- Accordion FAQ (6 questions, first one open by default).
-- Final gradient CTA card and a 5-column footer with social links.
+**Visual system (WhatsApp/Meta-inspired light theme):**
+- Page background `#FCF5EB` (warm cream) with `#E6FFDA` and white section bands; deep slate `#111B21` for the security and footer sections.
+- Primary CTA `#2E6F40` (forest), hover `#253D2C`; mid-green `#68BA7F` and mint `#CFFFDC` for accents/badges.
+- Typography: Inter for body + UI, **Fraunces** serif (italic accents) for all section headlines — loaded via Google Fonts in `index.html`.
+- Animations are intentionally minimal: only `transition-colors` on hovers and the FAQ accordion's grid-rows expand. No pulse/auto-spin/scroll-jacked effects.
 
-`SessionBootstrap` was updated so a signed-in user landing on `/` or `/welcome` is still bounced to `/chats`.
+**Real images (committed under `apps/client/src/assets/landing/`):**
+- `people-using-phones.jpg` — Pexels lifestyle shot, used in the new "Made for everyone" section.
+- `smiling-with-phone.jpg` — Unsplash portrait, used as the right-side image in the dark Security section with a quote overlay.
+
+**Sections:** Nav (transparent → cream blur on scroll, pill CTAs) · Hero (Fraunces headline + WhatsApp-style phone mockup with doodle background, mint outgoing bubbles, double-check ticks, encrypted-banner) · Trust bar · 9-card Features grid (rounded-3xl white cards with mint icon tiles) · **Lifestyle** photo section with floating "encrypted from the very first hello" badge · How-it-works (3 numbered cream cards + arrow connectors) · **Dark Security** section with X3DH/Double-Ratchet list + portrait photo + quote · Comparison table · Accordion FAQ on white card · Forest-green Final CTA with doodle backdrop · Dark slate footer.
+
+`SessionBootstrap` is unchanged — a signed-in user landing on `/` or `/welcome` is still bounced to `/chats`.
 
 ## Phase 7.5 — Power features (implemented)
 

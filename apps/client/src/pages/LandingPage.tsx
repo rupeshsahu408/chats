@@ -1,22 +1,30 @@
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
+import peopleUsingPhones from "../assets/landing/people-using-phones.jpg";
+import smilingWithPhone from "../assets/landing/smiling-with-phone.jpg";
 
 /**
- * Public marketing landing page. The first thing every visitor sees.
+ * Public marketing landing page.
  *
- * Self-contained on purpose: no app shell, no auth dependencies, no
- * tRPC. Tailwind only, with inline SVG illustrations so it has zero
- * runtime asset dependencies and renders instantly even if the API
- * is cold-starting.
+ * Light, warm, WhatsApp/Meta-inspired design. Self-contained on
+ * purpose: no app shell, no auth dependencies, no tRPC.
  */
 export function LandingPage() {
   return (
-    <div className="min-h-screen bg-[#0b1014] text-zinc-100 antialiased selection:bg-emerald-500/30 selection:text-emerald-50">
-      <BackgroundGlow />
+    <div
+      className="min-h-screen antialiased"
+      style={{
+        backgroundColor: "#FCF5EB",
+        color: "#111B21",
+        fontFamily:
+          "'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+      }}
+    >
       <NavBar />
       <Hero />
       <TrustBar />
       <Features />
+      <Lifestyle />
       <HowItWorks />
       <Security />
       <Comparison />
@@ -42,46 +50,48 @@ function NavBar() {
   return (
     <header
       className={[
-        "fixed top-0 inset-x-0 z-40 transition-all duration-300",
+        "fixed top-0 inset-x-0 z-40 transition-colors duration-200",
         scrolled
-          ? "bg-[#0b1014]/80 backdrop-blur-xl border-b border-white/5"
+          ? "bg-[#FCF5EB]/85 backdrop-blur-xl border-b border-[#253D2C]/10"
           : "bg-transparent",
       ].join(" ")}
     >
       <div className="mx-auto max-w-7xl px-5 sm:px-8 h-16 flex items-center justify-between">
-        <a href="#top" className="flex items-center gap-2.5 group">
+        <a href="#top" className="flex items-center gap-2.5">
           <BrandMark />
-          <span className="text-[17px] font-semibold tracking-tight">Veil</span>
+          <span className="text-[18px] font-bold tracking-tight text-[#253D2C]">
+            Veil
+          </span>
         </a>
 
-        <nav className="hidden md:flex items-center gap-8 text-sm text-zinc-400">
-          <a href="#features" className="hover:text-white transition">Features</a>
-          <a href="#how" className="hover:text-white transition">How it works</a>
-          <a href="#security" className="hover:text-white transition">Security</a>
-          <a href="#faq" className="hover:text-white transition">FAQ</a>
+        <nav className="hidden md:flex items-center gap-8 text-[15px] text-[#3C5A47]">
+          <a href="#features" className="hover:text-[#2E6F40]">Features</a>
+          <a href="#how" className="hover:text-[#2E6F40]">How it works</a>
+          <a href="#security" className="hover:text-[#2E6F40]">Privacy</a>
+          <a href="#faq" className="hover:text-[#2E6F40]">FAQ</a>
         </nav>
 
-        <div className="hidden md:flex items-center gap-3">
+        <div className="hidden md:flex items-center gap-2">
           <Link
             to="/login"
-            className="text-sm text-zinc-300 hover:text-white px-3 py-2 rounded-lg transition"
+            className="text-[15px] font-medium text-[#253D2C] hover:text-[#2E6F40] px-4 py-2 rounded-full"
           >
             Sign in
           </Link>
           <Link
             to="/welcome"
-            className="text-sm font-medium text-white bg-emerald-500 hover:bg-emerald-400 transition px-4 py-2 rounded-lg shadow-[0_8px_24px_-8px_rgba(16,185,129,0.6)]"
+            className="text-[15px] font-semibold text-white bg-[#2E6F40] hover:bg-[#253D2C] px-5 py-2.5 rounded-full transition-colors"
           >
-            Get started
+            Get Veil
           </Link>
         </div>
 
         <button
           aria-label="Open menu"
-          className="md:hidden text-zinc-300 p-2 -mr-2"
+          className="md:hidden text-[#253D2C] p-2 -mr-2"
           onClick={() => setOpen((v) => !v)}
         >
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
             {open ? (
               <>
                 <path d="M6 6l12 12" />
@@ -99,20 +109,20 @@ function NavBar() {
       </div>
 
       {open && (
-        <div className="md:hidden border-t border-white/5 bg-[#0b1014]/95 backdrop-blur-xl">
-          <div className="px-5 py-4 flex flex-col gap-1 text-sm">
-            <a onClick={() => setOpen(false)} href="#features" className="py-2.5 text-zinc-300">Features</a>
-            <a onClick={() => setOpen(false)} href="#how" className="py-2.5 text-zinc-300">How it works</a>
-            <a onClick={() => setOpen(false)} href="#security" className="py-2.5 text-zinc-300">Security</a>
-            <a onClick={() => setOpen(false)} href="#faq" className="py-2.5 text-zinc-300">FAQ</a>
-            <div className="h-px bg-white/5 my-2" />
-            <Link onClick={() => setOpen(false)} to="/login" className="py-2.5 text-zinc-300">Sign in</Link>
+        <div className="md:hidden border-t border-[#253D2C]/10 bg-[#FCF5EB]/95 backdrop-blur-xl">
+          <div className="px-5 py-4 flex flex-col gap-1 text-[15px]">
+            <a onClick={() => setOpen(false)} href="#features" className="py-2.5 text-[#3C5A47]">Features</a>
+            <a onClick={() => setOpen(false)} href="#how" className="py-2.5 text-[#3C5A47]">How it works</a>
+            <a onClick={() => setOpen(false)} href="#security" className="py-2.5 text-[#3C5A47]">Privacy</a>
+            <a onClick={() => setOpen(false)} href="#faq" className="py-2.5 text-[#3C5A47]">FAQ</a>
+            <div className="h-px bg-[#253D2C]/10 my-2" />
+            <Link onClick={() => setOpen(false)} to="/login" className="py-2.5 text-[#253D2C] font-medium">Sign in</Link>
             <Link
               onClick={() => setOpen(false)}
               to="/welcome"
-              className="mt-1 text-center text-white font-medium bg-emerald-500 hover:bg-emerald-400 px-4 py-3 rounded-lg"
+              className="mt-1 text-center text-white font-semibold bg-[#2E6F40] px-4 py-3 rounded-full"
             >
-              Get started
+              Get Veil
             </Link>
           </div>
         </div>
@@ -123,10 +133,10 @@ function NavBar() {
 
 function BrandMark() {
   return (
-    <span className="relative w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-600 grid place-items-center shadow-[0_8px_20px_-6px_rgba(16,185,129,0.55)]">
+    <span className="relative w-9 h-9 rounded-2xl bg-[#2E6F40] grid place-items-center shadow-[0_8px_18px_-8px_rgba(46,111,64,0.55)]">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="5" y="11" width="14" height="9" rx="2.2" />
-        <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+        <path d="M12 2C8 2 5 5 5 9v3c0 4 3 8 7 9 4-1 7-5 7-9V9c0-4-3-7-7-7z" />
+        <path d="M9 12l2 2 4-4" />
       </svg>
     </span>
   );
@@ -136,49 +146,56 @@ function BrandMark() {
 
 function Hero() {
   return (
-    <section id="top" className="relative pt-32 sm:pt-40 pb-20 sm:pb-28">
-      <div className="mx-auto max-w-7xl px-5 sm:px-8">
-        <div className="grid lg:grid-cols-12 gap-14 items-center">
+    <section id="top" className="relative pt-32 sm:pt-36 pb-16 sm:pb-24 overflow-hidden">
+      <HeroBackdrop />
+      <div className="relative mx-auto max-w-7xl px-5 sm:px-8">
+        <div className="grid lg:grid-cols-12 gap-12 lg:gap-16 items-center">
           <div className="lg:col-span-7">
-            <div className="inline-flex items-center gap-2 text-xs font-medium tracking-wide uppercase text-emerald-300/90 bg-emerald-500/10 border border-emerald-500/20 rounded-full px-3 py-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              Open-source · End-to-end encrypted
+            <div className="inline-flex items-center gap-2 text-[12px] font-semibold tracking-wide uppercase text-[#2E6F40] bg-[#CFFFDC] border border-[#68BA7F]/40 rounded-full px-3 py-1.5">
+              <LockMini />
+              End-to-end encrypted · Open source
             </div>
 
-            <h1 className="mt-6 text-4xl sm:text-5xl md:text-6xl lg:text-[64px] font-semibold tracking-tight leading-[1.05]">
-              Private messaging.
-              <br />
-              <span className="bg-gradient-to-r from-emerald-300 via-teal-200 to-emerald-400 bg-clip-text text-transparent">
-                Without the trade-offs.
+            <h1
+              className="mt-6 text-[42px] sm:text-[56px] md:text-[64px] lg:text-[72px] font-semibold tracking-[-0.025em] leading-[1.02] text-[#253D2C]"
+              style={{ fontFamily: "'Fraunces', 'Inter', serif", fontWeight: 600 }}
+            >
+              Message{" "}
+              <span className="italic" style={{ color: "#2E6F40" }}>
+                privately.
               </span>
+              <br />
+              Built for the people
+              <br />
+              you actually trust.
             </h1>
 
-            <p className="mt-6 text-lg sm:text-xl text-zinc-400 max-w-2xl leading-relaxed">
-              Veil is a fast, modern messenger built around one promise:
-              your conversations are yours alone. End-to-end encrypted by
-              default, no ads, no trackers, no data harvesting — ever.
+            <p className="mt-7 text-[18px] sm:text-[20px] text-[#3C5A47] max-w-xl leading-[1.55]">
+              Veil is a calm, beautifully simple messenger. Every message,
+              call, and photo is end-to-end encrypted by default — so your
+              conversations stay between you and the people you talk to.
             </p>
 
             <div className="mt-9 flex flex-col sm:flex-row gap-3 sm:items-center">
               <Link
                 to="/welcome"
-                className="group inline-flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-white font-semibold px-7 py-4 rounded-xl shadow-[0_18px_40px_-12px_rgba(16,185,129,0.6)] transition"
+                className="group inline-flex items-center justify-center gap-2 bg-[#2E6F40] hover:bg-[#253D2C] text-white font-semibold text-[16px] px-7 py-4 rounded-full shadow-[0_18px_36px_-14px_rgba(46,111,64,0.55)] transition-colors"
               >
-                Get started — it's free
-                <svg className="transition group-hover:translate-x-0.5" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                Get Veil — it's free
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M5 12h14" />
                   <path d="M13 5l7 7-7 7" />
                 </svg>
               </Link>
               <a
                 href="#how"
-                className="inline-flex items-center justify-center gap-2 border border-white/10 hover:border-white/20 hover:bg-white/5 text-zinc-200 font-medium px-7 py-4 rounded-xl transition"
+                className="inline-flex items-center justify-center gap-2 border border-[#253D2C]/15 hover:border-[#2E6F40]/40 hover:bg-white text-[#253D2C] font-medium text-[16px] px-7 py-4 rounded-full transition-colors"
               >
                 See how it works
               </a>
             </div>
 
-            <div className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm text-zinc-500">
+            <div className="mt-9 flex flex-wrap gap-x-7 gap-y-2.5 text-[14px] text-[#3C5A47]">
               <span className="inline-flex items-center gap-2">
                 <CheckDot /> No phone number required
               </span>
@@ -186,7 +203,7 @@ function Hero() {
                 <CheckDot /> Works on every device
               </span>
               <span className="inline-flex items-center gap-2">
-                <CheckDot /> Forever free, no ads
+                <CheckDot /> Free, forever
               </span>
             </div>
           </div>
@@ -200,10 +217,40 @@ function Hero() {
   );
 }
 
+function HeroBackdrop() {
+  return (
+    <div aria-hidden className="pointer-events-none absolute inset-0 -z-0 overflow-hidden">
+      <div
+        className="absolute -top-32 -right-40 w-[640px] h-[640px] rounded-full"
+        style={{
+          background:
+            "radial-gradient(circle, rgba(207,255,220,0.85), rgba(207,255,220,0) 65%)",
+        }}
+      />
+      <div
+        className="absolute top-[35%] -left-32 w-[420px] h-[420px] rounded-full"
+        style={{
+          background:
+            "radial-gradient(circle, rgba(104,186,127,0.18), rgba(104,186,127,0) 65%)",
+        }}
+      />
+    </div>
+  );
+}
+
+function LockMini() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="5" y="11" width="14" height="9" rx="2.2" />
+      <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+    </svg>
+  );
+}
+
 function CheckDot() {
   return (
-    <span className="grid place-items-center w-4 h-4 rounded-full bg-emerald-500/15 text-emerald-300">
-      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
+    <span className="grid place-items-center w-[18px] h-[18px] rounded-full bg-[#CFFFDC] text-[#2E6F40]">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
         <path d="M20 6L9 17l-5-5" />
       </svg>
     </span>
@@ -213,48 +260,89 @@ function CheckDot() {
 function PhoneMockup() {
   return (
     <div className="relative mx-auto w-full max-w-[360px]">
-      <div className="absolute -inset-10 bg-gradient-to-tr from-emerald-500/20 via-teal-500/10 to-transparent blur-3xl rounded-full pointer-events-none" />
-      <div className="relative rounded-[2.4rem] border border-white/10 bg-[#0f161b] p-3 shadow-[0_60px_120px_-30px_rgba(0,0,0,0.8)]">
-        <div className="rounded-[1.9rem] overflow-hidden border border-white/5 bg-[#0b1014]">
-          <div className="px-5 pt-4 pb-3 flex items-center justify-between text-[10px] text-zinc-500">
+      <div
+        className="absolute -inset-8 rounded-full"
+        style={{
+          background:
+            "radial-gradient(circle, rgba(46,111,64,0.18), rgba(46,111,64,0) 60%)",
+        }}
+      />
+      <div
+        className="relative rounded-[2.6rem] p-[6px] shadow-[0_60px_120px_-30px_rgba(17,27,33,0.35)]"
+        style={{ backgroundColor: "#111B21" }}
+      >
+        <div
+          className="rounded-[2.2rem] overflow-hidden"
+          style={{ backgroundColor: "#FCF5EB" }}
+        >
+          {/* status bar */}
+          <div className="px-6 pt-3 pb-2 flex items-center justify-between text-[11px] text-[#253D2C]/70 font-semibold">
             <span>9:41</span>
             <span className="flex items-center gap-1">
-              <span className="w-1 h-1 rounded-full bg-zinc-500" />
-              <span className="w-1 h-1 rounded-full bg-zinc-500" />
-              <span className="w-1 h-1 rounded-full bg-zinc-500" />
+              <span className="w-1 h-1 rounded-full bg-[#253D2C]/60" />
+              <span className="w-1 h-1 rounded-full bg-[#253D2C]/60" />
+              <span className="w-1 h-1 rounded-full bg-[#253D2C]/60" />
               <span className="ml-1">100%</span>
             </span>
           </div>
 
-          <div className="px-5 py-3 flex items-center gap-3 border-b border-white/5">
-            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-violet-400 to-fuchsia-500 grid place-items-center text-sm font-semibold">
+          {/* chat header */}
+          <div
+            className="px-4 py-3 flex items-center gap-3"
+            style={{ backgroundColor: "#2E6F40" }}
+          >
+            <button className="text-white/90" aria-label="back">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M15 18l-6-6 6-6" />
+              </svg>
+            </button>
+            <div className="w-9 h-9 rounded-full bg-white/15 grid place-items-center text-white text-sm font-semibold">
               A
             </div>
             <div className="flex-1">
-              <div className="text-sm font-medium">Alex</div>
-              <div className="text-[11px] text-emerald-400 flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+              <div className="text-[14px] font-semibold text-white">Alex Mendoza</div>
+              <div className="text-[11px] text-[#CFFFDC] flex items-center gap-1">
+                <LockMini />
                 end-to-end encrypted
               </div>
             </div>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-400">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-90">
               <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
             </svg>
           </div>
 
-          <div className="px-4 py-5 space-y-3 min-h-[360px] bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.06),transparent_60%)]">
-            <Bubble side="in">Hey, did you see the new build?</Bubble>
-            <Bubble side="in" delay>It's actually really fast 🔥</Bubble>
-            <Bubble side="out">Just opened it. The animations are buttery.</Bubble>
-            <Bubble side="out" delay>And no ads anywhere ✨</Bubble>
-            <Bubble side="in">That's the dream tbh</Bubble>
+          {/* chat body */}
+          <div
+            className="px-4 py-5 space-y-2 min-h-[360px] relative"
+            style={{
+              backgroundColor: "#E6FFDA",
+              backgroundImage: `url("data:image/svg+xml;utf8,${encodeURIComponent(
+                `<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'><g fill='none' stroke='%232E6F40' stroke-opacity='0.06' stroke-width='1.2'><circle cx='12' cy='12' r='6'/><path d='M48 18l8 8-8 8-8-8z'/><circle cx='66' cy='52' r='4'/><path d='M22 56l6 0 0 6'/></g></svg>`,
+              )}")`,
+              backgroundSize: "120px 120px",
+            }}
+          >
+            <div className="text-center mb-2">
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-medium text-[#3C5A47] bg-[#CFFFDC]/80 backdrop-blur px-3 py-1 rounded-full">
+                <LockMini />
+                Messages and calls are end-to-end encrypted.
+              </span>
+            </div>
+            <Bubble side="in">Hey, are we still on for Saturday?</Bubble>
+            <Bubble side="out">Wouldn't miss it. 7pm at the place by the park?</Bubble>
+            <Bubble side="in">Perfect. I'll bring the playlist.</Bubble>
+            <Bubble side="out">You always do.</Bubble>
           </div>
 
-          <div className="px-4 pt-2 pb-4 border-t border-white/5 flex items-center gap-2">
-            <div className="flex-1 h-9 rounded-full bg-white/5 px-4 flex items-center text-[12px] text-zinc-500">
-              Type a message
+          {/* input bar */}
+          <div className="px-3 pt-2 pb-3 flex items-center gap-2 bg-[#FCF5EB]">
+            <div className="flex-1 h-10 rounded-full bg-white border border-[#253D2C]/10 px-4 flex items-center text-[13px] text-[#3C5A47]/70">
+              Message
             </div>
-            <button className="w-9 h-9 rounded-full bg-emerald-500 grid place-items-center text-white">
+            <button
+              className="w-10 h-10 rounded-full grid place-items-center text-white"
+              style={{ backgroundColor: "#2E6F40" }}
+            >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M2 21l21-9L2 3v7l15 2-15 2z" />
               </svg>
@@ -269,24 +357,36 @@ function PhoneMockup() {
 function Bubble({
   children,
   side,
-  delay,
 }: {
   children: React.ReactNode;
   side: "in" | "out";
-  delay?: boolean;
 }) {
+  if (side === "in") {
+    return (
+      <div className="flex justify-start">
+        <div className="relative max-w-[78%] text-[13px] leading-snug px-3.5 py-2 pr-12 rounded-2xl bg-white text-[#111B21] shadow-[0_1px_1px_rgba(17,27,33,0.06)]">
+          {children}
+          <span className="absolute bottom-1.5 right-2.5 text-[10px] text-[#3C5A47]/55">
+            9:41
+          </span>
+        </div>
+      </div>
+    );
+  }
   return (
-    <div className={side === "in" ? "flex justify-start" : "flex justify-end"}>
+    <div className="flex justify-end">
       <div
-        className={[
-          "max-w-[78%] text-[13px] leading-snug px-3.5 py-2 rounded-2xl shadow-sm",
-          side === "in"
-            ? "bg-white/[0.06] text-zinc-100 rounded-bl-sm"
-            : "bg-emerald-500 text-white rounded-br-sm",
-          delay ? "opacity-90" : "",
-        ].join(" ")}
+        className="relative max-w-[78%] text-[13px] leading-snug px-3.5 py-2 pr-14 rounded-2xl text-[#111B21] shadow-[0_1px_1px_rgba(17,27,33,0.06)]"
+        style={{ backgroundColor: "#CFFFDC" }}
       >
         {children}
+        <span className="absolute bottom-1.5 right-2.5 inline-flex items-center gap-0.5 text-[10px] text-[#2E6F40]">
+          9:41
+          <svg width="12" height="9" viewBox="0 0 16 11" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M1 6l3 3 6-7" />
+            <path d="M6 6l3 3 6-7" />
+          </svg>
+        </span>
       </div>
     </div>
   );
@@ -297,19 +397,24 @@ function Bubble({
 function TrustBar() {
   const stats = [
     { v: "100%", k: "End-to-end encrypted" },
-    { v: "0", k: "Ads or trackers" },
+    { v: "0", k: "Ads, ever" },
     { v: "Open", k: "Source on GitHub" },
-    { v: "PWA", k: "Installs on any device" },
+    { v: "Any", k: "Device, one account" },
   ];
   return (
-    <section className="border-y border-white/5 bg-white/[0.015]">
-      <div className="mx-auto max-w-7xl px-5 sm:px-8 py-8 grid grid-cols-2 md:grid-cols-4 gap-6">
+    <section className="border-y border-[#253D2C]/10 bg-white">
+      <div className="mx-auto max-w-7xl px-5 sm:px-8 py-10 grid grid-cols-2 md:grid-cols-4 gap-6">
         {stats.map((s) => (
           <div key={s.k} className="text-center">
-            <div className="text-2xl sm:text-3xl font-semibold tracking-tight bg-gradient-to-b from-white to-zinc-400 bg-clip-text text-transparent">
+            <div
+              className="text-[28px] sm:text-[34px] font-semibold tracking-tight text-[#253D2C]"
+              style={{ fontFamily: "'Fraunces', serif" }}
+            >
               {s.v}
             </div>
-            <div className="text-xs sm:text-sm text-zinc-500 mt-1">{s.k}</div>
+            <div className="text-[13px] sm:text-[14px] text-[#3C5A47] mt-1">
+              {s.k}
+            </div>
           </div>
         ))}
       </div>
@@ -324,92 +429,174 @@ function Features() {
     title: string;
     body: string;
     icon: React.ReactNode;
-    accent: string;
   }> = [
     {
-      title: "End-to-end encrypted",
-      body: "Every message, photo, and voice note is encrypted on your device with the Signal-style Double Ratchet. Not even our servers can read them.",
+      title: "End-to-end encrypted by default",
+      body: "Every message, call, photo, and voice note is encrypted on your device with the Signal-style Double Ratchet. Even our servers can't read them.",
       icon: <IconShield />,
-      accent: "from-emerald-400/20 to-teal-500/10",
     },
     {
-      title: "No phone number needed",
-      body: "Sign up with a random ID and a recovery phrase. No SIM, no email, no identity attached to your account.",
+      title: "No phone number, ever",
+      body: "Sign up with a private ID and a recovery phrase. No SIM card, no email, no identity attached to your account.",
       icon: <IconMask />,
-      accent: "from-violet-400/20 to-fuchsia-500/10",
     },
     {
       title: "Disappearing messages",
-      body: "Set a timer per chat — 1 hour, 1 day, 1 week. Messages vanish from every device automatically when time's up.",
+      body: "Set a timer per chat — one hour, one day, one week. Messages quietly vanish from every device when their time is up.",
       icon: <IconTimer />,
-      accent: "from-rose-400/20 to-orange-500/10",
     },
     {
-      title: "Encrypted group chats",
-      body: "Built on the MLS-style Sender Keys protocol. Add up to hundreds of members with the same end-to-end guarantees as 1:1 chats.",
+      title: "Group chats, encrypted too",
+      body: "Built on the MLS-style Sender Keys protocol. Bring everyone you love into one chat with the same end-to-end guarantees.",
       icon: <IconGroup />,
-      accent: "from-sky-400/20 to-indigo-500/10",
     },
     {
-      title: "Voice notes & media",
+      title: "Voice notes & rich media",
       body: "Send photos, view-once images, and voice messages. Everything is encrypted before it ever leaves your phone.",
       icon: <IconMic />,
-      accent: "from-amber-400/20 to-yellow-500/10",
     },
     {
-      title: "Push notifications, privately",
-      body: "Get notified instantly when a message arrives — but the notification payload itself contains nothing readable on the wire.",
+      title: "Private notifications",
+      body: "Get notified the moment a message arrives — but the notification payload itself contains nothing readable on the wire.",
       icon: <IconBell />,
-      accent: "from-emerald-400/20 to-lime-500/10",
     },
     {
       title: "Stealth mode",
-      body: "Hide read receipts, typing indicators, and last-seen. Auto-blur the app when you switch tabs. Your privacy, your rules.",
+      body: "Hide read receipts, typing indicators, and last-seen status. Auto-blur the app when you switch tabs. Your privacy, your rules.",
       icon: <IconEye />,
-      accent: "from-fuchsia-400/20 to-pink-500/10",
     },
     {
       title: "Works everywhere",
-      body: "Install Veil to your home screen as a PWA on iOS, Android, Mac, Windows, and Linux. One account, every device.",
+      body: "Install Veil on iOS, Android, Mac, Windows, or Linux. One private account, every device you own.",
       icon: <IconDevices />,
-      accent: "from-cyan-400/20 to-blue-500/10",
     },
     {
-      title: "Open source",
-      body: "Every line of code is auditable. No hidden backdoors, no proprietary blobs. Run it, fork it, host it yourself.",
+      title: "Open source, audit-ready",
+      body: "Every line of client, server, and crypto code is on GitHub. No hidden backdoors. Fork it. Self-host it. Read it for yourself.",
       icon: <IconCode />,
-      accent: "from-emerald-400/20 to-teal-500/10",
     },
   ];
   return (
-    <section id="features" className="py-24 sm:py-32">
+    <section id="features" className="py-24 sm:py-32" style={{ backgroundColor: "#FCF5EB" }}>
       <div className="mx-auto max-w-7xl px-5 sm:px-8">
         <SectionLabel>Features</SectionLabel>
         <SectionHeading
           title="Everything you'd want in a messenger."
-          subtitle="Nothing you wouldn't."
+          subtitle="And nothing you wouldn't."
         />
         <div className="mt-14 grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {items.map((it) => (
             <div
               key={it.title}
-              className="group relative rounded-2xl border border-white/5 bg-white/[0.025] hover:bg-white/[0.04] hover:border-white/10 transition p-7 overflow-hidden"
+              className="rounded-3xl bg-white p-7 border border-[#253D2C]/8 hover:border-[#68BA7F]/40 transition-colors"
+              style={{ boxShadow: "0 1px 2px rgba(17,27,33,0.04)" }}
             >
               <div
-                className={`absolute -top-16 -right-16 w-48 h-48 rounded-full bg-gradient-to-br ${it.accent} blur-3xl opacity-60 group-hover:opacity-100 transition`}
-              />
-              <div className="relative">
-                <div className="w-11 h-11 rounded-xl bg-white/[0.06] border border-white/10 grid place-items-center text-emerald-300 mb-5">
-                  {it.icon}
-                </div>
-                <h3 className="text-lg font-semibold tracking-tight text-white">{it.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-zinc-400">{it.body}</p>
+                className="w-12 h-12 rounded-2xl grid place-items-center mb-5"
+                style={{ backgroundColor: "#E6FFDA", color: "#2E6F40" }}
+              >
+                {it.icon}
               </div>
+              <h3 className="text-[18px] font-semibold tracking-tight text-[#253D2C]">
+                {it.title}
+              </h3>
+              <p className="mt-2 text-[14.5px] leading-relaxed text-[#3C5A47]">
+                {it.body}
+              </p>
             </div>
           ))}
         </div>
       </div>
     </section>
+  );
+}
+
+/* ───────────────────────── Lifestyle (real photo) ───────────────────────── */
+
+function Lifestyle() {
+  return (
+    <section className="py-24 sm:py-32" style={{ backgroundColor: "#E6FFDA" }}>
+      <div className="mx-auto max-w-7xl px-5 sm:px-8">
+        <div className="grid lg:grid-cols-12 gap-12 lg:gap-16 items-center">
+          <div className="lg:col-span-6">
+            <div className="relative">
+              <div
+                className="absolute -inset-3 rounded-[2rem] -z-0"
+                style={{ backgroundColor: "#CFFFDC" }}
+              />
+              <div className="relative rounded-[2rem] overflow-hidden shadow-[0_30px_60px_-20px_rgba(37,61,44,0.25)]">
+                <img
+                  src={peopleUsingPhones}
+                  alt="Friends sharing a quiet moment together on their phones"
+                  className="w-full h-[460px] sm:h-[520px] object-cover"
+                  loading="lazy"
+                />
+              </div>
+              <div className="absolute -bottom-5 -right-5 sm:-bottom-7 sm:-right-7 bg-white rounded-2xl px-5 py-4 shadow-[0_18px_40px_-14px_rgba(17,27,33,0.25)] border border-[#253D2C]/8 max-w-[220px]">
+                <div className="flex items-center gap-2.5">
+                  <span className="grid place-items-center w-8 h-8 rounded-full" style={{ backgroundColor: "#2E6F40" }}>
+                    <LockMini />
+                  </span>
+                  <div className="text-[12px] font-semibold text-[#253D2C] leading-tight">
+                    Encrypted from <br />the very first hello.
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="lg:col-span-6">
+            <SectionLabel>Made for everyone</SectionLabel>
+            <h2
+              className="mt-4 text-[34px] sm:text-[44px] md:text-[52px] font-semibold tracking-[-0.02em] leading-[1.05] text-[#253D2C]"
+              style={{ fontFamily: "'Fraunces', serif" }}
+            >
+              For the people you talk to{" "}
+              <span className="italic" style={{ color: "#2E6F40" }}>
+                every day.
+              </span>
+            </h2>
+            <p className="mt-6 text-[18px] text-[#3C5A47] leading-[1.6]">
+              From quick check-ins with your best friend to family group chats
+              that span continents — Veil keeps the conversations that matter
+              warm, fast, and yours alone.
+            </p>
+            <ul className="mt-8 space-y-4">
+              <ValuePoint
+                title="Designed to feel calm"
+                body="No noisy badges, no manipulative streaks. Just the messages you actually want to read."
+              />
+              <ValuePoint
+                title="Built for trust"
+                body="Verifiable safety numbers and clear status indicators — so you always know who you're really talking to."
+              />
+              <ValuePoint
+                title="Zero ads, forever"
+                body="No tracking, no profiling, no monetizing your relationships. Veil is funded by people who care, not advertisers."
+              />
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ValuePoint({ title, body }: { title: string; body: string }) {
+  return (
+    <li className="flex gap-4">
+      <div
+        className="mt-0.5 grid place-items-center w-7 h-7 rounded-full shrink-0"
+        style={{ backgroundColor: "#2E6F40" }}
+      >
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M20 6L9 17l-5-5" />
+        </svg>
+      </div>
+      <div>
+        <h4 className="font-semibold text-[#253D2C] text-[16px]">{title}</h4>
+        <p className="text-[15px] text-[#3C5A47] mt-1 leading-relaxed">{body}</p>
+      </div>
+    </li>
   );
 }
 
@@ -419,39 +606,54 @@ function HowItWorks() {
   const steps = [
     {
       n: "01",
-      title: "Create an account in 30 seconds",
-      body: "Pick how you want to sign up — phone, email, or a random ID with a recovery phrase. No personal data is ever required.",
+      title: "Make an account in 30 seconds",
+      body: "Pick how you want to sign up — phone, email, or a private ID with a recovery phrase. No personal information is ever required.",
     },
     {
       n: "02",
-      title: "Connect with the people you trust",
-      body: "Share a one-tap invite link with anyone. They join, you both verify, and a private encrypted channel is opened between you.",
+      title: "Invite the people you trust",
+      body: "Share a one-tap invite link. They join, you both verify, and a private encrypted channel opens between you.",
     },
     {
       n: "03",
-      title: "Talk freely — forever",
-      body: "Send messages, voice notes, photos, and join group chats. Everything is end-to-end encrypted. We literally can't read it.",
+      title: "Talk freely — for as long as you like",
+      body: "Send messages, voice notes, and photos. Start group chats. Everything is end-to-end encrypted. We literally can't read it.",
     },
   ];
   return (
-    <section id="how" className="py-24 sm:py-32 bg-gradient-to-b from-transparent via-white/[0.015] to-transparent">
+    <section id="how" className="py-24 sm:py-32 bg-white">
       <div className="mx-auto max-w-7xl px-5 sm:px-8">
         <SectionLabel>How it works</SectionLabel>
         <SectionHeading
-          title="Three steps. That's the whole thing."
-          subtitle="No setup wizards. No personal questions. Just messaging that respects you."
+          title="Three small steps. That's the whole thing."
+          subtitle="No setup wizards. No personal questions. Just messaging that respects you from the first tap."
         />
-        <div className="mt-14 grid md:grid-cols-3 gap-5">
+        <div className="mt-14 grid md:grid-cols-3 gap-6">
           {steps.map((s, i) => (
             <div
               key={s.n}
-              className="relative rounded-2xl border border-white/5 bg-[#0f161b] p-7"
+              className="relative rounded-3xl p-8 border border-[#253D2C]/8"
+              style={{ backgroundColor: "#FCF5EB" }}
             >
-              <div className="text-emerald-400 text-sm font-mono">{s.n}</div>
-              <h3 className="mt-3 text-xl font-semibold tracking-tight">{s.title}</h3>
-              <p className="mt-2 text-sm text-zinc-400 leading-relaxed">{s.body}</p>
+              <div
+                className="inline-flex items-center justify-center w-11 h-11 rounded-2xl text-white text-[14px] font-bold"
+                style={{ backgroundColor: "#2E6F40" }}
+              >
+                {s.n}
+              </div>
+              <h3 className="mt-5 text-[20px] font-semibold tracking-tight text-[#253D2C]">
+                {s.title}
+              </h3>
+              <p className="mt-2.5 text-[15px] text-[#3C5A47] leading-relaxed">
+                {s.body}
+              </p>
               {i < steps.length - 1 && (
-                <div className="hidden md:block absolute top-1/2 -right-3 w-6 h-px bg-gradient-to-r from-white/20 to-transparent" />
+                <div className="hidden md:flex absolute top-1/2 -right-3 w-6 h-6 -translate-y-1/2 items-center justify-center text-[#68BA7F]">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M5 12h14" />
+                    <path d="M13 5l7 7-7 7" />
+                  </svg>
+                </div>
               )}
             </div>
           ))}
@@ -461,28 +663,37 @@ function HowItWorks() {
   );
 }
 
-/* ───────────────────────── Security ───────────────────────── */
+/* ───────────────────────── Security (real photo) ───────────────────────── */
 
 function Security() {
   return (
-    <section id="security" className="py-24 sm:py-32">
+    <section
+      id="security"
+      className="py-24 sm:py-32"
+      style={{ backgroundColor: "#111B21", color: "#FCF5EB" }}
+    >
       <div className="mx-auto max-w-7xl px-5 sm:px-8">
-        <div className="grid lg:grid-cols-2 gap-14 items-center">
-          <div>
-            <SectionLabel>Security</SectionLabel>
-            <h2 className="mt-4 text-3xl sm:text-4xl md:text-5xl font-semibold tracking-tight leading-[1.1]">
-              Encryption that's been
-              <br />
-              <span className="bg-gradient-to-r from-emerald-300 to-teal-300 bg-clip-text text-transparent">
-                public for a decade.
+        <div className="grid lg:grid-cols-12 gap-14 items-center">
+          <div className="lg:col-span-6">
+            <div className="inline-flex items-center gap-2 text-[12px] font-semibold tracking-[0.18em] uppercase text-[#CFFFDC]">
+              <span className="w-6 h-px bg-[#68BA7F]" />
+              Security & Privacy
+            </div>
+            <h2
+              className="mt-4 text-[34px] sm:text-[44px] md:text-[54px] font-semibold tracking-[-0.02em] leading-[1.05]"
+              style={{ fontFamily: "'Fraunces', serif", color: "#FCF5EB" }}
+            >
+              Privacy isn't a feature.{" "}
+              <span className="italic" style={{ color: "#CFFFDC" }}>
+                It's the whole thing.
               </span>
             </h2>
-            <p className="mt-6 text-lg text-zinc-400 leading-relaxed">
-              Veil uses the same battle-tested cryptographic primitives that
-              secure billions of messages every day. We didn't roll our own —
-              we stand on the shoulders of giants.
+            <p className="mt-6 text-[18px] text-[#FCF5EB]/75 leading-[1.6] max-w-xl">
+              Veil is built on cryptographic foundations that secure billions
+              of messages every day. We didn't roll our own — we stand on the
+              shoulders of giants, and we make every piece auditable.
             </p>
-            <ul className="mt-8 space-y-4">
+            <ul className="mt-9 space-y-5">
               <SecurityRow
                 title="X3DH key exchange"
                 body="Asynchronous handshake establishes a shared secret even when the recipient is offline."
@@ -496,36 +707,42 @@ function Security() {
                 body="Our infrastructure relays opaque ciphertext. The encryption keys never leave your device."
               />
               <SecurityRow
-                title="100% open source"
-                body="Audit it, fork it, self-host it. No hidden code. No proprietary crypto."
+                title="Auditable, end to end"
+                body="Open source under a permissive license. Audit it, fork it, self-host it. No hidden code. No proprietary crypto."
               />
             </ul>
           </div>
 
-          <div className="relative">
-            <div className="absolute -inset-8 bg-gradient-to-tr from-emerald-500/15 to-teal-500/5 blur-3xl rounded-full pointer-events-none" />
-            <div className="relative rounded-2xl border border-white/10 bg-[#0f161b] p-6 font-mono text-[12px] leading-relaxed shadow-2xl">
-              <div className="flex items-center gap-1.5 mb-4">
-                <span className="w-2.5 h-2.5 rounded-full bg-rose-500/60" />
-                <span className="w-2.5 h-2.5 rounded-full bg-amber-500/60" />
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/60" />
-                <span className="ml-2 text-zinc-500 text-[11px]">message.encrypt.ts</span>
-              </div>
-              <div className="space-y-1.5">
-                <CodeLine c="zinc-500"># Alice sends "Hi" to Bob</CodeLine>
-                <CodeLine><span className="text-violet-300">const</span> <span className="text-sky-300">plaintext</span> = <span className="text-emerald-300">"Hi"</span>;</CodeLine>
-                <CodeLine />
-                <CodeLine c="zinc-500"># Derive next message key from the ratchet</CodeLine>
-                <CodeLine><span className="text-violet-300">const</span> {"{"} key, header {"}"} = <span className="text-amber-300">ratchet</span>.<span className="text-sky-300">advance</span>();</CodeLine>
-                <CodeLine />
-                <CodeLine c="zinc-500"># AES-256-GCM with the per-message key</CodeLine>
-                <CodeLine><span className="text-violet-300">const</span> <span className="text-sky-300">ciphertext</span> = <span className="text-amber-300">aesGcm</span>.<span className="text-sky-300">encrypt</span>(plaintext, key);</CodeLine>
-                <CodeLine />
-                <CodeLine c="zinc-500"># Server only sees opaque bytes</CodeLine>
-                <CodeLine><span className="text-amber-300">veil</span>.<span className="text-sky-300">send</span>({"{"} header, ciphertext {"}"});</CodeLine>
-                <CodeLine />
-                <div className="pl-2 border-l-2 border-emerald-500/50 bg-emerald-500/5 text-emerald-300 px-3 py-2 rounded">
-                  ✓ Server stored 46 bytes of unreadable ciphertext.
+          <div className="lg:col-span-6">
+            <div className="relative max-w-md mx-auto lg:ml-auto">
+              <div
+                className="absolute -inset-3 rounded-[2rem]"
+                style={{ backgroundColor: "rgba(46,111,64,0.35)" }}
+              />
+              <div className="relative rounded-[2rem] overflow-hidden shadow-[0_40px_80px_-20px_rgba(0,0,0,0.55)]">
+                <img
+                  src={smilingWithPhone}
+                  alt="A person smiling, comfortable knowing their messages are private"
+                  className="w-full h-[520px] object-cover"
+                  loading="lazy"
+                />
+                <div
+                  aria-hidden
+                  className="absolute inset-0"
+                  style={{
+                    background:
+                      "linear-gradient(180deg, rgba(17,27,33,0) 55%, rgba(17,27,33,0.7) 100%)",
+                  }}
+                />
+                <div className="absolute bottom-5 left-5 right-5 text-white">
+                  <div className="inline-flex items-center gap-2 bg-[#2E6F40] text-white text-[12px] font-semibold rounded-full px-3 py-1.5">
+                    <LockMini />
+                    Private by default
+                  </div>
+                  <p className="mt-3 text-[18px] font-medium leading-snug max-w-sm" style={{ fontFamily: "'Fraunces', serif" }}>
+                    "Finally, a messenger that treats my conversations like
+                    they're none of its business."
+                  </p>
                 </div>
               </div>
             </div>
@@ -539,30 +756,19 @@ function Security() {
 function SecurityRow({ title, body }: { title: string; body: string }) {
   return (
     <li className="flex gap-4">
-      <div className="mt-1 grid place-items-center w-7 h-7 rounded-lg bg-emerald-500/15 text-emerald-300 shrink-0 border border-emerald-500/20">
+      <div
+        className="mt-0.5 grid place-items-center w-8 h-8 rounded-xl shrink-0"
+        style={{ backgroundColor: "rgba(207,255,220,0.15)", color: "#CFFFDC" }}
+      >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
           <path d="M20 6L9 17l-5-5" />
         </svg>
       </div>
       <div>
-        <h4 className="font-semibold text-white">{title}</h4>
-        <p className="text-sm text-zinc-400 mt-1 leading-relaxed">{body}</p>
+        <h4 className="font-semibold text-[#FCF5EB] text-[17px]">{title}</h4>
+        <p className="text-[15px] text-[#FCF5EB]/65 mt-1 leading-relaxed">{body}</p>
       </div>
     </li>
-  );
-}
-
-function CodeLine({
-  children,
-  c,
-}: {
-  children?: React.ReactNode;
-  c?: string;
-}) {
-  return (
-    <div className={c ? `text-${c}` : "text-zinc-200"}>
-      {children ?? "\u00a0"}
-    </div>
   );
 }
 
@@ -580,25 +786,28 @@ function Comparison() {
   ];
 
   return (
-    <section className="py-24 sm:py-32 bg-gradient-to-b from-transparent via-white/[0.015] to-transparent">
+    <section className="py-24 sm:py-32 bg-white">
       <div className="mx-auto max-w-5xl px-5 sm:px-8">
         <SectionLabel>The honest comparison</SectionLabel>
         <SectionHeading
-          title="Why people switch to Veil."
+          title="Why people quietly switch to Veil."
           subtitle="The features other messengers gate, charge for, or quietly skip."
         />
-        <div className="mt-12 rounded-2xl border border-white/5 bg-[#0f161b] overflow-hidden">
-          <div className="grid grid-cols-3 text-sm font-medium border-b border-white/5">
-            <div className="px-5 py-4 text-zinc-400">Feature</div>
-            <div className="px-5 py-4 text-center text-emerald-300">Veil</div>
-            <div className="px-5 py-4 text-center text-zinc-400">Typical messenger</div>
+        <div className="mt-12 rounded-3xl border border-[#253D2C]/10 overflow-hidden bg-white">
+          <div
+            className="grid grid-cols-3 text-[14px] font-semibold border-b border-[#253D2C]/10"
+            style={{ backgroundColor: "#FCF5EB" }}
+          >
+            <div className="px-5 py-4 text-[#3C5A47]">Feature</div>
+            <div className="px-5 py-4 text-center text-[#2E6F40]">Veil</div>
+            <div className="px-5 py-4 text-center text-[#3C5A47]">Typical messenger</div>
           </div>
           {rows.map((r, i) => (
             <div
               key={r.label}
-              className={`grid grid-cols-3 text-sm ${i !== rows.length - 1 ? "border-b border-white/5" : ""}`}
+              className={`grid grid-cols-3 text-[14.5px] ${i !== rows.length - 1 ? "border-b border-[#253D2C]/8" : ""}`}
             >
-              <div className="px-5 py-4 text-zinc-300">{r.label}</div>
+              <div className="px-5 py-4 text-[#253D2C]">{r.label}</div>
               <div className="px-5 py-4 grid place-items-center">
                 <Cell value={r.veil} positive />
               </div>
@@ -616,7 +825,13 @@ function Comparison() {
 function Cell({ value, positive }: { value: boolean | string; positive?: boolean }) {
   if (value === true) {
     return (
-      <span className={`grid place-items-center w-7 h-7 rounded-full ${positive ? "bg-emerald-500/20 text-emerald-300" : "bg-white/5 text-zinc-300"}`}>
+      <span
+        className="grid place-items-center w-7 h-7 rounded-full"
+        style={{
+          backgroundColor: positive ? "#2E6F40" : "#E6FFDA",
+          color: positive ? "white" : "#2E6F40",
+        }}
+      >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
           <path d="M20 6L9 17l-5-5" />
         </svg>
@@ -625,7 +840,10 @@ function Cell({ value, positive }: { value: boolean | string; positive?: boolean
   }
   if (value === false) {
     return (
-      <span className="grid place-items-center w-7 h-7 rounded-full bg-rose-500/10 text-rose-400/80">
+      <span
+        className="grid place-items-center w-7 h-7 rounded-full"
+        style={{ backgroundColor: "#FCF5EB", color: "#B85C50" }}
+      >
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
           <path d="M18 6L6 18" />
           <path d="M6 6l12 12" />
@@ -633,7 +851,7 @@ function Cell({ value, positive }: { value: boolean | string; positive?: boolean
       </span>
     );
   }
-  return <span className="text-xs text-zinc-500">{value}</span>;
+  return <span className="text-[12.5px] text-[#3C5A47]/70">{value}</span>;
 }
 
 /* ───────────────────────── FAQ ───────────────────────── */
@@ -646,18 +864,18 @@ function FAQ() {
     },
     {
       q: "Do I need to give my phone number?",
-      a: "No. You can sign up with a random ID and a recovery phrase that exists only on your device. Phone and email signup are also available if you prefer.",
+      a: "No. You can sign up with a private ID and a recovery phrase that exists only on your device. Phone and email signup are also available if you prefer that.",
     },
     {
       q: "Can the Veil team read my messages?",
-      a: "No. Encryption keys are generated on your device and never leave it. Our servers only see opaque ciphertext — bytes that look like random noise. Even if someone hacked us, they'd get nothing readable.",
+      a: "No. Encryption keys are generated on your device and never leave it. Our servers only see opaque ciphertext — bytes that look like random noise. Even if someone hacked us, they'd find nothing readable.",
     },
     {
       q: "What happens if I lose my device?",
-      a: "If you signed up with a recovery phrase, you can restore access on a new device. Your encrypted message history isn't recoverable by design — that's the privacy trade-off.",
+      a: "If you signed up with a recovery phrase, you can restore access on a new device. Your encrypted message history isn't recoverable by design — that's the privacy trade-off we believe is worth making.",
     },
     {
-      q: "Does it work on iPhone?",
+      q: "Does Veil work on iPhone?",
       a: "Yes. Veil works as a Progressive Web App — open it in Safari, tap Share → Add to Home Screen, and it behaves like a native app, including push notifications on iOS 16.4+.",
     },
     {
@@ -667,41 +885,56 @@ function FAQ() {
   ];
   const [openIdx, setOpenIdx] = useState<number | null>(0);
   return (
-    <section id="faq" className="py-24 sm:py-32">
+    <section id="faq" className="py-24 sm:py-32" style={{ backgroundColor: "#FCF5EB" }}>
       <div className="mx-auto max-w-3xl px-5 sm:px-8">
         <SectionLabel>FAQ</SectionLabel>
         <SectionHeading
-          title="Questions, answered."
+          title="Questions, gently answered."
           subtitle="If something's not here, we're easy to reach."
         />
-        <div className="mt-12 divide-y divide-white/5 border-y border-white/5">
+        <div className="mt-12 rounded-3xl bg-white border border-[#253D2C]/10 overflow-hidden">
           {items.map((it, i) => (
-            <button
+            <div
               key={it.q}
-              onClick={() => setOpenIdx(openIdx === i ? null : i)}
-              className="w-full text-left py-5 group"
+              className={i !== items.length - 1 ? "border-b border-[#253D2C]/8" : ""}
             >
-              <div className="flex items-center justify-between gap-4">
-                <span className="font-medium text-white text-base sm:text-lg">{it.q}</span>
-                <span
-                  className={`shrink-0 w-7 h-7 grid place-items-center rounded-full border border-white/10 text-zinc-400 transition group-hover:border-white/20 ${openIdx === i ? "bg-emerald-500/15 text-emerald-300 rotate-45 border-emerald-500/30" : ""}`}
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
-                    <path d="M12 5v14" />
-                    <path d="M5 12h14" />
-                  </svg>
-                </span>
-              </div>
-              <div
-                className={`grid transition-all duration-300 ${openIdx === i ? "grid-rows-[1fr] opacity-100 mt-3" : "grid-rows-[0fr] opacity-0"}`}
+              <button
+                onClick={() => setOpenIdx(openIdx === i ? null : i)}
+                className="w-full text-left px-6 py-5"
+                aria-expanded={openIdx === i}
               >
-                <div className="overflow-hidden">
-                  <p className="text-zinc-400 leading-relaxed text-sm sm:text-base pr-10">
-                    {it.a}
-                  </p>
+                <div className="flex items-center justify-between gap-4">
+                  <span className="font-semibold text-[#253D2C] text-[16px] sm:text-[17px]">
+                    {it.q}
+                  </span>
+                  <span
+                    className={`shrink-0 w-8 h-8 grid place-items-center rounded-full transition-colors ${
+                      openIdx === i
+                        ? "bg-[#2E6F40] text-white"
+                        : "bg-[#E6FFDA] text-[#2E6F40]"
+                    }`}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round">
+                      {openIdx === i ? <path d="M5 12h14" /> : (
+                        <>
+                          <path d="M12 5v14" />
+                          <path d="M5 12h14" />
+                        </>
+                      )}
+                    </svg>
+                  </span>
                 </div>
-              </div>
-            </button>
+                <div
+                  className={`grid transition-all duration-200 ${openIdx === i ? "grid-rows-[1fr] opacity-100 mt-3" : "grid-rows-[0fr] opacity-0"}`}
+                >
+                  <div className="overflow-hidden">
+                    <p className="text-[#3C5A47] leading-relaxed text-[15px] pr-10">
+                      {it.a}
+                    </p>
+                  </div>
+                </div>
+              </button>
+            </div>
           ))}
         </div>
       </div>
@@ -713,25 +946,42 @@ function FAQ() {
 
 function FinalCTA() {
   return (
-    <section className="py-24 sm:py-32">
+    <section className="py-24 sm:py-32 bg-white">
       <div className="mx-auto max-w-5xl px-5 sm:px-8">
-        <div className="relative overflow-hidden rounded-3xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/15 via-teal-500/10 to-transparent p-10 sm:p-16 text-center">
-          <div className="absolute -top-32 -left-20 w-80 h-80 bg-emerald-500/20 rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute -bottom-32 -right-20 w-80 h-80 bg-teal-500/20 rounded-full blur-3xl pointer-events-none" />
+        <div
+          className="relative overflow-hidden rounded-[2.5rem] p-12 sm:p-16 text-center"
+          style={{ backgroundColor: "#2E6F40" }}
+        >
+          <div
+            aria-hidden
+            className="absolute inset-0 opacity-30"
+            style={{
+              backgroundImage: `url("data:image/svg+xml;utf8,${encodeURIComponent(
+                `<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'><g fill='none' stroke='%23CFFFDC' stroke-opacity='0.5' stroke-width='1'><circle cx='12' cy='12' r='6'/><path d='M48 18l8 8-8 8-8-8z'/><circle cx='66' cy='52' r='4'/><path d='M22 56l6 0 0 6'/></g></svg>`,
+              )}")`,
+              backgroundSize: "120px 120px",
+            }}
+          />
           <div className="relative">
-            <h2 className="text-3xl sm:text-5xl font-semibold tracking-tight leading-[1.05]">
-              Take your conversations back.
+            <h2
+              className="text-[34px] sm:text-[48px] md:text-[56px] font-semibold tracking-[-0.02em] leading-[1.05] text-white"
+              style={{ fontFamily: "'Fraunces', serif" }}
+            >
+              Take your conversations{" "}
+              <span className="italic" style={{ color: "#CFFFDC" }}>
+                back.
+              </span>
             </h2>
-            <p className="mt-5 text-lg text-zinc-300 max-w-xl mx-auto">
-              Join Veil today. It takes 30 seconds, costs nothing, and your messages
-              stay between you and the people you actually trust.
+            <p className="mt-5 text-[17px] sm:text-[19px] text-[#E6FFDA] max-w-xl mx-auto leading-relaxed">
+              Join Veil today. It takes thirty seconds, costs nothing, and your
+              messages stay between you and the people you actually trust.
             </p>
             <div className="mt-9 flex flex-col sm:flex-row gap-3 justify-center">
               <Link
                 to="/welcome"
-                className="inline-flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-white font-semibold px-8 py-4 rounded-xl shadow-[0_18px_40px_-12px_rgba(16,185,129,0.7)] transition"
+                className="inline-flex items-center justify-center gap-2 bg-white hover:bg-[#FCF5EB] text-[#2E6F40] font-semibold text-[16px] px-8 py-4 rounded-full shadow-[0_18px_36px_-14px_rgba(0,0,0,0.35)] transition-colors"
               >
-                Get started — free forever
+                Get Veil — free forever
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M5 12h14" />
                   <path d="M13 5l7 7-7 7" />
@@ -739,7 +989,7 @@ function FinalCTA() {
               </Link>
               <Link
                 to="/login"
-                className="inline-flex items-center justify-center gap-2 border border-white/15 hover:bg-white/5 text-white font-medium px-8 py-4 rounded-xl transition"
+                className="inline-flex items-center justify-center gap-2 border border-white/30 hover:bg-white/10 text-white font-medium text-[16px] px-8 py-4 rounded-full transition-colors"
               >
                 I already have an account
               </Link>
@@ -755,15 +1005,17 @@ function FinalCTA() {
 
 function Footer() {
   return (
-    <footer className="border-t border-white/5 bg-[#080c10]">
-      <div className="mx-auto max-w-7xl px-5 sm:px-8 py-14">
+    <footer style={{ backgroundColor: "#111B21", color: "#FCF5EB" }}>
+      <div className="mx-auto max-w-7xl px-5 sm:px-8 py-16">
         <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-10">
           <div className="lg:col-span-2">
             <a href="#top" className="flex items-center gap-2.5">
               <BrandMark />
-              <span className="text-[17px] font-semibold tracking-tight">Veil</span>
+              <span className="text-[18px] font-bold tracking-tight text-white">
+                Veil
+              </span>
             </a>
-            <p className="mt-4 text-sm text-zinc-500 max-w-sm leading-relaxed">
+            <p className="mt-4 text-[14.5px] text-[#FCF5EB]/65 max-w-sm leading-relaxed">
               The privacy-first messenger. End-to-end encrypted, open source,
               and built for everyone who believes their conversations are no
               one else's business.
@@ -786,7 +1038,7 @@ function Footer() {
             links={[
               { label: "Features", href: "#features" },
               { label: "How it works", href: "#how" },
-              { label: "Security", href: "#security" },
+              { label: "Privacy", href: "#security" },
               { label: "FAQ", href: "#faq" },
             ]}
           />
@@ -810,10 +1062,13 @@ function Footer() {
           />
         </div>
 
-        <div className="mt-12 pt-8 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-zinc-500">
-          <div>© {new Date().getFullYear()} Veil. Made with care for the people who deserve privacy.</div>
+        <div className="mt-14 pt-8 border-t border-white/8 flex flex-col sm:flex-row items-center justify-between gap-4 text-[12.5px] text-[#FCF5EB]/55">
+          <div>
+            © {new Date().getFullYear()} Veil. Made with care for the people
+            who deserve privacy.
+          </div>
           <div className="flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+            <span className="w-1.5 h-1.5 rounded-full bg-[#68BA7F]" />
             All systems operational
           </div>
         </div>
@@ -837,7 +1092,7 @@ function SocialIcon({
       target="_blank"
       rel="noreferrer noopener"
       aria-label={label}
-      className="w-9 h-9 grid place-items-center rounded-lg border border-white/10 bg-white/5 text-zinc-400 hover:text-white hover:border-white/20 transition"
+      className="w-9 h-9 grid place-items-center rounded-full border border-white/15 bg-white/5 text-[#FCF5EB]/80 hover:text-white hover:border-white/30 hover:bg-white/10 transition-colors"
     >
       {children}
     </a>
@@ -859,12 +1114,14 @@ function FooterCol({
 }) {
   return (
     <div>
-      <div className="text-xs font-semibold tracking-wider uppercase text-zinc-300">{title}</div>
-      <ul className="mt-4 space-y-2.5 text-sm">
+      <div className="text-[12px] font-bold tracking-[0.18em] uppercase text-white">
+        {title}
+      </div>
+      <ul className="mt-4 space-y-2.5 text-[14px]">
         {links.map((l) =>
           internal && l.to ? (
             <li key={l.label}>
-              <Link to={l.to} className="text-zinc-400 hover:text-white transition">
+              <Link to={l.to} className="text-[#FCF5EB]/65 hover:text-white transition-colors">
                 {l.label}
               </Link>
             </li>
@@ -872,7 +1129,7 @@ function FooterCol({
             <li key={l.label}>
               <a
                 href={l.href ?? "#"}
-                className="text-zinc-400 hover:text-white transition"
+                className="text-[#FCF5EB]/65 hover:text-white transition-colors"
                 {...(l.href?.startsWith("http") ? { target: "_blank", rel: "noreferrer noopener" } : {})}
               >
                 {l.label}
@@ -889,8 +1146,8 @@ function FooterCol({
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div className="inline-flex items-center gap-2 text-xs font-semibold tracking-[0.18em] uppercase text-emerald-300/90">
-      <span className="w-6 h-px bg-emerald-400/60" />
+    <div className="inline-flex items-center gap-2 text-[12px] font-bold tracking-[0.2em] uppercase text-[#2E6F40]">
+      <span className="w-6 h-px bg-[#68BA7F]" />
       {children}
     </div>
   );
@@ -899,30 +1156,18 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 function SectionHeading({ title, subtitle }: { title: string; subtitle?: string }) {
   return (
     <>
-      <h2 className="mt-4 text-3xl sm:text-4xl md:text-5xl font-semibold tracking-tight leading-[1.1] max-w-3xl">
+      <h2
+        className="mt-4 text-[32px] sm:text-[42px] md:text-[52px] font-semibold tracking-[-0.02em] leading-[1.06] max-w-3xl text-[#253D2C]"
+        style={{ fontFamily: "'Fraunces', serif" }}
+      >
         {title}
       </h2>
       {subtitle && (
-        <p className="mt-4 text-lg text-zinc-400 max-w-2xl">{subtitle}</p>
+        <p className="mt-4 text-[18px] text-[#3C5A47] max-w-2xl leading-relaxed">
+          {subtitle}
+        </p>
       )}
     </>
-  );
-}
-
-function BackgroundGlow() {
-  return (
-    <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
-      <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[900px] h-[900px] rounded-full bg-[radial-gradient(circle,rgba(16,185,129,0.18),transparent_60%)]" />
-      <div className="absolute top-[40%] -left-40 w-[600px] h-[600px] rounded-full bg-[radial-gradient(circle,rgba(20,184,166,0.10),transparent_60%)]" />
-      <div
-        className="absolute inset-0 opacity-[0.025]"
-        style={{
-          backgroundImage:
-            "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.55) 1px, transparent 0)",
-          backgroundSize: "32px 32px",
-        }}
-      />
-    </div>
   );
 }
 
@@ -930,7 +1175,7 @@ function BackgroundGlow() {
 
 function IconShield() {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
       <path d="M9 12l2 2 4-4" />
     </svg>
@@ -938,7 +1183,7 @@ function IconShield() {
 }
 function IconMask() {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <path d="M3 12c0-4 3-7 9-7s9 3 9 7c0 5-4 8-9 8s-9-3-9-8z" />
       <circle cx="9" cy="12" r="1.4" fill="currentColor" />
       <circle cx="15" cy="12" r="1.4" fill="currentColor" />
@@ -947,7 +1192,7 @@ function IconMask() {
 }
 function IconTimer() {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="13" r="8" />
       <path d="M12 9v4l2 2" />
       <path d="M9 2h6" />
@@ -956,7 +1201,7 @@ function IconTimer() {
 }
 function IconGroup() {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="9" cy="9" r="3.5" />
       <path d="M2.5 20a6.5 6.5 0 0 1 13 0" />
       <circle cx="17" cy="10" r="2.6" />
@@ -966,7 +1211,7 @@ function IconGroup() {
 }
 function IconMic() {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <rect x="9" y="2" width="6" height="12" rx="3" />
       <path d="M5 11a7 7 0 0 0 14 0" />
       <path d="M12 18v4" />
@@ -975,7 +1220,7 @@ function IconMic() {
 }
 function IconBell() {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8z" />
       <path d="M10 21a2 2 0 0 0 4 0" />
     </svg>
@@ -983,7 +1228,7 @@ function IconBell() {
 }
 function IconEye() {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" />
       <circle cx="12" cy="12" r="3" />
       <path d="M3 3l18 18" />
@@ -992,7 +1237,7 @@ function IconEye() {
 }
 function IconDevices() {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <rect x="2" y="5" width="14" height="10" rx="1.5" />
       <rect x="14" y="9" width="8" height="12" rx="1.5" />
     </svg>
@@ -1000,7 +1245,7 @@ function IconDevices() {
 }
 function IconCode() {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <path d="M9 18l-6-6 6-6" />
       <path d="M15 6l6 6-6 6" />
     </svg>
