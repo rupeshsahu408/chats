@@ -1,29 +1,32 @@
-import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { env } from "../env.js";
 
 /**
  * Helpers for the single-active-session login flow.
  *
- * We mint two kinds of HMAC-bound tokens here:
+ * All tokens here are stateless HMAC payloads — we never persist
+ * them server-side. Two flavours are minted:
  *
- *  1. **Continuation nonce** — handed to the *new* device when its
+ *  1. **Pending-login token** — handed to the *new* device when its
  *     login is parked because another device is already signed in.
- *     The new device polls + later claims the session with this
- *     nonce. We store the SHA-256 of the nonce in
- *     `login_conflicts.continuation_nonce_hash` so even if the table
- *     is dumped, the raw nonce can't be replayed.
+ *     The new device then either calls `auth.confirmReplaceSession`
+ *     (kick the other device out + sign in) or
+ *     `auth.rejectLoginAttempt` (drop the attempt + alert the
+ *     existing device). The token bundles the requester's
+ *     `userId`, fingerprint, IP prefix, device label, city, and
+ *     country so the follow-up endpoints don't need a DB row.
  *
- *  2. **Must-change-password token** — handed to a user whose account
- *     was previously "secured". They must redeem it at
- *     `auth.submitNewPasswordAfterSecure`. Stateless: signed JWT-ish
- *     payload with `userId`, `expiresAt`, HMAC tag.
+ *  2. **Must-change-password token** — handed to a user whose
+ *     account was previously "secured". They must redeem it at
+ *     `auth.submitNewPasswordAfterSecure`.
  *
- * Both tokens have ~5 / 15 minute TTLs and are single-use (the
- * continuation nonce becomes invalid the moment we mark the conflict
- * row `consumed_at`).
+ * Both tokens have ~5 / 15 minute TTLs and are single-use in the
+ * "tied to current account state" sense — once the user-state
+ * transition behind them happens (session created, password reset,
+ * etc.), replays are rejected by the endpoint logic.
  */
 
-const CONTINUATION_TTL_MS = 5 * 60_000;
+const PENDING_LOGIN_TTL_MS = 5 * 60_000;
 const MUST_CHANGE_TTL_MS = 15 * 60_000;
 
 function key(prefix: string): Buffer {
@@ -31,70 +34,93 @@ function key(prefix: string): Buffer {
   return Buffer.from(`${prefix}:${env.JWT_SECRET}`);
 }
 
-/* ─────────── continuation nonce ─────────── */
+function safeEqual(a: string, b: string): boolean {
+  try {
+    const aB = Buffer.from(a, "base64url");
+    const bB = Buffer.from(b, "base64url");
+    return aB.length === bB.length && timingSafeEqual(aB, bB);
+  } catch {
+    return false;
+  }
+}
 
-export interface ContinuationToken {
-  nonce: string;
-  hash: string;
-  expiresAt: Date;
+/* ─────────── pending-login token ─────────── */
+
+export interface PendingLoginPayload {
+  userId: string;
+  /** Stable fingerprint of the requester's user-agent. */
+  requesterFp: string;
+  /** /24 (v4) or /48 (v6) prefix of the requester's IP. May be null. */
+  requesterIpPrefix: string | null;
+  /** Human-friendly device label ("Chrome on macOS"). */
+  requesterDevice: string;
+  requesterCity: string | null;
+  requesterCountry: string | null;
 }
 
 /**
- * Mint a new continuation nonce for `userId`. Returns both the raw
- * nonce (sent to the new device) and the SHA-256 hash (stored in the
- * DB so we can look it up without keeping the raw value).
+ * Encode the payload as a single base64url JSON blob inside a
+ * `<id>.<expiresAt>.<payloadJsonB64>.<sig>` token.
  */
-export function mintContinuationNonce(userId: string): ContinuationToken {
-  const id = randomBytes(18).toString("base64url");
-  const expiresAt = Date.now() + CONTINUATION_TTL_MS;
-  const payload = `${id}.${expiresAt}.${userId}`;
-  const sig = createHmac("sha256", key("login-continuation"))
-    .update(payload)
+export function mintPendingLoginToken(
+  payload: PendingLoginPayload,
+): { token: string; expiresInSeconds: number; expiresAt: Date } {
+  const id = randomBytes(12).toString("base64url");
+  const expiresAt = Date.now() + PENDING_LOGIN_TTL_MS;
+  const payloadB64 = Buffer.from(JSON.stringify(payload), "utf8").toString(
+    "base64url",
+  );
+  const body = `${id}.${expiresAt}.${payloadB64}`;
+  const sig = createHmac("sha256", key("pending-login"))
+    .update(body)
     .digest("base64url");
-  const nonce = `${payload}.${sig}`;
-  const hash = createHash("sha256").update(nonce).digest("hex");
   return {
-    nonce,
-    hash,
+    token: `${body}.${sig}`,
+    expiresInSeconds: Math.floor(PENDING_LOGIN_TTL_MS / 1000),
     expiresAt: new Date(expiresAt),
   };
 }
 
-/**
- * Verify the cryptographic shape of a continuation nonce. Does NOT
- * check the DB row — call sites must look it up by hash and ensure
- * it's `pending`/`accepted` and not `consumed_at`.
- */
-export function verifyContinuationNonce(
-  nonce: string,
-): { userId: string; hash: string } | null {
-  if (typeof nonce !== "string") return null;
-  const lastDot = nonce.lastIndexOf(".");
-  if (lastDot < 0) return null;
-  const payload = nonce.slice(0, lastDot);
-  const sig = nonce.slice(lastDot + 1);
-  const expected = createHmac("sha256", key("login-continuation"))
-    .update(payload)
+export function verifyPendingLoginToken(
+  token: string,
+): PendingLoginPayload | null {
+  if (typeof token !== "string") return null;
+  const parts = token.split(".");
+  if (parts.length !== 4) return null;
+  const [id, expStr, payloadB64, sig] = parts;
+  if (!id || !expStr || !payloadB64 || !sig) return null;
+  const body = `${id}.${expStr}.${payloadB64}`;
+  const expected = createHmac("sha256", key("pending-login"))
+    .update(body)
     .digest("base64url");
-  let sigOk = false;
-  try {
-    const a = Buffer.from(sig, "base64url");
-    const b = Buffer.from(expected, "base64url");
-    sigOk = a.length === b.length && timingSafeEqual(a, b);
-  } catch {
-    sigOk = false;
-  }
-  if (!sigOk) return null;
-  const [, expStr, userId] = payload.split(".");
-  if (!expStr || !userId) return null;
+  if (!safeEqual(sig, expected)) return null;
   const exp = Number(expStr);
   if (!Number.isFinite(exp) || exp <= Date.now()) return null;
-  const hash = createHash("sha256").update(nonce).digest("hex");
-  return { userId, hash };
+  try {
+    const json = Buffer.from(payloadB64, "base64url").toString("utf8");
+    const parsed = JSON.parse(json) as PendingLoginPayload;
+    if (
+      typeof parsed?.userId !== "string" ||
+      typeof parsed?.requesterFp !== "string" ||
+      typeof parsed?.requesterDevice !== "string"
+    ) {
+      return null;
+    }
+    return {
+      userId: parsed.userId,
+      requesterFp: parsed.requesterFp,
+      requesterIpPrefix: parsed.requesterIpPrefix ?? null,
+      requesterDevice: parsed.requesterDevice,
+      requesterCity: parsed.requesterCity ?? null,
+      requesterCountry: parsed.requesterCountry ?? null,
+    };
+  } catch {
+    return null;
+  }
 }
 
-export function continuationTtlSeconds(): number {
-  return Math.floor(CONTINUATION_TTL_MS / 1000);
+export function pendingLoginTtlSeconds(): number {
+  return Math.floor(PENDING_LOGIN_TTL_MS / 1000);
 }
 
 /* ─────────── must-change-password token ─────────── */
@@ -124,23 +150,10 @@ export function verifyMustChangeToken(token: string): string | null {
   const expected = createHmac("sha256", key("must-change"))
     .update(payload)
     .digest("base64url");
-  let sigOk = false;
-  try {
-    const a = Buffer.from(sig, "base64url");
-    const b = Buffer.from(expected, "base64url");
-    sigOk = a.length === b.length && timingSafeEqual(a, b);
-  } catch {
-    sigOk = false;
-  }
-  if (!sigOk) return null;
+  if (!safeEqual(sig, expected)) return null;
   const [, expStr, userId] = payload.split(".");
   if (!expStr || !userId) return null;
   const exp = Number(expStr);
   if (!Number.isFinite(exp) || exp <= Date.now()) return null;
   return userId;
-}
-
-/** Convenience for hashing a continuation nonce we already have. */
-export function hashNonce(nonce: string): string {
-  return createHash("sha256").update(nonce).digest("hex");
 }

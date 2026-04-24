@@ -507,30 +507,10 @@ export const WsServerEventSchema = z.discriminatedUnion("type", [
     online: z.boolean(),
   }),
   /**
-   * A new device is requesting permission to sign in to this account.
-   * Existing devices should show a "Was that you?" prompt.
-   */
-  z.object({
-    type: z.literal("login_request_pending"),
-    conflictId: z.string().uuid(),
-    device: z.string(),
-    city: z.string().nullable(),
-    country: z.string().nullable(),
-    expiresAt: z.string(),
-  }),
-  /**
-   * A pending login request just got resolved (by another tab on the
-   * same device, or because it expired). Existing devices should
-   * dismiss any open prompt for this `conflictId`.
-   */
-  z.object({
-    type: z.literal("login_request_resolved"),
-    conflictId: z.string().uuid(),
-    decision: z.enum(["accept", "reject", "expired"]),
-  }),
-  /**
    * A new security alert was created — show the user the "Suspicious
-   * sign-in attempt" sheet.
+   * sign-in attempt" sheet. In the new-device-decides flow this is
+   * how the *old* device finds out that someone tried to sign in
+   * elsewhere and was denied.
    */
   z.object({
     type: z.literal("security_alert"),
@@ -546,11 +526,12 @@ export const WsServerEventSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("session_revoked"),
     /**
-     * "single_active" — replaced by a new device.
-     * "secured"       — user invoked "Secure account".
-     * "manual"        — user signed it out from Settings.
+     * "replaced_by_new_device" — the user signed in on a new device
+     *                            and chose to replace this one.
+     * "secured"                — user invoked "Secure account".
+     * "manual"                 — user signed it out from Settings.
      */
-    reason: z.enum(["single_active", "secured", "manual"]),
+    reason: z.enum(["replaced_by_new_device", "secured", "manual"]),
   }),
 ]);
 export type WsServerEvent = z.infer<typeof WsServerEventSchema>;
@@ -912,12 +893,15 @@ export type LastLoginInfoResult = z.infer<typeof LastLoginInfoResult>;
  *   - "challenge"        — risky context: solve puzzle + hold, then
  *                          call `auth.completeLoginV2` with the
  *                          returned `challengeNonce`.
- *   - "deviceConflict"   — another device is already signed in. The
- *                          new device must wait until the existing
- *                          device approves (or rejects) the request.
+ *   - "deviceConflict"     — another device is already signed in.
+ *                            The NEW device decides what to do via
+ *                            `auth.confirmReplaceSession` (kick the
+ *                            old one out and sign in here) or
+ *                            `auth.rejectLoginAttempt` (back off and
+ *                            warn the old device that someone tried).
  *   - "mustChangePassword" — the user previously triggered "Secure
- *                          account"; they must choose a new password
- *                          before any session is issued.
+ *                            account"; they must choose a new password
+ *                            before any session is issued.
  */
 export const BeginLoginV3Input = BeginLoginV2Input;
 export type BeginLoginV3Input = z.infer<typeof BeginLoginV3Input>;
@@ -936,15 +920,26 @@ export const BeginLoginV3Result = z.discriminatedUnion("status", [
   }),
   z.object({
     status: z.literal("deviceConflict"),
-    /** Public id the new device uses to poll. */
-    conflictId: z.string().uuid(),
-    /** HMAC-bound continuation nonce (single-use). */
-    continuationNonce: z.string(),
+    /**
+     * Stateless, HMAC-bound, single-use token. Encodes the requester
+     * device + IP prefix + location so the follow-up
+     * `confirmReplaceSession` / `rejectLoginAttempt` calls don't need
+     * a DB row.
+     */
+    pendingLoginToken: z.string(),
     expiresInSeconds: z.number().int().positive(),
     /** Human-friendly description of the device that's currently signed in. */
     existingDevice: z.string().nullable(),
     existingCity: z.string().nullable(),
     existingCountry: z.string().nullable(),
+    /**
+     * `lastUsedAt` of the most-recently-active session, ISO string.
+     * Helps the new device say "Active 3 minutes ago" so the user
+     * can decide whether it's really their other device.
+     */
+    existingLastUsedAt: z.string().nullable(),
+    /** How many other sessions are currently active for this account. */
+    activeSessionCount: z.number().int().positive(),
   }),
   z.object({
     status: z.literal("mustChangePassword"),
@@ -955,64 +950,35 @@ export const BeginLoginV3Result = z.discriminatedUnion("status", [
 ]);
 export type BeginLoginV3Result = z.infer<typeof BeginLoginV3Result>;
 
-/* Polling endpoint for the new device while it waits. */
-export const PollLoginConflictInput = z.object({
-  conflictId: z.string().uuid(),
-  continuationNonce: z.string().min(1),
+/* New-device side: "Yes, sign me in here, kill the other one." */
+export const ConfirmReplaceSessionInput = z.object({
+  pendingLoginToken: z.string().min(1),
 });
-export type PollLoginConflictInput = z.infer<typeof PollLoginConflictInput>;
+export type ConfirmReplaceSessionInput = z.infer<typeof ConfirmReplaceSessionInput>;
 
-export const PollLoginConflictResult = z.discriminatedUnion("status", [
-  z.object({ status: z.literal("pending"), expiresInSeconds: z.number().int().min(0) }),
-  z.object({ status: z.literal("accepted") }),
-  z.object({ status: z.literal("rejected") }),
-  z.object({ status: z.literal("expired") }),
-]);
-export type PollLoginConflictResult = z.infer<typeof PollLoginConflictResult>;
-
-export const CompleteAfterApprovalInput = z.object({
-  continuationNonce: z.string().min(1),
-});
-export type CompleteAfterApprovalInput = z.infer<typeof CompleteAfterApprovalInput>;
-
-export const CompleteAfterApprovalResult = AuthResultSchema.extend({
+export const ConfirmReplaceSessionResult = AuthResultSchema.extend({
   lastLogin: LoginContextInfo.nullable(),
   /**
-   * Number of other sessions terminated as part of this approval.
+   * Number of other sessions terminated as part of this confirmation.
    * Surfaced to the client so the post-login screen can show
    * something like "Your previous device has been signed out."
    */
   replacedSessions: z.number().int().min(0),
 });
-export type CompleteAfterApprovalResult = z.infer<typeof CompleteAfterApprovalResult>;
-
-/* Existing-device side. */
-export const PendingLoginRequestEntry = z.object({
-  id: z.string().uuid(),
-  device: z.string(),
-  city: z.string().nullable(),
-  country: z.string().nullable(),
-  createdAt: z.string(),
-  expiresAt: z.string(),
-});
-export type PendingLoginRequestEntry = z.infer<typeof PendingLoginRequestEntry>;
-
-export const ListPendingLoginRequestsResult = z.array(PendingLoginRequestEntry);
-export type ListPendingLoginRequestsResult = z.infer<
-  typeof ListPendingLoginRequestsResult
+export type ConfirmReplaceSessionResult = z.infer<
+  typeof ConfirmReplaceSessionResult
 >;
 
-export const ResolveLoginRequestInput = z.object({
-  conflictId: z.string().uuid(),
-  decision: z.enum(["accept", "reject"]),
+/* New-device side: "No, that wasn't me — alert my other device." */
+export const RejectLoginAttemptInput = z.object({
+  pendingLoginToken: z.string().min(1),
 });
-export type ResolveLoginRequestInput = z.infer<typeof ResolveLoginRequestInput>;
+export type RejectLoginAttemptInput = z.infer<typeof RejectLoginAttemptInput>;
 
-export const ResolveLoginRequestResult = z.object({
+export const RejectLoginAttemptResult = z.object({
   ok: z.literal(true),
-  decision: z.enum(["accept", "reject"]),
 });
-export type ResolveLoginRequestResult = z.infer<typeof ResolveLoginRequestResult>;
+export type RejectLoginAttemptResult = z.infer<typeof RejectLoginAttemptResult>;
 
 /* Security alerts — the inbox shown on the existing device. */
 export const SecurityAlertEntry = z.object({

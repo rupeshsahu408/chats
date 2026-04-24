@@ -8,32 +8,35 @@ import { create } from "zustand";
  * own terms, rather than us trying to ferry whole records through.
  *
  * The "tick" pattern means the guard's `useEffect` deps stay simple
- * (`[pendingTick]`), without us having to worry about deduping
+ * (`[alertTick]`), without us having to worry about deduping
  * payloads or re-computing equality.
  */
+type RevokeReason = "replaced_by_new_device" | "secured" | "manual";
+
 interface SessionEventsState {
-  /** Bumped on every `login_request_pending` push. */
-  pendingTick: number;
-  /** Bumped on every `login_request_resolved` push. */
-  resolvedTick: number;
   /** Bumped on every `security_alert` push. */
   alertTick: number;
   /** Bumped on every `session_revoked` push. */
   revokedTick: number;
+  /**
+   * Reason from the most recent `session_revoked` push. Lets the
+   * guard pick a slightly different toast based on *why* we're being
+   * signed out.
+   */
+  lastRevokedReason: RevokeReason | null;
 
-  bumpPending: () => void;
-  bumpResolved: () => void;
   bumpAlert: () => void;
-  bumpRevoked: () => void;
+  bumpRevoked: (reason: RevokeReason) => void;
 }
 
 export const useSessionEventsStore = create<SessionEventsState>((set) => ({
-  pendingTick: 0,
-  resolvedTick: 0,
   alertTick: 0,
   revokedTick: 0,
-  bumpPending: () => set((s) => ({ pendingTick: s.pendingTick + 1 })),
-  bumpResolved: () => set((s) => ({ resolvedTick: s.resolvedTick + 1 })),
+  lastRevokedReason: null,
   bumpAlert: () => set((s) => ({ alertTick: s.alertTick + 1 })),
-  bumpRevoked: () => set((s) => ({ revokedTick: s.revokedTick + 1 })),
+  bumpRevoked: (reason) =>
+    set((s) => ({
+      revokedTick: s.revokedTick + 1,
+      lastRevokedReason: reason,
+    })),
 }));

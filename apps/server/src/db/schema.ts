@@ -712,52 +712,6 @@ export const userContacts = pgTable(
 
 export type UserContactRow = typeof userContacts.$inferSelect;
 
-/* ─────────── login_conflicts ─────────── */
-/*
- * One row per "another device is trying to sign in" event. Created
- * when a user with at least one active session tries to sign in from
- * a new browser. The existing device receives a real-time
- * notification, accepts or rejects, and we update the row. The new
- * device polls the row via a single-use HMAC-bound continuation
- * nonce (we store its hash, never the raw value).
- *
- * Lifetime: 5 minutes. Cleaned up by the scheduled sweeper.
- */
-export const loginConflicts = pgTable(
-  "login_conflicts",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    userId: uuid("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
-    /** pending → accepted | rejected | expired */
-    status: text("status").notNull().default("pending"),
-    requesterIp: text("requester_ip"),
-    requesterDevice: text("requester_device"),
-    requesterCity: text("requester_city"),
-    requesterCountry: text("requester_country"),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
-    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
-    /** Session that accepted/rejected, when known. */
-    resolvedBySessionId: uuid("resolved_by_session_id"),
-    /** SHA-256 of the continuation nonce sent to the new device. */
-    continuationNonceHash: text("continuation_nonce_hash").notNull().unique(),
-    /** Set after the new device successfully claims the session. */
-    consumedAt: timestamp("consumed_at", { withTimezone: true }),
-  },
-  (t) => ({
-    userStatusIdx: index("login_conflicts_user_status_idx").on(
-      t.userId,
-      t.status,
-    ),
-    expiresIdx: index("login_conflicts_expires_idx").on(t.expiresAt),
-  }),
-);
-export type LoginConflictRow = typeof loginConflicts.$inferSelect;
-
 /* ─────────── security_alerts ─────────── */
 /*
  * Persistent "we noticed something — was that you?" inbox per user.

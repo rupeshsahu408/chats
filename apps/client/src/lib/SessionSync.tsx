@@ -87,10 +87,8 @@ export function SessionSync() {
     if (!accessToken) return;
     const ev = useSessionEventsStore.getState();
     const unsub = wsClient.subscribe((event) => {
-      if (event.type === "login_request_pending") ev.bumpPending();
-      else if (event.type === "login_request_resolved") ev.bumpResolved();
-      else if (event.type === "security_alert") ev.bumpAlert();
-      else if (event.type === "session_revoked") ev.bumpRevoked();
+      if (event.type === "security_alert") ev.bumpAlert();
+      else if (event.type === "session_revoked") ev.bumpRevoked(event.reason);
     });
     return unsub;
   }, [accessToken]);

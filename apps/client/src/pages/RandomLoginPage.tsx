@@ -1,8 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { trpc } from "../lib/trpc";
 import { useAuthStore } from "../lib/store";
-import { trpcClientProxy } from "../lib/trpcClientProxy";
 import {
   ScreenShell,
   Logo,
@@ -58,7 +57,6 @@ type Step =
   | "verify"
   | "deviceConflict"
   | "mustChangePassword"
-  | "passwordSuggestion"
   | "welcome"
   | "passkey"
   | "recovery";
@@ -71,12 +69,13 @@ interface PendingChallenge {
 }
 
 interface PendingDeviceConflict {
-  conflictId: string;
-  continuationNonce: string;
+  pendingLoginToken: string;
   expiresInSeconds: number;
   existingDevice: string | null;
   existingCity: string | null;
   existingCountry: string | null;
+  existingLastUsedAt: string | null;
+  activeSessionCount: number;
 }
 
 interface PendingMustChange {
@@ -105,19 +104,15 @@ export function RandomLoginPage() {
     "welcome" | "passkey" | null
   >(null);
   const [conflict, setConflict] = useState<PendingDeviceConflict | null>(null);
+  const [conflictBusy, setConflictBusy] = useState<"yes" | "no" | null>(null);
   const [mustChange, setMustChange] = useState<PendingMustChange | null>(null);
-  /**
-   * After an accepted-conflict landing we offer the user a chance
-   * to refresh their password. They can skip — when they do we
-   * remember it on this device so we don't nag again.
-   */
-  const [didReplaceDevice, setDidReplaceDevice] = useState(false);
 
   const beginLogin = trpc.auth.beginLoginV3.useMutation();
   const completeLogin = trpc.auth.completeLoginV2.useMutation();
-  const completeAfterApproval = trpc.auth.completeAfterApproval.useMutation();
+  const confirmReplaceSession =
+    trpc.auth.confirmReplaceSession.useMutation();
+  const rejectLoginAttempt = trpc.auth.rejectLoginAttempt.useMutation();
   const submitNewPassword = trpc.auth.submitNewPasswordAfterSecure.useMutation();
-  const changePassword = trpc.auth.changePassword.useMutation();
   const setX25519 = trpc.me.setX25519Identity.useMutation();
   const uploadPrekeys = trpc.prekeys.upload.useMutation();
   const passkeyOptions = trpc.passkey.getAuthenticationOptions.useMutation();
@@ -136,7 +131,7 @@ export function RandomLoginPage() {
    */
   async function landSession(
     r: CompleteLoginV2Result,
-    next: "welcome" | "passwordSuggestion",
+    next: "welcome",
   ): Promise<void> {
     setAuth({
       accessToken: r.accessToken,
@@ -219,13 +214,15 @@ export function RandomLoginPage() {
         setStep("verify");
       } else if (r.status === "deviceConflict") {
         setConflict({
-          conflictId: r.conflictId,
-          continuationNonce: r.continuationNonce,
+          pendingLoginToken: r.pendingLoginToken,
           expiresInSeconds: r.expiresInSeconds,
           existingDevice: r.existingDevice,
           existingCity: r.existingCity,
           existingCountry: r.existingCountry,
+          existingLastUsedAt: r.existingLastUsedAt,
+          activeSessionCount: r.activeSessionCount,
         });
+        setConflictBusy(null);
         setStep("deviceConflict");
       } else if (r.status === "mustChangePassword") {
         setMustChange({
@@ -294,78 +291,62 @@ export function RandomLoginPage() {
     }
   }
 
-  /* ─────────── deviceConflict polling ─────────── */
+  /* ─────────── deviceConflict (Yes / No) ─────────── */
 
-  // While we sit on the conflict screen, poll the server every ~2.5s
-  // to find out whether the existing device has accepted, rejected,
-  // or let the request expire. On accept we exchange the continuation
-  // nonce for a real session in the same effect.
-  const pollAttemptsRef = useRef(0);
-  useEffect(() => {
-    if (step !== "deviceConflict" || !conflict) {
-      pollAttemptsRef.current = 0;
-      return;
+  // "Yes — sign me in here." Calls the server, which kicks the old
+  // device out + issues a session for us. We head straight for the
+  // welcome screen — no extra password prompt.
+  async function onConfirmReplaceSession() {
+    if (!conflict || conflictBusy) return;
+    setError(null);
+    setConflictBusy("yes");
+    try {
+      const session = await confirmReplaceSession.mutateAsync({
+        pendingLoginToken: conflict.pendingLoginToken,
+      });
+      await landSession(
+        {
+          user: session.user,
+          accessToken: session.accessToken,
+          refreshToken: session.refreshToken,
+          refreshExpiresIn: session.refreshExpiresIn,
+          expiresIn: session.expiresIn,
+          lastLogin: session.lastLogin,
+        },
+        "welcome",
+      );
+      setConflict(null);
+    } catch (e) {
+      setError(humanizeErrorMessage(e));
+      setConflictBusy(null);
+      setStep("password");
     }
-    let cancelled = false;
-    const tick = async () => {
-      if (cancelled) return;
-      pollAttemptsRef.current += 1;
-      try {
-        const r = await trpcClientProxy().auth.pollLoginConflict.query({
-          conflictId: conflict.conflictId,
-          continuationNonce: conflict.continuationNonce,
-        });
-        if (cancelled) return;
-        if (r.status === "accepted") {
-          // Claim the session in-place.
-          try {
-            const session = await completeAfterApproval.mutateAsync({
-              continuationNonce: conflict.continuationNonce,
-            });
-            setDidReplaceDevice(session.replacedSessions > 0);
-            await landSession(
-              {
-                user: session.user,
-                accessToken: session.accessToken,
-                refreshToken: session.refreshToken,
-                refreshExpiresIn: session.refreshExpiresIn,
-                expiresIn: session.expiresIn,
-                lastLogin: session.lastLogin,
-              },
-              "passwordSuggestion",
-            );
-          } catch (e) {
-            setError(humanizeErrorMessage(e));
-            setStep("password");
-          }
-        } else if (r.status === "rejected") {
-          setError(
-            "Your other device denied this sign-in. If that wasn't you, change your password right away.",
-          );
-          setStep("password");
-        } else if (r.status === "expired") {
-          setError(
-            "The other device didn't respond in time. Please try again.",
-          );
-          setStep("password");
-        }
-      } catch {
-        /* swallow — keep polling */
-      }
-    };
-    // First poll immediately, then every 2.5s.
-    void tick();
-    const t = setInterval(tick, 2500);
-    return () => {
-      cancelled = true;
-      clearInterval(t);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, conflict?.conflictId, conflict?.continuationNonce]);
+  }
 
-  function cancelConflict() {
-    setConflict(null);
-    setStep("password");
+  // "No — that wasn't me." Calls the server (which alerts the other
+  // device), then drops us back at the password screen with a soft
+  // toast.
+  async function onRejectLoginAttempt() {
+    if (!conflict || conflictBusy) return;
+    setError(null);
+    setConflictBusy("no");
+    try {
+      await rejectLoginAttempt.mutateAsync({
+        pendingLoginToken: conflict.pendingLoginToken,
+      });
+      toast.success(
+        "Sign-in cancelled. We let your other device know.",
+        { duration: 5000 },
+      );
+    } catch (e) {
+      // Even if the alert fails to post, treat the user's "No" as
+      // authoritative on this device — just let them know.
+      toast.warning(humanizeErrorMessage(e), { duration: 5000 });
+    } finally {
+      setConflict(null);
+      setConflictBusy(null);
+      setStep("password");
+    }
   }
 
   /* ─────────── mustChangePassword step ─────────── */
@@ -399,29 +380,6 @@ export function RandomLoginPage() {
         },
         "welcome",
       );
-    } catch (e) {
-      setError(humanizeErrorMessage(e));
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  /* ─────────── passwordSuggestion (after conflict-accept) ─────────── */
-
-  async function onChangePasswordPostLogin() {
-    if (!newPasswordValid) return;
-    setError(null);
-    setLoading(true);
-    try {
-      await changePassword.mutateAsync({
-        currentPassword: password,
-        newPassword,
-      });
-      setPassword(newPassword);
-      setNewPassword("");
-      setConfirmPassword("");
-      toast.success("Password updated.");
-      setStep("welcome");
     } catch (e) {
       setError(humanizeErrorMessage(e));
     } finally {
@@ -674,24 +632,59 @@ export function RandomLoginPage() {
     const place = [conflict.existingCity, conflict.existingCountry]
       .filter(Boolean)
       .join(", ");
+    const otherCount = Math.max(1, conflict.activeSessionCount);
+    const otherLabel =
+      otherCount > 1
+        ? `${otherCount} other devices are signed in`
+        : `Another device is already signed in`;
     return (
-      <ScreenShell back="#" phase="Confirming on your other device">
+      <ScreenShell back="#" phase="Already signed in elsewhere">
         <div className="flex flex-col items-center gap-3 mb-2">
-          <Spinner />
-          <h2 className="text-2xl font-semibold text-center">
-            Waiting for your other device
-          </h2>
+          <Logo />
+          <h2 className="text-2xl font-semibold text-center">{otherLabel}</h2>
           <p className="text-sm text-text-muted text-center max-w-sm">
-            We sent a confirmation prompt to{" "}
+            <span className="text-text">@{cleanUsername}</span> is currently
+            signed in on{" "}
             <span className="text-text">
-              {conflict.existingDevice ?? "your other device"}
+              {conflict.existingDevice ?? "another device"}
             </span>
-            {place ? <> ({place})</> : null}. Approve it there to finish
-            signing in here. Only one device can be signed in at a time.
+            {place ? <> ({place})</> : null}
+            {conflict.existingLastUsedAt ? (
+              <>
+                {" "}
+                · last used{" "}
+                <span className="text-text-muted">
+                  {formatRelative(conflict.existingLastUsedAt)}
+                </span>
+              </>
+            ) : null}
+            . Veil only allows one device at a time.
+          </p>
+          <p className="text-sm text-text text-center max-w-sm">
+            Was that you?
           </p>
         </div>
+
         <ErrorMessage>{error}</ErrorMessage>
-        <SecondaryButton onClick={cancelConflict}>Cancel</SecondaryButton>
+
+        <PrimaryButton
+          onClick={onConfirmReplaceSession}
+          loading={conflictBusy === "yes"}
+          disabled={conflictBusy !== null}
+        >
+          Yes — sign me in here
+        </PrimaryButton>
+        <SecondaryButton
+          onClick={onRejectLoginAttempt}
+          disabled={conflictBusy !== null}
+        >
+          {conflictBusy === "no" ? "Cancelling…" : "No — that wasn't me"}
+        </SecondaryButton>
+
+        <p className="text-[11px] text-text-faint text-center max-w-sm">
+          Choosing "Yes" will instantly sign out the other device. Choosing
+          "No" will alert it so you can review the attempt.
+        </p>
       </ScreenShell>
     );
   }
@@ -764,72 +757,6 @@ export function RandomLoginPage() {
         >
           Set new password and sign in
         </PrimaryButton>
-      </ScreenShell>
-    );
-  }
-
-  if (step === "passwordSuggestion") {
-    return (
-      <ScreenShell back="#" phase="Quick suggestion">
-        <div className="flex flex-col items-center gap-3 mb-2">
-          <SuccessCheck />
-          <h2 className="text-2xl font-semibold text-center">
-            You&apos;re signed in
-          </h2>
-          <p className="text-sm text-text-muted text-center max-w-sm">
-            {didReplaceDevice
-              ? "Your previous device has been signed out. While we have you here, you can take a moment to refresh your password — totally optional."
-              : "While we have you here, you can take a moment to refresh your password — totally optional."}
-          </p>
-        </div>
-
-        <div>
-          <FieldLabel>New password (optional)</FieldLabel>
-          <TextInput
-            type={showPassword ? "text" : "password"}
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-            placeholder="At least 8 characters"
-            autoComplete="new-password"
-          />
-        </div>
-        <div>
-          <FieldLabel>Confirm new password</FieldLabel>
-          <TextInput
-            type={showPassword ? "text" : "password"}
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            placeholder="Type it again"
-            autoComplete="new-password"
-          />
-          {confirmPassword.length > 0 && newPassword !== confirmPassword && (
-            <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
-              Passwords don&apos;t match yet.
-            </p>
-          )}
-        </div>
-
-        <label className="flex items-center gap-2 text-sm text-text-muted">
-          <input
-            type="checkbox"
-            checked={showPassword}
-            onChange={(e) => setShowPassword(e.target.checked)}
-            className="accent-wa-green"
-          />
-          Show passwords
-        </label>
-
-        <ErrorMessage>{error}</ErrorMessage>
-        <PrimaryButton
-          onClick={onChangePasswordPostLogin}
-          loading={loading}
-          disabled={!newPasswordValid}
-        >
-          Update password
-        </PrimaryButton>
-        <SecondaryButton onClick={() => setStep("welcome")}>
-          Skip for now
-        </SecondaryButton>
       </ScreenShell>
     );
   }
@@ -973,12 +900,6 @@ function PasskeyButton({
       </svg>
       {busy ? "Waiting for passkey…" : "Sign in with a passkey"}
     </button>
-  );
-}
-
-function Spinner() {
-  return (
-    <div className="w-14 h-14 rounded-full border-4 border-wa-green/20 border-t-wa-green animate-spin" />
   );
 }
 

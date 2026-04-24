@@ -1,37 +1,33 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import type {
-  PendingLoginRequestEntry,
-  SecurityAlertEntry,
-} from "@veil/shared";
+import type { SecurityAlertEntry } from "@veil/shared";
 import { useAuthStore } from "../lib/store";
 import { useSessionEventsStore } from "../lib/sessionEventsStore";
 import { useUnlockStore } from "../lib/unlockStore";
 import { trpcClientProxy } from "../lib/trpcClientProxy";
 import { toast } from "../lib/toast";
-import { IncomingLoginRequestModal } from "./IncomingLoginRequestModal";
 import { SecurityAlertModal } from "./SecurityAlertModal";
 
 /**
- * App-wide coordinator for the single-active-session login flow.
+ * App-wide coordinator for the post-login security UI.
  *
- * Responsibilities:
+ * Under the "new device decides" model the *existing* device no
+ * longer has any decision to make about an incoming login — the new
+ * device either takes over (and we get a `session_revoked` push) or
+ * declines and posts a security alert. So this component now only
+ * needs to handle:
  *
- *   1. Show the "is this you?" prompt whenever a different device
- *      tries to sign in to this account. Source of truth is
- *      `auth.listPendingLoginRequests`, refreshed both on WS push
- *      and on a 20s timer (in case the WS missed it).
+ *   1. Security-alert prompts (`rejected_login_attempt`,
+ *      `account_secured`), refreshed both on WS push and a 20s
+ *      timer in case the WS missed it.
  *
- *   2. Show the security-alert prompt whenever there's an
- *      unacknowledged alert (rejected_login_attempt /
- *      account_secured), again WS-pushed + polled.
+ *   2. `session_revoked` pushes — verify our session row still
+ *      exists; if not, clear local auth and show a calm toast
+ *      explaining what happened (slightly different copy depending
+ *      on the reason, e.g. "signed in on another device" vs
+ *      "you secured this account").
  *
- *   3. React to `session_revoked` pushes by checking whether *our*
- *      session row still exists — if not, clear local auth and
- *      show a calm "signed out from another device" toast.
- *
- * Renders nothing when signed out — every effect early-returns
- * unless we have an access token.
+ * Renders nothing when signed out.
  */
 export function SessionGuard() {
   const navigate = useNavigate();
@@ -39,27 +35,13 @@ export function SessionGuard() {
   const clearAuth = useAuthStore((s) => s.clearAuth);
   const clearUnlock = useUnlockStore((s) => s.clear);
 
-  const pendingTick = useSessionEventsStore((s) => s.pendingTick);
   const alertTick = useSessionEventsStore((s) => s.alertTick);
   const revokedTick = useSessionEventsStore((s) => s.revokedTick);
 
-  const [pending, setPending] = useState<PendingLoginRequestEntry[]>([]);
   const [alerts, setAlerts] = useState<SecurityAlertEntry[]>([]);
-  // Track which conflict / alert IDs the user has already acted on
-  // locally, so a stale poll round doesn't briefly re-show a modal
-  // we just dismissed.
+  // Track which alert IDs the user already acted on locally so a
+  // stale poll round doesn't briefly re-show the same modal.
   const handledRef = useRef<Set<string>>(new Set());
-
-  const refreshPending = useCallback(async () => {
-    if (!useAuthStore.getState().accessToken) return;
-    try {
-      const list =
-        await trpcClientProxy().auth.listPendingLoginRequests.query();
-      setPending(list.filter((r) => !handledRef.current.has(r.id)));
-    } catch {
-      /* network blip — try again on next tick */
-    }
-  }, []);
 
   const refreshAlerts = useCallback(async () => {
     if (!useAuthStore.getState().accessToken) return;
@@ -67,50 +49,37 @@ export function SessionGuard() {
       const list = await trpcClientProxy().auth.listSecurityAlerts.query();
       setAlerts(list.filter((a) => !handledRef.current.has(a.id)));
     } catch {
-      /* network blip */
+      /* network blip — try again on next tick */
     }
   }, []);
 
-  // Initial fetch + polling fallback whenever signed-in.
+  // Initial fetch + 20s polling fallback whenever signed-in.
   useEffect(() => {
     if (!accessToken) {
-      setPending([]);
       setAlerts([]);
       handledRef.current = new Set();
       return;
     }
-    void refreshPending();
     void refreshAlerts();
     const t = setInterval(() => {
-      void refreshPending();
       void refreshAlerts();
     }, 20_000);
     return () => clearInterval(t);
-  }, [accessToken, refreshPending, refreshAlerts]);
+  }, [accessToken, refreshAlerts]);
 
-  // WS-driven refreshes.
-  // Only pendingTick is used here — resolvedTick intentionally excluded.
-  // When a conflict is resolved by user action, onResolved() already calls
-  // refreshPending(). Including resolvedTick here causes a race: the
-  // login_request_resolved WS event fires before the new conflict C2 is
-  // inserted (server awaits a GeoIP lookup between expiring C1 and
-  // inserting C2), so refreshPending() would return [] and dismiss the
-  // modal before C2 is ready.
-  useEffect(() => {
-    if (!accessToken) return;
-    void refreshPending();
-  }, [pendingTick, accessToken, refreshPending]);
-
+  // WS-driven refresh.
   useEffect(() => {
     if (!accessToken) return;
     void refreshAlerts();
   }, [alertTick, accessToken, refreshAlerts]);
 
   // session_revoked: verify our own session is still alive; if not,
-  // wipe local auth + bounce to the login page.
+  // wipe local auth + bounce to the login page. Tailor the toast to
+  // the reason we got from the WS payload.
   useEffect(() => {
     if (!accessToken) return;
     if (revokedTick === 0) return;
+    const reason = useSessionEventsStore.getState().lastRevokedReason;
     let cancelled = false;
     (async () => {
       try {
@@ -120,10 +89,13 @@ export function SessionGuard() {
         if (!status.active) {
           clearAuth();
           await clearUnlock().catch(() => undefined);
-          toast.warning(
-            "You were signed out from another device.",
-            { duration: 6000 },
-          );
+          const message =
+            reason === "replaced_by_new_device"
+              ? "Signed out — you (or someone) just signed in on another device."
+              : reason === "secured"
+                ? "Signed out — this account was secured. Please sign in again."
+                : "You were signed out from another device.";
+          toast.warning(message, { duration: 6000 });
           navigate("/login", { replace: true });
         }
       } catch {
@@ -135,8 +107,8 @@ export function SessionGuard() {
     };
   }, [revokedTick, accessToken, clearAuth, clearUnlock, navigate]);
 
-  // Also do a periodic liveness check (every 60s) so a missed WS
-  // push doesn't keep us pretending to be signed in indefinitely.
+  // Periodic liveness check (every 60s) so a missed WS push
+  // doesn't keep us pretending to be signed in indefinitely.
   useEffect(() => {
     if (!accessToken) return;
     const t = setInterval(async () => {
@@ -159,24 +131,6 @@ export function SessionGuard() {
   }, [accessToken, clearAuth, clearUnlock, navigate]);
 
   if (!accessToken) return null;
-
-  // Show one modal at a time — pending requests take priority over
-  // (potentially older) security alerts.
-  const top = pending[0];
-  if (top) {
-    return (
-      <IncomingLoginRequestModal
-        request={top}
-        onResolved={() => {
-          handledRef.current.add(top.id);
-          setPending((curr) => curr.filter((r) => r.id !== top.id));
-          // Trigger a re-fetch so any second pending request slides
-          // up after a beat.
-          void refreshPending();
-        }}
-      />
-    );
-  }
 
   const topAlert = alerts[0];
   if (topAlert) {
