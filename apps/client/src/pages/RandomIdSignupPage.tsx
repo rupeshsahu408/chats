@@ -31,6 +31,7 @@ type Step =
   | "password"
   | "verification"
   | "puzzle"
+  | "ceremony"
   | "recovery"
   | "name"
   | "bio"
@@ -263,7 +264,7 @@ export function RandomIdSignupPage() {
     const canContinue =
       !!username && !localUsernameProblem && usernameAvailable !== false;
     return (
-      <ScreenShell back="/" phase="Step 1 of 8 · Username">
+      <ScreenShell back="/" phase="Step 1 of 9 · Username">
         <div className="flex flex-col items-center gap-3 mb-2">
           <Logo />
           <h2 className="text-2xl font-semibold text-text">Pick a username</h2>
@@ -325,7 +326,7 @@ export function RandomIdSignupPage() {
     const canContinue =
       password.length >= 8 && confirmPassword === password && !mismatch;
     return (
-      <ScreenShell back="#" phase="Step 2 of 8 · Password">
+      <ScreenShell back="#" phase="Step 2 of 9 · Password">
         <div className="flex flex-col items-center gap-3 mb-2">
           <Logo />
           <h2 className="text-2xl font-semibold text-text">Set a password</h2>
@@ -404,7 +405,7 @@ export function RandomIdSignupPage() {
       confirmVerificationPassword === verificationPassword &&
       !mismatch;
     return (
-      <ScreenShell back="#" phase="Step 3 of 8 · Daily verification">
+      <ScreenShell back="#" phase="Step 3 of 9 · Daily verification">
         <div className="flex flex-col items-center gap-3 mb-2">
           <Logo />
           <h2 className="text-2xl font-semibold text-text">
@@ -482,7 +483,7 @@ export function RandomIdSignupPage() {
 
   if (step === "puzzle") {
     return (
-      <ScreenShell back="#" phase="Step 4 of 8 · Verify">
+      <ScreenShell back="#" phase="Step 4 of 9 · Human check">
         <div className="flex flex-col items-center gap-3 mb-2">
           <Logo />
           <h2 className="text-2xl font-semibold text-text">
@@ -496,14 +497,11 @@ export function RandomIdSignupPage() {
         <SlidePuzzle
           onSolved={(token) => {
             setBotToken(token);
-            // Generate the recovery phrase right when the user clears
-            // the bot check, so it's ready for the next step.
-            if (!phrase) setPhrase(generateRecoveryPhrase());
           }}
         />
 
         <PrimaryButton
-          onClick={() => setStep("recovery")}
+          onClick={() => setStep("ceremony")}
           disabled={!botToken}
         >
           Continue
@@ -515,10 +513,27 @@ export function RandomIdSignupPage() {
     );
   }
 
+  if (step === "ceremony") {
+    return (
+      <ScreenShell phase="Step 5 of 9 · Forging your identity">
+        <KeyCeremony
+          onReady={() => {
+            // Generate the recovery phrase deterministically once the
+            // ceremony lands. We do it at the very end so the user has
+            // a sense of "the keys just appeared" instead of seeing
+            // them blank-then-filled.
+            if (!phrase) setPhrase(generateRecoveryPhrase());
+          }}
+          onContinue={() => setStep("recovery")}
+        />
+      </ScreenShell>
+    );
+  }
+
   if (step === "recovery") {
     const words = phrase ? phrase.split(" ") : [];
     return (
-      <ScreenShell back="#" phase="Step 5 of 8 · Recovery key">
+      <ScreenShell back="#" phase="Step 6 of 9 · Recovery key">
         <div className="flex flex-col items-center gap-3 mb-2">
           <Logo />
           <h2 className="text-2xl font-semibold text-text">
@@ -573,7 +588,7 @@ export function RandomIdSignupPage() {
 
   if (step === "name") {
     return (
-      <ScreenShell phase="Step 6 of 8 · Your name">
+      <ScreenShell phase="Step 7 of 9 · Your name">
         <div className="flex flex-col items-center gap-3 mb-2">
           <Logo />
           <h2 className="text-2xl font-semibold text-text">
@@ -603,7 +618,7 @@ export function RandomIdSignupPage() {
 
   if (step === "bio") {
     return (
-      <ScreenShell phase="Step 7 of 8 · Bio">
+      <ScreenShell phase="Step 8 of 9 · Bio">
         <div className="flex flex-col items-center gap-3 mb-2">
           <Logo />
           <h2 className="text-2xl font-semibold text-text">
@@ -636,7 +651,7 @@ export function RandomIdSignupPage() {
 
   if (step === "photo") {
     return (
-      <ScreenShell phase="Step 8 of 8 · Photo">
+      <ScreenShell phase="Step 9 of 9 · Photo">
         <PhotoStep
           username={username}
           avatarDataUrl={avatarDataUrl}
@@ -658,27 +673,220 @@ export function RandomIdSignupPage() {
     );
   }
 
-  // Welcome
+  // Welcome — final celebration screen, paced reveals so it feels
+  // like an arrival rather than another form.
   return (
     <ScreenShell phase="Welcome">
-      <div className="flex flex-col items-center gap-4 text-center">
-        <Logo size={80} />
-        <div className="inline-flex items-center gap-2 rounded-full bg-wa-green/15 text-wa-green-dark dark:text-wa-green px-3 py-1 text-xs font-semibold uppercase tracking-widest">
-          ✦ Welcome to Veil
-        </div>
-        <h2 className="text-2xl font-semibold text-text">
-          Hello, {displayName.trim() || `@${username}`}
-        </h2>
-        <p className="text-sm text-text-muted">
-          Your account is end-to-end encrypted. No ads, no tracking, no email
-          required. Share <span className="font-mono">@{username}</span> with
-          friends to start chatting.
-        </p>
-        <PrimaryButton onClick={() => navigate(postAuthLandingPath())}>
-          Open Veil
-        </PrimaryButton>
-      </div>
+      <WelcomeCeremony
+        displayName={displayName.trim() || `@${username}`}
+        username={username}
+        onContinue={() => navigate(postAuthLandingPath())}
+      />
     </ScreenShell>
+  );
+}
+
+/* ─────────── Ceremony components ─────────── */
+
+/**
+ * Mid-signup ceremony: the moment the cryptographic identity is
+ * "forged". Three named stages reveal sequentially with checkmarks,
+ * over a calm pulsing emblem. No real key derivation happens here —
+ * the actual signing keys come from the recovery phrase generated at
+ * the end of this animation, and from the server when the account is
+ * created. The animation's job is to give the user a felt sense of a
+ * real, deliberate cryptographic event happening on their device.
+ */
+function KeyCeremony({
+  onReady,
+  onContinue,
+}: {
+  onReady: () => void;
+  onContinue: () => void;
+}) {
+  const stages = [
+    {
+      title: "Generating your identity key",
+      sub: "A unique signing key only you control",
+    },
+    {
+      title: "Forging your recovery phrase",
+      sub: "12 words that can rebuild your account anywhere",
+    },
+    {
+      title: "Sealing your prekey bundle",
+      sub: "So friends can write to you while you're offline",
+    },
+    {
+      title: "Identity ready",
+      sub: "Your keys exist only on this device",
+    },
+  ];
+  const [stageIndex, setStageIndex] = useState(0);
+  const [done, setDone] = useState(false);
+
+  useEffect(() => {
+    if (stageIndex >= stages.length - 1) {
+      // Last stage shown — call the ready hook (generates the
+      // recovery phrase) and unlock the Continue button after a
+      // small breathing pause.
+      onReady();
+      const t = setTimeout(() => setDone(true), 700);
+      return () => clearTimeout(t);
+    }
+    const t = setTimeout(() => setStageIndex(stageIndex + 1), 950);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stageIndex]);
+
+  return (
+    <div className="flex flex-col items-center gap-6 py-2">
+      <div className="relative w-32 h-32 flex items-center justify-center">
+        {/* Pulsing concentric rings */}
+        <div
+          className="absolute inset-0 rounded-full border border-wa-green/30 animate-ping"
+          style={{ animationDuration: "2.4s" }}
+        />
+        <div
+          className="absolute inset-2 rounded-full border border-wa-green/40 animate-ping"
+          style={{ animationDuration: "2.8s", animationDelay: "0.3s" }}
+        />
+        <div className="absolute inset-5 rounded-full bg-wa-green/12" />
+        <div className="absolute inset-7 rounded-full bg-wa-green/20 backdrop-blur-sm flex items-center justify-center">
+          {done ? (
+            <svg viewBox="0 0 24 24" className="size-9 text-wa-green-dark dark:text-wa-green animate-fade-in" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M5 12.5l4.5 4.5L19 7" />
+            </svg>
+          ) : (
+            <svg viewBox="0 0 24 24" className="size-9 text-wa-green-dark dark:text-wa-green" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 2l2.5 5 5.5.8-4 3.9.9 5.5L12 14.8 7.1 17.2l.9-5.5-4-3.9L9.5 7z" />
+            </svg>
+          )}
+        </div>
+      </div>
+
+      <div className="text-center">
+        <h2 className="text-2xl font-semibold text-text">
+          Forging your identity
+        </h2>
+        <p className="text-sm text-text-muted mt-1 max-w-xs mx-auto">
+          We're putting together the cryptographic pieces that make you,
+          you. This happens entirely on your device.
+        </p>
+      </div>
+
+      <ul className="w-full max-w-sm flex flex-col gap-2">
+        {stages.map((s, i) => {
+          const reached = i <= stageIndex;
+          const completed = i < stageIndex || (i === stages.length - 1 && done);
+          return (
+            <li
+              key={s.title}
+              className={
+                "rounded-2xl border px-4 py-3 flex items-start gap-3 transition-all duration-500 ease-out " +
+                (reached
+                  ? "bg-surface border-line opacity-100 translate-y-0"
+                  : "bg-surface/40 border-line/40 opacity-40 translate-y-1")
+              }
+            >
+              <div className="shrink-0 mt-0.5 size-6 rounded-full flex items-center justify-center bg-wa-green/15">
+                {completed ? (
+                  <svg viewBox="0 0 24 24" className="size-3.5 text-wa-green-dark dark:text-wa-green" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M5 12.5l4.5 4.5L19 7" />
+                  </svg>
+                ) : reached ? (
+                  <span className="size-1.5 rounded-full bg-wa-green animate-pulse" />
+                ) : (
+                  <span className="size-1.5 rounded-full bg-text-faint/50" />
+                )}
+              </div>
+              <div className="min-w-0">
+                <div className="text-[13.5px] font-semibold text-text">
+                  {s.title}
+                </div>
+                <div className="text-[12px] text-text-muted mt-0.5">
+                  {s.sub}
+                </div>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+
+      <PrimaryButton onClick={onContinue} disabled={!done}>
+        {done ? "Reveal my recovery key" : "Forging…"}
+      </PrimaryButton>
+    </div>
+  );
+}
+
+/**
+ * Final welcome screen — paced reveals so the moment actually lands.
+ */
+function WelcomeCeremony({
+  displayName,
+  username,
+  onContinue,
+}: {
+  displayName: string;
+  username: string;
+  onContinue: () => void;
+}) {
+  const [phase, setPhase] = useState(0);
+  useEffect(() => {
+    const timers = [
+      setTimeout(() => setPhase(1), 400),
+      setTimeout(() => setPhase(2), 900),
+      setTimeout(() => setPhase(3), 1500),
+    ];
+    return () => timers.forEach(clearTimeout);
+  }, []);
+
+  return (
+    <div className="flex flex-col items-center gap-5 text-center">
+      <div className="relative">
+        <div className="absolute inset-0 rounded-full bg-wa-green/20 blur-2xl scale-150" />
+        <div className="relative">
+          <Logo size={88} />
+        </div>
+      </div>
+      <div
+        className={
+          "transition-all duration-500 " +
+          (phase >= 1 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2")
+        }
+      >
+        <div className="inline-flex items-center gap-2 rounded-full bg-wa-green/15 text-wa-green-dark dark:text-wa-green px-3 py-1 text-[11px] font-semibold uppercase tracking-widest">
+          ✦ Identity ready
+        </div>
+      </div>
+      <h2
+        className={
+          "text-2xl font-semibold text-text transition-all duration-500 " +
+          (phase >= 1 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2")
+        }
+      >
+        Hello, {displayName}
+      </h2>
+      <p
+        className={
+          "text-sm text-text-muted max-w-xs transition-all duration-500 " +
+          (phase >= 2 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2")
+        }
+      >
+        Your account is end-to-end encrypted. No ads, no tracking, no email
+        required. Share <span className="font-mono">@{username}</span> with
+        friends to start chatting.
+      </p>
+      <div
+        className={
+          "w-full transition-all duration-500 " +
+          (phase >= 3 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2")
+        }
+      >
+        <PrimaryButton onClick={onContinue}>Open Veil</PrimaryButton>
+      </div>
+    </div>
   );
 }
 

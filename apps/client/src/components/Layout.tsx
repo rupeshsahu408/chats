@@ -797,20 +797,34 @@ export function IconButton({
  *
  * Premium polish: refined type hierarchy with a measured display
  * size, softer surrounding muted text, and a more breathable layout.
+ *
+ * When `tips` are provided, renders a compact "tour" beneath the CTA
+ * — a row of small cards explaining what the user can do here. Empty
+ * screens become teaching moments instead of dead ends.
  */
+export interface EmptyStateTip {
+  icon?: ReactNode;
+  title: string;
+  body: string;
+}
+
 export function EmptyState({
   icon,
   title,
   message,
   action,
+  tips,
+  tipsTitle,
 }: {
   icon?: ReactNode;
   title: string;
   message?: ReactNode;
   action?: ReactNode;
+  tips?: EmptyStateTip[];
+  tipsTitle?: string;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center text-center gap-3 py-20 px-6 text-text-muted animate-fade-in">
+    <div className="flex flex-col items-center justify-center text-center gap-3 py-16 px-6 text-text-muted animate-fade-in">
       {icon && (
         <div className="text-text-faint mb-1 [&>svg]:size-12">{icon}</div>
       )}
@@ -823,6 +837,38 @@ export function EmptyState({
         </div>
       )}
       {action && <div className="mt-3 w-full max-w-xs">{action}</div>}
+      {tips && tips.length > 0 && (
+        <div className="mt-8 w-full max-w-md">
+          {tipsTitle && (
+            <div className="text-[10.5px] uppercase tracking-[0.18em] font-semibold text-text-faint mb-3">
+              {tipsTitle}
+            </div>
+          )}
+          <ul className="flex flex-col gap-2 text-left">
+            {tips.map((tip, i) => (
+              <li
+                key={i}
+                className="rounded-2xl bg-surface border border-line px-4 py-3 flex items-start gap-3 animate-fade-in"
+                style={{ animationDelay: `${i * 70}ms`, animationFillMode: "both" }}
+              >
+                {tip.icon && (
+                  <div className="shrink-0 mt-0.5 size-9 rounded-xl bg-wa-green/12 text-wa-green-dark dark:text-wa-green flex items-center justify-center [&>svg]:size-[18px]">
+                    {tip.icon}
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <div className="text-[13.5px] font-semibold text-text">
+                    {tip.title}
+                  </div>
+                  <div className="text-[12.5px] leading-relaxed text-text-muted mt-0.5">
+                    {tip.body}
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

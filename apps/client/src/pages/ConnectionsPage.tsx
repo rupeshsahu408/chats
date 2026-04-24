@@ -14,6 +14,7 @@ import {
   FAB,
   PlusIcon,
   PeopleIcon,
+  LockIcon,
 } from "../components/Layout";
 import { MainShell } from "../components/MainShell";
 import { bytesToBase64 } from "../lib/crypto";
@@ -146,12 +147,30 @@ export function ConnectionsPage() {
               <EmptyState
                 icon={<PeopleIcon className="w-12 h-12" />}
                 title="No connections yet"
-                message="Invite someone to start chatting privately."
+                message="On Veil, you choose every person who can write to you. Send an invite to add your first."
                 action={
                   <PrimaryButton onClick={() => navigate("/invite")}>
                     Create an invite
                   </PrimaryButton>
                 }
+                tipsTitle="How connecting works"
+                tips={[
+                  {
+                    icon: <PlusIcon />,
+                    title: "Send a pass",
+                    body: "Pick how many times it can be used and when it expires. Share it as a link, QR, or text.",
+                  },
+                  {
+                    icon: <PeopleIcon />,
+                    title: "Approve incoming requests",
+                    body: "When someone redeems an invite, you'll see them in the Incoming tab and can accept or reject.",
+                  },
+                  {
+                    icon: <LockIcon />,
+                    title: "Verify the safety number",
+                    body: "Open any chat → ⋯ → Verify identity. Compare the picture and digits with your friend.",
+                  },
+                ]}
               />
             )}
             {list.data?.map((c) => (

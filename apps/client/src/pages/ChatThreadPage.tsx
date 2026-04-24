@@ -92,6 +92,7 @@ import { moodCountdownLabel } from "../lib/moodSync";
 import { VeilKeyboard } from "../components/VeilKeyboard";
 import { useKeyboardPrefs, isCoarsePointerDevice } from "../lib/keyboardPrefs";
 import { safetyNumberFromB64 } from "../lib/safetyNumber";
+import { SafetyArt, formatSafetyRows } from "../lib/safetyArt";
 import {
   biometricSupported,
   registerBiometricCredential,
@@ -3121,6 +3122,8 @@ function SafetyNumberDialog({
 }) {
   const [number, setNumber] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [verified, setVerified] = useState(false);
   const myKey = trpc.prekeys.identityKeyFor.useQuery({ userId: myId }, {
     enabled: !!myId,
     retry: false,
@@ -3140,20 +3143,93 @@ function SafetyNumberDialog({
       );
   }, [myKey.data, peerKey.data]);
 
+  async function copy() {
+    if (!number) return;
+    try {
+      await navigator.clipboard.writeText(number);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  const rows = number ? formatSafetyRows(number) : [];
+
   return (
-    <Sheet onClose={onClose} title="Verify safety number">
-      <div className="px-4 pb-4">
-        <div className="text-xs text-text-muted mb-3">
-          Compare these 60 digits with {peerLabel} in person or over a trusted
-          channel. If they match, your conversation has not been intercepted.
-        </div>
+    <Sheet onClose={onClose} title="Safety number">
+      <div className="px-5 pb-5 pt-1">
+        <p className="text-xs text-text-muted text-center mb-4 max-w-xs mx-auto">
+          Two devices that show the same picture and digits below are
+          talking directly. If you and {peerLabel} match, no one is
+          listening in.
+        </p>
+
         {err ? (
           <ErrorMessage>{err}</ErrorMessage>
         ) : !number ? (
-          <div className="text-sm text-text-muted">Computing…</div>
+          <div className="flex flex-col items-center gap-3 py-10">
+            <Spinner />
+            <div className="text-xs text-text-muted">
+              Deriving fingerprint…
+            </div>
+          </div>
         ) : (
-          <div className="font-mono text-sm leading-7 tracking-wider bg-surface rounded-md p-3 break-words">
-            {number}
+          <div className="flex flex-col items-center gap-4 animate-fade-in">
+            <div
+              className={
+                "relative rounded-2xl border border-line bg-surface p-3 shadow-sm transition-all duration-300 " +
+                (verified ? "ring-2 ring-wa-green ring-offset-2 ring-offset-panel" : "")
+              }
+            >
+              <SafetyArt safetyNumber={number} size={208} />
+              {verified && (
+                <div className="absolute -top-2 -right-2 size-9 rounded-full bg-wa-green text-text-oncolor flex items-center justify-center shadow-md animate-fade-in">
+                  <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M5 12.5l4.5 4.5L19 7" />
+                  </svg>
+                </div>
+              )}
+            </div>
+
+            <div className="w-full max-w-xs flex flex-col gap-1.5">
+              {rows.map((groups, i) => (
+                <div
+                  key={i}
+                  className="font-mono text-[15px] tracking-[0.18em] text-text text-center tabular-nums"
+                  style={{ letterSpacing: "0.18em" }}
+                >
+                  {groups.join(" ")}
+                </div>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 w-full max-w-xs">
+              <button
+                type="button"
+                onClick={copy}
+                className="rounded-xl border border-line bg-surface text-text text-sm font-medium px-3 py-2 hover:bg-elevated transition wa-tap"
+              >
+                {copied ? "Copied" : "Copy digits"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setVerified((v) => !v)}
+                className={
+                  "rounded-xl text-sm font-medium px-3 py-2 transition wa-tap " +
+                  (verified
+                    ? "bg-wa-green/15 text-wa-green-dark dark:text-wa-green border border-wa-green/40"
+                    : "bg-wa-green text-text-oncolor border border-wa-green hover:opacity-90")
+                }
+              >
+                {verified ? "✓ Marked verified" : "Mark as verified"}
+              </button>
+            </div>
+
+            <p className="text-[11px] text-text-faint text-center max-w-xs leading-relaxed">
+              Marking is just a personal note on this device — Veil never
+              uploads it. Compare in person or over a video call you trust.
+            </p>
           </div>
         )}
       </div>

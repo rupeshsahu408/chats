@@ -296,12 +296,30 @@ export function ChatsPage() {
             <EmptyState
               icon={<ChatIcon className="w-12 h-12" />}
               title="No chats yet"
-              message="Invite someone to start your first end-to-end encrypted conversation."
+              message="Veil connects you one person at a time. Send an invite to start your first conversation."
               action={
                 <PrimaryButton onClick={() => navigate("/invite")}>
                   Create an invite
                 </PrimaryButton>
               }
+              tipsTitle="What you can do here"
+              tips={[
+                {
+                  icon: <PlusIcon />,
+                  title: "Invite someone",
+                  body: "Share a one-time pass over any channel. Once accepted, the link burns itself.",
+                },
+                {
+                  icon: <ChatIcon />,
+                  title: "Long-press a chat",
+                  body: "Pin, archive, mute, or hide it inside your Vault — all without leaving the inbox.",
+                },
+                {
+                  icon: <ChatIcon />,
+                  title: "End-to-end encrypted by default",
+                  body: "Your messages are sealed on your device and only opened on your friend's. Veil's server is just a relay.",
+                },
+              ]}
             />
           ) : (
             rows.map(({ conn, last }) => (

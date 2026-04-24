@@ -99,12 +99,30 @@ export function GroupsPage() {
             <EmptyState
               icon={<ChatIcon className="w-12 h-12" />}
               title="No groups yet"
-              message="Create a group to chat with multiple people end-to-end encrypted."
+              message="Bring your circle together. Groups stay end-to-end encrypted, with you in control of who joins."
               action={
                 <PrimaryButton onClick={() => setCreating(true)}>
                   New group
                 </PrimaryButton>
               }
+              tipsTitle="What groups can do"
+              tips={[
+                {
+                  icon: <PlusIcon />,
+                  title: "Up to 256 people",
+                  body: "Add friends from your connections. New members are encrypted-in only after you approve.",
+                },
+                {
+                  icon: <ChatIcon />,
+                  title: "Polls, mentions, and pinned messages",
+                  body: "Run quick decisions, get someone's attention with @, or keep an important message at the top.",
+                },
+                {
+                  icon: <ChatIcon />,
+                  title: "Same encryption as one-to-one",
+                  body: "Each member's device holds their own keys. Veil's server can't read group messages either.",
+                },
+              ]}
             />
           ) : (
             rows.map(({ g, last }) => (
