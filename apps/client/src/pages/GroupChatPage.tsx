@@ -210,13 +210,13 @@ function PollBubble({
   return (
     <div
       className={
-        "max-w-[82%] rounded-xl border shadow-sm overflow-hidden text-sm " +
+        "max-w-[78%] rounded-2xl shadow-bubble overflow-hidden text-sm " +
         (isMine
-          ? "self-end bg-wa-bubble-out border-wa-bubble-out/30"
-          : "self-start bg-wa-bubble-in border-line/30")
+          ? "self-end bg-wa-bubble-out rounded-tr-sm"
+          : "self-start bg-wa-bubble-in rounded-tl-sm")
       }
     >
-      <div className="px-3 pt-3 pb-2 border-b border-white/10">
+      <div className="px-3 pt-2.5 pb-2 border-b border-line/40">
         <div className="flex items-center gap-1.5 text-[10px] text-text-muted uppercase tracking-wide font-medium mb-1">
           <span>📊</span>
           <span>Poll</span>
@@ -224,7 +224,7 @@ function PollBubble({
         <div className="font-semibold text-text leading-snug">{poll.question}</div>
       </div>
 
-      <div className="divide-y divide-white/5">
+      <div className="divide-y divide-line/30">
         {poll.choices.map((choice, idx) => {
           const count = counts[idx] ?? 0;
           const pct = totalVotes > 0 ? Math.round((count / totalVotes) * 100) : 0;
@@ -234,7 +234,7 @@ function PollBubble({
               key={idx}
               type="button"
               onClick={() => onVote(poll.pollId, voted ? -1 : idx)}
-              className="w-full text-left px-3 py-2 hover:bg-white/5 relative overflow-hidden"
+              className="w-full text-left px-3 py-2 hover:bg-text/5 relative overflow-hidden"
             >
               {totalVotes > 0 && (
                 <div

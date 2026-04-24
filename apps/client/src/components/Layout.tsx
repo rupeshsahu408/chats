@@ -416,10 +416,10 @@ export function MessageBubble({
   return (
     <div
       className={
-        "max-w-[78%] px-2.5 py-1.5 rounded-lg shadow-bubble text-[15px] leading-snug " +
+        "max-w-[78%] px-3 py-1.5 rounded-2xl shadow-bubble text-[14.5px] leading-snug " +
         (isOut
-          ? "self-end bg-wa-bubble-out text-text rounded-tr-[4px] veil-bubble-out"
-          : "self-start bg-wa-bubble-in text-text rounded-tl-[4px] veil-bubble-in")
+          ? "self-end bg-wa-bubble-out text-text rounded-tr-sm veil-bubble-out"
+          : "self-start bg-wa-bubble-in text-text rounded-tl-sm veil-bubble-in")
       }
     >
       <div className="whitespace-pre-wrap break-words">{children}</div>
@@ -469,7 +469,7 @@ export function MessageInputBar({
   placeholder?: string;
 }) {
   return (
-    <div className="sticky bottom-0 bg-bg/95 backdrop-blur px-2 py-2 border-t border-line flex items-end gap-2">
+    <div className="sticky bottom-0 bg-bg/95 backdrop-blur px-2 py-2 border-t border-line/60 flex items-end gap-2">
       <div className="flex-1 bg-surface rounded-3xl px-4 py-2 flex items-end">
         <textarea
           value={value}

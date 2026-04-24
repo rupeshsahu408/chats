@@ -926,7 +926,7 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
       <div
         ref={scrollRef}
         style={wallpaperStyle}
-        className="flex-1 min-h-0 overflow-y-auto px-3 py-4 flex flex-col gap-1"
+        className="flex-1 min-h-0 overflow-y-auto px-3 py-3 flex flex-col gap-1.5"
       >
         {!filteredMessages || filteredMessages.length === 0 ? (
           <EmptyState
@@ -969,7 +969,7 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
           })()
         )}
         {peerTyping && (
-          <div className="self-start text-xs text-text-muted bg-wa-bubble-in px-3 py-2 rounded-2xl shadow-bubble animate-bubble-in-in">
+          <div className="self-start text-xs text-text-muted bg-wa-bubble-in rounded-2xl rounded-tl-sm px-3 py-1.5 shadow-bubble animate-bubble-in-in">
             {peerActivity.kind === "voice" ? (
               <span className="inline-flex items-center gap-1.5">
                 <span className="inline-flex gap-0.5 items-end">
@@ -3048,9 +3048,9 @@ function Composer({
 
   return (
     <>
-    <div className="sticky bottom-0 bg-bg/95 backdrop-blur border-t border-line">
+    <div className="sticky bottom-0 bg-bg/95 backdrop-blur border-t border-line/60">
       {replyTo && (
-        <div className="px-3 py-2 border-b border-line bg-surface/40 flex items-start gap-2">
+        <div className="px-3 py-2 border-b border-line/60 bg-surface/40 flex items-start gap-2">
           <div
             className={
               "flex-1 min-w-0 px-2 py-1 rounded border-l-4 bg-black/20 " +

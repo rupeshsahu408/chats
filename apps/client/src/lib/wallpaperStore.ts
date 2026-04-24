@@ -7,8 +7,8 @@ import { create } from "zustand";
  * it (consistent with the Veil "private by design" stance — wallpapers
  * are aesthetic, not part of identity, and shouldn't be synced).
  *
- * - "default" — the theme's built-in dotted pattern over `--wa-bg`.
- * - "solid"   — a flat solid colour.
+ * - "default" — plain `--wa-bg` (no pattern) — calm, WhatsApp-Web-style.
+ * - "solid"   — a flat solid colour the user picked.
  * - "dots"    — a dotted pattern over `--wa-bg`, dot colour user-picked.
  * - "image"   — a user-uploaded image stored as a data URL.
  */
@@ -200,11 +200,11 @@ export function getWallpaperStyle(pref: WallpaperPref): CSSProperties {
 }
 
 function defaultStyle(): CSSProperties {
+  // The default is intentionally plain (no pattern) for a calm,
+  // WhatsApp-Web-style chat surface. Users who want a textured
+  // background can switch to "Dotted" from the wallpaper picker.
   return {
     backgroundColor: "rgb(var(--wa-bg))",
-    backgroundImage:
-      "radial-gradient(rgb(var(--wa-wallpaper-dot) / 0.35) 1px, transparent 1px)",
-    backgroundSize: "18px 18px",
   };
 }
 

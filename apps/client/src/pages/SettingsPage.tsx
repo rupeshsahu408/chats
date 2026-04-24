@@ -1219,7 +1219,7 @@ function WallpaperRow() {
   const previewStyle = useMemo(() => getWallpaperStyle(pref), [pref]);
 
   const kindOptions: { value: WallpaperKind; label: string; hint: string }[] = [
-    { value: "default", label: "Default", hint: "Theme dot pattern" },
+    { value: "default", label: "Plain", hint: "No pattern" },
     { value: "solid", label: "Solid", hint: "Flat color" },
     { value: "dots", label: "Dotted", hint: "Pick the dot color" },
     { value: "image", label: "Image", hint: "Upload your own" },

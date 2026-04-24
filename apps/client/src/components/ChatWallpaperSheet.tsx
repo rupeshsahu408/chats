@@ -43,7 +43,7 @@ export function ChatWallpaperSheet({
   );
 
   const kindOptions: { value: WallpaperKind; label: string; hint: string }[] = [
-    { value: "default", label: "Default", hint: "Theme dots" },
+    { value: "default", label: "Plain", hint: "No pattern" },
     { value: "solid", label: "Solid", hint: "Flat color" },
     { value: "dots", label: "Dotted", hint: "Pick a color" },
     { value: "image", label: "Image", hint: "Upload" },
