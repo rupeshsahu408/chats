@@ -312,6 +312,19 @@ export interface UserPrefRecord {
    * `lib/sound.ts` when omitted.
    */
   soundVolume?: number;
+  /**
+   * Which send tone the user has chosen from the SEND_TONES catalog
+   * in `lib/tones.ts`. When unset, falls back to `DEFAULT_SEND_TONE_ID`
+   * ("aurora"). Persisted so the user's pick survives reloads.
+   */
+  sendToneId?: string;
+  /**
+   * Which receive tone the user has chosen from the RECEIVE_TONES
+   * catalog. Falls back to `DEFAULT_RECEIVE_TONE_ID` ("drift") when
+   * unset. Per-contact `notificationSound` packs (chatPersonality)
+   * still override this on a per-conversation basis.
+   */
+  receiveToneId?: string;
   /* ─────────── Focus Mode (Principle #4 — calm by default) ─────────── */
   /**
    * Master "Focus Mode" toggle. When on we drop notification sounds,

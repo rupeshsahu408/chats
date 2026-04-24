@@ -7,8 +7,17 @@ import {
   playSuccessTone,
   playTapTone,
   playErrorTone,
+  previewReceiveTone,
+  previewSendTone,
   setSoundVolume,
 } from "../lib/sound";
+import {
+  DEFAULT_RECEIVE_TONE_ID,
+  DEFAULT_SEND_TONE_ID,
+  RECEIVE_TONES,
+  SEND_TONES,
+  type ToneRecipe,
+} from "../lib/tones";
 import { feedback } from "../lib/feedback";
 
 /**
@@ -21,11 +30,13 @@ import { feedback } from "../lib/feedback";
  *
  *   • master sound on/off + volume
  *   • haptics on/off
+ *   • pick a favourite send tone (10 unique calm motifs)
+ *   • pick a favourite receive tone (10 unique calm motifs)
  *   • test buttons that play each motif on demand
  *
  * Everything writes through the global stealth-prefs store, which
- * mirrors the change into the sound module synchronously so the test
- * buttons immediately reflect the new state.
+ * mirrors the change into the sound module synchronously so previews
+ * immediately reflect the new state.
  */
 export function SoundPage() {
   const navigate = useNavigate();
@@ -35,6 +46,8 @@ export function SoundPage() {
   const soundOn = prefs?.soundEnabled ?? true;
   const hapticsOn = prefs?.hapticsEnabled ?? true;
   const volume = prefs?.soundVolume ?? 0.6;
+  const sendToneId = prefs?.sendToneId ?? DEFAULT_SEND_TONE_ID;
+  const receiveToneId = prefs?.receiveToneId ?? DEFAULT_RECEIVE_TONE_ID;
 
   return (
     <div className="min-h-screen bg-bg flex flex-col">
@@ -108,8 +121,51 @@ export function SoundPage() {
           </div>
         </div>
 
-        {/* ─── Test motifs ─── */}
-        <SectionHeader>Listen to the motifs</SectionHeader>
+        {/* ─── Send tone picker ─── */}
+        <SectionHeader>
+          <span className="inline-flex items-center gap-1.5">
+            <ArrowOut /> Send tone
+          </span>
+        </SectionHeader>
+        <SectionIntro>
+          The motif you hear when a message leaves your device. Tap any
+          tone to preview it — the highlighted one becomes your default.
+        </SectionIntro>
+        <TonePicker
+          tones={SEND_TONES}
+          selected={sendToneId}
+          disabled={!soundOn}
+          onSelect={(id) => {
+            previewSendTone(id);
+            void setPrefs({ sendToneId: id });
+          }}
+          onPreview={(id) => previewSendTone(id)}
+        />
+
+        {/* ─── Receive tone picker ─── */}
+        <SectionHeader>
+          <span className="inline-flex items-center gap-1.5">
+            <ArrowIn /> Receive tone
+          </span>
+        </SectionHeader>
+        <SectionIntro>
+          The motif you hear when a message arrives. Per-contact sound
+          packs (set from a chat's Personality menu) still take
+          priority over this default.
+        </SectionIntro>
+        <TonePicker
+          tones={RECEIVE_TONES}
+          selected={receiveToneId}
+          disabled={!soundOn}
+          onSelect={(id) => {
+            previewReceiveTone(id);
+            void setPrefs({ receiveToneId: id });
+          }}
+          onPreview={(id) => previewReceiveTone(id)}
+        />
+
+        {/* ─── Other Veil motifs (read-only previews) ─── */}
+        <SectionHeader>Other Veil motifs</SectionHeader>
         <div className="px-4 grid grid-cols-1 gap-2">
           <MotifRow
             name="Tap"
@@ -118,14 +174,14 @@ export function SoundPage() {
             disabled={!soundOn}
           />
           <MotifRow
-            name="Send"
-            description="A confident rising arpeggio when your message leaves the device."
+            name="Send (current)"
+            description="Plays your selected send tone."
             onPlay={() => playSendTone()}
             disabled={!soundOn}
           />
           <MotifRow
-            name="Receive"
-            description="A descending three-note motif — gentle, never demanding."
+            name="Receive (current)"
+            description="Plays your selected receive tone."
             onPlay={() => playReceiveTone()}
             disabled={!soundOn}
           />
@@ -153,7 +209,8 @@ export function SoundPage() {
             <p className="text-[12.5px] text-text-muted leading-relaxed mt-1">
               Long-press a chat → Personality to pick a sound pack —
               warm chime, minimal tick, doorbell, silent, and more.
-              Veil falls back to the default motif when nothing is set.
+              Veil falls back to your chosen receive tone when nothing
+              is set on the chat itself.
             </p>
           </div>
         </div>
@@ -171,6 +228,14 @@ export function SoundPage() {
 function SectionHeader({ children }: { children: React.ReactNode }) {
   return (
     <div className="px-4 pt-6 pb-2 text-[11px] uppercase tracking-widest text-text-muted">
+      {children}
+    </div>
+  );
+}
+
+function SectionIntro({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="px-4 -mt-1 mb-2 text-[12.5px] text-text-muted leading-relaxed">
       {children}
     </div>
   );
@@ -228,6 +293,94 @@ function ToggleCard({
   );
 }
 
+/**
+ * Vertical list of selectable tones. Tapping a row both previews
+ * the tone *and* makes it the user's default; the dedicated play
+ * button on the right lets the user audition without changing
+ * their pick.
+ */
+function TonePicker({
+  tones,
+  selected,
+  disabled,
+  onSelect,
+  onPreview,
+}: {
+  tones: ToneRecipe[];
+  selected: string;
+  disabled?: boolean;
+  onSelect: (id: string) => void;
+  onPreview: (id: string) => void;
+}) {
+  return (
+    <div className="px-3 grid grid-cols-1 gap-1.5">
+      {tones.map((t) => {
+        const isSelected = t.value === selected;
+        return (
+          <div
+            key={t.value}
+            className={
+              "flex items-stretch gap-2 rounded-2xl border " +
+              "transition-colors duration-150 " +
+              (isSelected
+                ? "bg-wa-green/[0.08] border-wa-green/45"
+                : "bg-surface border-line/60 hover:border-line")
+            }
+          >
+            <button
+              type="button"
+              onClick={() => {
+                if (disabled) return;
+                onSelect(t.value);
+              }}
+              disabled={disabled}
+              aria-pressed={isSelected}
+              className={
+                "flex-1 min-w-0 text-left px-4 py-3 wa-tap " +
+                "flex items-center gap-3 rounded-l-2xl " +
+                (disabled ? "opacity-60 cursor-not-allowed" : "")
+              }
+            >
+              <RadioDot selected={isSelected} />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-[14px] font-semibold text-text">
+                    {t.label}
+                  </span>
+                  {isSelected && <Pill tone="ok">selected</Pill>}
+                </div>
+                <div className="text-[12px] text-text-muted leading-snug mt-0.5 truncate">
+                  {t.description}
+                </div>
+              </div>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (disabled) return;
+                onPreview(t.value);
+              }}
+              disabled={disabled}
+              aria-label={`Preview ${t.label}`}
+              className={
+                "shrink-0 inline-flex items-center justify-center " +
+                "w-12 my-2 mr-2 rounded-xl wa-tap " +
+                "transition-colors duration-150 " +
+                (disabled
+                  ? "bg-text/5 text-text-faint cursor-not-allowed"
+                  : "bg-wa-green/12 text-wa-green-dark dark:text-wa-green " +
+                    "border border-wa-green/25 hover:bg-wa-green/20")
+              }
+            >
+              <PlayTriangle />
+            </button>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function MotifRow({
   name,
   description,
@@ -278,6 +431,25 @@ function MotifRow({
   );
 }
 
+function RadioDot({ selected }: { selected: boolean }) {
+  return (
+    <span
+      aria-hidden
+      className={
+        "relative shrink-0 inline-flex items-center justify-center " +
+        "size-5 rounded-full border-2 transition-colors duration-150 " +
+        (selected
+          ? "border-wa-green bg-wa-green/15"
+          : "border-line/80 bg-transparent")
+      }
+    >
+      {selected && (
+        <span className="size-2 rounded-full bg-wa-green" />
+      )}
+    </span>
+  );
+}
+
 function Speaker() {
   return (
     <svg viewBox="0 0 24 24" width={12} height={12} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -298,6 +470,22 @@ function PlayTriangle() {
   return (
     <svg viewBox="0 0 24 24" width={11} height={11} fill="currentColor">
       <path d="M7 5l12 7-12 7V5z" />
+    </svg>
+  );
+}
+function ArrowOut() {
+  return (
+    <svg viewBox="0 0 24 24" width={11} height={11} fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M5 12h13" />
+      <path d="M13 6l6 6-6 6" />
+    </svg>
+  );
+}
+function ArrowIn() {
+  return (
+    <svg viewBox="0 0 24 24" width={11} height={11} fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M19 12H6" />
+      <path d="M11 6l-6 6 6 6" />
     </svg>
   );
 }

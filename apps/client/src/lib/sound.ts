@@ -1,20 +1,37 @@
 /**
  * Veil sound identity.
  *
- * Distinctive 3-note motifs for send / receive, plus a tiny tap blip and
- * a soft error tone. Everything is synthesised at runtime with the Web
- * Audio API so we ship zero audio assets and stay snappy on slow links.
+ * Distinctive synthesised motifs for send / receive, plus a tiny tap
+ * blip and short success / error tones. Everything is generated at
+ * runtime with the Web Audio API so we ship zero audio assets and
+ * stay snappy on slow links.
+ *
+ * The catalogs of selectable send / receive tones live in
+ * `lib/tones.ts` so the UI can render labels + previews without
+ * pulling in the audio engine. This module owns the AudioContext,
+ * volume, and the actual scheduling.
  *
  * Volumes are intentionally low — these are micro-cues, not effects.
  */
 
 import { getSoundPack } from "./chatPersonality";
+import {
+  DEFAULT_RECEIVE_TONE_ID,
+  DEFAULT_SEND_TONE_ID,
+  getReceiveTone,
+  getSendTone,
+  type ToneRecipe,
+} from "./tones";
 
 let ctx: AudioContext | null = null;
 let masterGain: GainNode | null = null;
 let unlocked = false;
 let soundEnabled = true;
 let outputVolume = 0.6;
+
+/** Cached user picks — kept in sync by `stealthPrefs.syncFeedbackModules`. */
+let sendToneId: string = DEFAULT_SEND_TONE_ID;
+let receiveToneId: string = DEFAULT_RECEIVE_TONE_ID;
 
 type ToneOpts = {
   /** Hz */
@@ -87,6 +104,16 @@ export function setSoundVolume(v: number): void {
   if (masterGain) masterGain.gain.value = outputVolume;
 }
 
+/** Update which send tone the synthesizer should play. */
+export function setSendToneId(id: string | null | undefined): void {
+  sendToneId = id || DEFAULT_SEND_TONE_ID;
+}
+
+/** Update which receive tone the synthesizer should play. */
+export function setReceiveToneId(id: string | null | undefined): void {
+  receiveToneId = id || DEFAULT_RECEIVE_TONE_ID;
+}
+
 /** Schedule a single envelope-shaped tone. */
 function tone(opts: ToneOpts): void {
   const c = getCtx();
@@ -117,6 +144,20 @@ function tone(opts: ToneOpts): void {
   osc.stop(now + dur + 0.02);
 }
 
+/** Play every note in a `ToneRecipe` from `tones.ts`. */
+function playRecipe(recipe: ToneRecipe): void {
+  for (const n of recipe.notes) {
+    tone({
+      freq: n.freq,
+      duration: n.duration,
+      gain: n.gain ?? 0.13,
+      type: n.type ?? "sine",
+      startAt: n.startAt ?? 0,
+      glideTo: n.glideTo,
+    });
+  }
+}
+
 function shouldPlay(): boolean {
   if (!soundEnabled) return false;
   const c = getCtx();
@@ -129,57 +170,81 @@ function shouldPlay(): boolean {
 }
 
 /**
- * Outgoing message: rising 3-note motif (E5 → G5 → C6) — confident,
- * "it left your hand" feel. Total ~180ms.
+ * Outgoing message: plays the tone the user picked from the
+ * SEND_TONES catalog (defaults to "Aurora" — the original Veil
+ * rising arpeggio). Total ≈80–280ms depending on pick.
  */
 export function playSendTone(): void {
   if (!shouldPlay()) return;
-  tone({ freq: 659.25, duration: 0.07, gain: 0.16, startAt: 0.0 });   // E5
-  tone({ freq: 783.99, duration: 0.07, gain: 0.16, startAt: 0.06 });  // G5
-  tone({ freq: 1046.5, duration: 0.12, gain: 0.18, startAt: 0.12 });  // C6
+  playRecipe(getSendTone(sendToneId));
 }
 
 /**
- * Incoming message: descending 3-note motif (G5 → E5 → C5) — gentle,
- * "someone reached you" feel. A touch quieter than send.
- *
- * Optional `packKey` selects a per-contact sound pack from
- * `chatPersonality.SOUND_PACKS` so each peer can have their own
- * arrival cue (Mom = warm chime, office = minimal tick, etc.).
- * Unknown / unset keys fall back to the default Veil motif.
+ * Incoming message:
+ *   • If `packKey` is provided AND it matches a per-contact pack
+ *     (chatPersonality.SOUND_PACKS), play that contact's pack
+ *     so each peer can have their own arrival cue.
+ *   • Otherwise, play the user's chosen receive tone from the
+ *     RECEIVE_TONES catalog (defaults to "Drift").
+ *   • Silent packs and silent tones short-circuit cleanly so
+ *     haptics-only setups still feel right.
  */
 export function playReceiveTone(packKey?: string): void {
   if (!shouldPlay()) return;
-  const pack = getSoundPack(packKey);
-  if (pack.value === "silent" || pack.duration <= 0) return;
-  // The third note gets a slightly longer tail to "land" softly,
-  // matching the ADSR feel of the original Veil motif.
-  const longTail = pack.duration * 2;
-  tone({
-    freq: pack.notes[0],
-    duration: pack.duration,
-    gain: pack.gain,
-    startAt: 0.0,
-    type: pack.oscillator,
-  });
-  if (pack.notes[1] > 0) {
-    tone({
-      freq: pack.notes[1],
-      duration: pack.duration,
-      gain: pack.gain,
-      startAt: pack.duration * 0.85,
-      type: pack.oscillator,
-    });
+  // Per-contact override path (legacy SOUND_PACKS).
+  if (packKey && packKey !== "default") {
+    const pack = getSoundPack(packKey);
+    // Only treat it as an override if it's actually a known pack.
+    if (pack.value === packKey) {
+      if (pack.value === "silent" || pack.duration <= 0) return;
+      const longTail = pack.duration * 2;
+      tone({
+        freq: pack.notes[0],
+        duration: pack.duration,
+        gain: pack.gain,
+        startAt: 0.0,
+        type: pack.oscillator,
+      });
+      if (pack.notes[1] > 0) {
+        tone({
+          freq: pack.notes[1],
+          duration: pack.duration,
+          gain: pack.gain,
+          startAt: pack.duration * 0.85,
+          type: pack.oscillator,
+        });
+      }
+      if (pack.notes[2] > 0) {
+        tone({
+          freq: pack.notes[2],
+          duration: longTail,
+          gain: pack.gain * 1.1,
+          startAt: pack.duration * 1.7,
+          type: pack.oscillator,
+        });
+      }
+      return;
+    }
   }
-  if (pack.notes[2] > 0) {
-    tone({
-      freq: pack.notes[2],
-      duration: longTail,
-      gain: pack.gain * 1.1,
-      startAt: pack.duration * 1.7,
-      type: pack.oscillator,
-    });
-  }
+  // Default path — user's chosen receive tone.
+  playRecipe(getReceiveTone(receiveToneId));
+}
+
+/**
+ * Preview a specific send tone by id without changing the user's pick.
+ * Used by the picker rows in the Sound settings page.
+ */
+export function previewSendTone(id: string): void {
+  if (!shouldPlay()) return;
+  playRecipe(getSendTone(id));
+}
+
+/**
+ * Preview a specific receive tone by id without changing the user's pick.
+ */
+export function previewReceiveTone(id: string): void {
+  if (!shouldPlay()) return;
+  playRecipe(getReceiveTone(id));
 }
 
 /** Tiny one-shot blip for taps. Very quiet. */

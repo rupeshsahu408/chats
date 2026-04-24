@@ -1,6 +1,11 @@
 import { create } from "zustand";
 import { getUserPrefs, setUserPrefs, type UserPrefRecord } from "./db";
-import { setSoundEnabled, setSoundVolume } from "./sound";
+import {
+  setReceiveToneId,
+  setSendToneId,
+  setSoundEnabled,
+  setSoundVolume,
+} from "./sound";
 import { setHapticsEnabled } from "./haptics";
 
 /** Sync the global sound/haptics modules with the latest prefs. */
@@ -10,6 +15,8 @@ function syncFeedbackModules(prefs: UserPrefRecord | null): void {
   if (typeof prefs?.soundVolume === "number") {
     setSoundVolume(prefs.soundVolume);
   }
+  setSendToneId(prefs?.sendToneId);
+  setReceiveToneId(prefs?.receiveToneId);
 }
 
 /**
