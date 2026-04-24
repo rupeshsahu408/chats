@@ -13,6 +13,7 @@ import {
   rotateMySenderKeyIfNeeded,
 } from "./groupSync";
 import { usePresenceStore } from "./presenceStore";
+import { useTypingStore } from "./typingStore";
 import { useScheduledMessageSender } from "./scheduledSender";
 
 /**
@@ -64,6 +65,13 @@ export function SessionSync() {
         );
       } else if (event.type === "presence") {
         usePresenceStore.getState().setOnline(event.userId, event.online);
+      } else if (event.type === "typing") {
+        // Mirror the peer's typing/recording/photo activity into the
+        // global typing store so the chat-list row can show "typing…"
+        // without the user having to open the conversation first.
+        useTypingStore
+          .getState()
+          .setTyping(event.from, event.typing, event.kind);
       }
     });
     return unsub;

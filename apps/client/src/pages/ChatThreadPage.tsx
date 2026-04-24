@@ -206,6 +206,7 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
     | "starred"
     | "scheduledList"
     | "wallpaper"
+    | "snooze"
   >(null);
   /** Header search bar (in-chat search) visibility + query. */
   const [searchOpen, setSearchOpen] = useState(false);
@@ -1306,13 +1307,13 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
           isMuted={isMuted}
           onToggleMute={() => {
             if (isMuted) {
+              // Already muted → unmute is a one-tap action, no sheet.
               void setChatPref(peerId, { mutedUntil: "" });
             } else {
-              // Mute for 8 hours by default — matches WhatsApp's middle option.
-              const until = new Date(
-                Date.now() + 8 * 60 * 60 * 1000,
-              ).toISOString();
-              void setChatPref(peerId, { mutedUntil: until });
+              // Surface the surgical-snooze options: 1h / 8h / until
+              // tomorrow morning / 1 week / always. Closing the main
+              // menu first prevents the two sheets from stacking.
+              setMenuOpen("snooze");
             }
           }}
           onSearch={() => setSearchOpen(true)}
@@ -1340,6 +1341,16 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
           scope={{ type: "dm", peerId }}
           chatLabel={displayName}
           onClose={() => setMenuOpen(null)}
+        />
+      )}
+      {menuOpen === "snooze" && (
+        <SnoozeSheet
+          peerLabel={displayName}
+          onClose={() => setMenuOpen(null)}
+          onPick={(untilIso) => {
+            void setChatPref(peerId, { mutedUntil: untilIso });
+            setMenuOpen(null);
+          }}
         />
       )}
       {menuOpen === "ttl" && (
@@ -1514,19 +1525,35 @@ function MessageRowSlot({
   selected: boolean;
   onToggleSelect: () => void;
 }) {
-  // Long-press / right-click on the bubble area opens the action bar.
+  // The row owns three gestures: tap (select-mode toggle), long-press
+  // (action sheet), and swipe-to-reply. Swipe wins over long-press the
+  // moment the finger moves more than a few pixels horizontally — that
+  // way scrolling and replying never accidentally trigger the menu.
   const pressTimer = useRef<number | null>(null);
   const movedRef = useRef(false);
+  const startXRef = useRef<number | null>(null);
+  const startYRef = useRef<number | null>(null);
+  const horizontalRef = useRef(false);
+  const [dx, setDx] = useState(0);
   const trigger = () => {
     if (m.deleted) return;
     if (selectMode) onToggleSelect();
     else onAction(m);
   };
+  const cancelPress = () => {
+    if (pressTimer.current) {
+      clearTimeout(pressTimer.current);
+      pressTimer.current = null;
+    }
+  };
+  // Reply swipes inward toward the bubble: peer messages swipe right,
+  // mine swipe left. Outgoing reply gesture mirrors WhatsApp.
+  const mine = m.direction === "out";
   return (
     <div
       data-server-id={m.serverId ?? ""}
       className={
-        "group flex flex-col transition-shadow rounded-md " +
+        "group flex flex-col transition-shadow rounded-md relative " +
         (selectMode ? "cursor-pointer " : "") +
         (selected ? "bg-wa-green/15 -mx-3 px-3" : "")
       }
@@ -1537,26 +1564,66 @@ function MessageRowSlot({
         e.preventDefault();
         trigger();
       }}
-      onTouchStart={() => {
+      onTouchStart={(e) => {
         movedRef.current = false;
+        horizontalRef.current = false;
+        startXRef.current = e.touches[0]?.clientX ?? null;
+        startYRef.current = e.touches[0]?.clientY ?? null;
         pressTimer.current = window.setTimeout(() => {
           if (!movedRef.current) trigger();
         }, 450);
       }}
-      onTouchMove={() => {
+      onTouchMove={(e) => {
         movedRef.current = true;
-        if (pressTimer.current) {
-          clearTimeout(pressTimer.current);
-          pressTimer.current = null;
+        if (m.deleted || selectMode) {
+          cancelPress();
+          return;
+        }
+        if (startXRef.current === null) return;
+        const x = e.touches[0]?.clientX ?? startXRef.current;
+        const y = e.touches[0]?.clientY ?? startYRef.current ?? x;
+        const deltaX = x - startXRef.current;
+        const deltaY = y - (startYRef.current ?? y);
+        // Decide gesture direction once: any movement above the
+        // 6px threshold cancels long-press; if the move is mostly
+        // horizontal we engage swipe-to-reply.
+        if (Math.abs(deltaX) > 6 || Math.abs(deltaY) > 6) cancelPress();
+        if (
+          !horizontalRef.current &&
+          Math.abs(deltaX) > 8 &&
+          Math.abs(deltaX) > Math.abs(deltaY) * 1.4
+        ) {
+          horizontalRef.current = true;
+        }
+        if (horizontalRef.current) {
+          const allowed = mine ? Math.min(0, deltaX) : Math.max(0, deltaX);
+          setDx(Math.max(-90, Math.min(90, allowed)));
         }
       }}
       onTouchEnd={() => {
-        if (pressTimer.current) {
-          clearTimeout(pressTimer.current);
-          pressTimer.current = null;
+        cancelPress();
+        if (horizontalRef.current && Math.abs(dx) > 50 && !selectMode) {
+          onQuickReply(m);
         }
+        setDx(0);
+        startXRef.current = null;
+        startYRef.current = null;
+        horizontalRef.current = false;
       }}
+      style={{ transform: dx ? `translateX(${dx}px)` : undefined }}
     >
+      {Math.abs(dx) > 12 && (
+        <span
+          className={
+            "absolute top-1/2 -translate-y-1/2 text-wa-green text-lg " +
+            (mine ? "right-[-30px]" : "left-[-30px]")
+          }
+          aria-hidden="true"
+          style={{ opacity: Math.min(1, Math.abs(dx) / 50) }}
+        >
+          ↩
+        </span>
+      )}
       <MessageRow
         m={m}
         myUserId={myUserId}
@@ -2651,6 +2718,74 @@ function TTLPicker({
           label={o.label}
           checked={o.seconds === current}
           onClick={() => onPick(o.seconds)}
+        />
+      ))}
+    </Sheet>
+  );
+}
+
+/**
+ * Snooze / mute-until sheet — offers WhatsApp-style fixed durations
+ * (1 hour, 8 hours, until tomorrow morning, 1 week) plus an "Always"
+ * option for permanent muting. Each pick yields an ISO timestamp the
+ * caller writes into chatPrefs.mutedUntil; "Always" maps to a
+ * far-future date so the existing isMuted check (now < mutedUntil)
+ * keeps working without schema changes.
+ */
+function SnoozeSheet({
+  peerLabel,
+  onClose,
+  onPick,
+}: {
+  peerLabel: string;
+  onClose: () => void;
+  onPick: (untilIso: string) => void;
+}) {
+  // "Tomorrow at 8 AM" reuses the device's current locale clock so the
+  // user always wakes up to a freshly un-muted chat regardless of TZ.
+  const tomorrowMorning = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    d.setHours(8, 0, 0, 0);
+    return d;
+  })();
+  const tomorrowClock = tomorrowMorning.toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+  const options: { label: string; until: Date }[] = [
+    {
+      label: "1 hour",
+      until: new Date(Date.now() + 60 * 60 * 1000),
+    },
+    {
+      label: "8 hours",
+      until: new Date(Date.now() + 8 * 60 * 60 * 1000),
+    },
+    {
+      label: `Until tomorrow (${tomorrowClock})`,
+      until: tomorrowMorning,
+    },
+    {
+      label: "1 week",
+      until: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    },
+    {
+      label: "Always",
+      // Year 9999 — effectively forever, but still a valid ISO date.
+      until: new Date("9999-12-31T23:59:59.000Z"),
+    },
+  ];
+  return (
+    <Sheet onClose={onClose} title={`Mute ${peerLabel}`}>
+      <div className="text-xs text-text-muted px-4 pb-2">
+        You won't be notified about new messages from this chat.
+      </div>
+      {options.map((o) => (
+        <MenuItem
+          key={o.label}
+          label={o.label}
+          onClick={() => onPick(o.until.toISOString())}
         />
       ))}
     </Sheet>

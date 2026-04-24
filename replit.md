@@ -300,6 +300,11 @@ The always-on poll exposed a pre-existing race: the WS push and a poll drain (or
 - UI: 📊 poll button in the group composer opens `PollComposer` modal (question + up to 8 options). Received polls render as `PollBubble` with live vote aggregation, progress bars, and tap-to-vote/retract (choiceIdx -1 retracts).
 - Poll-vote messages are invisible in the message list — they update `PollBubble` state only.
 
+### Chat list / 1-on-1 chat polish (Apr 2026)
+- **Live typing indicator on chat list rows.** New `apps/client/src/lib/typingStore.ts` (zustand) holds per-peer `{kind, expiresAt}` with a 6s safety TTL and a 1.5s prune interval. `SessionSync` now subscribes to WS `typing` events and writes into this store; `ChatsPage` row subtitles override the last-message preview with `typingLabel(kind)` ("typing…", "🎤 recording…", "📷 sharing a photo…") in accent color when active.
+- **Swipe-to-reply in 1-on-1 chats.** `MessageRowSlot` in `ChatThreadPage` now owns three gestures (tap / long-press / horizontal swipe) with shared touch refs. Horizontal moves >8px engage swipe (mine swipe left, peer swipes right), cancel the long-press timer, and translate the row up to ±90px. Releasing past 50px fires `onQuickReply`. A faded `↩` icon appears on the appropriate side mid-swipe.
+- **Per-contact snooze sheet.** New `SnoozeSheet` component (next to `TTLPicker`) offers 1 hour / 8 hours / Until tomorrow (8 AM, locale-formatted) / 1 week / Always (year 9999 ISO). `menuOpen` union extended with `"snooze"`; ChatMenu's mute item now opens the sheet on first tap and unmutes in one tap when already muted, replacing the old hard-coded 8h toggle.
+
 ## Next phase
 
 **Native iOS (Phase 8) and Android Play Store (Phase 9) are deferred.** The product launches as an installable PWA: Android users install via Chrome's prompt, iOS users use Add-to-Home-Screen (web push works on iOS 16.4+ once installed). Phase 7 wrap-up — manual e2e group test (3 accounts) + push verification — remains the only outstanding item before launch readiness.

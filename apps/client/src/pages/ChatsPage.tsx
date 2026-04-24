@@ -25,6 +25,7 @@ import { db } from "../lib/db";
 import { peerLabel } from "../lib/peerLabel";
 import { pollAndDecrypt } from "../lib/messageSync";
 import { usePeersPresence } from "../lib/usePeersPresence";
+import { useTypingStore, typingLabel } from "../lib/typingStore";
 
 export function ChatsPage() {
   const navigate = useNavigate();
@@ -150,6 +151,9 @@ export function ChatsPage() {
     [connections.data],
   );
   const { isOnline } = usePeersPresence(peerIds);
+  // Live "typing…" / "recording…" / "sharing photo…" indicators on
+  // each row, fed by the global WS subscriber in SessionSync.
+  const typingByPeer = useTypingStore((s) => s.byPeer);
 
   return (
     <MainShell
@@ -232,8 +236,24 @@ export function ChatsPage() {
                     {peerLabel(conn.peer)}
                   </span>
                 }
-                subtitle={
-                  last ? (
+                subtitle={(() => {
+                  // Live activity wins over the stored last-message
+                  // preview: if the peer is typing right now we show
+                  // that instead, in the accent color, so the row
+                  // always reflects the most up-to-date intent.
+                  const typingEntry = typingByPeer[conn.peer.id];
+                  if (
+                    typingEntry &&
+                    typingEntry.expiresAt > Date.now()
+                  ) {
+                    return (
+                      <span className="inline-flex items-center gap-1 text-wa-green animate-pulse">
+                        {typingLabel(typingEntry.kind)}
+                      </span>
+                    );
+                  }
+                  if (!last) return undefined;
+                  return (
                     <span className="inline-flex items-center gap-1">
                       {last.direction === "out" && (
                         last.status === "sent" ? (
@@ -250,8 +270,8 @@ export function ChatsPage() {
                       )}
                       <span className="truncate">{last.preview}</span>
                     </span>
-                  ) : undefined
-                }
+                  );
+                })()}
                 meta={
                   <span className="inline-flex items-center gap-1">
                     {pinnedPeers.has(conn.peer.id) && (
