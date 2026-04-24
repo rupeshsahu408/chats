@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { trpc } from "../lib/trpc";
 import { useAuthStore } from "../lib/store";
+import { trpcClientProxy } from "../lib/trpcClientProxy";
 import {
   ScreenShell,
   Logo,
@@ -35,6 +36,7 @@ import type {
   LoginContextInfo,
   RiskLevel,
 } from "@veil/shared";
+import { toast } from "../lib/toast";
 
 /**
  * Premium login flow.
@@ -54,6 +56,9 @@ type Step =
   | "username"
   | "password"
   | "verify"
+  | "deviceConflict"
+  | "mustChangePassword"
+  | "passwordSuggestion"
   | "welcome"
   | "passkey"
   | "recovery";
@@ -62,6 +67,20 @@ interface PendingChallenge {
   nonce: string;
   reasons: string[];
   risk: RiskLevel;
+  expiresInSeconds: number;
+}
+
+interface PendingDeviceConflict {
+  conflictId: string;
+  continuationNonce: string;
+  expiresInSeconds: number;
+  existingDevice: string | null;
+  existingCity: string | null;
+  existingCountry: string | null;
+}
+
+interface PendingMustChange {
+  mustChangeToken: string;
   expiresInSeconds: number;
 }
 
@@ -85,9 +104,20 @@ export function RandomLoginPage() {
   const [needsRecoveryAfter, setNeedsRecoveryAfter] = useState<
     "welcome" | "passkey" | null
   >(null);
+  const [conflict, setConflict] = useState<PendingDeviceConflict | null>(null);
+  const [mustChange, setMustChange] = useState<PendingMustChange | null>(null);
+  /**
+   * After an accepted-conflict landing we offer the user a chance
+   * to refresh their password. They can skip — when they do we
+   * remember it on this device so we don't nag again.
+   */
+  const [didReplaceDevice, setDidReplaceDevice] = useState(false);
 
-  const beginLogin = trpc.auth.beginLoginV2.useMutation();
+  const beginLogin = trpc.auth.beginLoginV3.useMutation();
   const completeLogin = trpc.auth.completeLoginV2.useMutation();
+  const completeAfterApproval = trpc.auth.completeAfterApproval.useMutation();
+  const submitNewPassword = trpc.auth.submitNewPasswordAfterSecure.useMutation();
+  const changePassword = trpc.auth.changePassword.useMutation();
   const setX25519 = trpc.me.setX25519Identity.useMutation();
   const uploadPrekeys = trpc.prekeys.upload.useMutation();
   const passkeyOptions = trpc.passkey.getAuthenticationOptions.useMutation();
@@ -106,7 +136,7 @@ export function RandomLoginPage() {
    */
   async function landSession(
     r: CompleteLoginV2Result,
-    next: "welcome",
+    next: "welcome" | "passwordSuggestion",
   ): Promise<void> {
     setAuth({
       accessToken: r.accessToken,
@@ -177,7 +207,7 @@ export function RandomLoginPage() {
           },
           "welcome",
         );
-      } else {
+      } else if (r.status === "challenge") {
         setChallenge({
           nonce: r.challengeNonce,
           reasons: r.reasons,
@@ -187,6 +217,22 @@ export function RandomLoginPage() {
         setPuzzleToken(null);
         setHoldDone(false);
         setStep("verify");
+      } else if (r.status === "deviceConflict") {
+        setConflict({
+          conflictId: r.conflictId,
+          continuationNonce: r.continuationNonce,
+          expiresInSeconds: r.expiresInSeconds,
+          existingDevice: r.existingDevice,
+          existingCity: r.existingCity,
+          existingCountry: r.existingCountry,
+        });
+        setStep("deviceConflict");
+      } else if (r.status === "mustChangePassword") {
+        setMustChange({
+          mustChangeToken: r.mustChangeToken,
+          expiresInSeconds: r.expiresInSeconds,
+        });
+        setStep("mustChangePassword");
       }
     } catch (e) {
       setError(humanizeErrorMessage(e));
@@ -243,6 +289,141 @@ export function RandomLoginPage() {
       // fresh puzzle round.
       setPuzzleToken(null);
       setHoldDone(false);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  /* ─────────── deviceConflict polling ─────────── */
+
+  // While we sit on the conflict screen, poll the server every ~2.5s
+  // to find out whether the existing device has accepted, rejected,
+  // or let the request expire. On accept we exchange the continuation
+  // nonce for a real session in the same effect.
+  const pollAttemptsRef = useRef(0);
+  useEffect(() => {
+    if (step !== "deviceConflict" || !conflict) {
+      pollAttemptsRef.current = 0;
+      return;
+    }
+    let cancelled = false;
+    const tick = async () => {
+      if (cancelled) return;
+      pollAttemptsRef.current += 1;
+      try {
+        const r = await trpcClientProxy().auth.pollLoginConflict.query({
+          conflictId: conflict.conflictId,
+          continuationNonce: conflict.continuationNonce,
+        });
+        if (cancelled) return;
+        if (r.status === "accepted") {
+          // Claim the session in-place.
+          try {
+            const session = await completeAfterApproval.mutateAsync({
+              continuationNonce: conflict.continuationNonce,
+            });
+            setDidReplaceDevice(session.replacedSessions > 0);
+            await landSession(
+              {
+                user: session.user,
+                accessToken: session.accessToken,
+                refreshToken: session.refreshToken,
+                refreshExpiresIn: session.refreshExpiresIn,
+                expiresIn: session.expiresIn,
+                lastLogin: session.lastLogin,
+              },
+              "passwordSuggestion",
+            );
+          } catch (e) {
+            setError(humanizeErrorMessage(e));
+            setStep("password");
+          }
+        } else if (r.status === "rejected") {
+          setError(
+            "Your other device denied this sign-in. If that wasn't you, change your password right away.",
+          );
+          setStep("password");
+        } else if (r.status === "expired") {
+          setError(
+            "The other device didn't respond in time. Please try again.",
+          );
+          setStep("password");
+        }
+      } catch {
+        /* swallow — keep polling */
+      }
+    };
+    // First poll immediately, then every 2.5s.
+    void tick();
+    const t = setInterval(tick, 2500);
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, conflict?.conflictId, conflict?.continuationNonce]);
+
+  function cancelConflict() {
+    setConflict(null);
+    setStep("password");
+  }
+
+  /* ─────────── mustChangePassword step ─────────── */
+
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const newPasswordValid =
+    newPassword.length >= 8 && newPassword === confirmPassword;
+
+  async function onSubmitNewPasswordAfterSecure() {
+    if (!mustChange || !newPasswordValid) return;
+    setError(null);
+    setLoading(true);
+    try {
+      const r = await submitNewPassword.mutateAsync({
+        mustChangeToken: mustChange.mustChangeToken,
+        newPassword,
+      });
+      setPassword(newPassword);
+      setNewPassword("");
+      setConfirmPassword("");
+      setMustChange(null);
+      await landSession(
+        {
+          user: r.user,
+          accessToken: r.accessToken,
+          refreshToken: r.refreshToken,
+          refreshExpiresIn: r.refreshExpiresIn,
+          expiresIn: r.expiresIn,
+          lastLogin: r.lastLogin,
+        },
+        "welcome",
+      );
+    } catch (e) {
+      setError(humanizeErrorMessage(e));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  /* ─────────── passwordSuggestion (after conflict-accept) ─────────── */
+
+  async function onChangePasswordPostLogin() {
+    if (!newPasswordValid) return;
+    setError(null);
+    setLoading(true);
+    try {
+      await changePassword.mutateAsync({
+        currentPassword: password,
+        newPassword,
+      });
+      setPassword(newPassword);
+      setNewPassword("");
+      setConfirmPassword("");
+      toast.success("Password updated.");
+      setStep("welcome");
+    } catch (e) {
+      setError(humanizeErrorMessage(e));
     } finally {
       setLoading(false);
     }
@@ -489,6 +670,170 @@ export function RandomLoginPage() {
     );
   }
 
+  if (step === "deviceConflict" && conflict) {
+    const place = [conflict.existingCity, conflict.existingCountry]
+      .filter(Boolean)
+      .join(", ");
+    return (
+      <ScreenShell back="#" phase="Confirming on your other device">
+        <div className="flex flex-col items-center gap-3 mb-2">
+          <Spinner />
+          <h2 className="text-2xl font-semibold text-center">
+            Waiting for your other device
+          </h2>
+          <p className="text-sm text-text-muted text-center max-w-sm">
+            We sent a confirmation prompt to{" "}
+            <span className="text-text">
+              {conflict.existingDevice ?? "your other device"}
+            </span>
+            {place ? <> ({place})</> : null}. Approve it there to finish
+            signing in here. Only one device can be signed in at a time.
+          </p>
+        </div>
+        <ErrorMessage>{error}</ErrorMessage>
+        <SecondaryButton onClick={cancelConflict}>Cancel</SecondaryButton>
+      </ScreenShell>
+    );
+  }
+
+  if (step === "mustChangePassword" && mustChange) {
+    return (
+      <ScreenShell back="#" phase="Choose a new password">
+        <div className="flex flex-col items-center gap-3 mb-2">
+          <Logo />
+          <h2 className="text-2xl font-semibold text-center">
+            Choose a new password
+          </h2>
+          <p className="text-sm text-text-muted text-center">
+            You (or this device) recently secured this account. To finish
+            signing in, please pick a new password.
+          </p>
+        </div>
+
+        <div>
+          <FieldLabel>New password</FieldLabel>
+          <TextInput
+            autoFocus
+            type={showPassword ? "text" : "password"}
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            placeholder="At least 8 characters"
+            autoComplete="new-password"
+          />
+        </div>
+        <div>
+          <FieldLabel>Confirm new password</FieldLabel>
+          <TextInput
+            type={showPassword ? "text" : "password"}
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            onKeyDown={(e) => {
+              if (
+                e.key === "Enter" &&
+                newPasswordValid &&
+                !loading
+              ) {
+                void onSubmitNewPasswordAfterSecure();
+              }
+            }}
+            placeholder="Type it again"
+            autoComplete="new-password"
+          />
+          {confirmPassword.length > 0 && newPassword !== confirmPassword && (
+            <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
+              Passwords don&apos;t match yet.
+            </p>
+          )}
+        </div>
+
+        <label className="flex items-center gap-2 text-sm text-text-muted">
+          <input
+            type="checkbox"
+            checked={showPassword}
+            onChange={(e) => setShowPassword(e.target.checked)}
+            className="accent-wa-green"
+          />
+          Show passwords
+        </label>
+
+        <ErrorMessage>{error}</ErrorMessage>
+        <PrimaryButton
+          onClick={onSubmitNewPasswordAfterSecure}
+          loading={loading}
+          disabled={!newPasswordValid}
+        >
+          Set new password and sign in
+        </PrimaryButton>
+      </ScreenShell>
+    );
+  }
+
+  if (step === "passwordSuggestion") {
+    return (
+      <ScreenShell back="#" phase="Quick suggestion">
+        <div className="flex flex-col items-center gap-3 mb-2">
+          <SuccessCheck />
+          <h2 className="text-2xl font-semibold text-center">
+            You&apos;re signed in
+          </h2>
+          <p className="text-sm text-text-muted text-center max-w-sm">
+            {didReplaceDevice
+              ? "Your previous device has been signed out. While we have you here, you can take a moment to refresh your password — totally optional."
+              : "While we have you here, you can take a moment to refresh your password — totally optional."}
+          </p>
+        </div>
+
+        <div>
+          <FieldLabel>New password (optional)</FieldLabel>
+          <TextInput
+            type={showPassword ? "text" : "password"}
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            placeholder="At least 8 characters"
+            autoComplete="new-password"
+          />
+        </div>
+        <div>
+          <FieldLabel>Confirm new password</FieldLabel>
+          <TextInput
+            type={showPassword ? "text" : "password"}
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            placeholder="Type it again"
+            autoComplete="new-password"
+          />
+          {confirmPassword.length > 0 && newPassword !== confirmPassword && (
+            <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
+              Passwords don&apos;t match yet.
+            </p>
+          )}
+        </div>
+
+        <label className="flex items-center gap-2 text-sm text-text-muted">
+          <input
+            type="checkbox"
+            checked={showPassword}
+            onChange={(e) => setShowPassword(e.target.checked)}
+            className="accent-wa-green"
+          />
+          Show passwords
+        </label>
+
+        <ErrorMessage>{error}</ErrorMessage>
+        <PrimaryButton
+          onClick={onChangePasswordPostLogin}
+          loading={loading}
+          disabled={!newPasswordValid}
+        >
+          Update password
+        </PrimaryButton>
+        <SecondaryButton onClick={() => setStep("welcome")}>
+          Skip for now
+        </SecondaryButton>
+      </ScreenShell>
+    );
+  }
+
   if (step === "welcome") {
     return (
       <ScreenShell back="#" phase="Welcome">
@@ -628,6 +973,12 @@ function PasskeyButton({
       </svg>
       {busy ? "Waiting for passkey…" : "Sign in with a passkey"}
     </button>
+  );
+}
+
+function Spinner() {
+  return (
+    <div className="w-14 h-14 rounded-full border-4 border-wa-green/20 border-t-wa-green animate-spin" />
   );
 }
 

@@ -1,0 +1,100 @@
+Hey, I want to implement a **Single Active Session Login System (device-based session control)** in our app. Please follow this exact flow:
+
+---
+
+## 🔐 Core Concept
+
+Each user account should have **only one active session at a time (single device/browser login)**.
+
+If the user logs in from a new device while already logged in elsewhere, the system must handle session replacement with explicit user confirmation.
+
+---
+
+## 🟢 Step 1: Normal Login
+
+* User enters username/email + password
+* Server checks if an active session already exists for that user
+
+---
+
+## ⚠️ Step 2: Existing Session Detected
+
+If the user is already logged in on another device/browser, show a conflict screen on the new device:
+
+> “You are already logged in on another device.
+> If you continue, your previous session will be logged out.”
+
+---
+
+## 🔘 User Options (New Device)
+
+### 1. YES, Continue Login Here
+
+* Allow login on the new device
+* Immediately log out the old device/session
+* Make the new device the active session
+
+### 2. NO, This is not me
+
+* Cancel login on the new device
+* Keep the old device session active
+* Trigger a security alert on the old device
+
+---
+
+## 📱 Step 3: Old Device Behavior
+
+### If user selects “YES”:
+
+* Old device is instantly logged out
+* Show message:
+
+  > “You have been logged out because your account was signed in on another device.”
+
+### If user selects “NO”:
+
+* Old device shows warning:
+
+  > “Suspicious login attempt detected.”
+
+* Provide options:
+
+  * “It was me”
+  * “Secure account”
+
+If “Secure account” is selected:
+
+* Logout all sessions
+* Require re-login for security
+
+---
+
+## 🔐 Step 4: Post Login (New Device)
+
+After successful login on the new device, show an optional prompt:
+
+> “For your safety, we recommend updating your password.”
+
+Options:
+
+* Change password now
+* Skip
+
+---
+
+## ⚙️ Key Rules
+
+* Only ONE active session per user account at any time
+* New login always requires confirmation if another session exists
+* Old device must always be notified of session changes
+* No silent session replacement without user awareness
+
+---
+
+## 🎯 Goal
+
+* Strong security with full user control
+* Clear transparency across devices
+* Simple, premium, and predictable UX
+
+Please implement this flow exactly as described.

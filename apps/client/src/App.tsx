@@ -36,6 +36,7 @@ import { FocusModePage } from "./pages/FocusModePage";
 import { SoundPage } from "./pages/SoundPage";
 import { PromisesPage } from "./pages/PromisesPage";
 import { SessionSync } from "./lib/SessionSync";
+import { SessionGuard } from "./components/SessionGuard";
 import { useStealthPrefs } from "./lib/stealthPrefs";
 import { unlockAudioOnFirstGesture } from "./lib/sound";
 import { InstallPrompt } from "./components/InstallPrompt";
@@ -81,6 +82,7 @@ export function App() {
         <QueryClientProvider client={queryClient}>
           <SessionBootstrap />
           <SessionSync />
+          <SessionGuard />
           <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/welcome" element={<WelcomePage />} />

@@ -15,6 +15,7 @@ import {
 import { usePresenceStore } from "./presenceStore";
 import { useTypingStore } from "./typingStore";
 import { useScheduledMessageSender } from "./scheduledSender";
+import { useSessionEventsStore } from "./sessionEventsStore";
 
 /**
  * App-wide background sync.
@@ -76,6 +77,23 @@ export function SessionSync() {
     });
     return unsub;
   }, [identity]);
+
+  // Single-active-session events. These are NOT gated on `identity`
+  // because they have to fire even when the user hasn't unlocked yet
+  // (e.g. they signed in on a new device + haven't entered their
+  // recovery key). We still need an `accessToken` so the WS itself
+  // is open.
+  useEffect(() => {
+    if (!accessToken) return;
+    const ev = useSessionEventsStore.getState();
+    const unsub = wsClient.subscribe((event) => {
+      if (event.type === "login_request_pending") ev.bumpPending();
+      else if (event.type === "login_request_resolved") ev.bumpResolved();
+      else if (event.type === "security_alert") ev.bumpAlert();
+      else if (event.type === "session_revoked") ev.bumpRevoked();
+    });
+    return unsub;
+  }, [accessToken]);
 
   // Hydrate global privacy/stealth prefs once.
   useEffect(() => {

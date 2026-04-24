@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { and, eq, desc, gt, lt } from "drizzle-orm";
+import { and, eq, desc, gt, lt, ne, isNull, inArray } from "drizzle-orm";
 import { SignJWT, jwtVerify } from "jose";
 import { randomBytes } from "node:crypto";
 import { ed25519 } from "@noble/curves/ed25519.js";
@@ -35,6 +35,21 @@ import {
   ListSessionsResult,
   RevokeSessionInput,
   RevokeSessionResult,
+  BeginLoginV3Input,
+  BeginLoginV3Result,
+  PollLoginConflictInput,
+  PollLoginConflictResult,
+  CompleteAfterApprovalInput,
+  CompleteAfterApprovalResult,
+  ListPendingLoginRequestsResult,
+  ResolveLoginRequestInput,
+  ResolveLoginRequestResult,
+  ListSecurityAlertsResult,
+  AcknowledgeSecurityAlertInput,
+  AcknowledgeSecurityAlertResult,
+  CheckSessionStatusResult,
+  SubmitNewPasswordAfterSecureInput,
+  SubmitNewPasswordAfterSecureResult,
   type AuthResult,
   type LoginContextInfo,
 } from "@veil/shared";
@@ -50,6 +65,15 @@ import {
   consumeLoginChallenge,
   lookupCity,
 } from "../../lib/loginRisk.js";
+import {
+  mintContinuationNonce,
+  verifyContinuationNonce,
+  continuationTtlSeconds,
+  mintMustChangeToken,
+  verifyMustChangeToken,
+  hashNonce,
+} from "../../lib/sessionConflicts.js";
+import { publish as wsPublish } from "../../lib/wsHub.js";
 import {
   issueBotChallenge,
   verifyBotChallenge,
@@ -171,7 +195,11 @@ async function issueSessionWithContext(
   userId: string,
   accountType: "email" | "phone" | "random",
   accountCreatedAt: Date,
-): Promise<{ auth: AuthResult; lastLogin: LoginContextInfo | null }> {
+): Promise<{
+  auth: AuthResult;
+  lastLogin: LoginContextInfo | null;
+  newSessionId: string;
+}> {
   const lastLogin = await buildLastLoginInfo(userId);
 
   const db = getDb();
@@ -187,15 +215,19 @@ async function issueSessionWithContext(
   const prefix = ipPrefix(ctx.ip);
   const geo = await lookupCity(ctx.ip);
 
-  await db.insert(schema.sessions).values({
-    userId,
-    refreshTokenHash: sha256Hex(refreshToken),
-    deviceLabel: ua,
-    ipPrefix: prefix,
-    lastCity: geo.city,
-    lastCountry: geo.country,
-    expiresAt: refreshExpires,
-  });
+  const inserted = await db
+    .insert(schema.sessions)
+    .values({
+      userId,
+      refreshTokenHash: sha256Hex(refreshToken),
+      deviceLabel: ua,
+      ipPrefix: prefix,
+      lastCity: geo.city,
+      lastCountry: geo.country,
+      expiresAt: refreshExpires,
+    })
+    .returning({ id: schema.sessions.id });
+  const newSessionId = inserted[0]!.id;
   await db
     .update(schema.users)
     .set({ lastSeenAt: new Date() })
@@ -232,6 +264,7 @@ async function issueSessionWithContext(
       expiresIn: TOKEN_TTL.accessSeconds,
     },
     lastLogin,
+    newSessionId,
   };
 }
 
@@ -1183,10 +1216,759 @@ export const authRouter = router({
     const now = new Date();
     await db.delete(schema.otpCodes).where(lt(schema.otpCodes.expiresAt, now));
     await db.delete(schema.sessions).where(lt(schema.sessions.expiresAt, now));
+    // Mark expired login conflicts as such (so the new device polling
+    // them gets a clean "expired" answer instead of waiting forever).
+    await db
+      .update(schema.loginConflicts)
+      .set({ status: "expired", resolvedAt: now })
+      .where(
+        and(
+          eq(schema.loginConflicts.status, "pending"),
+          lt(schema.loginConflicts.expiresAt, now),
+        ),
+      );
     return { ok: true as const };
   }),
 
-  /* ─────────── Premium login flow (V3) ─────────── */
+  /* ─────────── Single-active-session login (V3) ─────────── */
+
+  /**
+   * Replacement for `beginLoginV2`. After a successful password
+   * check, decides between four outcomes — see `BeginLoginV3Result`.
+   *
+   * Single-active-session semantics: if the user already has at least
+   * one active session whose `(deviceFingerprint, ipPrefix)` doesn't
+   * match the requester, we park the login as a `loginConflicts` row
+   * and notify the existing devices via WS. The new device then
+   * polls and, on approval, claims the session via
+   * `auth.completeAfterApproval`. A re-login from the same browser
+   * (matching fingerprint + network) is treated as a same-device
+   * refresh and proceeds without confirmation.
+   */
+  beginLoginV3: configuredProcedure
+    .input(BeginLoginV3Input)
+    .output(BeginLoginV3Result)
+    .mutation(async ({ input, ctx }): Promise<BeginLoginV3Result> => {
+      const db = getDb();
+
+      const lockout = checkLockout(input.username, ctx.ip);
+      if (lockout.blocked) {
+        throw new TRPCError({
+          code: "TOO_MANY_REQUESTS",
+          message: `Too many attempts. Please try again in ${Math.ceil(
+            lockout.retryInSeconds / 60,
+          )} minute${lockout.retryInSeconds >= 120 ? "s" : ""}.`,
+        });
+      }
+
+      const ipLimit = rateLimit({
+        key: `login:ip:${ctx.ip}`,
+        limit: 30,
+        windowSeconds: 10 * 60,
+      });
+      const userLimit = rateLimit({
+        key: `login:user:${input.username}`,
+        limit: 10,
+        windowSeconds: 10 * 60,
+      });
+      if (!ipLimit.allowed || !userLimit.allowed) {
+        throw new TRPCError({
+          code: "TOO_MANY_REQUESTS",
+          message: "Too many login attempts. Please wait a few minutes.",
+        });
+      }
+
+      const found = await db
+        .select({
+          id: schema.users.id,
+          createdAt: schema.users.createdAt,
+          passwordHash: schema.users.passwordHash,
+          requirePasswordChange: schema.users.requirePasswordChange,
+        })
+        .from(schema.users)
+        .where(eq(schema.users.username, input.username))
+        .limit(1);
+      const row = found[0];
+
+      const hash =
+        row?.passwordHash ??
+        "$2a$12$abcdefghijklmnopqrstuuabcdefghijklmnopqrstuvwxyz012345";
+      const ok = await bcrypt.compare(input.password, hash);
+
+      if (!row || !ok) {
+        const after = recordFailure(input.username, ctx.ip);
+        if (after.blocked) {
+          throw new TRPCError({
+            code: "TOO_MANY_REQUESTS",
+            message: `Too many attempts. Please try again in ${Math.ceil(
+              after.retryInSeconds / 60,
+            )} minutes.`,
+          });
+        }
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "Wrong username or password.",
+        });
+      }
+
+      // Account previously secured → must change password before
+      // any session is issued. Don't surface failure counters; this
+      // is the legitimate user.
+      if (row.requirePasswordChange) {
+        clearFailures(input.username, ctx.ip);
+        const { token, expiresInSeconds } = mintMustChangeToken(row.id);
+        return {
+          status: "mustChangePassword",
+          mustChangeToken: token,
+          expiresInSeconds,
+        };
+      }
+
+      // Snapshot of currently active sessions for the user.
+      const now = new Date();
+      const activeSessions = await db
+        .select({
+          id: schema.sessions.id,
+          ipPrefix: schema.sessions.ipPrefix,
+          deviceLabel: schema.sessions.deviceLabel,
+          lastCity: schema.sessions.lastCity,
+          lastCountry: schema.sessions.lastCountry,
+          lastUsedAt: schema.sessions.lastUsedAt,
+        })
+        .from(schema.sessions)
+        .where(
+          and(
+            eq(schema.sessions.userId, row.id),
+            gt(schema.sessions.expiresAt, now),
+          ),
+        )
+        .orderBy(desc(schema.sessions.lastUsedAt))
+        .limit(20);
+
+      const ua =
+        (ctx.req.headers["user-agent"] as string | undefined) ?? null;
+      const requesterFp = deviceFingerprint(ua);
+      const requesterPrefix = ipPrefix(ctx.ip);
+
+      const sameDeviceMatch = activeSessions.some(
+        (s) =>
+          deviceFingerprint(s.deviceLabel) === requesterFp &&
+          s.ipPrefix === requesterPrefix &&
+          requesterFp !== "unknown" &&
+          requesterPrefix !== null,
+      );
+
+      if (activeSessions.length > 0 && !sameDeviceMatch) {
+        // Supersede any pre-existing pending conflict (most recent one
+        // wins; old continuation nonces become unusable). This avoids
+        // a single attacker spamming multiple confirm prompts.
+        const existing = await db
+          .select({ id: schema.loginConflicts.id })
+          .from(schema.loginConflicts)
+          .where(
+            and(
+              eq(schema.loginConflicts.userId, row.id),
+              eq(schema.loginConflicts.status, "pending"),
+              gt(schema.loginConflicts.expiresAt, now),
+            ),
+          );
+        if (existing.length > 0) {
+          await db
+            .update(schema.loginConflicts)
+            .set({ status: "expired", resolvedAt: now })
+            .where(
+              inArray(
+                schema.loginConflicts.id,
+                existing.map((e) => e.id),
+              ),
+            );
+          for (const e of existing) {
+            wsPublish(row.id, {
+              type: "login_request_resolved",
+              conflictId: e.id,
+              decision: "expired",
+            });
+          }
+        }
+
+        const minted = mintContinuationNonce(row.id);
+        const geo = await lookupCity(ctx.ip);
+        const requesterDevice = describeDevice(ua);
+        const inserted = await db
+          .insert(schema.loginConflicts)
+          .values({
+            userId: row.id,
+            status: "pending",
+            requesterIp: requesterPrefix,
+            requesterDevice,
+            requesterCity: geo.city,
+            requesterCountry: geo.country,
+            expiresAt: minted.expiresAt,
+            continuationNonceHash: minted.hash,
+          })
+          .returning({ id: schema.loginConflicts.id });
+        const conflictId = inserted[0]!.id;
+
+        wsPublish(row.id, {
+          type: "login_request_pending",
+          conflictId,
+          device: requesterDevice,
+          city: geo.city,
+          country: geo.country,
+          expiresAt: minted.expiresAt.toISOString(),
+        });
+
+        const top = activeSessions[0]!;
+        clearFailures(input.username, ctx.ip);
+        return {
+          status: "deviceConflict",
+          conflictId,
+          continuationNonce: minted.nonce,
+          expiresInSeconds: continuationTtlSeconds(),
+          existingDevice: describeDevice(top.deviceLabel),
+          existingCity: top.lastCity ?? null,
+          existingCountry: top.lastCountry ?? null,
+        };
+      }
+
+      // No conflict — fall through to normal risk-based decision.
+      // Use the last 20 sessions ever (active or expired) as "known"
+      // devices for the risk model, so a returning user on a familiar
+      // browser doesn't get a puzzle just because their last session
+      // happened to expire.
+      const historicalSessions = await db
+        .select({
+          ipPrefix: schema.sessions.ipPrefix,
+          deviceLabel: schema.sessions.deviceLabel,
+        })
+        .from(schema.sessions)
+        .where(eq(schema.sessions.userId, row.id))
+        .orderBy(desc(schema.sessions.createdAt))
+        .limit(20);
+      const risk = classifyRisk({
+        knownDevices: historicalSessions,
+        ip: ctx.ip,
+        userAgent: ua,
+        failuresInWindow: checkLockout(input.username, ctx.ip).failuresInWindow,
+      });
+
+      if (risk.level === "low") {
+        clearFailures(input.username, ctx.ip);
+        // Same-device match → silently terminate the matching old
+        // session(s) so we still hold the "single active session"
+        // invariant.
+        if (sameDeviceMatch) {
+          await db
+            .delete(schema.sessions)
+            .where(
+              and(
+                eq(schema.sessions.userId, row.id),
+                gt(schema.sessions.expiresAt, now),
+              ),
+            );
+        }
+        const issued = await issueSessionWithContext(
+          ctx,
+          row.id,
+          "random",
+          row.createdAt,
+        );
+        return {
+          status: "ok",
+          lastLogin: issued.lastLogin,
+          ...issued.auth,
+        };
+      }
+
+      const challenge = issueLoginChallenge(row.id, ctx.ip, ua);
+      return {
+        status: "challenge",
+        risk: risk.level,
+        reasons: risk.reasons,
+        challengeNonce: challenge.nonce,
+        challengeExpiresInSeconds: challenge.expiresInSeconds,
+      };
+    }),
+
+  /**
+   * The new device polls this endpoint every few seconds while the
+   * user is deciding on the existing device. Status only ever
+   * transitions forward (pending → accepted | rejected | expired);
+   * we never reset to pending.
+   */
+  pollLoginConflict: configuredProcedure
+    .input(PollLoginConflictInput)
+    .output(PollLoginConflictResult)
+    .query(async ({ input }) => {
+      const verified = verifyContinuationNonce(input.continuationNonce);
+      if (!verified) {
+        return { status: "expired" };
+      }
+      const db = getDb();
+      const rows = await db
+        .select({
+          status: schema.loginConflicts.status,
+          expiresAt: schema.loginConflicts.expiresAt,
+        })
+        .from(schema.loginConflicts)
+        .where(
+          and(
+            eq(schema.loginConflicts.id, input.conflictId),
+            eq(schema.loginConflicts.continuationNonceHash, verified.hash),
+            eq(schema.loginConflicts.userId, verified.userId),
+          ),
+        )
+        .limit(1);
+      const r = rows[0];
+      if (!r) return { status: "expired" };
+      const now = Date.now();
+      if (r.status === "pending") {
+        if (r.expiresAt.getTime() <= now) return { status: "expired" };
+        return {
+          status: "pending",
+          expiresInSeconds: Math.max(
+            0,
+            Math.floor((r.expiresAt.getTime() - now) / 1000),
+          ),
+        };
+      }
+      if (r.status === "accepted") return { status: "accepted" };
+      if (r.status === "rejected") return { status: "rejected" };
+      return { status: "expired" };
+    }),
+
+  /**
+   * Final step on the new device — exchange the continuation nonce
+   * for a fresh session. Atomically deletes every other active
+   * session for the user to enforce single-active-session, and
+   * publishes `session_revoked` so any still-connected old device
+   * tears down its UI immediately.
+   */
+  completeAfterApproval: configuredProcedure
+    .input(CompleteAfterApprovalInput)
+    .output(CompleteAfterApprovalResult)
+    .mutation(async ({ input, ctx }) => {
+      const verified = verifyContinuationNonce(input.continuationNonce);
+      if (!verified) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "Sign-in attempt expired. Please start over.",
+        });
+      }
+      const db = getDb();
+      const now = new Date();
+      const rows = await db
+        .select({
+          id: schema.loginConflicts.id,
+          status: schema.loginConflicts.status,
+          consumedAt: schema.loginConflicts.consumedAt,
+          expiresAt: schema.loginConflicts.expiresAt,
+        })
+        .from(schema.loginConflicts)
+        .where(
+          and(
+            eq(schema.loginConflicts.continuationNonceHash, verified.hash),
+            eq(schema.loginConflicts.userId, verified.userId),
+          ),
+        )
+        .limit(1);
+      const conflict = rows[0];
+      if (
+        !conflict ||
+        conflict.consumedAt !== null ||
+        conflict.expiresAt.getTime() <= now.getTime()
+      ) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "This sign-in is no longer valid. Please start over.",
+        });
+      }
+      if (conflict.status !== "accepted") {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message:
+            conflict.status === "rejected"
+              ? "The other device declined this sign-in."
+              : "Still waiting for the other device.",
+        });
+      }
+
+      const userRow = await db
+        .select({
+          id: schema.users.id,
+          createdAt: schema.users.createdAt,
+          accountType: schema.users.accountType,
+        })
+        .from(schema.users)
+        .where(eq(schema.users.id, verified.userId))
+        .limit(1);
+      const user = userRow[0];
+      if (!user) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "Account no longer exists.",
+        });
+      }
+
+      // Mark the conflict consumed BEFORE issuing the new session
+      // (so a network retry can't double-issue).
+      await db
+        .update(schema.loginConflicts)
+        .set({ consumedAt: now })
+        .where(eq(schema.loginConflicts.id, conflict.id));
+
+      const issued = await issueSessionWithContext(
+        ctx,
+        user.id,
+        user.accountType,
+        user.createdAt,
+      );
+
+      // Sweep every other active session and notify them via WS.
+      const deleted = await db
+        .delete(schema.sessions)
+        .where(
+          and(
+            eq(schema.sessions.userId, user.id),
+            ne(schema.sessions.id, issued.newSessionId),
+          ),
+        )
+        .returning({ id: schema.sessions.id });
+      if (deleted.length > 0) {
+        wsPublish(user.id, {
+          type: "session_revoked",
+          reason: "single_active",
+        });
+      }
+
+      return {
+        ...issued.auth,
+        lastLogin: issued.lastLogin,
+        replacedSessions: deleted.length,
+      };
+    }),
+
+  /**
+   * Fallback poll for the *existing* device — returns any unresolved
+   * inbound login requests so we can show the prompt even if the WS
+   * event was missed (page just opened, etc.).
+   */
+  listPendingLoginRequests: protectedProcedure
+    .output(ListPendingLoginRequestsResult)
+    .query(async ({ ctx }) => {
+      const db = getDb();
+      const now = new Date();
+      const rows = await db
+        .select({
+          id: schema.loginConflicts.id,
+          requesterDevice: schema.loginConflicts.requesterDevice,
+          requesterCity: schema.loginConflicts.requesterCity,
+          requesterCountry: schema.loginConflicts.requesterCountry,
+          createdAt: schema.loginConflicts.createdAt,
+          expiresAt: schema.loginConflicts.expiresAt,
+        })
+        .from(schema.loginConflicts)
+        .where(
+          and(
+            eq(schema.loginConflicts.userId, ctx.userId),
+            eq(schema.loginConflicts.status, "pending"),
+            gt(schema.loginConflicts.expiresAt, now),
+          ),
+        )
+        .orderBy(desc(schema.loginConflicts.createdAt))
+        .limit(5);
+      return rows.map((r) => ({
+        id: r.id,
+        device: r.requesterDevice ?? "Unknown device",
+        city: r.requesterCity ?? null,
+        country: r.requesterCountry ?? null,
+        createdAt: r.createdAt.toISOString(),
+        expiresAt: r.expiresAt.toISOString(),
+      }));
+    }),
+
+  /**
+   * Existing-device decision: accept (the other device will be
+   * allowed in, this device gets logged out) or reject (the other
+   * device is denied, a security alert is recorded so the user can
+   * later choose "It was me" vs "Secure account").
+   */
+  resolveLoginRequest: protectedProcedure
+    .input(ResolveLoginRequestInput)
+    .output(ResolveLoginRequestResult)
+    .mutation(async ({ input, ctx }) => {
+      const db = getDb();
+      const now = new Date();
+      const rows = await db
+        .select({
+          id: schema.loginConflicts.id,
+          status: schema.loginConflicts.status,
+          expiresAt: schema.loginConflicts.expiresAt,
+          requesterDevice: schema.loginConflicts.requesterDevice,
+          requesterCity: schema.loginConflicts.requesterCity,
+          requesterCountry: schema.loginConflicts.requesterCountry,
+        })
+        .from(schema.loginConflicts)
+        .where(
+          and(
+            eq(schema.loginConflicts.id, input.conflictId),
+            eq(schema.loginConflicts.userId, ctx.userId),
+          ),
+        )
+        .limit(1);
+      const conflict = rows[0];
+      if (!conflict) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "That sign-in request no longer exists.",
+        });
+      }
+      if (conflict.status !== "pending") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "This request has already been handled.",
+        });
+      }
+      if (conflict.expiresAt.getTime() <= now.getTime()) {
+        await db
+          .update(schema.loginConflicts)
+          .set({ status: "expired", resolvedAt: now })
+          .where(eq(schema.loginConflicts.id, conflict.id));
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "This request has expired. Ask the other device to try again.",
+        });
+      }
+
+      const newStatus = input.decision === "accept" ? "accepted" : "rejected";
+      await db
+        .update(schema.loginConflicts)
+        .set({ status: newStatus, resolvedAt: now })
+        .where(eq(schema.loginConflicts.id, conflict.id));
+
+      // Notify all the user's connected sockets (this tab + any
+      // other tabs of the existing device) so the modal closes
+      // everywhere.
+      wsPublish(ctx.userId, {
+        type: "login_request_resolved",
+        conflictId: conflict.id,
+        decision: input.decision,
+      });
+
+      if (input.decision === "reject") {
+        // Persist a security alert so the user can later choose
+        // "It was me" or "Secure account" if they want to escalate.
+        const inserted = await db
+          .insert(schema.securityAlerts)
+          .values({
+            userId: ctx.userId,
+            kind: "rejected_login_attempt",
+            payload: {
+              device: conflict.requesterDevice,
+              city: conflict.requesterCity,
+              country: conflict.requesterCountry,
+              at: now.toISOString(),
+            },
+          })
+          .returning({ id: schema.securityAlerts.id });
+        wsPublish(ctx.userId, {
+          type: "security_alert",
+          alertId: inserted[0]!.id,
+          kind: "rejected_login_attempt",
+        });
+      }
+
+      return { ok: true as const, decision: input.decision };
+    }),
+
+  /** All unacknowledged security alerts for the current user. */
+  listSecurityAlerts: protectedProcedure
+    .output(ListSecurityAlertsResult)
+    .query(async ({ ctx }) => {
+      const db = getDb();
+      const rows = await db
+        .select({
+          id: schema.securityAlerts.id,
+          kind: schema.securityAlerts.kind,
+          payload: schema.securityAlerts.payload,
+          createdAt: schema.securityAlerts.createdAt,
+        })
+        .from(schema.securityAlerts)
+        .where(
+          and(
+            eq(schema.securityAlerts.userId, ctx.userId),
+            isNull(schema.securityAlerts.acknowledgedAt),
+          ),
+        )
+        .orderBy(desc(schema.securityAlerts.createdAt))
+        .limit(20);
+      return rows.map((r) => {
+        const p = (r.payload ?? {}) as {
+          device?: string | null;
+          city?: string | null;
+          country?: string | null;
+          at?: string | null;
+        };
+        const kind: "rejected_login_attempt" | "account_secured" =
+          r.kind === "account_secured"
+            ? "account_secured"
+            : "rejected_login_attempt";
+        return {
+          id: r.id,
+          kind,
+          device: p.device ?? null,
+          city: p.city ?? null,
+          country: p.country ?? null,
+          at: p.at ?? r.createdAt.toISOString(),
+          createdAt: r.createdAt.toISOString(),
+        };
+      });
+    }),
+
+  /**
+   * Acknowledge a security alert.
+   *
+   *   - "dismiss" — user confirms it was them; just clear the alert.
+   *   - "secure"  — sign out everywhere, set `requirePasswordChange`,
+   *                 and record an `account_secured` alert as a
+   *                 self-audit trail.
+   */
+  acknowledgeSecurityAlert: protectedProcedure
+    .input(AcknowledgeSecurityAlertInput)
+    .output(AcknowledgeSecurityAlertResult)
+    .mutation(async ({ input, ctx }) => {
+      const db = getDb();
+      const now = new Date();
+      const rows = await db
+        .select({ id: schema.securityAlerts.id })
+        .from(schema.securityAlerts)
+        .where(
+          and(
+            eq(schema.securityAlerts.id, input.alertId),
+            eq(schema.securityAlerts.userId, ctx.userId),
+          ),
+        )
+        .limit(1);
+      if (!rows[0]) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "That security alert no longer exists.",
+        });
+      }
+      await db
+        .update(schema.securityAlerts)
+        .set({ acknowledgedAt: now })
+        .where(eq(schema.securityAlerts.id, input.alertId));
+
+      if (input.action === "secure") {
+        // Force re-auth + new password on next login.
+        await db
+          .update(schema.users)
+          .set({ requirePasswordChange: true })
+          .where(eq(schema.users.id, ctx.userId));
+        await db
+          .delete(schema.sessions)
+          .where(eq(schema.sessions.userId, ctx.userId));
+        await db.insert(schema.securityAlerts).values({
+          userId: ctx.userId,
+          kind: "account_secured",
+          payload: { at: now.toISOString() },
+        });
+        wsPublish(ctx.userId, {
+          type: "session_revoked",
+          reason: "secured",
+        });
+      }
+
+      return { ok: true as const, action: input.action };
+    }),
+
+  /**
+   * Lightweight liveness check used by the SessionGuard on the
+   * client. Tells the caller whether their refresh-cookie session
+   * still exists server-side. Public on purpose — when a client is
+   * being force-logged-out their access token is still valid for
+   * up to 5 minutes, so we can't gate this behind protectedProcedure.
+   */
+  checkSessionStatus: configuredProcedure
+    .output(CheckSessionStatusResult)
+    .query(async ({ ctx }) => {
+      const token = readRefreshToken(
+        ctx.req as unknown as {
+          headers: Record<string, string | string[] | undefined>;
+          cookies?: Record<string, string>;
+        },
+      );
+      if (!token) return { active: false, reason: "no_cookie" };
+      const db = getDb();
+      const rows = await db
+        .select({ id: schema.sessions.id, expiresAt: schema.sessions.expiresAt })
+        .from(schema.sessions)
+        .where(eq(schema.sessions.refreshTokenHash, sha256Hex(token)))
+        .limit(1);
+      const r = rows[0];
+      if (!r || r.expiresAt <= new Date()) {
+        return { active: false, reason: "revoked" };
+      }
+      return { active: true, reason: "ok" };
+    }),
+
+  /**
+   * Redeem the must-change-password token and start fresh — sets a
+   * new password, clears `requirePasswordChange`, and issues a
+   * session in one shot. Sessions for this user are still all gone
+   * from the prior "Secure account" action, so this is the first
+   * session post-recovery.
+   */
+  submitNewPasswordAfterSecure: configuredProcedure
+    .input(SubmitNewPasswordAfterSecureInput)
+    .output(SubmitNewPasswordAfterSecureResult)
+    .mutation(async ({ input, ctx }) => {
+      const userId = verifyMustChangeToken(input.mustChangeToken);
+      if (!userId) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "Recovery link expired. Please sign in again.",
+        });
+      }
+      const db = getDb();
+      const userRow = await db
+        .select({
+          id: schema.users.id,
+          createdAt: schema.users.createdAt,
+          accountType: schema.users.accountType,
+          requirePasswordChange: schema.users.requirePasswordChange,
+        })
+        .from(schema.users)
+        .where(eq(schema.users.id, userId))
+        .limit(1);
+      const user = userRow[0];
+      if (!user || !user.requirePasswordChange) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "This recovery step is no longer needed.",
+        });
+      }
+      const newHash = await bcrypt.hash(input.newPassword, 12);
+      await db
+        .update(schema.users)
+        .set({ passwordHash: newHash, requirePasswordChange: false })
+        .where(eq(schema.users.id, userId));
+
+      const issued = await issueSessionWithContext(
+        ctx,
+        user.id,
+        user.accountType,
+        user.createdAt,
+      );
+      // Touch the consumed flag implicitly: the token is signed +
+      // single-account-state-bound, so once requirePasswordChange is
+      // cleared the same token can't be reused.
+      void hashNonce;
+      return { ...issued.auth, lastLogin: issued.lastLogin };
+    }),
+
+  /* ─────────── Premium login flow (V2 — kept for compat) ─────────── */
 
   /**
    * Step 1 of the new login flow. Verifies the username + password,
