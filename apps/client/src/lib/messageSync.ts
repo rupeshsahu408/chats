@@ -17,6 +17,8 @@ import {
   applyEditByServerId,
   applyViewOnceSeenByServerId,
   applyViewOnceScreenshotByServerId,
+  setChatPref,
+  getChatPref,
   db,
 } from "./db";
 import { decryptFromPeer, encryptToPeer } from "./signal/session";
@@ -139,6 +141,26 @@ async function applySideEffectEnvelope(
   }
   if (env.t === "vo_ss") {
     await applyViewOnceScreenshotByServerId(env.target, env.at);
+    return true;
+  }
+  if (env.t === "mood") {
+    // Sender broadcast their mood / status. Mirror onto chatPrefs so
+    // the inbox row + chat header can render it. Empty payload means
+    // "I cleared my mood" — drop the field rather than store an
+    // empty record.
+    const trimmed = env.text.trim();
+    const isCleared = trimmed.length === 0 && env.emoji.trim().length === 0;
+    if (isCleared) {
+      await setChatPref(fromUserId, { peerMood: undefined });
+    } else {
+      await setChatPref(fromUserId, {
+        peerMood: {
+          emoji: env.emoji,
+          text: trimmed,
+          expiresAt: env.expiresAt,
+        },
+      });
+    }
     return true;
   }
   return false;
@@ -301,8 +323,11 @@ async function ingestInboxMessageInner(
     });
     // Distinct descending 3-note "receive" motif + matched soft haptic.
     // Only fired on the true content path — SKDM, reactions, deletes
-    // and other side-effects don't trigger it.
-    feedback.receive();
+    // and other side-effects don't trigger it. The per-peer
+    // `notificationSound` pack lets each contact have a different
+    // arrival cue (Mom = warm chime, office = minimal tick).
+    const peerPref = await getChatPref(m.senderUserId);
+    feedback.receive(peerPref?.notificationSound);
     if (!wsMarkDelivered([m.id])) {
       void trpcClientProxy()
         .messages.markDelivered.mutate({ ids: [m.id] })

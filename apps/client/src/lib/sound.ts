@@ -8,6 +8,8 @@
  * Volumes are intentionally low — these are micro-cues, not effects.
  */
 
+import { getSoundPack } from "./chatPersonality";
+
 let ctx: AudioContext | null = null;
 let masterGain: GainNode | null = null;
 let unlocked = false;
@@ -140,12 +142,44 @@ export function playSendTone(): void {
 /**
  * Incoming message: descending 3-note motif (G5 → E5 → C5) — gentle,
  * "someone reached you" feel. A touch quieter than send.
+ *
+ * Optional `packKey` selects a per-contact sound pack from
+ * `chatPersonality.SOUND_PACKS` so each peer can have their own
+ * arrival cue (Mom = warm chime, office = minimal tick, etc.).
+ * Unknown / unset keys fall back to the default Veil motif.
  */
-export function playReceiveTone(): void {
+export function playReceiveTone(packKey?: string): void {
   if (!shouldPlay()) return;
-  tone({ freq: 783.99, duration: 0.07, gain: 0.13, startAt: 0.0, type: "sine" });  // G5
-  tone({ freq: 659.25, duration: 0.07, gain: 0.13, startAt: 0.06, type: "sine" }); // E5
-  tone({ freq: 523.25, duration: 0.14, gain: 0.15, startAt: 0.12, type: "sine" }); // C5
+  const pack = getSoundPack(packKey);
+  if (pack.value === "silent" || pack.duration <= 0) return;
+  // The third note gets a slightly longer tail to "land" softly,
+  // matching the ADSR feel of the original Veil motif.
+  const longTail = pack.duration * 2;
+  tone({
+    freq: pack.notes[0],
+    duration: pack.duration,
+    gain: pack.gain,
+    startAt: 0.0,
+    type: pack.oscillator,
+  });
+  if (pack.notes[1] > 0) {
+    tone({
+      freq: pack.notes[1],
+      duration: pack.duration,
+      gain: pack.gain,
+      startAt: pack.duration * 0.85,
+      type: pack.oscillator,
+    });
+  }
+  if (pack.notes[2] > 0) {
+    tone({
+      freq: pack.notes[2],
+      duration: longTail,
+      gain: pack.gain * 1.1,
+      startAt: pack.duration * 1.7,
+      type: pack.oscillator,
+    });
+  }
 }
 
 /** Tiny one-shot blip for taps. Very quiet. */

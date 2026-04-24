@@ -214,6 +214,24 @@ export type PollVoteEnvelope = {
   choiceIdx: number;
 };
 
+/**
+ * Broadcast the sender's current mood / status to a peer. Pure
+ * side-effect — does NOT create a chat row, just updates
+ * `chatPrefs.peerMood` on the recipient. An empty `text` + empty
+ * `emoji` means "I cleared my mood; hide it".
+ *
+ * `expiresAt` is an ISO timestamp the recipient uses to auto-hide
+ * the mood after it lapses (no server-side timer needed).
+ */
+export type MoodEnvelope = {
+  v: 2;
+  t: "mood";
+  emoji: string;
+  text: string;
+  /** ISO timestamp; if past, recipient hides the mood. */
+  expiresAt: string;
+};
+
 export type ChatEnvelope =
   | ({ v: 1 | 2; t: "text"; body: string } & EnvelopeExtras)
   | ({ v: 1 | 2; t: "image"; body?: string; media: MediaAttachment } & EnvelopeExtras)
@@ -226,7 +244,8 @@ export type ChatEnvelope =
   | ViewOnceSeenEnvelope
   | ViewOnceScreenshotEnvelope
   | PollEnvelope
-  | PollVoteEnvelope;
+  | PollVoteEnvelope
+  | MoodEnvelope;
 
 export function encodeEnvelope(env: ChatEnvelope): string {
   return JSON.stringify(env);
@@ -300,6 +319,14 @@ export function decodeEnvelope(plaintext: string): ChatEnvelope {
         parsed.t === "poll_vote" &&
         typeof (parsed as { pollId?: unknown }).pollId === "string" &&
         typeof (parsed as { choiceIdx?: unknown }).choiceIdx === "number"
+      ) {
+        return parsed as ChatEnvelope;
+      }
+      if (
+        parsed.t === "mood" &&
+        typeof (parsed as { emoji?: unknown }).emoji === "string" &&
+        typeof (parsed as { text?: unknown }).text === "string" &&
+        typeof (parsed as { expiresAt?: unknown }).expiresAt === "string"
       ) {
         return parsed as ChatEnvelope;
       }

@@ -26,6 +26,8 @@ import { peerLabel } from "../lib/peerLabel";
 import { pollAndDecrypt } from "../lib/messageSync";
 import { usePeersPresence } from "../lib/usePeersPresence";
 import { useTypingStore, typingLabel } from "../lib/typingStore";
+import { MoodSheet } from "../components/MoodSheet";
+import { moodCountdownLabel, getActiveMyMood } from "../lib/moodSync";
 
 export function ChatsPage() {
   const navigate = useNavigate();
@@ -84,6 +86,33 @@ export function ChatsPage() {
   // bound to plus a ref-based timer so a regular tap (which still
   // navigates via the underlying <Link>) doesn't open the sheet.
   const [actionPeerId, setActionPeerId] = useState<string | null>(null);
+  // "What's up?" sheet — sets the user's broadcast mood. Encrypted
+  // and fanned out to every 1:1 connection by `lib/moodSync`.
+  const [moodOpen, setMoodOpen] = useState(false);
+  const [myMoodChip, setMyMoodChip] = useState<{
+    emoji: string;
+    text: string;
+    expiresAt: string;
+  } | null>(null);
+  // Re-read my own mood whenever we open / close the sheet so the
+  // header chip reflects the latest broadcast.
+  useEffect(() => {
+    let alive = true;
+    void getActiveMyMood().then((m) => {
+      if (alive) setMyMoodChip(m);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [moodOpen]);
+  // And quietly tick once a minute so the chip auto-hides when its
+  // TTL lapses without needing a manual interaction.
+  useEffect(() => {
+    const t = setInterval(() => {
+      void getActiveMyMood().then((m) => setMyMoodChip(m));
+    }, 60_000);
+    return () => clearInterval(t);
+  }, []);
   const longPressTimer = useRef<number | null>(null);
   const longPressFired = useRef(false);
   const cancelLongPress = () => {
@@ -194,6 +223,30 @@ export function ChatsPage() {
           >
             <SearchIcon />
           </IconButton>
+          <button
+            type="button"
+            onClick={() => setMoodOpen(true)}
+            className="px-2.5 h-8 rounded-full inline-flex items-center gap-1 text-text-oncolor hover:bg-white/10 wa-tap text-sm"
+            aria-label={
+              myMoodChip
+                ? `Mood: ${myMoodChip.text || "set"}`
+                : "Set your mood"
+            }
+            title={
+              myMoodChip
+                ? `${myMoodChip.text} · ${moodCountdownLabel(
+                    myMoodChip.expiresAt,
+                  )}`
+                : "What's up?"
+            }
+          >
+            <span aria-hidden="true">{myMoodChip?.emoji || "😶"}</span>
+            {myMoodChip?.text && (
+              <span className="hidden sm:inline max-w-[120px] truncate text-xs">
+                {myMoodChip.text}
+              </span>
+            )}
+          </button>
           <IconButton label="Menu" className="text-text-oncolor">
             <MoreVerticalIcon />
           </IconButton>
@@ -284,11 +337,32 @@ export function ChatsPage() {
                 seed={conn.peer.username || conn.peer.id}
                 avatarSrc={conn.peer.avatarDataUrl ?? null}
                 online={isOnline(conn.peer.id)}
-                title={
-                  <span className="text-sm">
-                    {peerLabel(conn.peer)}
-                  </span>
-                }
+                title={(() => {
+                  const pref = (allChatPrefs ?? []).find(
+                    (p) => p.peerId === conn.peer.id,
+                  );
+                  const mood =
+                    pref?.peerMood &&
+                    Date.parse(pref.peerMood.expiresAt) > Date.now()
+                      ? pref.peerMood
+                      : null;
+                  return (
+                    <span className="text-sm inline-flex items-center gap-1.5 min-w-0">
+                      <span className="truncate">
+                        {peerLabel(conn.peer)}
+                      </span>
+                      {mood && (
+                        <span
+                          className="text-[10.5px] px-1.5 py-0.5 rounded-full bg-wa-green-soft/40 text-text-muted inline-flex items-center gap-0.5 shrink-0 max-w-[140px] truncate"
+                          title={`${mood.text} · ${moodCountdownLabel(mood.expiresAt)}`}
+                        >
+                          <span aria-hidden="true">{mood.emoji}</span>
+                          <span className="truncate">{mood.text}</span>
+                        </span>
+                      )}
+                    </span>
+                  );
+                })()}
                 subtitle={(() => {
                   // Live activity wins over the stored last-message
                   // preview: if the peer is typing right now we show
@@ -357,6 +431,13 @@ export function ChatsPage() {
         <FAB to="/connections" label="New chat">
           <PlusIcon />
         </FAB>
+      )}
+
+      {moodOpen && identity && (
+        <MoodSheet
+          identity={identity}
+          onClose={() => setMoodOpen(false)}
+        />
       )}
 
       {actionPeerId && (

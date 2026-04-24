@@ -39,10 +39,15 @@ export const feedback = {
     hapticSuccess();
     playSendTone();
   },
-  /** Incoming message landed (only fired if it actually appended). */
-  receive(): void {
+  /**
+   * Incoming message landed (only fired if it actually appended).
+   * `packKey` lets the caller pick a per-contact sound pack — see
+   * `chatPersonality.SOUND_PACKS`. Falls back to the global Veil
+   * receive motif when omitted.
+   */
+  receive(packKey?: string): void {
     hapticReceive();
-    playReceiveTone();
+    playReceiveTone(packKey);
   },
   /** Generic success ack (pinned, muted, copied, etc). */
   success(): void {

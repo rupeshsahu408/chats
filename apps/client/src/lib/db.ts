@@ -215,6 +215,31 @@ export interface ChatPrefRecord {
    * a quick "remind me later" cue, not a real receipt change.
    */
   markedUnread?: boolean;
+  /**
+   * Per-contact accent color (hex string) — tints outgoing
+   * bubbles and the send button only inside this chat. Lets
+   * the user give Mom a warm orange and the office contact a
+   * neutral gray without touching the global theme.
+   */
+  chatAccent?: string;
+  /**
+   * Per-contact notification sound pack key. One of the keys
+   * from `SOUND_PACKS` in `lib/chatPersonality.ts`. When set,
+   * an inbound message in this chat plays the override pack
+   * instead of the global Veil receive motif.
+   */
+  notificationSound?: string;
+  /**
+   * Peer's broadcast mood / status, mirrored from a `mood`
+   * envelope they sent us. Auto-hides after `expiresAt` on
+   * every read; cleared when the peer broadcasts an empty mood.
+   */
+  peerMood?: {
+    emoji: string;
+    text: string;
+    /** ISO timestamp; client treats `Date.now() > expiresAt` as cleared. */
+    expiresAt: string;
+  };
   updatedAt: string;
 }
 
@@ -245,6 +270,17 @@ export interface UserPrefRecord {
    * during enrollment, cleared if the user disables the vault.
    */
   vaultCredentialId?: string;
+  /**
+   * The current user's broadcast mood. We persist it locally so the
+   * UI can render it immediately on app launch and the
+   * "republish on connect" path knows what to re-send. Server never
+   * sees the contents — it's encrypted to each peer individually.
+   */
+  myMood?: {
+    emoji: string;
+    text: string;
+    expiresAt: string;
+  };
   updatedAt: string;
 }
 

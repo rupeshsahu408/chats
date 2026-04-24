@@ -80,6 +80,9 @@ import { trpcClientProxy } from "../lib/trpcClientProxy";
 import { useStealthPrefs } from "../lib/stealthPrefs";
 import { useEffectiveWallpaper, getWallpaperStyle } from "../lib/wallpaperStore";
 import { ChatWallpaperSheet } from "../components/ChatWallpaperSheet";
+import { ChatPersonalitySheet } from "../components/ChatPersonalitySheet";
+import { getAccentSwatch } from "../lib/chatPersonality";
+import { moodCountdownLabel } from "../lib/moodSync";
 import { VeilKeyboard } from "../components/VeilKeyboard";
 import { useKeyboardPrefs, isCoarsePointerDevice } from "../lib/keyboardPrefs";
 import { safetyNumberFromB64 } from "../lib/safetyNumber";
@@ -215,6 +218,7 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
     | "starred"
     | "scheduledList"
     | "wallpaper"
+    | "personality"
     | "snooze"
   >(null);
   /** Header search bar (in-chat search) visibility + query. */
@@ -790,8 +794,47 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
     );
   }
 
+  // Per-contact accent: if the user picked a chat-specific color in
+  // "Customize chat", inject a scoped <style> block that retints the
+  // outgoing bubble + send button only inside this thread. Doing it
+  // via a unique data attribute (rather than mutating Tailwind classes)
+  // means we don't touch the global stylesheet or trigger a rebuild.
+  const accentSwatch = chatPref?.chatAccent
+    ? getAccentSwatch(chatPref.chatAccent)
+    : null;
+  const accentScopeId = `vc-${peerId.replace(/[^a-zA-Z0-9]/g, "")}`;
+
+  // Peer's broadcast mood — auto-hide once expired so a stale
+  // "in a meeting" doesn't linger on the header for hours.
+  const peerMoodActive =
+    chatPref?.peerMood &&
+    Date.parse(chatPref.peerMood.expiresAt) > Date.now()
+      ? chatPref.peerMood
+      : null;
+
   return (
-    <div className="flex flex-col flex-1 min-h-0">
+    <div
+      className="flex flex-col flex-1 min-h-0"
+      data-veil-accent={accentSwatch ? accentScopeId : undefined}
+    >
+      {accentSwatch && (
+        <style>{`
+          [data-veil-accent="${accentScopeId}"] .bg-wa-bubble-out {
+            background-color: ${accentSwatch.hex} !important;
+            color: #ffffff !important;
+          }
+          [data-veil-accent="${accentScopeId}"] .bg-wa-bubble-out .text-text,
+          [data-veil-accent="${accentScopeId}"] .bg-wa-bubble-out .text-text-muted {
+            color: rgba(255,255,255,0.92) !important;
+          }
+          [data-veil-accent="${accentScopeId}"] [data-veil-send-btn] {
+            background-color: ${accentSwatch.hex} !important;
+          }
+          [data-veil-accent="${accentScopeId}"] [data-veil-send-btn]:hover {
+            background-color: ${accentSwatch.hexDark} !important;
+          }
+        `}</style>
+      )}
       <AppBar
         title={
           <button
@@ -823,6 +866,14 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
                       : peerActivity.kind === "photo"
                         ? "choosing a photo…"
                         : "typing…"}
+                  </span>
+                ) : peerMoodActive ? (
+                  <span className="inline-flex items-center gap-1 truncate">
+                    <span aria-hidden="true">{peerMoodActive.emoji}</span>
+                    <span className="truncate">{peerMoodActive.text}</span>
+                    <span className="text-text-oncolor/60 shrink-0">
+                      · {moodCountdownLabel(peerMoodActive.expiresAt)}
+                    </span>
                   </span>
                 ) : peerOnline ? (
                   <span className="inline-flex items-center gap-1">
@@ -1343,11 +1394,19 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
           }}
           onShowScheduled={() => setMenuOpen("scheduledList")}
           onWallpaper={() => setMenuOpen("wallpaper")}
+          onCustomize={() => setMenuOpen("personality")}
         />
       )}
       {menuOpen === "wallpaper" && (
         <ChatWallpaperSheet
           scope={{ type: "dm", peerId }}
+          chatLabel={displayName}
+          onClose={() => setMenuOpen(null)}
+        />
+      )}
+      {menuOpen === "personality" && (
+        <ChatPersonalitySheet
+          peerId={peerId}
           chatLabel={displayName}
           onClose={() => setMenuOpen(null)}
         />
@@ -2505,6 +2564,7 @@ function ChatMenu({
   onSelectMessages,
   onShowScheduled,
   onWallpaper,
+  onCustomize,
 }: {
   onClose: () => void;
   ttlLabel: string;
@@ -2531,6 +2591,7 @@ function ChatMenu({
   onSelectMessages: () => void;
   onShowScheduled: () => void;
   onWallpaper: () => void;
+  onCustomize: () => void;
 }) {
   return (
     <Sheet onClose={onClose}>
@@ -2575,6 +2636,7 @@ function ChatMenu({
         }}
       />
       <MenuItem label="Chat wallpaper" onClick={onWallpaper} />
+      <MenuItem label="Customize chat" onClick={onCustomize} />
       <MenuItem label={`Disappearing messages · ${ttlLabel}`} onClick={onTTL} />
       <MenuItem label={`Seen settings · ${seenTtlLabel}`} onClick={onSeenTtl} />
       <MenuItem
@@ -3447,6 +3509,7 @@ function Composer({
           <button
             onClick={onSendText}
             disabled={sending}
+            data-veil-send-btn
             className="size-12 rounded-full bg-wa-green text-text-oncolor flex items-center justify-center hover:bg-wa-green-dark transition disabled:opacity-50 wa-tap shrink-0"
             aria-label="Send"
           >
