@@ -28,6 +28,7 @@ import {
 import { ensurePushSubscription, disablePushSubscription } from "../lib/push";
 import { clearIdentity, loadIdentity } from "../lib/db";
 import { useStealthPrefs } from "../lib/stealthPrefs";
+import { useKeyboardPrefs, isCoarsePointerDevice } from "../lib/keyboardPrefs";
 import { feedback } from "../lib/feedback";
 import { resizeAvatarToDataUrl } from "../lib/avatar";
 
@@ -153,6 +154,7 @@ export function SettingsPage() {
         <PrivacyRows />
         <LastSeenPrivacyRow />
         <BlockedContactsRow />
+        <VeilKeyboardRow />
 
         <SectionHeader>Notifications</SectionHeader>
         <PushRow />
@@ -1065,6 +1067,93 @@ function BlockedContactsRow() {
             </li>
           ))}
         </ul>
+      )}
+    </div>
+  );
+}
+
+function VeilKeyboardRow() {
+  const useVeilKb = useKeyboardPrefs((s) => s.useVeilKeyboard);
+  const showSwitch = useKeyboardPrefs((s) => s.showComposerSwitch);
+  const setPrefs = useKeyboardPrefs((s) => s.set);
+  const [isCoarse] = useState(() => isCoarsePointerDevice());
+
+  return (
+    <div className="px-4 py-4 bg-panel border-b border-line/60">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-text font-medium flex items-center gap-2">
+            <span aria-hidden>⌨️</span>
+            <span>Veil keyboard</span>
+            <span className="text-[10px] uppercase tracking-wide font-semibold text-wa-green border border-wa-green/40 rounded-full px-1.5 py-0.5">
+              Beta
+            </span>
+          </div>
+          <div className="text-xs text-text-muted mt-0.5">
+            Type with our private on-screen keyboard instead of your phone's
+            default. Keystrokes never pass through a third-party keyboard
+            app, so they can't be logged or sent to the cloud.
+          </div>
+        </div>
+        <button
+          role="switch"
+          aria-checked={useVeilKb}
+          onClick={() => {
+            feedback.success();
+            setPrefs({ useVeilKeyboard: !useVeilKb });
+          }}
+          className={
+            "shrink-0 mt-0.5 inline-flex h-6 w-11 items-center rounded-full wa-tap " +
+            (useVeilKb ? "bg-wa-green" : "bg-line")
+          }
+        >
+          <span
+            className={
+              "inline-block size-5 rounded-full bg-white shadow transform transition-transform duration-180 ease-veil-spring " +
+              (useVeilKb ? "translate-x-5" : "translate-x-0.5")
+            }
+          />
+        </button>
+      </div>
+
+      {/* Sub-row: per-chat switch toggle. Hidden until master is on. */}
+      {useVeilKb && (
+        <div className="mt-3 flex items-start justify-between gap-3 pl-7">
+          <div className="min-w-0">
+            <div className="text-text text-sm">Quick switch in composer</div>
+            <div className="text-xs text-text-muted">
+              Show a small ⌨ button in each chat so you can flip back to your
+              system keyboard for one chat at a time.
+            </div>
+          </div>
+          <button
+            role="switch"
+            aria-checked={showSwitch}
+            onClick={() => {
+              feedback.tap();
+              setPrefs({ showComposerSwitch: !showSwitch });
+            }}
+            className={
+              "shrink-0 mt-0.5 inline-flex h-5 w-9 items-center rounded-full wa-tap " +
+              (showSwitch ? "bg-wa-green" : "bg-line")
+            }
+          >
+            <span
+              className={
+                "inline-block size-4 rounded-full bg-white shadow transform transition-transform duration-180 ease-veil-spring " +
+                (showSwitch ? "translate-x-4" : "translate-x-0.5")
+              }
+            />
+          </button>
+        </div>
+      )}
+
+      {/* Helpful disclosure when there's no touch input */}
+      {!isCoarse && (
+        <div className="mt-2 text-[11px] text-text-faint">
+          You're on a device with a physical keyboard, so this setting only
+          matters when you sign in from a phone or tablet.
+        </div>
       )}
     </div>
   );

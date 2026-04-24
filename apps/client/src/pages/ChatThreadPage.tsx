@@ -80,6 +80,8 @@ import { trpcClientProxy } from "../lib/trpcClientProxy";
 import { useStealthPrefs } from "../lib/stealthPrefs";
 import { useEffectiveWallpaper, getWallpaperStyle } from "../lib/wallpaperStore";
 import { ChatWallpaperSheet } from "../components/ChatWallpaperSheet";
+import { VeilKeyboard } from "../components/VeilKeyboard";
+import { useKeyboardPrefs, isCoarsePointerDevice } from "../lib/keyboardPrefs";
 import { safetyNumberFromB64 } from "../lib/safetyNumber";
 import {
   biometricSupported,
@@ -3027,6 +3029,60 @@ function Composer({
   // we have no `cancel` event, so we rely on focus returning + a timeout.
   const photoActivityTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // ─── Veil keyboard ───────────────────────────────────────────────
+  // The user's stored preference (off by default). Only meaningful on
+  // touch devices — desktops always use the physical keyboard.
+  const useVeilKbPref = useKeyboardPrefs((s) => s.useVeilKeyboard);
+  const showKbSwitch = useKeyboardPrefs((s) => s.showComposerSwitch);
+  const [coarsePointer] = useState(() => isCoarsePointerDevice());
+  // Per-session escape hatch: tapping the ⌨ icon flips between Veil
+  // keyboard and system keyboard for this composer until the user
+  // navigates away, without changing the global pref.
+  const [sessionUseSystem, setSessionUseSystem] = useState(false);
+  const veilKbActive =
+    coarsePointer && useVeilKbPref && !sessionUseSystem;
+  const [veilKbOpen, setVeilKbOpen] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  /** Insert a character at the textarea's current cursor position. */
+  const insertAtCursor = (text: string) => {
+    const ta = textareaRef.current;
+    const start = ta?.selectionStart ?? draft.length;
+    const end = ta?.selectionEnd ?? draft.length;
+    const next = draft.slice(0, start) + text + draft.slice(end);
+    setDraft(next);
+    requestAnimationFrame(() => {
+      const t = textareaRef.current;
+      if (!t) return;
+      const pos = start + text.length;
+      try {
+        t.setSelectionRange(pos, pos);
+      } catch {
+        /* selection isn't always supported during fast typing — ignore */
+      }
+    });
+  };
+
+  /** Delete the character before the cursor (or selection contents). */
+  const backspaceAtCursor = () => {
+    const ta = textareaRef.current;
+    const start = ta?.selectionStart ?? draft.length;
+    const end = ta?.selectionEnd ?? draft.length;
+    if (start === end && start === 0) return;
+    const newStart = start === end ? start - 1 : start;
+    const next = draft.slice(0, newStart) + draft.slice(end);
+    setDraft(next);
+    requestAnimationFrame(() => {
+      const t = textareaRef.current;
+      if (!t) return;
+      try {
+        t.setSelectionRange(newStart, newStart);
+      } catch {
+        /* ignore */
+      }
+    });
+  };
+
   if (recording) {
     return (
       <RecordingBar
@@ -3163,6 +3219,7 @@ function Composer({
           👁
         </button>
         <textarea
+          ref={textareaRef}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
@@ -3171,11 +3228,41 @@ function Composer({
               if (!sending && draft.trim()) onSendText();
             }
           }}
+          onFocus={() => {
+            if (veilKbActive) setVeilKbOpen(true);
+          }}
           rows={1}
           placeholder="Type a message"
+          // Suppress the OS keyboard when the Veil keyboard is active
+          // — the textarea still gets focus + cursor, the OS just
+          // doesn't pop up its IME.
+          inputMode={veilKbActive ? "none" : undefined}
           className="flex-1 bg-transparent text-text placeholder:text-text-muted resize-none outline-none max-h-32 py-1.5 px-1"
           style={{ minHeight: "24px" }}
         />
+        {veilKbActive && showKbSwitch && (
+          <KeyboardSwitchButton
+            active={true}
+            onClick={() => {
+              setSessionUseSystem(true);
+              setVeilKbOpen(false);
+              // Re-focus so the OS keyboard pops up immediately.
+              requestAnimationFrame(() => textareaRef.current?.focus());
+            }}
+            label="Switch to system keyboard for this chat"
+          />
+        )}
+        {!veilKbActive && useVeilKbPref && coarsePointer && showKbSwitch && (
+          <KeyboardSwitchButton
+            active={false}
+            onClick={() => {
+              setSessionUseSystem(false);
+              setVeilKbOpen(true);
+              requestAnimationFrame(() => textareaRef.current?.focus());
+            }}
+            label="Switch back to Veil keyboard"
+          />
+        )}
       </div>
       {draft.trim() ? (
         <>
@@ -3218,6 +3305,20 @@ function Composer({
         </button>
       )}
       </div>
+
+      {veilKbActive && veilKbOpen && (
+        <VeilKeyboard
+          onChar={insertAtCursor}
+          onBackspace={backspaceAtCursor}
+          onSubmit={() => {
+            if (!sending && draft.trim()) onSendText();
+          }}
+          onClose={() => {
+            setVeilKbOpen(false);
+            textareaRef.current?.blur();
+          }}
+        />
+      )}
     </div>
 
     {schedulePickerOpen && draft.trim() && (
@@ -3231,6 +3332,51 @@ function Composer({
       />
     )}
     </>
+  );
+}
+
+/**
+ * Compact toggle that swaps the active keyboard between the Veil
+ * private keyboard and the system keyboard for the current chat.
+ * Only rendered on touch devices when the user has the Veil keyboard
+ * enabled in Settings.
+ */
+function KeyboardSwitchButton({
+  active,
+  onClick,
+  label,
+}: {
+  /** True when the Veil keyboard is currently the active keyboard. */
+  active: boolean;
+  onClick: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={
+        "size-9 rounded-full hover:bg-white/10 flex items-center justify-center shrink-0 wa-tap " +
+        (active ? "text-wa-green" : "text-text-muted hover:text-text")
+      }
+      aria-label={label}
+      aria-pressed={active}
+      title={label}
+    >
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="size-5"
+        aria-hidden="true"
+      >
+        <rect x="2" y="6" width="20" height="12" rx="2" />
+        <path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10" />
+      </svg>
+    </button>
   );
 }
 
