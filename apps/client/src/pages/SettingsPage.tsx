@@ -16,6 +16,7 @@ import {
 } from "../components/Layout";
 import { MainShell } from "../components/MainShell";
 import { ScheduledMessagesSheet } from "../components/ScheduledMessagesSheet";
+import { SignInActivitySheet } from "../components/SignInActivitySheet";
 import { useThemeStore, THEME_META } from "../lib/themeStore";
 import {
   useWallpaperStore,
@@ -152,6 +153,7 @@ export function SettingsPage() {
         <DailyPasswordEditor />
         <RecoveryKeyRow username={me?.username ?? null} />
         <PasskeyRow />
+        <SignInActivityRow />
 
         <SectionHeader>Appearance</SectionHeader>
         <ThemeRow />
@@ -621,6 +623,40 @@ function PasskeyRow() {
               </button>
             </div>
           </div>
+        </Modal>
+      )}
+    </>
+  );
+}
+
+/* ─────────── Sign-in activity row ─────────── */
+
+function SignInActivityRow() {
+  const [open, setOpen] = useState(false);
+  const list = trpc.auth.listSessions.useQuery(undefined, {
+    enabled: open,
+    retry: false,
+  });
+  const sub = (() => {
+    if (!open || !list.data) {
+      return "See devices signed in to your account";
+    }
+    const n = list.data.length;
+    if (n === 0) return "No active sessions";
+    if (n === 1) return "1 active session";
+    return `${n} active sessions`;
+  })();
+
+  return (
+    <>
+      <SettingsRow
+        label="Sign-in activity"
+        sub={sub}
+        onClick={() => setOpen(true)}
+      />
+      {open && (
+        <Modal title="Sign-in activity" onClose={() => setOpen(false)}>
+          <SignInActivitySheet onClose={() => setOpen(false)} />
         </Modal>
       )}
     </>

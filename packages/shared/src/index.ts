@@ -818,6 +818,41 @@ export const CompleteLoginV2Result = z.object({
 export type CompleteLoginV2Result = z.infer<typeof CompleteLoginV2Result>;
 
 export const LastLoginInfoResult = LoginContextInfo.nullable();
+
+/* ─────────── Sign-in activity (Settings → Security) ─────────── */
+
+/**
+ * One row in the user-facing "Sign-in activity" list. Always lives
+ * alongside the actual session row; `id` here is the session id. We
+ * never expose the raw refresh token hash or the full IP — just the
+ * coarse city/country and the friendly device label.
+ */
+export const SignInActivityEntry = z.object({
+  id: z.string().uuid(),
+  device: z.string(),
+  city: z.string().nullable(),
+  country: z.string().nullable(),
+  createdAt: z.string(),
+  lastUsedAt: z.string(),
+  expiresAt: z.string(),
+  isCurrent: z.boolean(),
+});
+export type SignInActivityEntry = z.infer<typeof SignInActivityEntry>;
+
+export const ListSessionsResult = z.array(SignInActivityEntry);
+export type ListSessionsResult = z.infer<typeof ListSessionsResult>;
+
+export const RevokeSessionInput = z.object({
+  sessionId: z.string().uuid(),
+});
+export type RevokeSessionInput = z.infer<typeof RevokeSessionInput>;
+
+export const RevokeSessionResult = z.object({
+  ok: z.literal(true),
+  /** Number of session rows removed (0 if it didn't exist or wasn't yours). */
+  removed: z.number().int().min(0),
+});
+export type RevokeSessionResult = z.infer<typeof RevokeSessionResult>;
 export type LastLoginInfoResult = z.infer<typeof LastLoginInfoResult>;
 
 /* ─────────── Profile ─────────── */

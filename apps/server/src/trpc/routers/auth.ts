@@ -32,6 +32,9 @@ import {
   CompleteLoginV2Input,
   CompleteLoginV2Result,
   LastLoginInfoResult,
+  ListSessionsResult,
+  RevokeSessionInput,
+  RevokeSessionResult,
   type AuthResult,
   type LoginContextInfo,
 } from "@veil/shared";
@@ -1371,6 +1374,107 @@ export const authRouter = router({
         ...issued.auth,
         lastLogin: issued.lastLogin,
       };
+    }),
+
+  /**
+   * Returns the user's most-recent N sessions for display in
+   * Settings → Security → Sign-in activity. Each entry is a sanitized
+   * view of a `sessions` row: device label, coarse city/country,
+   * timestamps, and a flag marking the row that belongs to the
+   * caller's current refresh token.
+   *
+   * We never return the refresh-token hash or the raw IP — only what
+   * is safe to render in the UI.
+   */
+  listSessions: protectedProcedure
+    .output(ListSessionsResult)
+    .query(async ({ ctx }) => {
+      const db = getDb();
+      const rows = await db
+        .select({
+          id: schema.sessions.id,
+          deviceLabel: schema.sessions.deviceLabel,
+          city: schema.sessions.lastCity,
+          country: schema.sessions.lastCountry,
+          createdAt: schema.sessions.createdAt,
+          lastUsedAt: schema.sessions.lastUsedAt,
+          expiresAt: schema.sessions.expiresAt,
+          refreshTokenHash: schema.sessions.refreshTokenHash,
+        })
+        .from(schema.sessions)
+        .where(eq(schema.sessions.userId, ctx.userId))
+        .orderBy(desc(schema.sessions.lastUsedAt))
+        .limit(10);
+
+      // Identify the caller's "current" session by hashing their
+      // refresh-token cookie (best-effort — falls back to "none current"
+      // when the cookie is missing, e.g. on access-token-only flows).
+      const token = readRefreshToken(
+        ctx.req as unknown as {
+          headers: Record<string, string | string[] | undefined>;
+          cookies?: Record<string, string>;
+        },
+      );
+      const currentHash = token ? sha256Hex(token) : null;
+
+      return rows.map((r) => ({
+        id: r.id,
+        device: describeDevice(r.deviceLabel),
+        city: r.city ?? null,
+        country: r.country ?? null,
+        createdAt: r.createdAt.toISOString(),
+        lastUsedAt: r.lastUsedAt.toISOString(),
+        expiresAt: r.expiresAt.toISOString(),
+        isCurrent: currentHash !== null && r.refreshTokenHash === currentHash,
+      }));
+    }),
+
+  /**
+   * Sign out a specific device by deleting its session row. Refuses
+   * to delete the caller's own current session (use `auth.logout` for
+   * that — it also clears the cookie). Idempotent: returns `removed:
+   * 0` when the row doesn't exist or belongs to someone else.
+   */
+  revokeSession: protectedProcedure
+    .input(RevokeSessionInput)
+    .output(RevokeSessionResult)
+    .mutation(async ({ input, ctx }) => {
+      const db = getDb();
+
+      // Refuse to delete the current session via this endpoint — that
+      // would leave a stale refresh cookie on the caller's browser.
+      const token = readRefreshToken(
+        ctx.req as unknown as {
+          headers: Record<string, string | string[] | undefined>;
+          cookies?: Record<string, string>;
+        },
+      );
+      if (token) {
+        const found = await db
+          .select({ id: schema.sessions.id })
+          .from(schema.sessions)
+          .where(eq(schema.sessions.refreshTokenHash, sha256Hex(token)))
+          .limit(1);
+        if (found[0]?.id === input.sessionId) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              "Use the regular sign-out for this device — it also clears local credentials.",
+          });
+        }
+      }
+
+      const deleted = await db
+        .delete(schema.sessions)
+        .where(
+          and(
+            eq(schema.sessions.id, input.sessionId),
+            eq(schema.sessions.userId, ctx.userId),
+          ),
+        )
+        .returning({ id: schema.sessions.id });
+
+      return { ok: true as const, removed: deleted.length };
     }),
 
   /**
