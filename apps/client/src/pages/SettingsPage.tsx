@@ -28,6 +28,7 @@ import {
 import { ensurePushSubscription, disablePushSubscription } from "../lib/push";
 import { clearIdentity, loadIdentity } from "../lib/db";
 import { useStealthPrefs } from "../lib/stealthPrefs";
+import { useFocusState, formatFocusEnds, focusReasonLabel } from "../lib/focusMode";
 import { useKeyboardPrefs, isCoarsePointerDevice } from "../lib/keyboardPrefs";
 import { feedback } from "../lib/feedback";
 import { resizeAvatarToDataUrl } from "../lib/avatar";
@@ -162,6 +163,11 @@ export function SettingsPage() {
         />
         <SectionHeader>Transparency</SectionHeader>
         <SettingsRow
+          label="Our promises"
+          sub="No ads, no data sharing, local-first, open source — in plain words"
+          to="/promises"
+        />
+        <SettingsRow
           label="Daily privacy report"
           sub="See what Veil protected today"
           to="/privacy-report"
@@ -177,7 +183,13 @@ export function SettingsPage() {
           to="/what-we-store"
         />
 
-        <SectionHeader>Notifications</SectionHeader>
+        <SectionHeader>Notifications & feel</SectionHeader>
+        <FocusModeStatusRow />
+        <SettingsRow
+          label="Sound & feel"
+          sub="Master volume, haptics, and per-motif previews"
+          to="/sound"
+        />
         <PushRow />
 
         <SectionHeader>Account</SectionHeader>
@@ -844,6 +856,39 @@ function Modal({
 }
 
 /* ─────────── Existing rows (unchanged) ─────────── */
+
+/**
+ * One settings row that doubles as a live status badge for Focus Mode
+ * (Principle #4). When focus is active, the row turns into a calm
+ * green pill that tells the user *why* it's active and *until when*,
+ * so they never have to guess whether Veil is going to interrupt them.
+ */
+function FocusModeStatusRow() {
+  const state = useFocusState();
+  const right = state.active ? (
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-wa-green/15 text-wa-green-dark dark:text-wa-green text-[11px] font-semibold px-2.5 py-1 border border-wa-green/30">
+      <span className="relative inline-flex">
+        <span className="absolute inset-0 rounded-full bg-wa-green/40 animate-ping" />
+        <span className="relative size-1.5 rounded-full bg-wa-green" />
+      </span>
+      On
+    </span>
+  ) : (
+    <span className="text-[11.5px] text-text-faint">Off</span>
+  );
+  return (
+    <SettingsRow
+      label="Focus Mode"
+      sub={
+        state.active
+          ? `${focusReasonLabel(state.reason)} · ${formatFocusEnds(state.endsAt)}`
+          : "Quiet hours, snooze, or do-not-disturb on demand"
+      }
+      right={right}
+      to="/focus-mode"
+    />
+  );
+}
 
 function PushRow() {
   const supported =

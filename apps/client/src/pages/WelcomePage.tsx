@@ -124,8 +124,16 @@ export function WelcomePage() {
             <TrustPill icon={<NoEyeIcon />} label="Zero tracking" />
             <TrustPill icon={<DeviceIcon />} label="Lives on your device" />
           </div>
-          <div className="mt-3 flex items-center justify-center">
+          <div className="mt-3 flex items-center justify-center gap-3">
             <ServerStatusBadge status={status} />
+            <span className="text-text-faint text-[10px]">·</span>
+            <Link
+              to="/promises"
+              onClick={() => feedback.tap()}
+              className="text-[10.5px] font-semibold text-wa-green-dark dark:text-wa-green hover:underline"
+            >
+              Read our promises →
+            </Link>
           </div>
         </div>
       </div>

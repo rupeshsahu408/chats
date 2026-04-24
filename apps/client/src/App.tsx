@@ -32,6 +32,9 @@ import { VaultPage } from "./pages/VaultPage";
 import { PrivacyReportPage } from "./pages/PrivacyReportPage";
 import { UnderTheHoodPage } from "./pages/UnderTheHoodPage";
 import { WhatWeStorePage } from "./pages/WhatWeStorePage";
+import { FocusModePage } from "./pages/FocusModePage";
+import { SoundPage } from "./pages/SoundPage";
+import { PromisesPage } from "./pages/PromisesPage";
 import { SessionSync } from "./lib/SessionSync";
 import { useStealthPrefs } from "./lib/stealthPrefs";
 import { unlockAudioOnFirstGesture } from "./lib/sound";
@@ -97,6 +100,9 @@ export function App() {
           <Route path="/privacy-report" element={<PrivacyReportPage />} />
           <Route path="/under-the-hood" element={<UnderTheHoodPage />} />
           <Route path="/what-we-store" element={<WhatWeStorePage />} />
+          <Route path="/focus-mode" element={<FocusModePage />} />
+          <Route path="/sound" element={<SoundPage />} />
+          <Route path="/promises" element={<PromisesPage />} />
           <Route path="/i/:token" element={<InviteRedeemPage />} />
           <Route path="*" element={<WelcomePage />} />
         </Routes>

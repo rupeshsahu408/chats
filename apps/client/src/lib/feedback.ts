@@ -22,6 +22,7 @@ import {
   hapticSuccess,
   hapticTap,
 } from "./haptics";
+import { isFocusActiveNow } from "./focusMode";
 
 export const feedback = {
   /** A normal UI tap (button, list row, toggle). */
@@ -44,8 +45,13 @@ export const feedback = {
    * `packKey` lets the caller pick a per-contact sound pack — see
    * `chatPersonality.SOUND_PACKS`. Falls back to the global Veil
    * receive motif when omitted.
+   *
+   * Focus Mode (Principle #4) silences this entire path — the
+   * message still appends to the UI, we just refuse to interrupt
+   * the user with a sound or vibration.
    */
   receive(packKey?: string): void {
+    if (isFocusActiveNow()) return;
     hapticReceive();
     playReceiveTone(packKey);
   },

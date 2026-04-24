@@ -306,6 +306,31 @@ export interface UserPrefRecord {
     text: string;
     expiresAt: string;
   };
+  /**
+   * Master volume (0..1) applied to the Veil sound bus. Persisted so
+   * the user's choice survives reloads. Defaults to ~0.6 inside
+   * `lib/sound.ts` when omitted.
+   */
+  soundVolume?: number;
+  /* ─────────── Focus Mode (Principle #4 — calm by default) ─────────── */
+  /**
+   * Master "Focus Mode" toggle. When on we drop notification sounds,
+   * haptics, and best-effort suppress system push notifications.
+   * Messages still arrive normally — Veil just refuses to interrupt.
+   */
+  focusModeEnabled?: boolean;
+  /** When true, focus is automatically active during the daily quiet-hours window. */
+  quietHoursEnabled?: boolean;
+  /** "HH:MM" 24-hour clock — when quiet hours start. Default "22:00". */
+  quietHoursStart?: string;
+  /** "HH:MM" 24-hour clock — when quiet hours end. Default "07:00". */
+  quietHoursEnd?: string;
+  /**
+   * ISO timestamp. Until this moment, every notification cue is
+   * silent regardless of the master toggle. Used to power the
+   * "Snooze for 1 hour / 4 hours / until tomorrow" quick-actions.
+   */
+  snoozeUntil?: string;
   updatedAt: string;
 }
 

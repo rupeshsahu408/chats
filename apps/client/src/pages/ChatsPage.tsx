@@ -31,6 +31,7 @@ import { usePeersPresence } from "../lib/usePeersPresence";
 import { useTypingStore, typingLabel } from "../lib/typingStore";
 import { MoodSheet } from "../components/MoodSheet";
 import { moodCountdownLabel, getActiveMyMood } from "../lib/moodSync";
+import { useFocusState, focusReasonLabel } from "../lib/focusMode";
 
 export function ChatsPage() {
   const navigate = useNavigate();
@@ -219,6 +220,7 @@ export function ChatsPage() {
       active="chats"
       rightActions={
         <>
+          <FocusChip />
           <IconButton
             label="Search"
             onClick={() => setSearching((s) => !s)}
@@ -652,4 +654,39 @@ function formatTime(iso: string): string {
     return d.toLocaleDateString([], { weekday: "short" });
   }
   return d.toLocaleDateString([], { month: "short", day: "numeric" });
+}
+
+/**
+ * A small calm-green chip that appears in the inbox app-bar whenever
+ * Focus Mode (Principle #4) is suppressing notifications. Tapping it
+ * jumps straight to the Focus Mode page so the user can dismiss the
+ * snooze, end quiet hours, or extend the silence with one gesture.
+ *
+ * Hidden entirely when focus is off — the chip should never become
+ * visual noise in the default state.
+ */
+function FocusChip() {
+  const navigate = useNavigate();
+  const state = useFocusState();
+  if (!state.active) return null;
+  return (
+    <button
+      type="button"
+      onClick={() => navigate("/focus-mode")}
+      title={`${focusReasonLabel(state.reason)} — tap to manage`}
+      className={
+        "inline-flex items-center gap-1.5 h-8 px-3 rounded-full " +
+        "bg-white/15 hover:bg-white/22 backdrop-blur-sm " +
+        "border border-white/20 text-text-oncolor wa-tap " +
+        "text-[11.5px] font-semibold tracking-wide"
+      }
+      aria-label="Focus Mode is on"
+    >
+      <span className="relative inline-flex">
+        <span className="absolute inset-0 rounded-full bg-white/40 animate-ping" />
+        <span className="relative size-1.5 rounded-full bg-white" />
+      </span>
+      <span className="hidden xs:inline">Quiet</span>
+    </button>
+  );
 }
