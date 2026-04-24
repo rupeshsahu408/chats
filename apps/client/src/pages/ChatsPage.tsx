@@ -18,6 +18,9 @@ import {
   PrimaryButton,
   DoubleTickIcon,
   SingleTickIcon,
+  PinIcon,
+  BellOffIcon,
+  PeopleIcon,
 } from "../components/Layout";
 import { MainShell } from "../components/MainShell";
 import { UnlockGate } from "../components/UnlockGate";
@@ -274,19 +277,13 @@ export function ChatsPage() {
 
       {identity && (
         <div className="bg-panel flex-1">
-          <div className="flex items-center gap-2 px-4 pt-3 pb-1">
-            <button
-              className="px-3 py-1 rounded-full text-sm bg-wa-green text-text-oncolor"
-              disabled
-            >
-              Direct
-            </button>
-            <button
-              className="px-3 py-1 rounded-full text-sm bg-surface border border-line text-text"
-              onClick={() => navigate("/groups")}
-            >
-              Groups
-            </button>
+          <div className="px-4 pt-3 pb-1">
+            <DirectGroupsTabs
+              active="direct"
+              onSelect={(t) => {
+                if (t === "groups") navigate("/groups");
+              }}
+            />
           </div>
           {connections.isLoading ? (
             <div className="flex justify-center py-10">
@@ -418,12 +415,25 @@ export function ChatsPage() {
                   );
                 })()}
                 meta={
-                  <span className="inline-flex items-center gap-1">
+                  <span
+                    className={
+                      "inline-flex items-center gap-1.5 " +
+                      (unreadPeers.has(conn.peer.id)
+                        ? "text-wa-green font-semibold"
+                        : "")
+                    }
+                  >
                     {pinnedPeers.has(conn.peer.id) && (
-                      <span title="Pinned" className="text-text-muted">📌</span>
+                      <PinIcon
+                        className="size-3 text-text-muted"
+                        aria-label="Pinned"
+                      />
                     )}
                     {mutedPeers.has(conn.peer.id) && (
-                      <span title="Muted" className="text-text-muted">🔕</span>
+                      <BellOffIcon
+                        className="size-3 text-text-muted"
+                        aria-label="Muted"
+                      />
                     )}
                     {last && <span>{formatTime(last.createdAt)}</span>}
                   </span>
@@ -432,7 +442,12 @@ export function ChatsPage() {
                   unreadPeers.has(conn.peer.id) ? (
                     <span
                       title="Marked as unread"
-                      className="inline-block size-2.5 rounded-full bg-wa-green"
+                      aria-label="Marked as unread"
+                      className={
+                        "inline-block size-3 rounded-full bg-wa-green " +
+                        "ring-2 ring-wa-green/25 " +
+                        "animate-pulse"
+                      }
                     />
                   ) : (
                     <UnreadBadge count={0} />
@@ -546,6 +561,78 @@ function ChatRowActionSheet({
           Cancel
         </button>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Segmented Direct/Groups switcher.
+ *
+ * The selected pill is the only thing that animates — a single
+ * absolute element that translates between the two slots, so the
+ * toggle reads as one continuous gesture instead of two buttons
+ * blinking. Honors prefers-reduced-motion via Tailwind's transition
+ * tokens (transitions degrade gracefully).
+ */
+function DirectGroupsTabs({
+  active,
+  onSelect,
+}: {
+  active: "direct" | "groups";
+  onSelect: (t: "direct" | "groups") => void;
+}) {
+  const isDirect = active === "direct";
+  return (
+    <div
+      className={
+        "relative inline-flex w-full max-w-[260px] " +
+        "rounded-full bg-surface/80 border border-line/70 " +
+        "p-0.5 [box-shadow:inset_0_1px_0_rgba(255,255,255,0.04)]"
+      }
+      role="tablist"
+      aria-label="Conversation type"
+    >
+      {/* Sliding pill */}
+      <span
+        aria-hidden
+        className={
+          "absolute top-0.5 bottom-0.5 left-0.5 w-[calc(50%-0.125rem)] " +
+          "rounded-full bg-gradient-to-b from-wa-green to-wa-green-dark " +
+          "[box-shadow:inset_0_1px_0_rgba(255,255,255,0.18),0_4px_12px_rgba(0,168,132,0.25)] " +
+          "transition-transform duration-300 ease-veil-spring " +
+          (isDirect ? "translate-x-0" : "translate-x-full")
+        }
+      />
+      <button
+        type="button"
+        role="tab"
+        aria-selected={isDirect}
+        onClick={() => onSelect("direct")}
+        className={
+          "relative z-10 flex-1 inline-flex items-center justify-center gap-1.5 " +
+          "h-8 rounded-full text-[13px] font-semibold wa-tap " +
+          "transition-colors duration-200 " +
+          (isDirect ? "text-text-oncolor" : "text-text-muted hover:text-text")
+        }
+      >
+        <ChatIcon className="size-3.5" />
+        Direct
+      </button>
+      <button
+        type="button"
+        role="tab"
+        aria-selected={!isDirect}
+        onClick={() => onSelect("groups")}
+        className={
+          "relative z-10 flex-1 inline-flex items-center justify-center gap-1.5 " +
+          "h-8 rounded-full text-[13px] font-semibold wa-tap " +
+          "transition-colors duration-200 " +
+          (!isDirect ? "text-text-oncolor" : "text-text-muted hover:text-text")
+        }
+      >
+        <PeopleIcon className="size-3.5" />
+        Groups
+      </button>
     </div>
   );
 }

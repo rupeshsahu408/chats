@@ -129,6 +129,14 @@ export default {
           "0%": { opacity: "0", transform: "translateY(-6px)" },
           "100%": { opacity: "1", transform: "translateY(0)" },
         },
+        // Soft, ambient "breathing" loop. Used on hero icons in
+        // empty states so the screen doesn't feel completely static
+        // — at ~4s per cycle it sits below conscious notice but
+        // adds a quiet sense of life to the surface.
+        "breathe": {
+          "0%, 100%": { transform: "scale(1)", opacity: "1" },
+          "50%": { transform: "scale(1.04)", opacity: "0.92" },
+        },
       },
       animation: {
         "bubble-in-out": "bubble-in-out 220ms cubic-bezier(0.34, 1.56, 0.64, 1) both",
@@ -138,6 +146,7 @@ export default {
         "fade-in": "fade-in 280ms cubic-bezier(0.22, 1, 0.36, 1) both",
         "slide-up": "slide-up 320ms cubic-bezier(0.22, 1, 0.36, 1) both",
         "slide-down": "slide-down 240ms cubic-bezier(0.22, 1, 0.36, 1) both",
+        "breathe": "breathe 4200ms cubic-bezier(0.45, 0, 0.55, 1) infinite",
       },
     },
   },

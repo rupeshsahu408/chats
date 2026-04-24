@@ -525,19 +525,6 @@ export function ChatListRow({
               <span className="italic text-text-faint">No messages yet</span>
             )}
           </div>
-          {online && (
-            <span
-              title="Online now"
-              className={
-                "shrink-0 inline-flex items-center gap-1 " +
-                "text-[10.5px] font-semibold uppercase tracking-[0.06em] " +
-                "text-wa-green"
-              }
-            >
-              <span className="size-1.5 rounded-full bg-wa-green" />
-              <span>online</span>
-            </span>
-          )}
           {badge && <div className="shrink-0">{badge}</div>}
         </div>
       </div>
@@ -614,9 +601,19 @@ function StatusTicks({
   status: "pending" | "sent" | "delivered" | "failed" | "received" | "read";
 }) {
   if (status === "pending")
-    return <span className="opacity-70 text-[10px]" aria-label="Sending">⏱</span>;
+    return (
+      <ClockTickIcon
+        className="opacity-70 text-current"
+        aria-label="Sending"
+      />
+    );
   if (status === "failed")
-    return <span className="text-red-500 text-[10px]" aria-label="Failed">!</span>;
+    return (
+      <AlertTickIcon
+        className="text-red-500"
+        aria-label="Failed to send"
+      />
+    );
   if (status === "sent")
     return <SingleTickIcon className="text-wa-tick" />;
   if (status === "delivered")
@@ -624,6 +621,59 @@ function StatusTicks({
   if (status === "read")
     return <ReadDoubleTickIcon />;
   return null;
+}
+
+function ClockTickIcon({
+  className,
+  ...rest
+}: {
+  className?: string;
+  "aria-label"?: string;
+}) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={11}
+      height={11}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2.2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      {...rest}
+    >
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7.5V12l3 2" />
+    </svg>
+  );
+}
+
+function AlertTickIcon({
+  className,
+  ...rest
+}: {
+  className?: string;
+  "aria-label"?: string;
+}) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={11}
+      height={11}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2.4}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      {...rest}
+    >
+      <path d="M12 4 2.5 20h19L12 4z" />
+      <path d="M12 10v4" />
+      <path d="M12 17.25v.01" />
+    </svg>
+  );
 }
 
 /**
@@ -826,7 +876,25 @@ export function EmptyState({
   return (
     <div className="flex flex-col items-center justify-center text-center gap-3 py-16 px-6 text-text-muted animate-fade-in">
       {icon && (
-        <div className="text-text-faint mb-1 [&>svg]:size-12">{icon}</div>
+        <div className="relative mb-2">
+          <span
+            aria-hidden
+            className="absolute inset-0 rounded-full bg-wa-green/15 blur-2xl scale-[1.6]"
+          />
+          <div
+            className={
+              "relative size-20 rounded-3xl grid place-items-center " +
+              "bg-gradient-to-b from-surface to-surface/40 " +
+              "border border-line/60 " +
+              "[box-shadow:inset_0_1px_0_rgba(255,255,255,0.04),0_8px_24px_rgba(11,20,26,0.10)] " +
+              "text-wa-green-dark dark:text-wa-green " +
+              "[&>svg]:size-10 " +
+              "animate-breathe motion-reduce:animate-none"
+            }
+          >
+            {icon}
+          </div>
+        </div>
       )}
       <div className="text-text font-semibold text-[19px] tracking-tight">
         {title}

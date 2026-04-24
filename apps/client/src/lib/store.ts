@@ -88,3 +88,13 @@ export const useAuthStore = create<AuthState>((set) => ({
 export function getStoredRefreshToken(): string | null {
   return loadPersisted()?.refreshToken ?? null;
 }
+
+/**
+ * Returns the persisted refresh-token expiry as an epoch-ms timestamp,
+ * or `null` if no auth is stored / the value is missing. Used by the
+ * Under-the-Hood transparency screen to render a live countdown
+ * without subscribing the rest of the app to expiry changes.
+ */
+export function getStoredRefreshExpiresAt(): number | null {
+  return loadPersisted()?.refreshExpiresAt ?? null;
+}

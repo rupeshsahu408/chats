@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { trpc } from "../lib/trpc";
-import { useAuthStore } from "../lib/store";
+import { useAuthStore, getStoredRefreshExpiresAt } from "../lib/store";
 import { useUnlockStore } from "../lib/unlockStore";
 import { AppBar, Pill } from "../components/Layout";
 import { loadIdentity } from "../lib/db";
@@ -16,8 +16,20 @@ import { loadIdentity } from "../lib/db";
 export function UnderTheHoodPage() {
   const navigate = useNavigate();
   const accessToken = useAuthStore((s) => s.accessToken);
-  const refreshExp = useAuthStore((s) => s.refreshExpiresIn);
   const user = useAuthStore((s) => s.user);
+  // The refresh-token expiry lives in localStorage (not the Zustand
+  // store) so we re-read it once per minute. That's the same cadence
+  // the rest of the page refreshes at and is more than enough
+  // resolution for the human-readable countdown shown below.
+  const [refreshExp, setRefreshExp] = useState<number | null>(() =>
+    getStoredRefreshExpiresAt(),
+  );
+  useEffect(() => {
+    const tick = () => setRefreshExp(getStoredRefreshExpiresAt());
+    tick();
+    const id = window.setInterval(tick, 60_000);
+    return () => window.clearInterval(id);
+  }, []);
   const identity = useUnlockStore((s) => s.identity);
 
   useEffect(() => {
@@ -318,13 +330,22 @@ function shortId(id: string): string {
   return id.length > 12 ? `${id.slice(0, 4)}…${id.slice(-4)}` : id;
 }
 
-function formatRefreshExpiry(seconds: number | null | undefined): string {
-  if (!seconds || seconds <= 0) return "—";
-  const days = Math.floor(seconds / 86400);
+/**
+ * Render a refresh-token expiry epoch as a human-relative string.
+ * Accepts the absolute epoch-ms value pulled from localStorage and
+ * derives the remaining duration on the fly so the caller doesn't
+ * have to keep a ticking countdown — the page re-reads this every
+ * minute, which is plenty of resolution for a "in 6 days" label.
+ */
+function formatRefreshExpiry(expiresAt: number | null | undefined): string {
+  if (!expiresAt) return "—";
+  const remaining = Math.floor((expiresAt - Date.now()) / 1000);
+  if (remaining <= 0) return "expired";
+  const days = Math.floor(remaining / 86400);
   if (days >= 1) return `in ${days} day${days === 1 ? "" : "s"}`;
-  const hours = Math.floor(seconds / 3600);
+  const hours = Math.floor(remaining / 3600);
   if (hours >= 1) return `in ${hours} hour${hours === 1 ? "" : "s"}`;
-  const mins = Math.floor(seconds / 60);
+  const mins = Math.floor(remaining / 60);
   return `in ${Math.max(mins, 1)} min${mins === 1 ? "" : "s"}`;
 }
 
