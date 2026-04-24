@@ -155,6 +155,16 @@ export function SettingsPage() {
         <LastSeenPrivacyRow />
         <BlockedContactsRow />
         <VeilKeyboardRow />
+        <SettingsRow
+          label="Vault"
+          sub="Hide chats behind your fingerprint or face"
+          to="/vault"
+        />
+        <SettingsRow
+          label="Daily privacy report"
+          sub="See what Veil protected today"
+          to="/privacy-report"
+        />
 
         <SectionHeader>Notifications</SectionHeader>
         <PushRow />

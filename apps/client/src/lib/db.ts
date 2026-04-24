@@ -195,6 +195,13 @@ export interface ChatPrefRecord {
   /** Mute notifications until this ISO timestamp. Empty = not muted. */
   mutedUntil?: string;
   /**
+   * When true, this chat is hidden from the main chat list and only
+   * appears inside the biometric-locked Vault. The chat itself is
+   * still encrypted and synced exactly like any other thread —
+   * "vaulted" only changes which inbox it shows up in.
+   */
+  vaulted?: boolean;
+  /**
    * Whether to fetch and attach IP-safe link previews to outgoing
    * messages in this chat. Default true. When false, URLs in the
    * draft are sent as plain text with no preview card.
@@ -220,6 +227,16 @@ export interface UserPrefRecord {
   soundEnabled?: boolean;
   /** Fire short haptic vibrations to match (mobile only). Default true. */
   hapticsEnabled?: boolean;
+  /**
+   * Whether the user has enabled the Vault — a separate, biometric-
+   * locked inbox. When false the Vault entry is hidden from settings.
+   */
+  vaultEnabled?: boolean;
+  /**
+   * WebAuthn credential id (base64url) used to unlock the Vault. Set
+   * during enrollment, cleared if the user disables the vault.
+   */
+  vaultCredentialId?: string;
   updatedAt: string;
 }
 
@@ -450,6 +467,22 @@ export class VeilDB extends Dexie {
     // starred fields on groupMessages. Add `starred` index for the
     // Starred messages sheet.
     this.version(10).stores({
+      identity: "id",
+      prekeys: "id, kind, keyId",
+      chatSessions: "peerId, updatedAt",
+      chatMessages: "++id, peerId, createdAt, serverId, expiresAt",
+      unlocked: "id",
+      chatPrefs: "peerId, updatedAt",
+      userPrefs: "id",
+      groupSenderKeys: "id, [groupId+senderUserId+epoch], groupId, senderUserId",
+      groupMessages: "++id, groupId, createdAt, serverId, dedupKey, expiresAt, starred",
+      scheduledMessages: "++id, peerId, scheduledFor, sent",
+    });
+    // v11 — Vault: per-chat `vaulted` flag plus global vault enrollment
+    // (`vaultEnabled` + `vaultCredentialId`). Optional fields only —
+    // no new indices required since vault filtering is done in JS over
+    // the small `chatPrefs` table.
+    this.version(11).stores({
       identity: "id",
       prekeys: "id, kind, keyId",
       chatSessions: "peerId, updatedAt",

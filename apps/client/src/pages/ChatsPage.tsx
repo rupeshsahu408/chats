@@ -62,6 +62,14 @@ export function ChatsPage() {
     }
     return set;
   }, [allChatPrefs]);
+  // Chats moved into the Vault are hidden from the main inbox.
+  // The hidden set is computed from local prefs only — the server
+  // doesn't know which chats the user has chosen to hide.
+  const vaultedPeers = useMemo(() => {
+    const set = new Set<string>();
+    for (const p of allChatPrefs ?? []) if (p.vaulted) set.add(p.peerId);
+    return set;
+  }, [allChatPrefs]);
 
   useEffect(() => {
     if (!accessToken) navigate("/");
@@ -115,6 +123,8 @@ export function ChatsPage() {
       last: lastByPeer.get(c.peer.id),
     }))
     .filter(({ conn }) => {
+      // Hide vaulted chats from the main inbox unconditionally.
+      if (vaultedPeers.has(conn.peer.id)) return false;
       if (!searching || !search.trim()) return true;
       const q = search.trim().toLowerCase();
       return (
