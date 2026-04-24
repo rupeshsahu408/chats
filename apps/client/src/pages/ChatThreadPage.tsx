@@ -159,6 +159,15 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
     [peerId],
     undefined as ChatPrefRecord | undefined,
   );
+  // Opening the conversation is the canonical "I've seen this"
+  // action, so we clear the manual unread flag here. We only write
+  // when the flag is actually set so we don't churn updatedAt and
+  // re-trigger every other useLiveQuery that watches chatPrefs.
+  useEffect(() => {
+    if (chatPref?.markedUnread) {
+      void setChatPref(peerId, { markedUnread: false });
+    }
+  }, [peerId, chatPref?.markedUnread]);
   const ttlSeconds = chatPref?.ttlSeconds ?? 0;
   const seenTtlSeconds = chatPref?.seenTtlSeconds ?? 0;
   const viewOnceDefault = chatPref?.viewOnceDefault ?? false;

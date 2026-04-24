@@ -207,6 +207,14 @@ export interface ChatPrefRecord {
    * draft are sent as plain text with no preview card.
    */
   linkPreviewsEnabled?: boolean;
+  /**
+   * User has long-pressed this chat in the inbox and chosen
+   * "Mark as unread" — purely a local visual flag (no server
+   * round-trip). It auto-clears the moment the user actually
+   * opens the conversation, which keeps it WhatsApp-style:
+   * a quick "remind me later" cue, not a real receipt change.
+   */
+  markedUnread?: boolean;
   updatedAt: string;
 }
 

@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { trpc } from "../lib/trpc";
 import { useAuthStore } from "../lib/store";
@@ -21,7 +21,7 @@ import {
 } from "../components/Layout";
 import { MainShell } from "../components/MainShell";
 import { UnlockGate } from "../components/UnlockGate";
-import { db } from "../lib/db";
+import { db, setChatPref } from "../lib/db";
 import { peerLabel } from "../lib/peerLabel";
 import { pollAndDecrypt } from "../lib/messageSync";
 import { usePeersPresence } from "../lib/usePeersPresence";
@@ -71,6 +71,27 @@ export function ChatsPage() {
     for (const p of allChatPrefs ?? []) if (p.vaulted) set.add(p.peerId);
     return set;
   }, [allChatPrefs]);
+  // Locally-marked-unread chats: shown with a green dot and float
+  // up the list a tiny bit so they don't get lost when new chats
+  // arrive. Cleared automatically once the user opens the chat.
+  const unreadPeers = useMemo(() => {
+    const set = new Set<string>();
+    for (const p of allChatPrefs ?? []) if (p.markedUnread) set.add(p.peerId);
+    return set;
+  }, [allChatPrefs]);
+
+  // Long-press → row action sheet. We track the peer the sheet is
+  // bound to plus a ref-based timer so a regular tap (which still
+  // navigates via the underlying <Link>) doesn't open the sheet.
+  const [actionPeerId, setActionPeerId] = useState<string | null>(null);
+  const longPressTimer = useRef<number | null>(null);
+  const longPressFired = useRef(false);
+  const cancelLongPress = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  };
 
   useEffect(() => {
     if (!accessToken) navigate("/");
@@ -139,6 +160,12 @@ export function ChatsPage() {
       const ap = pinnedPeers.has(a.conn.peer.id) ? 1 : 0;
       const bp = pinnedPeers.has(b.conn.peer.id) ? 1 : 0;
       if (ap !== bp) return bp - ap;
+      // Manually-unread chats float above their non-unread peers
+      // (within the same pinned/un-pinned tier) so the user's
+      // "remind me" choice stays visible at a glance.
+      const au = unreadPeers.has(a.conn.peer.id) ? 1 : 0;
+      const bu = unreadPeers.has(b.conn.peer.id) ? 1 : 0;
+      if (au !== bu) return bu - au;
       const at = a.last?.createdAt ?? "";
       const bt = b.last?.createdAt ?? "";
       return bt.localeCompare(at);
@@ -225,8 +252,34 @@ export function ChatsPage() {
             />
           ) : (
             rows.map(({ conn, last }) => (
-              <ChatListRow
+              <div
                 key={conn.id}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  setActionPeerId(conn.peer.id);
+                }}
+                onTouchStart={() => {
+                  longPressFired.current = false;
+                  cancelLongPress();
+                  longPressTimer.current = window.setTimeout(() => {
+                    longPressFired.current = true;
+                    setActionPeerId(conn.peer.id);
+                  }, 450);
+                }}
+                onTouchMove={cancelLongPress}
+                onTouchEnd={cancelLongPress}
+                onClickCapture={(e) => {
+                  // Long-press already opened the sheet — swallow the
+                  // click that the touchend would otherwise synthesize
+                  // so we don't simultaneously navigate into the chat.
+                  if (longPressFired.current) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    longPressFired.current = false;
+                  }
+                }}
+              >
+              <ChatListRow
                 to={`/chats/${conn.peer.id}`}
                 seed={conn.peer.username || conn.peer.id}
                 avatarSrc={conn.peer.avatarDataUrl ?? null}
@@ -283,8 +336,18 @@ export function ChatsPage() {
                     {last && <span>{formatTime(last.createdAt)}</span>}
                   </span>
                 }
-                badge={<UnreadBadge count={0} />}
+                badge={
+                  unreadPeers.has(conn.peer.id) ? (
+                    <span
+                      title="Marked as unread"
+                      className="inline-block size-2.5 rounded-full bg-wa-green"
+                    />
+                  ) : (
+                    <UnreadBadge count={0} />
+                  )
+                }
               />
+              </div>
             ))
           )}
         </div>
@@ -295,7 +358,96 @@ export function ChatsPage() {
           <PlusIcon />
         </FAB>
       )}
+
+      {actionPeerId && (
+        <ChatRowActionSheet
+          peerId={actionPeerId}
+          peerName={(() => {
+            const r = (connections.data ?? []).find(
+              (c) => c.peer.id === actionPeerId,
+            );
+            return r ? peerLabel(r.peer) : "this chat";
+          })()}
+          isUnread={unreadPeers.has(actionPeerId)}
+          isPinned={pinnedPeers.has(actionPeerId)}
+          isMuted={mutedPeers.has(actionPeerId)}
+          onClose={() => setActionPeerId(null)}
+        />
+      )}
     </MainShell>
+  );
+}
+
+/**
+ * Bottom sheet shown after long-pressing a chat in the inbox.
+ * Surfaces the most common per-row actions — toggle Read/Unread,
+ * Pin, Mute — without forcing the user to first open the thread.
+ * All writes go through `setChatPref`, which both upserts the row
+ * and bumps `updatedAt` so the live query in ChatsPage re-renders.
+ */
+function ChatRowActionSheet({
+  peerId,
+  peerName,
+  isUnread,
+  isPinned,
+  isMuted,
+  onClose,
+}: {
+  peerId: string;
+  peerName: string;
+  isUnread: boolean;
+  isPinned: boolean;
+  isMuted: boolean;
+  onClose: () => void;
+}) {
+  const apply = async (patch: Parameters<typeof setChatPref>[1]) => {
+    await setChatPref(peerId, patch);
+    onClose();
+  };
+  return (
+    <div
+      className="fixed inset-0 z-40 bg-black/60 flex items-end"
+      onClick={onClose}
+    >
+      <div
+        className="w-full bg-panel rounded-t-2xl border-t border-line pb-4 max-w-md mx-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="px-4 pt-3 pb-2 text-sm font-semibold text-text truncate">
+          {peerName}
+        </div>
+        <button
+          className="w-full text-left px-4 py-3 border-t border-line/40 text-sm hover:bg-white/5"
+          onClick={() => void apply({ markedUnread: !isUnread })}
+        >
+          {isUnread ? "Mark as read" : "Mark as unread"}
+        </button>
+        <button
+          className="w-full text-left px-4 py-3 border-t border-line/40 text-sm hover:bg-white/5"
+          onClick={() => void apply({ pinnedToTop: !isPinned })}
+        >
+          {isPinned ? "Unpin from top" : "Pin to top"}
+        </button>
+        <button
+          className="w-full text-left px-4 py-3 border-t border-line/40 text-sm hover:bg-white/5"
+          onClick={() =>
+            void apply({
+              mutedUntil: isMuted
+                ? ""
+                : new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString(),
+            })
+          }
+        >
+          {isMuted ? "Unmute notifications" : "Mute for 8 hours"}
+        </button>
+        <button
+          className="w-full text-left px-4 py-3 border-t border-line/40 text-sm text-text-muted hover:bg-white/5"
+          onClick={onClose}
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
   );
 }
 
