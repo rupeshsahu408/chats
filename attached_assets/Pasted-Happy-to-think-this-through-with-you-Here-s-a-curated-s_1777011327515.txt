@@ -1,0 +1,46 @@
+Happy to think this through with you. Here's a curated set of small, thoughtful additions plus the design philosophy that ties them together. I've sorted them by how quickly they pay off, and each one is paired with the reason it makes Veil feel better than WhatsApp.
+
+Small, quiet delights (high impact, low effort)
+Live typing in the chat list. See "typing…" right on the row before opening it. Reuses the typing events already flowing.
+Reactions with a smooth picker. Long-press any bubble to open a reaction tray. Subtle haptic burst, spring animation. WhatsApp's feels glued on; ours can feel native.
+Swipe-to-reply. Drag a message right to quote it. Gesture-driven, faster than the reply menu.
+"Snooze contact." Mute just one person for 1h / until tonight / until tomorrow. Most apps treat DND as all-or-nothing. This is surgical.
+Pinned messages inside a thread. Pin a meeting link or address to the top of a chat. Useful in 1:1s, essential in groups.
+Bookmark/star messages. Per-chat "Saved" view. No more scrolling forever to find that address.
+Reaction summary in chat list row. "Sara reacted ❤️ to your message." Tells you what kind of reply is waiting.
+Mutual read receipts. Receipts only show when both parties opt in. WhatsApp's one-sided model creates anxiety; mutual receipts feel fair and calm.
+Inline editing with a transparent "edited" pill. Tap the pill to see the edit history. Builds trust where Telegram is opaque.
+Premium experience touches (create real lock-in)
+Vault for hidden chats. Biometric-locked separate inbox; doesn't appear anywhere in the main list. Solves a real privacy fear that no mainstream app addresses well.
+Self-destructing messages with a visible countdown. Watch the bubble dissolve in real time. Make ephemerality feel beautiful, not anxious.
+Voice notes with waveform + auto-transcript. Read voice messages silently in meetings. Single biggest UX gap in WhatsApp.
+Per-contact chat themes & sounds. Your thread with Mom can be warm; with work, minimal. Custom notification chime for the people who matter. Identity in every interaction.
+Mood / status with vibe. "📚 reading", "🎧 deep work" — auto-clears after a few hours. Lighter than a status message, more honest than nothing.
+Conversation memory. "You've been talking with Sara for 3 months · 1,242 messages." Nostalgia is sticky.
+Connection anniversary nudge. Quiet, opt-in. The kind of small gesture WhatsApp would never ship.
+Daily privacy report. "Today: 0 metadata leaks, 12 messages encrypted on device." Make the invisible visible. Users feel safer the more they see.
+Communication superpowers (attract creators, devs, students)
+Markdown in messages. bold, italic, code, > quote. Costs nothing, instantly feels modern.
+Code blocks with syntax highlighting. Owns the dev/maker audience overnight.
+Polls in 1:1 and group. Quick decisions without 30 messages.
+Long-press → translate / define / calculate. Quiet utility, like iOS text actions but better.
+Smart drafts that never sync. Encrypted locally, restored exactly where you left off.
+Onboarding & identity (the moments that convert switchers)
+Identity creation as a ceremony, not a form. Animated key generation with a calm voiceover-feel. Make people feel they got a passport, not signed up for a service.
+Safety number as art. Beautiful pattern + QR. Verification animation when both sides confirm. Treat cryptography as the aesthetic, not the warning label.
+Invite cards that look like product reveals. A shareable card with the invitee's name, your fingerprint preview, and the trust handshake explained in three lines. People will want to send these.
+Empty states that teach. "No chats yet — here's what's possible." Turn an empty screen into a tour.
+Design philosophy that pulls users away from WhatsApp
+WhatsApp is utilitarian — it works, but nothing about it makes you smile. To pull people across, Veil needs to feel like an artifact, not an app. A few guiding principles:
+
+Every screen should reward attention. Refined typography, intentional color, generous whitespace, motion that feels physical. The polish foundation we just shipped is exactly this energy — keep extending it everywhere.
+Sound is identity. Veil should have its own musical voice — send, receive, mention, success. Recognizable across a room. WhatsApp's chime is a sonic logo; ours can be more elegant.
+Privacy is a gift, not a lecture. Don't preach. Surface the magic — animated safety numbers, the daily privacy report, "you're the only person seeing this" assurance — let users discover the protection.
+Calm by default. Smart notification batching. Quiet hours that are actually quiet. Snooze per-contact. WhatsApp pings constantly; Veil should respect attention.
+Make groups feel small. Pinned messages, polls, quiet hours, "currently in chat" presence — gentle structure that turns chaos into conversation.
+Trust through transparency. Show edit history. Show when receipts are off. Show what's encrypted. Users trust what they can see.
+No ads. No data sharing. Say it out loud. Put it in onboarding. Repeat it on the first chat. This is your unfair advantage — own it.
+Local-first is freedom. Frame the architecture as a feature: "Your messages live on your device. The server is just a relay." That sentence converts privacy-skeptical switchers.
+Onboarding is theater. The first 60 seconds should feel handcrafted. People decide whether to invite friends in those seconds.
+Identity is yours. Phone number optional. Username, fingerprint, QR. Make the cryptographic identity feel proud, not nerdy.
+If you want, I'd start with the chat-list typing indicator + swipe-to-reply + per-chat pinned messages — they're each small, they layer on the foundation we just shipped, and together they make the chat surface feel a generation ahead of WhatsApp. iska simple hindi do
