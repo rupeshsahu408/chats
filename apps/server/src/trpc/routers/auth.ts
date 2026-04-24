@@ -25,6 +25,8 @@ import {
   VerifyDailyPasswordResult,
   SetVerificationPasswordInput,
   SetVerificationPasswordResult,
+  ChangePasswordInput,
+  ChangePasswordResult,
   type AuthResult,
 } from "@veil/shared";
 import {
@@ -896,6 +898,69 @@ export const authRouter = router({
       await db
         .update(schema.users)
         .set({ verificationPasswordHash: newHash })
+        .where(eq(schema.users.id, ctx.userId));
+
+      return { ok: true, updatedAt: new Date().toISOString() };
+    }),
+
+  /**
+   * Change the account's login password (the one used at sign-in).
+   * Requires the current password to match. Only available for
+   * accounts that signed up with username + password — accounts that
+   * use email/phone OTP or recovery-phrase signing have no password
+   * to change.
+   */
+  changePassword: protectedProcedure
+    .input(ChangePasswordInput)
+    .output(ChangePasswordResult)
+    .mutation(async ({ input, ctx }) => {
+      const userLimit = rateLimit({
+        key: `change-password:user:${ctx.userId}`,
+        limit: 5,
+        windowSeconds: 10 * 60,
+      });
+      if (!userLimit.allowed) {
+        throw new TRPCError({
+          code: "TOO_MANY_REQUESTS",
+          message: "Too many attempts. Please wait a few minutes.",
+        });
+      }
+
+      if (input.currentPassword === input.newPassword) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "New password must be different from the current password.",
+        });
+      }
+
+      const db = getDb();
+      const found = await db
+        .select({ hash: schema.users.passwordHash })
+        .from(schema.users)
+        .where(eq(schema.users.id, ctx.userId))
+        .limit(1);
+
+      const existing = found[0]?.hash ?? null;
+      if (!existing) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message:
+            "This account does not use a login password. Sign-in is via email, phone, or your recovery phrase.",
+        });
+      }
+
+      const ok = await bcrypt.compare(input.currentPassword, existing);
+      if (!ok) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "Current password is incorrect.",
+        });
+      }
+
+      const newHash = await bcrypt.hash(input.newPassword, 12);
+      await db
+        .update(schema.users)
+        .set({ passwordHash: newHash })
         .where(eq(schema.users.id, ctx.userId));
 
       return { ok: true, updatedAt: new Date().toISOString() };

@@ -148,6 +148,7 @@ export function SettingsPage() {
         <ProfileEditor />
 
         <SectionHeader>Security</SectionHeader>
+        <ChangeLoginPasswordEditor />
         <DailyPasswordEditor />
         <RecoveryKeyRow username={me?.username ?? null} />
         <PasskeyRow />
@@ -846,6 +847,144 @@ function modalTitle(s: "name" | "bio" | "photo"): string {
   if (s === "name") return "Edit name";
   if (s === "bio") return "Edit bio";
   return "Profile photo";
+}
+
+/* ─────────── Change login password ─────────── */
+
+function ChangeLoginPasswordEditor() {
+  const change = trpc.auth.changePassword.useMutation();
+  const [open, setOpen] = useState(false);
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
+  const [confirmNext, setConfirmNext] = useState("");
+  const [show, setShow] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [okMsg, setOkMsg] = useState<string | null>(null);
+
+  function reset() {
+    setCurrent("");
+    setNext("");
+    setConfirmNext("");
+    setShow(false);
+    setError(null);
+  }
+
+  async function save() {
+    setError(null);
+    if (!current) {
+      setError("Please enter your current password.");
+      return;
+    }
+    if (next.length < 8) {
+      setError("New password must be at least 8 characters.");
+      return;
+    }
+    if (next !== confirmNext) {
+      setError("New password and confirmation don't match.");
+      return;
+    }
+    if (next === current) {
+      setError("New password must be different from your current password.");
+      return;
+    }
+    try {
+      await change.mutateAsync({
+        currentPassword: current,
+        newPassword: next,
+      });
+      setOkMsg("Your password has been updated successfully.");
+      setOpen(false);
+      reset();
+      feedback.success();
+    } catch (e) {
+      setError(humanizeErrorMessage(e));
+      feedback.error();
+    }
+  }
+
+  return (
+    <>
+      <SettingsRow
+        label="Change Your Password"
+        sub={okMsg ?? "Update the password you use to sign in."}
+        onClick={() => {
+          reset();
+          setOkMsg(null);
+          setOpen(true);
+        }}
+      />
+
+      {open && (
+        <Modal
+          title="Change Your Password"
+          onClose={() => {
+            setOpen(false);
+            reset();
+          }}
+        >
+          <div>
+            <FieldLabel>Current password</FieldLabel>
+            <TextInput
+              type={show ? "text" : "password"}
+              value={current}
+              onChange={(e) => setCurrent(e.target.value)}
+              placeholder="Enter your current password"
+              autoComplete="current-password"
+              autoFocus
+            />
+          </div>
+
+          <div className="mt-3">
+            <FieldLabel>New password</FieldLabel>
+            <TextInput
+              type={show ? "text" : "password"}
+              value={next}
+              onChange={(e) => setNext(e.target.value)}
+              placeholder="At least 8 characters"
+              autoComplete="new-password"
+            />
+          </div>
+
+          <div className="mt-3">
+            <FieldLabel>Confirm new password</FieldLabel>
+            <TextInput
+              type={show ? "text" : "password"}
+              value={confirmNext}
+              onChange={(e) => setConfirmNext(e.target.value)}
+              placeholder="Type it again"
+              autoComplete="new-password"
+            />
+          </div>
+
+          <label className="flex items-center gap-2 text-sm text-text-muted mt-3">
+            <input
+              type="checkbox"
+              checked={show}
+              onChange={(e) => setShow(e.target.checked)}
+              className="accent-wa-green"
+            />
+            Show passwords
+          </label>
+
+          <ErrorMessage>{error}</ErrorMessage>
+
+          <div className="flex gap-2 mt-4">
+            <SecondaryButton
+              onClick={() => {
+                setOpen(false);
+                reset();
+              }}
+            >
+              Cancel
+            </SecondaryButton>
+            <PrimaryButton onClick={save} loading={change.isPending}>
+              Update password
+            </PrimaryButton>
+          </div>
+        </Modal>
+      )}
+    </>
+  );
 }
 
 /* ─────────── Daily verification password ─────────── */

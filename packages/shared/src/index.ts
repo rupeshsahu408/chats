@@ -722,6 +722,24 @@ export const VerifyDailyPasswordResult = z.object({
 });
 export type VerifyDailyPasswordResult = z.infer<typeof VerifyDailyPasswordResult>;
 
+/**
+ * Change the account's login password.
+ * Requires the current password and a new password (≥ 8 chars).
+ * Only meaningful for accounts that signed up with username + password.
+ */
+export const ChangePasswordInput = z.object({
+  currentPassword: PasswordSchema,
+  newPassword: PasswordSchema,
+});
+export type ChangePasswordInput = z.infer<typeof ChangePasswordInput>;
+
+export const ChangePasswordResult = z.object({
+  ok: z.boolean(),
+  /** Server time the password was updated, ISO 8601. */
+  updatedAt: z.string(),
+});
+export type ChangePasswordResult = z.infer<typeof ChangePasswordResult>;
+
 /* ─────────── Profile ─────────── */
 
 export const UpdateProfileInput = z.object({
