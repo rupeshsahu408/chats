@@ -33,6 +33,9 @@ import { useKeyboardPrefs, isCoarsePointerDevice } from "../lib/keyboardPrefs";
 import { feedback } from "../lib/feedback";
 import { resizeAvatarToDataUrl } from "../lib/avatar";
 import { RecoveryKitDownloadCard } from "../components/RecoveryKitDownloadCard";
+import { PasskeySetupCard } from "../components/PasskeySetupCard";
+import { isPasskeySupported } from "../lib/passkey";
+import { humanizeErrorMessage } from "../lib/humanizeError";
 
 export function SettingsPage() {
   const navigate = useNavigate();
@@ -147,6 +150,7 @@ export function SettingsPage() {
         <SectionHeader>Security</SectionHeader>
         <DailyPasswordEditor />
         <RecoveryKeyRow username={me?.username ?? null} />
+        <PasskeyRow />
 
         <SectionHeader>Appearance</SectionHeader>
         <ThemeRow />
@@ -391,6 +395,231 @@ function RecoveryKeyRow({ username }: { username: string | null }) {
               </div>
             </div>
           )}
+        </Modal>
+      )}
+    </>
+  );
+}
+
+/* ─────────── Passkeys ─────────── */
+
+function PasskeyRow() {
+  const supported = isPasskeySupported();
+  const [open, setOpen] = useState(false);
+  const list = trpc.passkey.list.useQuery(undefined, {
+    enabled: open,
+    retry: false,
+  });
+  const utils = trpc.useUtils();
+  const rename = trpc.passkey.rename.useMutation({
+    onSuccess: () => utils.passkey.list.invalidate(),
+  });
+  const del = trpc.passkey.delete.useMutation({
+    onSuccess: () => utils.passkey.list.invalidate(),
+  });
+
+  const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(
+    null,
+  );
+  const [confirmDelete, setConfirmDelete] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function doRename() {
+    if (!renaming) return;
+    setError(null);
+    try {
+      await rename.mutateAsync({
+        id: renaming.id,
+        deviceName: renaming.name.trim() || "This device",
+      });
+      setRenaming(null);
+      feedback.success();
+    } catch (e) {
+      setError(humanizeErrorMessage(e));
+      feedback.error();
+    }
+  }
+
+  async function doDelete() {
+    if (!confirmDelete) return;
+    setError(null);
+    try {
+      await del.mutateAsync({ id: confirmDelete.id });
+      setConfirmDelete(null);
+      feedback.success();
+    } catch (e) {
+      setError(humanizeErrorMessage(e));
+      feedback.error();
+    }
+  }
+
+  const items = list.data ?? [];
+  const sub = !supported
+    ? "Not supported on this browser"
+    : list.data
+      ? items.length === 0
+        ? "No passkeys yet — sign in without a password"
+        : items.length === 1
+          ? "1 passkey"
+          : `${items.length} passkeys`
+    : "Sign in without a password using Face ID, Touch ID or Windows Hello";
+
+  return (
+    <>
+      <SettingsRow
+        label="Passkeys"
+        sub={sub}
+        onClick={() => {
+          setError(null);
+          setOpen(true);
+        }}
+      />
+      {open && (
+        <Modal
+          title="Passkeys"
+          onClose={() => {
+            setOpen(false);
+            setRenaming(null);
+            setConfirmDelete(null);
+          }}
+        >
+          <div className="space-y-4">
+            <p className="text-xs text-text-muted leading-relaxed">
+              Passkeys let you sign in to Veil without a password. Each device
+              gets its own passkey. Removing one only removes it from this
+              account — your device will still have it locally until you
+              delete it from the system passkey manager.
+            </p>
+
+            <PasskeySetupCard />
+
+            {list.isLoading ? (
+              <div className="text-sm text-text-muted">Loading…</div>
+            ) : items.length === 0 ? null : (
+              <div className="space-y-2">
+                <div className="text-xs uppercase tracking-wider text-text-muted">
+                  Saved passkeys
+                </div>
+                <ul className="rounded-2xl border border-line divide-y divide-line overflow-hidden">
+                  {items.map((p) => (
+                    <li
+                      key={p.id}
+                      className="flex items-center gap-3 px-4 py-3 bg-surface"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-medium text-text truncate">
+                          {p.deviceName}
+                        </div>
+                        <div className="text-[11px] text-text-muted">
+                          {p.lastUsedAt
+                            ? `Last used ${new Date(p.lastUsedAt).toLocaleDateString()}`
+                            : `Added ${new Date(p.createdAt).toLocaleDateString()}`}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setRenaming({ id: p.id, name: p.deviceName })
+                        }
+                        className="text-xs px-3 py-1.5 rounded-full border border-line text-text hover:bg-white/5 wa-tap"
+                      >
+                        Rename
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setConfirmDelete({
+                            id: p.id,
+                            name: p.deviceName,
+                          })
+                        }
+                        className="text-xs px-3 py-1.5 rounded-full border border-rose-500/40 text-rose-400 hover:bg-rose-500/10 wa-tap"
+                      >
+                        Remove
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {error && (
+              <div className="text-xs text-rose-400 bg-rose-500/10 border border-rose-500/30 rounded-md px-3 py-2">
+                {error}
+              </div>
+            )}
+
+            <div className="flex justify-end pt-1">
+              <SecondaryButton onClick={() => setOpen(false)}>
+                Close
+              </SecondaryButton>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {renaming && (
+        <Modal
+          title="Rename passkey"
+          onClose={() => setRenaming(null)}
+        >
+          <div className="space-y-3">
+            <FieldLabel>Device name</FieldLabel>
+            <TextInput
+              autoFocus
+              value={renaming.name}
+              onChange={(e) =>
+                setRenaming({ ...renaming, name: e.target.value.slice(0, 60) })
+              }
+              placeholder="e.g. iPhone, Work laptop"
+            />
+            <div className="flex justify-end gap-2 pt-2">
+              <SecondaryButton onClick={() => setRenaming(null)}>
+                Cancel
+              </SecondaryButton>
+              <PrimaryButton
+                onClick={doRename}
+                loading={rename.isPending}
+                disabled={!renaming.name.trim()}
+              >
+                Save
+              </PrimaryButton>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {confirmDelete && (
+        <Modal
+          title="Remove passkey?"
+          onClose={() => setConfirmDelete(null)}
+        >
+          <div className="space-y-3">
+            <p className="text-sm text-text">
+              Remove the passkey on{" "}
+              <span className="font-semibold">{confirmDelete.name}</span>?
+            </p>
+            <p className="text-xs text-text-muted">
+              You won't be able to sign in with this passkey anymore. You can
+              always add a new one later.
+            </p>
+            <div className="flex justify-end gap-2 pt-2">
+              <SecondaryButton onClick={() => setConfirmDelete(null)}>
+                Cancel
+              </SecondaryButton>
+              <button
+                type="button"
+                onClick={doDelete}
+                disabled={del.isPending}
+                className="px-4 py-2 rounded-xl bg-rose-500 text-white font-semibold hover:bg-rose-600 transition disabled:opacity-60 wa-tap"
+              >
+                {del.isPending ? "Removing…" : "Remove"}
+              </button>
+            </div>
+          </div>
         </Modal>
       )}
     </>

@@ -22,6 +22,11 @@ import { saveIdentity, loadIdentity } from "../lib/db";
 import { buildPrekeyBundle } from "../lib/prekeys";
 import { useUnlockStore } from "../lib/unlockStore";
 import { postAuthLandingPath } from "../lib/inviteRedirect";
+import {
+  isPasskeySupported,
+  startPasskeyAuthentication,
+} from "../lib/passkey";
+import { humanizeErrorMessage } from "../lib/humanizeError";
 
 /**
  * New username + password login flow.
@@ -48,6 +53,61 @@ export function RandomLoginPage() {
   const loginV2 = trpc.auth.loginRandomV2.useMutation();
   const setX25519 = trpc.me.setX25519Identity.useMutation();
   const uploadPrekeys = trpc.prekeys.upload.useMutation();
+  const passkeyOptions = trpc.passkey.getAuthenticationOptions.useMutation();
+  const passkeyVerify = trpc.passkey.verifyAuthentication.useMutation();
+  const [passkeyBusy, setPasskeyBusy] = useState(false);
+  const passkeysAvailable = isPasskeySupported();
+
+  async function onPasskeyLogin() {
+    if (passkeyBusy) return;
+    setError(null);
+    setPasskeyBusy(true);
+    try {
+      const opts = await passkeyOptions.mutateAsync();
+      const credential = await startPasskeyAuthentication(opts.options);
+      const r = await passkeyVerify.mutateAsync({
+        sessionId: opts.sessionId,
+        response: credential,
+      });
+      setAuth({
+        accessToken: r.accessToken,
+        refreshToken: r.refreshToken,
+        refreshExpiresIn: r.refreshExpiresIn,
+        user: r.user,
+      });
+
+      // Same post-auth path as the password flow: if we already have
+      // the derived identity locally we go straight in; otherwise we
+      // still need the recovery key to decrypt messages on this device.
+      const local = await loadIdentity().catch(() => null);
+      if (
+        local &&
+        local.userId === r.user.id &&
+        local.encX25519PrivateKey &&
+        local.x25519PublicKey
+      ) {
+        await setUnlocked({
+          userId: r.user.id,
+          ed25519: {
+            privateKey: base64ToBytes(local.encPrivateKey),
+            publicKey: base64ToBytes(local.publicKey),
+          },
+          x25519: {
+            privateKey: base64ToBytes(local.encX25519PrivateKey),
+            publicKey: base64ToBytes(local.x25519PublicKey),
+          },
+        });
+        navigate(postAuthLandingPath());
+        return;
+      }
+      setPendingUserId(r.user.id);
+      setStep("recovery");
+    } catch (e) {
+      setError(humanizeErrorMessage(e));
+    } finally {
+      setPasskeyBusy(false);
+    }
+  }
 
   const cleanUsername = username.trim().toLowerCase();
   const credsValid = cleanUsername.length >= 3 && password.length >= 8;
@@ -254,6 +314,39 @@ export function RandomLoginPage() {
       <PrimaryButton onClick={onLogin} loading={loading} disabled={!credsValid}>
         Log in
       </PrimaryButton>
+
+      {passkeysAvailable && (
+        <>
+          <div className="relative my-1">
+            <div className="absolute inset-0 flex items-center" aria-hidden>
+              <div className="w-full border-t border-line" />
+            </div>
+            <div className="relative flex justify-center">
+              <span className="bg-bg px-3 text-xs uppercase tracking-wider text-text-muted">
+                or
+              </span>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onPasskeyLogin}
+            disabled={passkeyBusy}
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-line bg-surface text-text font-semibold hover:bg-white/5 transition disabled:opacity-60 wa-tap"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path
+                d="M12 11c0 4 .5 6.5 2 9M8.5 19c-1-2-1.5-4-1.5-7a5 5 0 0110 0v1c0 2 .3 4 1 6M5 16c-.6-1.4-1-3-1-5a8 8 0 0116 0M9 9.5A3 3 0 0115 11c0 3 .3 5 1 7"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            {passkeyBusy ? "Waiting for passkey…" : "Sign in with a passkey"}
+          </button>
+        </>
+      )}
+
       <SecondaryButton onClick={() => navigate("/login")}>Back</SecondaryButton>
     </ScreenShell>
   );

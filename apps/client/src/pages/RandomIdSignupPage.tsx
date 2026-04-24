@@ -13,6 +13,8 @@ import {
 } from "../components/Layout";
 import { SlidePuzzle } from "../components/SlidePuzzle";
 import { RecoveryKitDownloadCard } from "../components/RecoveryKitDownloadCard";
+import { PasskeySetupCard } from "../components/PasskeySetupCard";
+import { isPasskeySupported } from "../lib/passkey";
 import {
   bytesToBase64,
   generateRecoveryPhrase,
@@ -34,6 +36,7 @@ type Step =
   | "puzzle"
   | "ceremony"
   | "recovery"
+  | "passkey"
   | "name"
   | "bio"
   | "photo"
@@ -250,7 +253,7 @@ export function RandomIdSignupPage() {
     const canContinue =
       !!username && !localUsernameProblem && usernameAvailable !== false;
     return (
-      <ScreenShell back="/" phase="Step 1 of 9 · Username">
+      <ScreenShell back="/" phase="Step 1 of 10 · Username">
         <div className="flex flex-col items-center gap-3 mb-2">
           <Logo />
           <h2 className="text-2xl font-semibold text-text">Pick a username</h2>
@@ -312,7 +315,7 @@ export function RandomIdSignupPage() {
     const canContinue =
       password.length >= 8 && confirmPassword === password && !mismatch;
     return (
-      <ScreenShell back="#" phase="Step 2 of 9 · Password">
+      <ScreenShell back="#" phase="Step 2 of 10 · Password">
         <div className="flex flex-col items-center gap-3 mb-2">
           <Logo />
           <h2 className="text-2xl font-semibold text-text">Set a password</h2>
@@ -391,7 +394,7 @@ export function RandomIdSignupPage() {
       confirmVerificationPassword === verificationPassword &&
       !mismatch;
     return (
-      <ScreenShell back="#" phase="Step 3 of 9 · Daily verification">
+      <ScreenShell back="#" phase="Step 3 of 10 · Daily verification">
         <div className="flex flex-col items-center gap-3 mb-2">
           <Logo />
           <h2 className="text-2xl font-semibold text-text">
@@ -469,7 +472,7 @@ export function RandomIdSignupPage() {
 
   if (step === "puzzle") {
     return (
-      <ScreenShell back="#" phase="Step 4 of 9 · Human check">
+      <ScreenShell back="#" phase="Step 4 of 10 · Human check">
         <div className="flex flex-col items-center gap-3 mb-2">
           <Logo />
           <h2 className="text-2xl font-semibold text-text">
@@ -501,7 +504,7 @@ export function RandomIdSignupPage() {
 
   if (step === "ceremony") {
     return (
-      <ScreenShell phase="Step 5 of 9 · Forging your identity">
+      <ScreenShell phase="Step 5 of 10 · Forging your identity">
         <KeyCeremony
           onReady={() => {
             // Generate the recovery phrase deterministically once the
@@ -519,7 +522,7 @@ export function RandomIdSignupPage() {
   if (step === "recovery") {
     const words = phrase ? phrase.split(" ") : [];
     return (
-      <ScreenShell back="#" phase="Step 6 of 9 · Recovery key">
+      <ScreenShell back="#" phase="Step 6 of 10 · Recovery key">
         <RecoveryReveal
           words={words}
           username={username}
@@ -529,16 +532,45 @@ export function RandomIdSignupPage() {
           onDownload={markRecoveryDownloaded}
           onConfirm={async () => {
             const ok = await createAccount();
-            if (ok) setStep("name");
+            if (ok) setStep("passkey");
           }}
         />
       </ScreenShell>
     );
   }
 
+  if (step === "passkey") {
+    const supported = isPasskeySupported();
+    return (
+      <ScreenShell phase="Step 7 of 10 · Passkey">
+        <div className="flex flex-col items-center gap-3 mb-2">
+          <Logo />
+          <h2 className="text-2xl font-semibold text-text">
+            Add a passkey
+          </h2>
+          <p className="text-sm text-text-muted text-center">
+            Recommended. Sign in on this device with Face ID, Touch ID, or
+            Windows Hello — no password to remember, nothing to phish. You can
+            always add or remove passkeys later in Settings.
+          </p>
+        </div>
+
+        <PasskeySetupCard onAdded={() => setStep("name")} />
+
+        <button
+          type="button"
+          onClick={() => setStep("name")}
+          className="mt-2 w-full text-sm text-text-muted hover:text-text underline underline-offset-4 wa-tap py-2"
+        >
+          {supported ? "Skip for now" : "Continue"}
+        </button>
+      </ScreenShell>
+    );
+  }
+
   if (step === "name") {
     return (
-      <ScreenShell phase="Step 7 of 9 · Your name">
+      <ScreenShell phase="Step 8 of 10 · Your name">
         <div className="flex flex-col items-center gap-3 mb-2">
           <Logo />
           <h2 className="text-2xl font-semibold text-text">
@@ -568,7 +600,7 @@ export function RandomIdSignupPage() {
 
   if (step === "bio") {
     return (
-      <ScreenShell phase="Step 8 of 9 · Bio">
+      <ScreenShell phase="Step 9 of 10 · Bio">
         <div className="flex flex-col items-center gap-3 mb-2">
           <Logo />
           <h2 className="text-2xl font-semibold text-text">
@@ -601,7 +633,7 @@ export function RandomIdSignupPage() {
 
   if (step === "photo") {
     return (
-      <ScreenShell phase="Step 9 of 9 · Photo">
+      <ScreenShell phase="Step 10 of 10 · Photo">
         <PhotoStep
           username={username}
           avatarDataUrl={avatarDataUrl}

@@ -122,6 +122,43 @@ export const users = pgTable(
   }),
 );
 
+/* ─────────── passkeys (WebAuthn) ─────────── */
+/*
+ * One row per WebAuthn credential a user has registered. We never see
+ * the user's biometric data — we just store the public key, signature
+ * counter, and a friendly device label so the user can tell their
+ * passkeys apart in Settings.
+ */
+
+export const passkeys = pgTable(
+  "passkeys",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    /** WebAuthn credential ID (base64url, unique). */
+    credentialId: text("credential_id").notNull().unique(),
+    /** COSE-encoded public key bytes. */
+    publicKey: bytea("public_key").notNull(),
+    /** Signature counter — used to detect cloned authenticators. */
+    counter: integer("counter").notNull().default(0),
+    /** Comma-separated transports list (e.g. "internal,hybrid"). */
+    transports: text("transports"),
+    /** Friendly name shown in Settings (e.g. "iPhone", "MacBook"). */
+    deviceName: text("device_name").notNull(),
+    /** True for platform authenticators (Touch ID / Face ID / Windows Hello). */
+    isBackedUp: boolean("is_backed_up").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+  },
+  (t) => ({
+    userIdx: index("passkeys_user_idx").on(t.userId),
+  }),
+);
+
 /* ─────────── otp_codes ─────────── */
 
 export const otpCodes = pgTable(
