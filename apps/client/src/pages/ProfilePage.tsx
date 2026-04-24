@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useLiveQuery } from "dexie-react-hooks";
 import { trpc } from "../lib/trpc";
 import { useAuthStore } from "../lib/store";
 import { AppBar, Avatar, Spinner } from "../components/Layout";
 import { peerLabel } from "../lib/peerLabel";
+import { db } from "../lib/db";
 
 export function ProfilePage() {
   const { peerId = "" } = useParams<{ peerId: string }>();
@@ -188,6 +190,9 @@ export function ProfilePage() {
             )}
           </Section>
 
+          {/* Conversation memory — local-only stats, computed from Dexie */}
+          <ConversationMemory peerId={peerId} displayName={peerLabel(peer)} />
+
           {/* Identity facts */}
           <Section title="Account">
             <Row
@@ -203,6 +208,137 @@ export function ProfilePage() {
       )}
     </div>
   );
+}
+
+/**
+ * "You and Sara · 3 months · 1,242 messages" — a quiet, local-only
+ * memory of the relationship, drawn from the on-device message log.
+ * Nothing leaves the device.
+ */
+function ConversationMemory({
+  peerId,
+  displayName,
+}: {
+  peerId: string;
+  displayName: string;
+}) {
+  const stats = useLiveQuery(
+    async () => {
+      const rows = await db.chatMessages
+        .where("peerId")
+        .equals(peerId)
+        .toArray();
+      const visible = rows.filter((r) => !r.deleted);
+      const total = visible.length;
+      let firstAt: number | null = null;
+      let lastAt: number | null = null;
+      let outCount = 0;
+      let inCount = 0;
+      for (const r of visible) {
+        const t = Date.parse(r.createdAt);
+        if (!Number.isFinite(t)) continue;
+        if (firstAt === null || t < firstAt) firstAt = t;
+        if (lastAt === null || t > lastAt) lastAt = t;
+        if (r.direction === "out") outCount++;
+        else inCount++;
+      }
+      return { total, firstAt, lastAt, outCount, inCount };
+    },
+    [peerId],
+    null,
+  );
+
+  const numberFmt = useMemo(() => new Intl.NumberFormat(), []);
+  const subtitle = useMemo(() => {
+    if (!stats) return null;
+    if (stats.total === 0 || stats.firstAt === null) return null;
+    const days = Math.max(
+      1,
+      Math.floor((Date.now() - stats.firstAt) / (24 * 60 * 60 * 1000)),
+    );
+    const durationLabel = formatDuration(days);
+    const countLabel = `${numberFmt.format(stats.total)} ${
+      stats.total === 1 ? "message" : "messages"
+    }`;
+    return `${durationLabel} · ${countLabel}`;
+  }, [stats, numberFmt]);
+
+  return (
+    <Section title="Conversation">
+      {!stats || stats.total === 0 ? (
+        <div className="px-4 py-3 text-sm text-text-muted italic">
+          No messages here yet — your shared timeline starts with the first one.
+        </div>
+      ) : (
+        <div className="px-4 py-4">
+          <div className="text-base text-text">
+            <span className="font-semibold">You and {displayName}</span>
+          </div>
+          <div className="text-sm text-text-muted mt-0.5">{subtitle}</div>
+          <div className="grid grid-cols-3 gap-2 mt-4">
+            <Stat
+              label="From you"
+              value={numberFmt.format(stats.outCount)}
+            />
+            <Stat
+              label="From them"
+              value={numberFmt.format(stats.inCount)}
+            />
+            <Stat
+              label="Last message"
+              value={
+                stats.lastAt
+                  ? formatRelativeShort(stats.lastAt)
+                  : "—"
+              }
+            />
+          </div>
+          <div className="text-[11px] text-text-muted mt-3">
+            Counts are kept on this device. Other devices have their own.
+          </div>
+        </div>
+      )}
+    </Section>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg bg-surface/60 border border-line/60 px-3 py-2">
+      <div className="text-base font-semibold text-text tabular-nums">
+        {value}
+      </div>
+      <div className="text-[11px] text-text-muted mt-0.5">{label}</div>
+    </div>
+  );
+}
+
+function formatDuration(days: number): string {
+  if (days < 1) return "today";
+  if (days === 1) return "1 day";
+  if (days < 30) return `${days} days`;
+  const months = Math.floor(days / 30);
+  if (months < 12) {
+    return months === 1 ? "1 month" : `${months} months`;
+  }
+  const years = Math.floor(days / 365);
+  const remMonths = Math.floor((days - years * 365) / 30);
+  if (remMonths === 0) {
+    return years === 1 ? "1 year" : `${years} years`;
+  }
+  return `${years}y ${remMonths}mo`;
+}
+
+function formatRelativeShort(ts: number): string {
+  const diff = Date.now() - ts;
+  const m = Math.floor(diff / 60_000);
+  if (m < 1) return "just now";
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.floor(h / 24);
+  if (d < 30) return `${d}d ago`;
+  return new Date(ts).toLocaleDateString();
 }
 
 function Section({

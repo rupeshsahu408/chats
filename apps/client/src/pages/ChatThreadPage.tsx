@@ -91,6 +91,7 @@ import {
   registerBiometricCredential,
   verifyBiometric,
 } from "../lib/biometric";
+import { MessageText } from "../lib/markdown";
 
 const POLL_MS = 3000;
 export const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
@@ -1831,7 +1832,11 @@ function MessageRow({
           <MessageBubble direction={m.direction} status={m.status} time={time}>
             {replyChip}
             <ImageAttachment att={m.attachment} />
-            {m.plaintext && <div className="mt-1">{m.plaintext}</div>}
+            {m.plaintext && (
+              <div className="mt-1">
+                <MessageText text={m.plaintext} />
+              </div>
+            )}
             {ttlBadge}{pinnedBadge}{starredBadge}
           </MessageBubble>
           {m.direction === "in" && toolbar}
@@ -1864,7 +1869,7 @@ function MessageRow({
         {m.direction === "out" && toolbar}
         <MessageBubble direction={m.direction} status={m.status} time={time}>
           {replyChip}
-          {m.plaintext}
+          <MessageText text={m.plaintext} />
           {m.linkPreview && <LinkPreviewBlock preview={m.linkPreview} />}
           {editedLabel}{ttlBadge}{pinnedBadge}{starredBadge}
         </MessageBubble>

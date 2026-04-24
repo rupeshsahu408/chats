@@ -62,6 +62,7 @@ import {
   sendGroupDeleteForEveryone,
 } from "../lib/groupSync";
 import { sendChatEnvelope } from "../lib/messageSync";
+import { MessageText } from "../lib/markdown";
 import {
   type ChatEnvelope,
   type EnvelopeLinkPreview,
@@ -165,6 +166,46 @@ function renderMentionText(
     }
     return <span key={i}>{part}</span>;
   });
+}
+
+/**
+ * `MessageText`-compatible renderer that highlights mentions inside
+ * plain-text segments (so markdown like **@xxxxxxxx** still bolds the
+ * mention pill correctly).
+ */
+function makeMentionRenderer(
+  fpDisplayMap: Map<string, string>,
+  myFingerprint: string,
+) {
+  return (value: string, key: string) => {
+    const parts = value.split(/(@[a-f0-9]{8})/gi);
+    return (
+      <span key={key}>
+        {parts.map((part, i) => {
+          const m = /^@([a-f0-9]{8})$/i.exec(part);
+          if (m) {
+            const fp = (m[1] ?? "").toLowerCase();
+            const name = fpDisplayMap.get(fp) ?? fp;
+            const isMe = fp === myFingerprint;
+            return (
+              <span
+                key={`${key}.m${i}`}
+                className={
+                  "font-semibold rounded px-0.5 " +
+                  (isMe
+                    ? "bg-wa-green/25 text-wa-green"
+                    : "bg-white/10 text-text")
+                }
+              >
+                @{name}
+              </span>
+            );
+          }
+          return <span key={`${key}.t${i}`}>{part}</span>;
+        })}
+      </span>
+    );
+  };
 }
 
 /* ─────────── Poll bubble ─────────── */
@@ -1380,7 +1421,13 @@ function GroupChatInner({ groupId }: { groupId: string }) {
                         )}
                         {m.plaintext ? (
                           <div className={m.attachment ? "mt-1" : undefined}>
-                            {renderMentionText(m.plaintext, fpDisplayMap, myFingerprint)}
+                            <MessageText
+                              text={m.plaintext}
+                              renderText={makeMentionRenderer(
+                                fpDisplayMap,
+                                myFingerprint,
+                              )}
+                            />
                           </div>
                         ) : !m.attachment ? (
                           <span className="italic text-text-muted">[empty]</span>
