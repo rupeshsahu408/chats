@@ -93,28 +93,36 @@ export function ForgotPasswordPage() {
     }
   }
 
-  function onUploadFile(file: File) {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const text = String(reader.result ?? "");
-      // Best-effort: extract a 12-word BIP-39 mnemonic from anywhere
-      // in the uploaded file. Works for plain .txt dumps, JSON
-      // exports, etc. PDFs aren't supported — fall back to paste.
+  const [uploading, setUploading] = useState(false);
+
+  async function onUploadFile(file: File) {
+    setError(null);
+    setUploading(true);
+    try {
+      // Pull readable text out of the file. We support:
+      //   • Plain .txt / .json / .csv dumps  (FileReader → text)
+      //   • The actual Veil Recovery Kit PDF (pdfjs-dist, lazy-loaded)
+      // Either way the result feeds into `extractPhrase`, which
+      // sliding-windows over the words and validates against BIP-39.
+      const text = await readPhraseSource(file);
       const candidate = extractPhrase(text);
       if (candidate && isValidRecoveryPhrase(candidate)) {
         setPhrase(candidate);
-        setError(null);
-        toast.success("Recovery phrase loaded.");
+        toast.success("Recovery key loaded.");
       } else {
         setError(
-          "Couldn't find a 12-word recovery phrase in that file. Try pasting the words instead.",
+          "Couldn't find a 12-word recovery key in that file. Try pasting it instead.",
         );
       }
-    };
-    reader.onerror = () => {
-      setError("Couldn't read that file.");
-    };
-    reader.readAsText(file);
+    } catch (e) {
+      setError(
+        e instanceof Error && e.message
+          ? e.message
+          : "Couldn't read that file.",
+      );
+    } finally {
+      setUploading(false);
+    }
   }
 
   function onSubmitKey() {
@@ -290,30 +298,34 @@ export function ForgotPasswordPage() {
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
               className={
                 "w-full rounded-xl border-2 border-dashed border-line/70 " +
                 "bg-surface px-4 py-6 text-sm text-text-muted " +
-                "hover:border-wa-green/50 hover:text-text transition-colors"
+                "hover:border-wa-green/50 hover:text-text transition-colors " +
+                (uploading ? "opacity-60 cursor-progress" : "")
               }
             >
-              {phrase && phraseValid
-                ? "Recovery phrase loaded ✓ — tap to choose a different file"
-                : "Tap to choose a recovery file (.txt, .json)"}
+              {uploading
+                ? "Reading file…"
+                : phrase && phraseValid
+                  ? "Recovery key loaded ✓ — tap to choose a different file"
+                  : "Tap to choose your recovery kit (.pdf, .txt, .json)"}
             </button>
             <input
               ref={fileInputRef}
               type="file"
-              accept=".txt,.json,.csv,text/plain,application/json"
+              accept=".pdf,.txt,.json,.csv,application/pdf,text/plain,application/json"
               className="hidden"
               onChange={(e) => {
                 const f = e.target.files?.[0];
-                if (f) onUploadFile(f);
+                if (f) void onUploadFile(f);
                 e.target.value = "";
               }}
             />
             <InfoMessage>
-              The recovery PDF isn&apos;t supported here — open it and paste the
-              12 words instead.
+              We read your recovery key here on this device. It is never
+              uploaded to our servers.
             </InfoMessage>
           </div>
         )}
@@ -406,7 +418,7 @@ export function ForgotPasswordPage() {
     <ScreenShell back="#" phase="All set">
       <div className="flex flex-col items-center gap-3 mb-2">
         <SuccessCheck />
-        <h2 className="text-2xl font-semibold">Password updated</h2>
+        <h2 className="text-2xl font-semibold">Password reset successfully</h2>
         <p className="text-sm text-text-muted text-center">
           You can now sign in to{" "}
           <span className="text-wa-green">@{cleanUsername}</span> with your new
@@ -417,24 +429,129 @@ export function ForgotPasswordPage() {
       <div
         className={
           "rounded-2xl border border-line/70 bg-surface p-4 text-sm " +
-          "text-text-muted leading-relaxed"
+          "text-text-muted leading-relaxed flex gap-3 items-start"
         }
       >
-        <div className="font-semibold text-text mb-1">
-          Want to skip the password next time?
+        <span
+          aria-hidden
+          className={
+            "shrink-0 mt-0.5 size-9 rounded-full bg-wa-green/15 " +
+            "border border-wa-green/40 flex items-center justify-center " +
+            "text-wa-green-dark dark:text-wa-green"
+          }
+        >
+          <svg
+            viewBox="0 0 24 24"
+            width={18}
+            height={18}
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <rect x={3} y={11} width={18} height={10} rx={2} />
+            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+          </svg>
+        </span>
+        <div className="min-w-0">
+          <div className="font-semibold text-text mb-0.5">
+            Enable Passkey{" "}
+            <span className="text-[10px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded-full bg-wa-green/15 text-wa-green-dark dark:text-wa-green border border-wa-green/30 align-middle">
+              Recommended
+            </span>
+          </div>
+          For faster and more secure sign-in, use Face ID, Touch ID, or your
+          security key — no password required.
         </div>
-        Set up a passkey on this device — your fingerprint or face will unlock
-        Veil instantly, no password needed.
       </div>
 
-      <PrimaryButton onClick={() => navigate("/login/random")}>
-        Go to log in
+      <PrimaryButton
+        onClick={() => {
+          markPasskeySetupRequested();
+          navigate("/login/random");
+        }}
+      >
+        Enable now
       </PrimaryButton>
+
+      <SecondaryButton onClick={() => navigate("/login/random")}>
+        Skip
+      </SecondaryButton>
     </ScreenShell>
   );
 }
 
 /* ─────────── helpers ─────────── */
+
+/**
+ * Stash a hint that the user just asked to enable a passkey, so the
+ * post-login screen can surface the suggestion immediately even if
+ * they had previously snoozed it. Survives the redirect to /login.
+ */
+const PENDING_PASSKEY_KEY = "veil:pending_passkey_setup";
+function markPasskeySetupRequested(): void {
+  try {
+    localStorage.setItem(PENDING_PASSKEY_KEY, String(Date.now()));
+    // Also clear any "snoozed" timer so the post-login UI shows the
+    // suggestion right away.
+    localStorage.removeItem("veil:passkey_suggestion_snoozed_until");
+  } catch {
+    /* ignore storage errors */
+  }
+}
+
+/**
+ * Read text from an uploaded recovery file. Plain text formats are
+ * read directly. PDFs are handed to pdfjs-dist (lazy-loaded so the
+ * worker only ships when the user actually uploads a PDF).
+ */
+async function readPhraseSource(file: File): Promise<string> {
+  const isPdf =
+    file.type === "application/pdf" ||
+    /\.pdf$/i.test(file.name);
+  if (!isPdf) {
+    return await file.text();
+  }
+  return await extractTextFromPdf(file);
+}
+
+/**
+ * Use pdfjs-dist to read text out of every page of a PDF. Concatenates
+ * the items with spaces so a sliding-window word search can find the
+ * 12-word phrase even if it was rendered as numbered cards.
+ */
+async function extractTextFromPdf(file: File): Promise<string> {
+  // Lazy-load pdfjs-dist + its worker; ?url gives Vite a stable URL
+  // to the worker bundle so it can be loaded off the main thread.
+  const [pdfjs, workerUrlMod] = await Promise.all([
+    import("pdfjs-dist"),
+    import("pdfjs-dist/build/pdf.worker.min.mjs?url"),
+  ]);
+  pdfjs.GlobalWorkerOptions.workerSrc = workerUrlMod.default;
+
+  const buf = await file.arrayBuffer();
+  const doc = await pdfjs.getDocument({ data: new Uint8Array(buf) }).promise;
+  const out: string[] = [];
+  try {
+    for (let p = 1; p <= doc.numPages; p++) {
+      const page = await doc.getPage(p);
+      const tc = await page.getTextContent();
+      for (const it of tc.items) {
+        if (typeof (it as { str?: unknown }).str === "string") {
+          out.push((it as { str: string }).str);
+        }
+      }
+    }
+  } finally {
+    try {
+      await doc.destroy();
+    } catch {
+      /* ignore */
+    }
+  }
+  return out.join(" ");
+}
 
 /**
  * Pull a 12-word lowercase BIP-39 phrase out of arbitrary text.

@@ -871,8 +871,7 @@ export const authRouter = router({
 
       const genericFailure = new TRPCError({
         code: "UNAUTHORIZED",
-        message:
-          "We couldn't verify your recovery key. Double-check the 12 words and try again.",
+        message: "Invalid recovery key. Please try again.",
       });
 
       const username = consumeResetChallenge(input.challengeNonce);

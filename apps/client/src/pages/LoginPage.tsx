@@ -58,15 +58,26 @@ export function LoginPage() {
         />
       </div>
 
-      <div className="text-center text-xs text-text-muted">
-        New to Veil?{" "}
-        <button
-          type="button"
-          onClick={() => navigate("/welcome")}
-          className="text-wa-green hover:underline"
-        >
-          Create an account
-        </button>
+      <div className="text-center text-xs text-text-muted space-y-1.5">
+        <div>
+          New to Veil?{" "}
+          <button
+            type="button"
+            onClick={() => navigate("/welcome")}
+            className="text-wa-green hover:underline"
+          >
+            Create an account
+          </button>
+        </div>
+        <div>
+          <button
+            type="button"
+            onClick={() => navigate("/forgot-password")}
+            className="text-text-muted hover:text-text hover:underline underline-offset-2"
+          >
+            Forgot your password?
+          </button>
+        </div>
       </div>
 
       <SecondaryButton onClick={() => navigate("/")}>Back</SecondaryButton>
