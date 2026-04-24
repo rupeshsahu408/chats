@@ -287,6 +287,15 @@ export interface UserPrefRecord {
    */
   vaultCredentialId?: string;
   /**
+   * Backup PIN for the Vault — used either as the only unlock method on
+   * devices without WebAuthn (Linux desktops, old browsers, etc.) or as
+   * a fallback when biometrics fail. base64 of an Argon2id hash of the
+   * user's PIN. Empty / undefined when no PIN backup is set.
+   */
+  vaultPinHash?: string;
+  /** base64 of the Argon2id salt for `vaultPinHash`. */
+  vaultPinSalt?: string;
+  /**
    * The current user's broadcast mood. We persist it locally so the
    * UI can render it immediately on app launch and the
    * "republish on connect" path knows what to re-send. Server never
@@ -558,6 +567,22 @@ export class VeilDB extends Dexie {
     // `pollVoteData` fields (no index change required since aggregation
     // is done in JS over the existing per-peer index).
     this.version(12).stores({
+      identity: "id",
+      prekeys: "id, kind, keyId",
+      chatSessions: "peerId, updatedAt",
+      chatMessages: "++id, peerId, createdAt, serverId, expiresAt",
+      unlocked: "id",
+      chatPrefs: "peerId, updatedAt",
+      userPrefs: "id",
+      groupSenderKeys: "id, [groupId+senderUserId+epoch], groupId, senderUserId",
+      groupMessages: "++id, groupId, createdAt, serverId, dedupKey, expiresAt, starred",
+      scheduledMessages: "++id, peerId, scheduledFor, sent",
+    });
+    // v13 — Vault PIN backup: `userPrefs` gains optional `vaultPinHash` /
+    // `vaultPinSalt` fields so users on devices without WebAuthn (or who
+    // simply prefer a PIN) can still unlock the Vault. Optional fields
+    // only — no new indices required.
+    this.version(13).stores({
       identity: "id",
       prekeys: "id, kind, keyId",
       chatSessions: "peerId, updatedAt",

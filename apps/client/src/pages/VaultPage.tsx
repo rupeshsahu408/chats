@@ -13,6 +13,7 @@ import {
   IconButton,
   PrimaryButton,
   SecondaryButton,
+  FieldLabel,
   ErrorMessage,
   Spinner,
   Avatar,
@@ -24,6 +25,7 @@ import {
   registerBiometricCredential,
   verifyBiometric,
 } from "../lib/biometric";
+import { hashVaultPin, verifyVaultPin } from "../lib/vaultPin";
 import { usePeersPresence } from "../lib/usePeersPresence";
 
 /**
@@ -62,6 +64,10 @@ export function VaultPage() {
 
   const vaultEnabled = userPrefs?.vaultEnabled === true;
   const vaultCredentialId = userPrefs?.vaultCredentialId ?? null;
+  const vaultPinHash = userPrefs?.vaultPinHash ?? null;
+  const vaultPinSalt = userPrefs?.vaultPinSalt ?? null;
+  const hasBiometric = !!vaultCredentialId;
+  const hasPin = !!vaultPinHash && !!vaultPinSalt;
 
   const vaultedPeers = useMemo(() => {
     const set = new Set<string>();
@@ -84,11 +90,35 @@ export function VaultPage() {
   const [verifyErr, setVerifyErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  async function handleEnroll() {
+  /** Build the next userPrefs row, preserving everything we don't touch. */
+  function nextPrefs(patch: {
+    vaultCredentialId?: string;
+    vaultPinHash?: string;
+    vaultPinSalt?: string;
+  }) {
+    return {
+      id: "self" as const,
+      readReceiptsEnabled: userPrefs?.readReceiptsEnabled ?? true,
+      typingIndicatorsEnabled: userPrefs?.typingIndicatorsEnabled ?? true,
+      screenshotBlurEnabled: userPrefs?.screenshotBlurEnabled ?? true,
+      appLockEnabled: userPrefs?.appLockEnabled ?? false,
+      soundEnabled: userPrefs?.soundEnabled,
+      hapticsEnabled: userPrefs?.hapticsEnabled,
+      vaultEnabled: true,
+      vaultCredentialId:
+        patch.vaultCredentialId ?? userPrefs?.vaultCredentialId,
+      vaultPinHash: patch.vaultPinHash ?? userPrefs?.vaultPinHash,
+      vaultPinSalt: patch.vaultPinSalt ?? userPrefs?.vaultPinSalt,
+      myMood: userPrefs?.myMood,
+      updatedAt: new Date().toISOString(),
+    };
+  }
+
+  async function handleEnrollBiometric() {
     setEnrollErr(null);
     if (!biometricSupported()) {
       setEnrollErr(
-        "This browser doesn't support biometric authentication. Try a recent version of Safari, Chrome, or Edge on a device with Touch ID, Face ID, Windows Hello, or a security key.",
+        "This browser doesn't support biometrics — set up a PIN instead.",
       );
       return;
     }
@@ -98,18 +128,7 @@ export function VaultPage() {
         identity?.userId ? `vault:${identity.userId}` : "vault:self",
         "Veil Vault",
       );
-      await db.userPrefs.put({
-        id: "self",
-        readReceiptsEnabled: userPrefs?.readReceiptsEnabled ?? true,
-        typingIndicatorsEnabled: userPrefs?.typingIndicatorsEnabled ?? true,
-        screenshotBlurEnabled: userPrefs?.screenshotBlurEnabled ?? true,
-        appLockEnabled: userPrefs?.appLockEnabled ?? false,
-        soundEnabled: userPrefs?.soundEnabled,
-        hapticsEnabled: userPrefs?.hapticsEnabled,
-        vaultEnabled: true,
-        vaultCredentialId: credentialId,
-        updatedAt: new Date().toISOString(),
-      });
+      await db.userPrefs.put(nextPrefs({ vaultCredentialId: credentialId }));
       setUnlocked();
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Couldn't register biometrics.";
@@ -119,7 +138,24 @@ export function VaultPage() {
     }
   }
 
-  async function handleUnlock() {
+  async function handleEnrollPin(pin: string) {
+    setEnrollErr(null);
+    setBusy(true);
+    try {
+      const { hash, salt } = await hashVaultPin(pin);
+      await db.userPrefs.put(
+        nextPrefs({ vaultPinHash: hash, vaultPinSalt: salt }),
+      );
+      setUnlocked();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Couldn't save your PIN.";
+      setEnrollErr(msg);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleUnlockBiometric() {
     setVerifyErr(null);
     if (!vaultCredentialId) return;
     setBusy(true);
@@ -127,6 +163,23 @@ export function VaultPage() {
       const ok = await verifyBiometric(vaultCredentialId);
       if (ok) setUnlocked();
       else setVerifyErr("Authentication didn't complete. Try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleUnlockPin(pin: string): Promise<boolean> {
+    setVerifyErr(null);
+    if (!vaultPinHash || !vaultPinSalt) return false;
+    setBusy(true);
+    try {
+      const ok = await verifyVaultPin(pin, vaultPinHash, vaultPinSalt);
+      if (ok) {
+        setUnlocked();
+        return true;
+      }
+      setVerifyErr("Incorrect PIN. Try again.");
+      return false;
     } finally {
       setBusy(false);
     }
@@ -153,12 +206,22 @@ export function VaultPage() {
       />
 
       {!vaultEnabled ? (
-        <VaultIntro busy={busy} onEnroll={handleEnroll} error={enrollErr} />
+        <VaultIntro
+          busy={busy}
+          biometricSupported={biometricSupported()}
+          onEnrollBiometric={handleEnrollBiometric}
+          onEnrollPin={handleEnrollPin}
+          error={enrollErr}
+        />
       ) : !unlocked ? (
         <VaultLockScreen
           busy={busy}
-          onUnlock={handleUnlock}
+          hasBiometric={hasBiometric}
+          hasPin={hasPin}
+          onUnlockBiometric={handleUnlockBiometric}
+          onUnlockPin={handleUnlockPin}
           error={verifyErr}
+          clearError={() => setVerifyErr(null)}
         />
       ) : (
         <div className="bg-panel flex-1 animate-fade-in">
@@ -207,7 +270,7 @@ export function VaultPage() {
                 }
                 subtitle={
                   <span className="italic text-text-faint">
-                    Hidden · biometric-locked
+                    Hidden · {hasBiometric ? "biometric-locked" : "PIN-locked"}
                   </span>
                 }
                 right={
@@ -266,13 +329,23 @@ async function setChatVaulted(peerId: string, vaulted: boolean) {
 
 function VaultIntro({
   busy,
-  onEnroll,
+  biometricSupported,
+  onEnrollBiometric,
+  onEnrollPin,
   error,
 }: {
   busy: boolean;
-  onEnroll: () => void;
+  biometricSupported: boolean;
+  onEnrollBiometric: () => void;
+  onEnrollPin: (pin: string) => void;
   error: string | null;
 }) {
+  // When biometrics aren't available, default straight to the PIN
+  // setup form — saves a tap on Linux desktops / older browsers.
+  const [mode, setMode] = useState<"choose" | "pin">(
+    biometricSupported ? "choose" : "pin",
+  );
+
   return (
     <div className="bg-panel flex-1 flex flex-col items-center justify-center px-6 py-10 text-center animate-fade-in">
       <div
@@ -289,11 +362,11 @@ function VaultIntro({
       </h2>
       <p className="mt-3 text-[14px] text-text-muted leading-relaxed max-w-sm">
         Move sensitive conversations into the Vault and they disappear from
-        your main chat list. Only you, with your fingerprint or face, can open
-        them again.
+        your main chat list. Only you, with your unlock method, can open them
+        again.
       </p>
 
-      <ul className="mt-7 w-full max-w-sm text-left space-y-3 text-[13.5px] text-text">
+      <ul className="mt-7 w-full max-w-sm md:max-w-md text-left space-y-3 text-[13.5px] text-text">
         <VaultBullet>
           Hidden chats don't appear in your inbox or notifications previews.
         </VaultBullet>
@@ -301,18 +374,44 @@ function VaultIntro({
           Re-locks automatically when you close this tab.
         </VaultBullet>
         <VaultBullet>
-          Uses your device's biometrics — Veil never sees your fingerprint.
+          Use device biometrics, or set a PIN that stays on this device.
         </VaultBullet>
       </ul>
 
-      <div className="mt-8 w-full max-w-sm">
-        <PrimaryButton loading={busy} onClick={onEnroll}>
-          Set up your vault
-        </PrimaryButton>
-        {error && (
-          <div className="mt-3">
-            <ErrorMessage>{error}</ErrorMessage>
+      <div className="mt-8 w-full max-w-sm md:max-w-md">
+        {mode === "choose" ? (
+          <div className="space-y-3">
+            <PrimaryButton
+              loading={busy}
+              onClick={onEnrollBiometric}
+              disabled={!biometricSupported}
+            >
+              Use device biometrics
+            </PrimaryButton>
+            <SecondaryButton onClick={() => setMode("pin")}>
+              Use a PIN instead
+            </SecondaryButton>
+            {!biometricSupported && (
+              <p className="text-[12px] text-text-faint mt-2">
+                This browser doesn't support biometrics. A PIN will work on
+                every device.
+              </p>
+            )}
+            {error && (
+              <div className="mt-1">
+                <ErrorMessage>{error}</ErrorMessage>
+              </div>
+            )}
           </div>
+        ) : (
+          <PinSetupForm
+            busy={busy}
+            error={error}
+            onSubmit={onEnrollPin}
+            onCancel={
+              biometricSupported ? () => setMode("choose") : undefined
+            }
+          />
         )}
       </div>
     </div>
@@ -332,21 +431,37 @@ function VaultBullet({ children }: { children: React.ReactNode }) {
 
 function VaultLockScreen({
   busy,
-  onUnlock,
+  hasBiometric,
+  hasPin,
+  onUnlockBiometric,
+  onUnlockPin,
   error,
+  clearError,
 }: {
   busy: boolean;
-  onUnlock: () => void;
+  hasBiometric: boolean;
+  hasPin: boolean;
+  onUnlockBiometric: () => void;
+  onUnlockPin: (pin: string) => Promise<boolean>;
   error: string | null;
+  clearError: () => void;
 }) {
-  // Auto-prompt once on first arrival — feels more like iOS unlock.
+  // If both methods are enrolled, biometric is the default; the user
+  // can tap "Use PIN instead" to switch. If only PIN exists, jump
+  // straight to the PIN entry form.
+  const [mode, setMode] = useState<"biometric" | "pin">(
+    hasBiometric ? "biometric" : "pin",
+  );
+
+  // Auto-prompt biometrics once on first arrival — feels more like iOS unlock.
   useEffect(() => {
+    if (mode !== "biometric" || !hasBiometric) return;
     const t = setTimeout(() => {
-      if (!busy) onUnlock();
+      if (!busy) onUnlockBiometric();
     }, 250);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [mode]);
 
   return (
     <div className="bg-panel flex-1 flex flex-col items-center justify-center px-6 py-10 text-center animate-fade-in">
@@ -363,19 +478,191 @@ function VaultLockScreen({
         Vault is locked
       </h2>
       <p className="mt-2 text-[13.5px] text-text-muted max-w-xs">
-        Authenticate to view your hidden chats.
+        {mode === "biometric"
+          ? "Authenticate to view your hidden chats."
+          : "Enter your PIN to view your hidden chats."}
       </p>
-      <div className="mt-8 w-full max-w-xs">
-        <PrimaryButton loading={busy} onClick={onUnlock}>
-          Unlock with biometrics
-        </PrimaryButton>
-        {error && (
-          <div className="mt-3">
-            <ErrorMessage>{error}</ErrorMessage>
+
+      <div className="mt-8 w-full max-w-xs md:max-w-sm">
+        {mode === "biometric" ? (
+          <div className="space-y-3">
+            <PrimaryButton loading={busy} onClick={onUnlockBiometric}>
+              Unlock with biometrics
+            </PrimaryButton>
+            {hasPin && (
+              <button
+                type="button"
+                onClick={() => {
+                  clearError();
+                  setMode("pin");
+                }}
+                className="block w-full text-[13px] font-semibold text-text-muted hover:text-text wa-tap py-2"
+              >
+                Use PIN instead
+              </button>
+            )}
+            {error && (
+              <div className="mt-1">
+                <ErrorMessage>{error}</ErrorMessage>
+              </div>
+            )}
           </div>
+        ) : (
+          <PinEntryForm
+            busy={busy}
+            error={error}
+            onSubmit={onUnlockPin}
+            onCancel={
+              hasBiometric
+                ? () => {
+                    clearError();
+                    setMode("biometric");
+                  }
+                : undefined
+            }
+            cancelLabel={hasBiometric ? "Use biometrics" : undefined}
+          />
         )}
       </div>
     </div>
+  );
+}
+
+/* ────────── PIN forms ────────── */
+
+const PIN_MIN = 4;
+const PIN_MAX = 8;
+
+function PinSetupForm({
+  busy,
+  error,
+  onSubmit,
+  onCancel,
+}: {
+  busy: boolean;
+  error: string | null;
+  onSubmit: (pin: string) => void;
+  onCancel?: () => void;
+}) {
+  const [pin, setPin] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [localErr, setLocalErr] = useState<string | null>(null);
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setLocalErr(null);
+    if (pin.length < PIN_MIN) {
+      setLocalErr(`Use at least ${PIN_MIN} digits.`);
+      return;
+    }
+    if (pin !== confirm) {
+      setLocalErr("PINs don't match.");
+      return;
+    }
+    onSubmit(pin);
+  }
+
+  return (
+    <form onSubmit={submit} className="space-y-3 text-left">
+      <div>
+        <FieldLabel>New PIN</FieldLabel>
+        <input
+          type="password"
+          inputMode="numeric"
+          autoComplete="new-password"
+          autoFocus
+          maxLength={PIN_MAX}
+          pattern="[0-9]*"
+          value={pin}
+          onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
+          className="w-full px-3 py-2.5 rounded-lg border border-line bg-surface text-text text-[15px] tracking-[0.3em] text-center focus:outline-none focus:border-wa-green"
+          placeholder="••••"
+        />
+      </div>
+      <div>
+        <FieldLabel>Confirm PIN</FieldLabel>
+        <input
+          type="password"
+          inputMode="numeric"
+          autoComplete="new-password"
+          maxLength={PIN_MAX}
+          pattern="[0-9]*"
+          value={confirm}
+          onChange={(e) => setConfirm(e.target.value.replace(/\D/g, ""))}
+          className="w-full px-3 py-2.5 rounded-lg border border-line bg-surface text-text text-[15px] tracking-[0.3em] text-center focus:outline-none focus:border-wa-green"
+          placeholder="••••"
+        />
+      </div>
+      <p className="text-[11.5px] text-text-faint leading-relaxed">
+        {PIN_MIN}–{PIN_MAX} digits. Stored only on this device — Veil can't
+        recover it for you, so pick something you'll remember.
+      </p>
+      {(localErr || error) && (
+        <ErrorMessage>{localErr || error}</ErrorMessage>
+      )}
+      <PrimaryButton type="submit" loading={busy}>
+        Set PIN & open vault
+      </PrimaryButton>
+      {onCancel && (
+        <SecondaryButton onClick={onCancel}>Back</SecondaryButton>
+      )}
+    </form>
+  );
+}
+
+function PinEntryForm({
+  busy,
+  error,
+  onSubmit,
+  onCancel,
+  cancelLabel,
+}: {
+  busy: boolean;
+  error: string | null;
+  onSubmit: (pin: string) => Promise<boolean>;
+  onCancel?: () => void;
+  cancelLabel?: string;
+}) {
+  const [pin, setPin] = useState("");
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (pin.length < PIN_MIN) return;
+    const ok = await onSubmit(pin);
+    if (!ok) setPin("");
+  }
+
+  return (
+    <form onSubmit={submit} className="space-y-3 text-left">
+      <div>
+        <FieldLabel>PIN</FieldLabel>
+        <input
+          type="password"
+          inputMode="numeric"
+          autoComplete="current-password"
+          autoFocus
+          maxLength={PIN_MAX}
+          pattern="[0-9]*"
+          value={pin}
+          onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
+          className="w-full px-3 py-2.5 rounded-lg border border-line bg-surface text-text text-[15px] tracking-[0.3em] text-center focus:outline-none focus:border-wa-green"
+          placeholder="••••"
+        />
+      </div>
+      {error && <ErrorMessage>{error}</ErrorMessage>}
+      <PrimaryButton
+        type="submit"
+        loading={busy}
+        disabled={pin.length < PIN_MIN}
+      >
+        Unlock vault
+      </PrimaryButton>
+      {onCancel && (
+        <SecondaryButton onClick={onCancel}>
+          {cancelLabel ?? "Back"}
+        </SecondaryButton>
+      )}
+    </form>
   );
 }
 
