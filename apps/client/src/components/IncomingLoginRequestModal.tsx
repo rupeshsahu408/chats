@@ -12,13 +12,14 @@ interface Props {
 /**
  * Full-screen "is this you?" sheet shown on the device that's
  * currently signed in when a *different* device tries to sign in to
- * the same account. Modeled after WhatsApp's confirm prompt: huge
- * device + location header, two clear actions, and a live countdown
- * so the user knows the other device isn't waiting forever.
+ * the same account.
  *
- * Accept → server marks the conflict accepted, *this* session gets
- * revoked, the other device claims the new session. Reject → the
- * other device is denied and a security alert is queued for review.
+ * IMPORTANT: This modal NEVER dismisses itself. It only disappears
+ * when the user explicitly clicks Accept or Reject, or when the
+ * parent (SessionGuard) removes it from the pending list because the
+ * server confirmed the conflict is no longer active (via the 20s
+ * poll). The countdown is shown for UX context only — reaching 0
+ * just switches to an "expired" display; it does NOT close the modal.
  */
 export function IncomingLoginRequestModal({ request, onResolved }: Props) {
   const resolve = trpc.auth.resolveLoginRequest.useMutation();
@@ -28,39 +29,38 @@ export function IncomingLoginRequestModal({ request, onResolved }: Props) {
   const [secondsLeft, setSecondsLeft] = useState(() =>
     Math.max(0, Math.floor((expiresMs - Date.now()) / 1000)),
   );
+  const [timedOut, setTimedOut] = useState(() => expiresMs <= Date.now());
 
-  // Keep a stable ref to onResolved so the countdown interval below
-  // doesn't restart every time the parent re-renders (which would
-  // happen every time SessionGuard re-renders, since onResolved is an
-  // inline arrow function). The interval only needs to restart when
-  // expiresMs actually changes (i.e., when the conflict itself changes).
+  // Keep a stable ref to onResolved so the countdown effect below
+  // never needs onResolved as a dependency (preventing restarts).
   const onResolvedRef = useRef(onResolved);
   useEffect(() => {
     onResolvedRef.current = onResolved;
   }, [onResolved]);
 
+  // Countdown for display only. Reaching 0 → show "expired" state,
+  // but the modal stays open. SessionGuard's 20-second poll will
+  // remove it from the pending list once the server confirms expiry.
   useEffect(() => {
+    if (timedOut) return;
     const t = setInterval(() => {
       const left = Math.max(0, Math.floor((expiresMs - Date.now()) / 1000));
       setSecondsLeft(left);
       if (left <= 0) {
         clearInterval(t);
-        // Local timeout — let the guard re-poll & dismiss.
-        onResolvedRef.current();
+        setTimedOut(true);
       }
     }, 1000);
     return () => clearInterval(t);
-  }, [expiresMs]);
+  }, [expiresMs, timedOut]);
 
   async function decide(decision: "accept" | "reject") {
-    if (busy) return;
+    if (busy || timedOut) return;
     setBusy(decision);
     try {
       await resolve.mutateAsync({ conflictId: request.id, decision });
-      onResolved();
+      onResolvedRef.current();
       if (decision === "accept") {
-        // We expect to be force-logged-out within seconds. Show a
-        // calm heads-up so the user isn't surprised.
         toast.info("Signing you out so the other device can sign in…");
       } else {
         toast.success("Sign-in denied. We'll keep an eye out for follow-ups.");
@@ -68,7 +68,7 @@ export function IncomingLoginRequestModal({ request, onResolved }: Props) {
     } catch (e) {
       toast.error(e, { title: "Couldn't update that request" });
       setBusy(null);
-      humanizeErrorMessage(e); // (kept to match other call sites' style)
+      humanizeErrorMessage(e);
     }
   }
 
@@ -110,38 +110,51 @@ export function IncomingLoginRequestModal({ request, onResolved }: Props) {
               <dd className="text-text">{place}</dd>
             </>
           ) : null}
-          <dt className="text-text-muted">Expires in</dt>
-          <dd className="text-text">
-            {secondsLeft > 60
-              ? `${Math.ceil(secondsLeft / 60)} min`
-              : `${secondsLeft}s`}
-          </dd>
+          {!timedOut ? (
+            <>
+              <dt className="text-text-muted">Expires in</dt>
+              <dd className="text-text">
+                {secondsLeft > 60
+                  ? `${Math.ceil(secondsLeft / 60)} min`
+                  : `${secondsLeft}s`}
+              </dd>
+            </>
+          ) : null}
         </dl>
 
-        <div className="px-6 pb-6 grid gap-2">
-          <button
-            type="button"
-            onClick={() => decide("reject")}
-            disabled={!!busy}
-            className="w-full px-4 py-3 rounded-xl bg-rose-600 text-white font-semibold hover:bg-rose-500 transition disabled:opacity-60 wa-tap"
-          >
-            {busy === "reject" ? "Denying…" : "Not me — deny"}
-          </button>
-          <button
-            type="button"
-            onClick={() => decide("accept")}
-            disabled={!!busy}
-            className="w-full px-4 py-3 rounded-xl border border-line bg-surface text-text font-semibold hover:bg-white/5 transition disabled:opacity-60 wa-tap"
-          >
-            {busy === "accept"
-              ? "Approving…"
-              : "It's me — sign me out and let it in"}
-          </button>
-          <p className="text-[11px] text-text-faint text-center mt-1">
-            Approving signs out this device. Denying keeps you signed in here
-            and adds a security alert you can review.
-          </p>
-        </div>
+        {timedOut ? (
+          <div className="px-6 pb-6">
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-600 dark:text-amber-400 text-center">
+              This request has expired. The other device can try signing in
+              again if needed.
+            </div>
+          </div>
+        ) : (
+          <div className="px-6 pb-6 grid gap-2">
+            <button
+              type="button"
+              onClick={() => decide("reject")}
+              disabled={!!busy}
+              className="w-full px-4 py-3 rounded-xl bg-rose-600 text-white font-semibold hover:bg-rose-500 transition disabled:opacity-60 wa-tap"
+            >
+              {busy === "reject" ? "Denying…" : "Not me — deny"}
+            </button>
+            <button
+              type="button"
+              onClick={() => decide("accept")}
+              disabled={!!busy}
+              className="w-full px-4 py-3 rounded-xl border border-line bg-surface text-text font-semibold hover:bg-white/5 transition disabled:opacity-60 wa-tap"
+            >
+              {busy === "accept"
+                ? "Approving…"
+                : "It's me — sign me out and let it in"}
+            </button>
+            <p className="text-[11px] text-text-faint text-center mt-1">
+              Approving signs out this device. Denying keeps you signed in here
+              and adds a security alert you can review.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
