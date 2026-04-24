@@ -95,6 +95,7 @@ export function RandomLoginPage() {
   const [conflict, setConflict] = useState<PendingDeviceConflict | null>(null);
   const [conflictBusy, setConflictBusy] = useState<"yes" | "no" | null>(null);
   const [mustChange, setMustChange] = useState<PendingMustChange | null>(null);
+  const [loggedInViaPasskey, setLoggedInViaPasskey] = useState(false);
 
   const beginLogin = trpc.auth.beginLoginV3.useMutation();
   const completeLogin = trpc.auth.completeLoginV2.useMutation();
@@ -106,6 +107,18 @@ export function RandomLoginPage() {
   const passkeyVerify = trpc.passkey.verifyAuthentication.useMutation();
   const [passkeyBusy, setPasskeyBusy] = useState(false);
   const passkeysAvailable = isPasskeySupported();
+
+  // Once we've handed out a session, peek at the user's existing
+  // passkeys so we can decide whether the "set up a passkey"
+  // suggestion is actually useful. Someone who already has one (or
+  // who just signed in with one) doesn't need to be prompted again.
+  const passkeyListQuery = trpc.passkey.list.useQuery(undefined, {
+    enabled: step === "welcome",
+    staleTime: 60_000,
+  });
+  const hasExistingPasskey = (passkeyListQuery.data?.length ?? 0) > 0;
+  const shouldOfferPasskey =
+    passkeysAvailable && !loggedInViaPasskey && !hasExistingPasskey;
 
   const cleanUsername = username.trim().toLowerCase();
   const credsValid = cleanUsername.length >= 3 && password.length >= 8;
@@ -232,6 +245,9 @@ export function RandomLoginPage() {
         sessionId: opts.sessionId,
         response: credential,
       });
+      // Remember that this sign-in used a passkey so we don't insult
+      // the user with a "set up a passkey" suggestion right after.
+      setLoggedInViaPasskey(true);
       await landSession(
         {
           user: r.user,
@@ -717,8 +733,12 @@ export function RandomLoginPage() {
           )}
         </div>
 
-        <PrimaryButton onClick={() => setStep("passkey")}>
-          Continue
+        <PrimaryButton
+          onClick={() =>
+            shouldOfferPasskey ? setStep("passkey") : continueIntoApp()
+          }
+        >
+          {shouldOfferPasskey ? "Continue" : "Continue to Veil"}
         </PrimaryButton>
       </ScreenShell>
     );
