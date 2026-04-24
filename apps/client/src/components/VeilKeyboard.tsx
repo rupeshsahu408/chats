@@ -356,25 +356,80 @@ function KeyCap({
   display: string;
   onTap: (char: string, opts?: { isRepeat?: boolean }) => void;
 }) {
+  const [previewing, setPreviewing] = useState(false);
   const handlers = useRepeatable(
     () => onTap(char),
     () => onTap(char, { isRepeat: true }),
   );
+
+  // Compose preview show/hide on top of the repeat handlers so the
+  // bubble follows the entire press lifecycle (including pointer
+  // capture / drift) without breaking key-repeat semantics.
+  const onPointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+    setPreviewing(true);
+    handlers.onPointerDown(e);
+  };
+  const dismiss = () => {
+    setPreviewing(false);
+    handlers.onPointerUp();
+  };
+
   return (
     <button
       type="button"
-      {...handlers}
+      onPointerDown={onPointerDown}
+      onPointerUp={dismiss}
+      onPointerCancel={dismiss}
+      onPointerLeave={dismiss}
+      onClick={handlers.onClick}
       className={
         KEY_BASE +
         " flex-1 min-w-0 " +
         "bg-gradient-to-b from-surface to-surface/80 " +
         "text-text text-[18px] font-medium tracking-tight " +
-        "active:bg-elevated"
+        "active:bg-elevated " +
+        (previewing ? "z-20 " : "")
       }
       aria-label={display}
     >
       {display}
+      {previewing && <KeyPreview display={display} />}
     </button>
+  );
+}
+
+/**
+ * iOS-style enlarged character bubble that floats above a held key.
+ * Pointer-events:none so it never intercepts the press, and a tiny
+ * pointing nub at the bottom visually anchors it to the key below.
+ */
+function KeyPreview({ display }: { display: string }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={
+        "pointer-events-none absolute left-1/2 -translate-x-1/2 " +
+        "bottom-[calc(100%+6px)] " +
+        "min-w-[44px] h-[58px] px-3 " +
+        "rounded-[14px] " +
+        "bg-gradient-to-b from-surface to-elevated " +
+        "border border-line/60 " +
+        "shadow-[0_8px_24px_rgba(0,0,0,0.45),0_2px_6px_rgba(0,0,0,0.35),inset_0_1px_0_rgba(255,255,255,0.08)] " +
+        "grid place-items-center " +
+        "text-text text-[28px] font-semibold leading-none tracking-tight " +
+        "animate-soft-pop origin-bottom"
+      }
+    >
+      {display}
+      {/* Tapered nub pointing down to the key */}
+      <span
+        className={
+          "absolute left-1/2 -translate-x-1/2 -bottom-[5px] " +
+          "size-[12px] rotate-45 " +
+          "bg-elevated border-r border-b border-line/60"
+        }
+      />
+    </span>
   );
 }
 
