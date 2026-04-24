@@ -1,0 +1,14 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "z1caNzbDL_yn5I72ECE_c"
+uri = "file://attached_assets/recovery-kit-preview/veil-recovery-kit-sample.pdf"
+type = "pdf"
+title = "Sample Veil Recovery Kit (PDF)"
+
+[[outputs]]
+id = "38krUzUxvGSEtMuLSZsDn"
+uri = "file://attached_assets/recovery-kit-preview/veil-recovery-kit-preview.png"
+type = "image"
+title = "Recovery Kit page preview"

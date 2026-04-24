@@ -32,6 +32,7 @@ import { useFocusState, formatFocusEnds, focusReasonLabel } from "../lib/focusMo
 import { useKeyboardPrefs, isCoarsePointerDevice } from "../lib/keyboardPrefs";
 import { feedback } from "../lib/feedback";
 import { resizeAvatarToDataUrl } from "../lib/avatar";
+import { RecoveryKitDownloadCard } from "../components/RecoveryKitDownloadCard";
 
 export function SettingsPage() {
   const navigate = useNavigate();
@@ -315,12 +316,8 @@ function RecoveryKeyRow({ username }: { username: string | null }) {
   const [open, setOpen] = useState(false);
   const [phrase, setPhrase] = useState<string | null>(null);
   const [unsupported, setUnsupported] = useState(false);
-  const [reveal, setReveal] = useState(false);
-  const [copied, setCopied] = useState(false);
 
   async function openModal() {
-    setReveal(false);
-    setCopied(false);
     setUnsupported(false);
     setPhrase(null);
     setOpen(true);
@@ -343,62 +340,30 @@ function RecoveryKeyRow({ username }: { username: string | null }) {
     }
   }
 
-  function downloadFile() {
-    if (!phrase) return;
-    const handle = username ? `@${username}` : "your account";
-    const text =
-      `Veil recovery key for ${handle}\n\n` +
-      `${phrase}\n\n` +
-      `Keep this file in a safe place — anyone with these 12 words can ` +
-      `log in to your Veil account from any device.\n` +
-      `Generated ${new Date().toLocaleString()}.\n`;
-    const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `veil-recovery-${username ?? "account"}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  }
-
-  async function copyPhrase() {
-    if (!phrase) return;
-    try {
-      await navigator.clipboard.writeText(phrase);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      /* ignore */
-    }
-  }
-
   return (
     <>
       <SettingsRow
-        label="Recovery key"
-        sub="Download your 12-word backup. You'll need it to log in on a new device."
+        label="Recovery kit"
+        sub="Download your unique recovery PDF. You'll need it to log in on a new device."
         onClick={openModal}
       />
       {open && (
         <Modal
-          title="Recovery key"
+          title="Recovery kit"
           onClose={() => {
             setOpen(false);
-            setReveal(false);
           }}
         >
           {unsupported ? (
             <div className="space-y-3">
               <p className="text-sm text-text">
-                Your recovery key isn't stored on this device.
+                Your recovery kit isn't stored on this device.
               </p>
               <p className="text-xs text-text-muted leading-relaxed">
                 If this is a Random ID account, sign in once with your 12-word
-                phrase and we'll save a copy here so you can re-download it
-                from this screen later. PIN-protected accounts don't have a
-                recovery phrase.
+                phrase and we'll save a copy here so you can re-download the
+                kit from this screen later. PIN-protected accounts don't have
+                a recovery phrase.
               </p>
               <div className="flex justify-end mt-4">
                 <PrimaryButton onClick={() => setOpen(false)}>OK</PrimaryButton>
@@ -409,50 +374,18 @@ function RecoveryKeyRow({ username }: { username: string | null }) {
           ) : (
             <div className="space-y-3">
               <p className="text-xs text-text-muted leading-relaxed">
-                These 12 words are the master key to your account. Anyone with
-                them can log in as you. Store the file somewhere only you can
-                reach.
+                Your recovery kit is a single PDF that contains your 12-word
+                phrase and a scannable QR code. Anyone with this file can log
+                in as you — store it somewhere only you can reach.
               </p>
 
-              <div className="relative">
-                <div
-                  className={
-                    "grid grid-cols-3 gap-2 p-3 rounded-xl bg-surface border border-line text-sm font-mono leading-relaxed select-text " +
-                    (reveal ? "" : "blur-md pointer-events-none")
-                  }
-                >
-                  {phrase.split(" ").map((w, i) => (
-                    <div key={i} className="flex gap-1.5">
-                      <span className="text-text-faint w-5 text-right">
-                        {i + 1}.
-                      </span>
-                      <span className="text-text">{w}</span>
-                    </div>
-                  ))}
-                </div>
-                {!reveal && (
-                  <button
-                    onClick={() => setReveal(true)}
-                    className="absolute inset-0 rounded-xl flex items-center justify-center text-sm text-text bg-bg/30 hover:bg-bg/40 wa-tap"
-                  >
-                    Tap to reveal
-                  </button>
-                )}
-              </div>
+              <RecoveryKitDownloadCard
+                username={username ?? "account"}
+                phrase={phrase}
+              />
 
-              <div className="flex flex-wrap gap-2 pt-2">
-                <PrimaryButton onClick={downloadFile}>
-                  Download .txt
-                </PrimaryButton>
-                <SecondaryButton onClick={copyPhrase}>
-                  {copied ? "Copied!" : "Copy to clipboard"}
-                </SecondaryButton>
-                <SecondaryButton
-                  onClick={() => {
-                    setOpen(false);
-                    setReveal(false);
-                  }}
-                >
+              <div className="flex flex-wrap gap-2 pt-2 justify-end">
+                <SecondaryButton onClick={() => setOpen(false)}>
                   Close
                 </SecondaryButton>
               </div>
