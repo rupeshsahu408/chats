@@ -50,6 +50,121 @@
   color-scheme: dark;
 }
 
+/* ───────── Reading (warm sepia, low eye strain) ───────── */
+[data-theme="reading"] {
+  --wa-bg: 247 241 227;            /* #F7F1E3 */
+  --wa-panel: 253 248 236;         /* #FDF8EC */
+  --wa-surface: 253 248 236;
+  --wa-elevated: 250 243 224;      /* #FAF3E0 */
+  --wa-bar: 139 111 71;            /* #8B6F47 */
+  --wa-line: 235 225 204;          /* #EBE1CC */
+  --wa-text: 61 44 20;             /* #3D2C14 */
+  --wa-text-muted: 122 98 72;      /* #7A6248 */
+  --wa-text-faint: 168 149 120;    /* #A89578 */
+  --wa-text-oncolor: 253 248 236;
+  --wa-green: 139 111 71;          /* warm brown as accent */
+  --wa-green-dark: 107 84 54;      /* #6B5436 */
+  --wa-green-soft: 239 225 194;    /* #EFE1C2 — outgoing bubble */
+  --wa-teal: 107 84 54;
+  --wa-bubble-out: 239 225 194;
+  --wa-bubble-in: 253 248 236;
+  --wa-tick: 184 133 58;           /* #B8853A */
+  --wa-wallpaper-dot: 61 44 20;
+  color-scheme: light;
+}
+
+/* ───────── Rose (soft pink, calming) ───────── */
+[data-theme="rose"] {
+  --wa-bg: 255 241 243;            /* #FFF1F3 */
+  --wa-panel: 255 255 255;
+  --wa-surface: 255 255 255;
+  --wa-elevated: 255 247 248;      /* #FFF7F8 */
+  --wa-bar: 225 29 72;             /* #E11D48 */
+  --wa-line: 250 220 224;          /* #FADCE0 */
+  --wa-text: 58 14 26;             /* #3A0E1A */
+  --wa-text-muted: 139 73 96;      /* #8B4960 */
+  --wa-text-faint: 184 129 150;    /* #B88196 */
+  --wa-text-oncolor: 255 255 255;
+  --wa-green: 225 29 72;
+  --wa-green-dark: 190 18 60;      /* #BE123C */
+  --wa-green-soft: 251 207 214;    /* #FBCFD6 — outgoing bubble */
+  --wa-teal: 159 18 57;            /* #9F1239 */
+  --wa-bubble-out: 251 207 214;
+  --wa-bubble-in: 255 255 255;
+  --wa-tick: 219 39 119;           /* #DB2777 */
+  --wa-wallpaper-dot: 58 14 26;
+  color-scheme: light;
+}
+
+/* ───────── Green (fresh & vibrant) ───────── */
+[data-theme="green"] {
+  --wa-bg: 240 253 244;            /* #F0FDF4 */
+  --wa-panel: 255 255 255;
+  --wa-surface: 255 255 255;
+  --wa-elevated: 247 255 249;
+  --wa-bar: 22 163 74;             /* #16A34A */
+  --wa-line: 212 240 219;          /* #D4F0DB */
+  --wa-text: 5 46 22;              /* #052E16 */
+  --wa-text-muted: 77 120 97;      /* #4D7861 */
+  --wa-text-faint: 135 171 149;    /* #87AB95 */
+  --wa-text-oncolor: 255 255 255;
+  --wa-green: 22 163 74;
+  --wa-green-dark: 21 128 61;      /* #15803D */
+  --wa-green-soft: 187 247 208;    /* #BBF7D0 — outgoing bubble */
+  --wa-teal: 4 120 87;             /* #047857 */
+  --wa-bubble-out: 187 247 208;
+  --wa-bubble-in: 255 255 255;
+  --wa-tick: 37 99 235;            /* #2563EB */
+  --wa-wallpaper-dot: 5 46 22;
+  color-scheme: light;
+}
+
+/* ───────── Garden (earthy sage) ───────── */
+[data-theme="garden"] {
+  --wa-bg: 241 245 236;            /* #F1F5EC */
+  --wa-panel: 250 252 246;         /* #FAFCF6 */
+  --wa-surface: 250 252 246;
+  --wa-elevated: 245 248 238;
+  --wa-bar: 91 117 83;             /* #5B7553 */
+  --wa-line: 221 230 210;          /* #DDE6D2 */
+  --wa-text: 45 58 38;             /* #2D3A26 */
+  --wa-text-muted: 96 112 86;      /* #607056 */
+  --wa-text-faint: 140 154 131;    /* #8C9A83 */
+  --wa-text-oncolor: 250 252 246;
+  --wa-green: 91 117 83;
+  --wa-green-dark: 69 90 63;       /* #455A3F */
+  --wa-green-soft: 214 228 200;    /* #D6E4C8 — outgoing bubble */
+  --wa-teal: 74 93 67;             /* #4A5D43 */
+  --wa-bubble-out: 214 228 200;
+  --wa-bubble-in: 250 252 246;
+  --wa-tick: 107 144 112;          /* #6B9070 */
+  --wa-wallpaper-dot: 45 58 38;
+  color-scheme: light;
+}
+
+/* ───────── Ocean (deep blue, focused) ───────── */
+[data-theme="ocean"] {
+  --wa-bg: 12 27 42;               /* #0C1B2A */
+  --wa-panel: 16 37 54;            /* #102536 */
+  --wa-surface: 23 50 72;          /* #173248 */
+  --wa-elevated: 31 65 89;         /* #1F4159 */
+  --wa-bar: 23 50 72;
+  --wa-line: 35 78 108;            /* #234E6C */
+  --wa-text: 226 238 248;          /* #E2EEF8 */
+  --wa-text-muted: 143 177 204;    /* #8FB1CC */
+  --wa-text-faint: 99 136 168;     /* #6388A8 */
+  --wa-text-oncolor: 255 255 255;
+  --wa-green: 56 189 248;          /* #38BDF8 — sky accent */
+  --wa-green-dark: 2 132 199;      /* #0284C7 */
+  --wa-green-soft: 19 72 105;      /* #134869 — outgoing bubble */
+  --wa-teal: 14 116 144;           /* #0E7490 */
+  --wa-bubble-out: 19 72 105;
+  --wa-bubble-in: 23 50 72;
+  --wa-tick: 56 189 248;
+  --wa-wallpaper-dot: 226 238 248;
+  color-scheme: dark;
+}
+
 @layer base {
   html,
   body,

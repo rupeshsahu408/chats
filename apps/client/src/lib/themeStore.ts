@@ -1,14 +1,29 @@
 import { create } from "zustand";
 
-export type ThemeMode = "system" | "light" | "dark";
-export type ResolvedTheme = "light" | "dark";
+export const THEMES = [
+  "system",
+  "light",
+  "dark",
+  "reading",
+  "rose",
+  "green",
+  "garden",
+  "ocean",
+] as const;
+
+export type ThemeMode = (typeof THEMES)[number];
+export type ResolvedTheme = Exclude<ThemeMode, "system">;
 
 const STORAGE_KEY = "veil:theme";
+
+function isThemeMode(v: unknown): v is ThemeMode {
+  return typeof v === "string" && (THEMES as readonly string[]).includes(v);
+}
 
 function readStored(): ThemeMode {
   try {
     const v = localStorage.getItem(STORAGE_KEY);
-    if (v === "light" || v === "dark" || v === "system") return v;
+    if (isThemeMode(v)) return v;
   } catch {
     /* ignore */
   }
@@ -76,3 +91,59 @@ export function installSystemThemeListener(): () => void {
   mq.addEventListener("change", handler);
   return () => mq.removeEventListener("change", handler);
 }
+
+/** Static metadata for the theme picker UI. Swatches are CSS color literals
+ *  used purely for the preview circles — the live theme tokens come from
+ *  styles.css via [data-theme="…"] selectors. */
+export interface ThemeMeta {
+  value: ResolvedTheme;
+  label: string;
+  description: string;
+  /** [background, accent, outgoing-bubble] preview swatches. */
+  swatches: [string, string, string];
+}
+
+export const THEME_META: ThemeMeta[] = [
+  {
+    value: "light",
+    label: "Light",
+    description: "Bright & classic",
+    swatches: ["#F0F2F5", "#00A884", "#D9FDD3"],
+  },
+  {
+    value: "dark",
+    label: "Dark",
+    description: "Easy on the eyes at night",
+    swatches: ["#0B141A", "#00A884", "#005C4B"],
+  },
+  {
+    value: "reading",
+    label: "Reading",
+    description: "Warm sepia, low strain",
+    swatches: ["#F7F1E3", "#8B6F47", "#EFE1C2"],
+  },
+  {
+    value: "rose",
+    label: "Rose",
+    description: "Soft pink, calming",
+    swatches: ["#FFF1F3", "#E11D48", "#FBCFD6"],
+  },
+  {
+    value: "green",
+    label: "Green",
+    description: "Fresh & vibrant",
+    swatches: ["#F0FDF4", "#16A34A", "#BBF7D0"],
+  },
+  {
+    value: "garden",
+    label: "Garden",
+    description: "Earthy sage tones",
+    swatches: ["#F1F5EC", "#5B7553", "#D6E4C8"],
+  },
+  {
+    value: "ocean",
+    label: "Ocean",
+    description: "Deep blue, focused",
+    swatches: ["#0C1B2A", "#38BDF8", "#134869"],
+  },
+];
