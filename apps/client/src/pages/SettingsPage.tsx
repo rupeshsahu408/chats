@@ -160,10 +160,21 @@ export function SettingsPage() {
           sub="Hide chats behind your fingerprint or face"
           to="/vault"
         />
+        <SectionHeader>Transparency</SectionHeader>
         <SettingsRow
           label="Daily privacy report"
           sub="See what Veil protected today"
           to="/privacy-report"
+        />
+        <SettingsRow
+          label="Under the hood"
+          sub="Live cipher suite, keys on this device, and your session state"
+          to="/under-the-hood"
+        />
+        <SettingsRow
+          label="What we store"
+          sub="Field-by-field: ciphertext vs metadata in our database"
+          to="/what-we-store"
         />
 
         <SectionHeader>Notifications</SectionHeader>

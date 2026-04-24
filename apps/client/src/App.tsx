@@ -30,6 +30,8 @@ import { ConnectionsPage } from "./pages/ConnectionsPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { VaultPage } from "./pages/VaultPage";
 import { PrivacyReportPage } from "./pages/PrivacyReportPage";
+import { UnderTheHoodPage } from "./pages/UnderTheHoodPage";
+import { WhatWeStorePage } from "./pages/WhatWeStorePage";
 import { SessionSync } from "./lib/SessionSync";
 import { useStealthPrefs } from "./lib/stealthPrefs";
 import { unlockAudioOnFirstGesture } from "./lib/sound";
@@ -93,6 +95,8 @@ export function App() {
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/vault" element={<VaultPage />} />
           <Route path="/privacy-report" element={<PrivacyReportPage />} />
+          <Route path="/under-the-hood" element={<UnderTheHoodPage />} />
+          <Route path="/what-we-store" element={<WhatWeStorePage />} />
           <Route path="/i/:token" element={<InviteRedeemPage />} />
           <Route path="*" element={<WelcomePage />} />
         </Routes>
