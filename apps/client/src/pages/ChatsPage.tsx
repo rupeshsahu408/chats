@@ -24,6 +24,7 @@ import { UnlockGate } from "../components/UnlockGate";
 import { db } from "../lib/db";
 import { peerLabel } from "../lib/peerLabel";
 import { pollAndDecrypt } from "../lib/messageSync";
+import { usePeersPresence } from "../lib/usePeersPresence";
 
 export function ChatsPage() {
   const navigate = useNavigate();
@@ -132,6 +133,14 @@ export function ChatsPage() {
       return bt.localeCompare(at);
     });
 
+  // Live presence for everyone in the chat list — one batched
+  // request, then WS events keep it fresh in the global store.
+  const peerIds = useMemo(
+    () => (connections.data ?? []).map((c) => c.peer.id),
+    [connections.data],
+  );
+  const { isOnline } = usePeersPresence(peerIds);
+
   return (
     <MainShell
       active="chats"
@@ -207,6 +216,7 @@ export function ChatsPage() {
                 to={`/chats/${conn.peer.id}`}
                 seed={conn.peer.username || conn.peer.id}
                 avatarSrc={conn.peer.avatarDataUrl ?? null}
+                online={isOnline(conn.peer.id)}
                 title={
                   <span className="text-sm">
                     {peerLabel(conn.peer)}

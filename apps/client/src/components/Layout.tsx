@@ -372,6 +372,11 @@ export function AppBar({
  * still deterministic from the seed, so the same person always gets
  * the same avatar. Initials are tightened with a slight letter-
  * spacing pull for a confident, designed look.
+ *
+ * When `online` is true, a small green presence dot sits at the
+ * bottom-right with a ring in the surrounding bg color so it reads
+ * as if the dot is sitting *outside* the avatar. This is the
+ * universal "alive at a glance" signal in modern messengers.
  */
 export function Avatar({
   seed,
@@ -379,6 +384,7 @@ export function Avatar({
   size = 44,
   className,
   src,
+  online,
 }: {
   seed: string;
   label?: string;
@@ -386,41 +392,68 @@ export function Avatar({
   className?: string;
   /** Optional profile photo data URL or http(s) URL. */
   src?: string | null;
+  /** When true, shows a small green presence dot. */
+  online?: boolean;
 }) {
+  // Dot scales with avatar so it stays visually consistent at every size.
+  const dotSize = Math.max(10, Math.round(size * 0.26));
+  const ringWidth = Math.max(2, Math.round(size * 0.05));
+
+  const dot = online ? (
+    <span
+      aria-hidden
+      title="Online"
+      style={{
+        width: dotSize,
+        height: dotSize,
+        bottom: 0,
+        right: 0,
+        boxShadow: `0 0 0 ${ringWidth}px rgb(var(--wa-bg)), 0 0 8px rgb(0 168 132 / 0.5)`,
+      }}
+      className="absolute rounded-full bg-wa-green"
+    />
+  ) : null;
+
   if (src) {
     return (
-      <img
-        src={src}
-        alt=""
-        style={{ width: size, height: size }}
-        className={
-          "rounded-full object-cover shrink-0 select-none " +
-          "ring-1 ring-line/50 " +
-          (className ?? "")
-        }
-      />
+      <span className="relative inline-block shrink-0">
+        <img
+          src={src}
+          alt=""
+          style={{ width: size, height: size }}
+          className={
+            "rounded-full object-cover select-none " +
+            "ring-1 ring-line/50 " +
+            (className ?? "")
+          }
+        />
+        {dot}
+      </span>
     );
   }
   const initials = (label ?? seed).slice(0, 2).toUpperCase();
   const hue = stringToHue(seed);
   return (
-    <div
-      style={{
-        width: size,
-        height: size,
-        background: `linear-gradient(135deg, hsl(${hue}deg 55% 62%) 0%, hsl(${(hue + 28) % 360}deg 50% 48%) 100%)`,
-        fontSize: size * 0.38,
-        boxShadow:
-          "inset 0 1px 0 rgba(255,255,255,0.18), 0 1px 2px rgba(11,20,26,0.08)",
-      }}
-      className={
-        "rounded-full flex items-center justify-center text-white " +
-        "font-semibold tracking-tight shrink-0 select-none " +
-        (className ?? "")
-      }
-    >
-      {initials}
-    </div>
+    <span className="relative inline-block shrink-0">
+      <div
+        style={{
+          width: size,
+          height: size,
+          background: `linear-gradient(135deg, hsl(${hue}deg 55% 62%) 0%, hsl(${(hue + 28) % 360}deg 50% 48%) 100%)`,
+          fontSize: size * 0.38,
+          boxShadow:
+            "inset 0 1px 0 rgba(255,255,255,0.18), 0 1px 2px rgba(11,20,26,0.08)",
+        }}
+        className={
+          "rounded-full flex items-center justify-center text-white " +
+          "font-semibold tracking-tight select-none " +
+          (className ?? "")
+        }
+      >
+        {initials}
+      </div>
+      {dot}
+    </span>
   );
 }
 
@@ -435,7 +468,10 @@ function stringToHue(s: string): number {
  *
  * Premium polish: larger avatar, refined typography rhythm, hairline
  * dividers that fade at the edges, and a softer hover/active state
- * that feels intentional rather than reactive.
+ * that feels intentional rather than reactive. When `online` is set
+ * the avatar wears a green presence dot and the meta column reveals
+ * a subtle "online" pill in place of the timestamp — a quiet "alive
+ * at a glance" cue without crowding the row.
  */
 export function ChatListRow({
   to,
@@ -447,6 +483,7 @@ export function ChatListRow({
   meta,
   badge,
   right,
+  online,
 }: {
   to?: string;
   onClick?: () => void;
@@ -457,6 +494,8 @@ export function ChatListRow({
   meta?: ReactNode;
   badge?: ReactNode;
   right?: ReactNode;
+  /** When true, shows a green presence dot on the avatar. */
+  online?: boolean;
 }) {
   const body = (
     <div
@@ -468,7 +507,7 @@ export function ChatListRow({
         "border-b border-line/40 last:border-b-0"
       }
     >
-      <Avatar seed={seed} src={avatarSrc} size={48} />
+      <Avatar seed={seed} src={avatarSrc} size={48} online={online} />
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline gap-2">
           <div className="font-semibold text-[15px] tracking-tight text-text truncate flex-1">
@@ -486,6 +525,19 @@ export function ChatListRow({
               <span className="italic text-text-faint">No messages yet</span>
             )}
           </div>
+          {online && (
+            <span
+              title="Online now"
+              className={
+                "shrink-0 inline-flex items-center gap-1 " +
+                "text-[10.5px] font-semibold uppercase tracking-[0.06em] " +
+                "text-wa-green"
+              }
+            >
+              <span className="size-1.5 rounded-full bg-wa-green" />
+              <span>online</span>
+            </span>
+          )}
           {badge && <div className="shrink-0">{badge}</div>}
         </div>
       </div>
