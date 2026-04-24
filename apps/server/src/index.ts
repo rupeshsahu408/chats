@@ -85,7 +85,23 @@ await app.register(fastifyTRPCPlugin, {
     router: appRouter,
     createContext,
     onError({ path, error }) {
-      app.log.error({ path, code: error.code, msg: error.message }, "tRPC error");
+      const cause = error.cause as Record<string, unknown> | undefined;
+      app.log.error(
+        {
+          path,
+          code: error.code,
+          msg: error.message,
+          cause: cause
+            ? {
+                pgCode: cause["code"],
+                pgMsg: cause["message"],
+                pgDetail: cause["detail"],
+                pgConstraint: cause["constraint"],
+              }
+            : undefined,
+        },
+        "tRPC error",
+      );
     },
   } satisfies FastifyTRPCPluginOptions<AppRouter>["trpcOptions"],
 });
