@@ -534,54 +534,17 @@ export function RandomIdSignupPage() {
     const words = phrase ? phrase.split(" ") : [];
     return (
       <ScreenShell back="#" phase="Step 6 of 9 · Recovery key">
-        <div className="flex flex-col items-center gap-3 mb-2">
-          <Logo />
-          <h2 className="text-2xl font-semibold text-text">
-            Save your recovery key
-          </h2>
-          <p className="text-sm text-text-muted text-center">
-            These 12 words let you decrypt your messages on a new device.
-            We can't show them again — download the file before continuing.
-          </p>
-        </div>
-
-        <div className="w-full">
-          <div className="grid grid-cols-3 gap-2">
-            {words.map((word, i) => (
-              <div
-                key={i}
-                className="rounded-lg bg-surface border border-line px-3 py-2 text-sm flex items-center gap-2"
-              >
-                <span className="text-text-faint text-xs w-4 shrink-0">
-                  {i + 1}.
-                </span>
-                <span className="text-text">{word}</span>
-              </div>
-            ))}
-          </div>
-          <p className="mt-3 text-xs text-red-500">
-            ⚠ Anyone with these words can read your messages. Store the
-            file offline (a password manager or a USB stick is great).
-          </p>
-        </div>
-
-        <PrimaryButton onClick={downloadRecoveryFile}>
-          {recoveryDownloaded ? "Download again" : "Download recovery key"}
-        </PrimaryButton>
-
-        <PrimaryButton
-          onClick={async () => {
+        <RecoveryReveal
+          words={words}
+          downloaded={recoveryDownloaded}
+          creating={creating}
+          error={error}
+          onDownload={downloadRecoveryFile}
+          onConfirm={async () => {
             const ok = await createAccount();
             if (ok) setStep("name");
           }}
-          loading={creating}
-          disabled={!recoveryDownloaded || creating}
-        >
-          {recoveryDownloaded
-            ? "I've saved it — create my account"
-            : "Download the file to continue"}
-        </PrimaryButton>
-        <ErrorMessage>{error}</ErrorMessage>
+        />
       </ScreenShell>
     );
   }
@@ -817,6 +780,268 @@ function KeyCeremony({
         {done ? "Reveal my recovery key" : "Forging…"}
       </PrimaryButton>
     </div>
+  );
+}
+
+/**
+ * Recovery key reveal — the most sacred moment of identity creation.
+ *
+ * The 12 words land like deliberate cards (staggered fade-up), an
+ * emblematic key icon anchors the screen, and the safety guidance
+ * lives in a soft callout instead of red error text. The CTAs are
+ * re-ordered so "I've saved it" is the gating primary action and the
+ * download lives below it as a secondary, since the user has to
+ * download before confirming anyway.
+ */
+function RecoveryReveal({
+  words,
+  downloaded,
+  creating,
+  error,
+  onDownload,
+  onConfirm,
+}: {
+  words: string[];
+  downloaded: boolean;
+  creating: boolean;
+  error: string | null;
+  onDownload: () => void;
+  onConfirm: () => void;
+}) {
+  const [copiedAll, setCopiedAll] = useState(false);
+
+  async function copyAll() {
+    if (!words.length) return;
+    try {
+      await navigator.clipboard.writeText(words.join(" "));
+      setCopiedAll(true);
+      setTimeout(() => setCopiedAll(false), 1800);
+    } catch {
+      // Clipboard may be blocked — fall through silently.
+    }
+  }
+
+  return (
+    <div className="flex flex-col items-center gap-5">
+      {/* Hero emblem — a calm key icon with an ambient halo so the
+          page reads as ceremonial rather than transactional. */}
+      <div className="relative">
+        <div
+          aria-hidden
+          className="absolute inset-0 rounded-full bg-wa-green/15 blur-xl scale-[1.6]"
+        />
+        <div
+          className={
+            "relative size-16 rounded-2xl grid place-items-center " +
+            "bg-gradient-to-b from-wa-green to-wa-green-dark text-text-oncolor " +
+            "[box-shadow:inset_0_1px_0_rgba(255,255,255,0.18),0_8px_24px_rgba(0,168,132,0.28)]"
+          }
+        >
+          <RecoveryKeyIcon />
+        </div>
+      </div>
+
+      <div className="text-center">
+        <h2 className="text-[22px] font-semibold tracking-tight text-text">
+          Your recovery key
+        </h2>
+        <p className="text-[13.5px] text-text-muted mt-1.5 max-w-xs mx-auto leading-relaxed">
+          These 12 words can rebuild your account on any device. Save
+          them somewhere safe — we can't show them to you again.
+        </p>
+      </div>
+
+      {/* Word cards — staggered fade-up reveal. */}
+      <div className="w-full">
+        <div className="grid grid-cols-3 gap-2">
+          {words.map((word, i) => (
+            <WordCard key={i} index={i} word={word} />
+          ))}
+        </div>
+
+        <div className="mt-3 flex items-center justify-end">
+          <button
+            onClick={copyAll}
+            className={
+              "inline-flex items-center gap-1.5 text-[12px] font-medium " +
+              "text-text-muted hover:text-text wa-tap " +
+              "transition-colors duration-150"
+            }
+          >
+            {copiedAll ? (
+              <>
+                <CheckIcon /> Copied to clipboard
+              </>
+            ) : (
+              <>
+                <CopyIcon /> Copy all 12 words
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* Safety callout — soft accent panel, not a red warning. */}
+      <div
+        className={
+          "w-full rounded-2xl border border-wa-green/25 " +
+          "bg-wa-green/[0.06] px-4 py-3.5 flex items-start gap-3"
+        }
+      >
+        <div className="shrink-0 mt-0.5 size-7 rounded-full bg-wa-green/15 grid place-items-center text-wa-green-dark dark:text-wa-green">
+          <ShieldIcon />
+        </div>
+        <div className="min-w-0 text-[12.5px] leading-snug">
+          <div className="font-semibold text-text">Treat this like a key</div>
+          <p className="text-text-muted mt-0.5">
+            Anyone with these words can read your messages. A password
+            manager or a written note kept offline both work well.
+          </p>
+        </div>
+      </div>
+
+      {/* Actions — download is the means, confirm is the moment. */}
+      <div className="w-full flex flex-col gap-2.5">
+        <PrimaryButton
+          onClick={onConfirm}
+          loading={creating}
+          disabled={!downloaded || creating}
+        >
+          {downloaded
+            ? "I've saved it — create my account"
+            : "Save your key to continue"}
+        </PrimaryButton>
+        <SecondaryButton onClick={onDownload}>
+          {downloaded ? (
+            <span className="inline-flex items-center justify-center gap-2">
+              <CheckIcon /> Downloaded — tap to download again
+            </span>
+          ) : (
+            <span className="inline-flex items-center justify-center gap-2">
+              <DownloadIcon /> Download recovery file
+            </span>
+          )}
+        </SecondaryButton>
+      </div>
+
+      <ErrorMessage>{error}</ErrorMessage>
+    </div>
+  );
+}
+
+function WordCard({ index, word }: { index: number; word: string }) {
+  // Light per-card stagger (35ms) so the row reads as one unfolding
+  // gesture rather than 12 simultaneous pops.
+  const delay = `${40 + index * 35}ms`;
+  return (
+    <div
+      className={
+        "rounded-xl bg-surface border border-line/70 " +
+        "px-2.5 py-2.5 flex items-baseline gap-1.5 " +
+        "shadow-card animate-slide-up"
+      }
+      style={{ animationDelay: delay, animationFillMode: "both" }}
+    >
+      <span className="text-text-faint text-[10px] font-medium tabular-nums w-4 shrink-0 text-right">
+        {index + 1}
+      </span>
+      <span className="text-[13.5px] font-medium text-text tracking-tight font-mono truncate">
+        {word}
+      </span>
+    </div>
+  );
+}
+
+/* ─────────── Recovery-screen icons ─────────── */
+
+function RecoveryKeyIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={26}
+      height={26}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="9" cy="12" r="3.5" />
+      <path d="M12.5 12h7.5" />
+      <path d="M17 12v3" />
+      <path d="M20 12v2" />
+    </svg>
+  );
+}
+
+function ShieldIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={15}
+      height={15}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 3l8 3v6c0 4.5-3.4 8.5-8 9-4.6-.5-8-4.5-8-9V6l8-3z" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={14}
+      height={14}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2.4}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M5 12.5l4.5 4.5L19 7" />
+    </svg>
+  );
+}
+
+function CopyIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={14}
+      height={14}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.9}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="9" y="9" width="11" height="11" rx="2" />
+      <path d="M5 15V6a2 2 0 0 1 2-2h9" />
+    </svg>
+  );
+}
+
+function DownloadIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={15}
+      height={15}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 4v11" />
+      <path d="M7 11l5 5 5-5" />
+      <path d="M5 20h14" />
+    </svg>
   );
 }
 
