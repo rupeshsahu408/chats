@@ -47,6 +47,10 @@ import {
   CheckSessionStatusResult,
   SubmitNewPasswordAfterSecureInput,
   SubmitNewPasswordAfterSecureResult,
+  BeginPasswordResetInput,
+  BeginPasswordResetResult,
+  CompletePasswordResetInput,
+  CompletePasswordResetResult,
   type AuthResult,
   type LoginContextInfo,
 } from "@veil/shared";
@@ -75,6 +79,10 @@ import {
   verifyBotChallenge,
   consumeBotToken,
 } from "../../lib/botChallenge.js";
+import {
+  issueResetChallenge,
+  consumeResetChallenge,
+} from "../../lib/passwordReset.js";
 
 /**
  * Reserved usernames we never let users register, regardless of case.
@@ -783,6 +791,149 @@ export const authRouter = router({
       }
 
       return issueSession(ctx, user.id, "random", user.createdAt);
+    }),
+
+  /* ─────────── Forgot password (recovery-key reset) ─────────── */
+
+  /**
+   * Step 1 of the forgot-password flow. Always returns a challenge
+   * nonce — even for unknown usernames — so an attacker can't probe
+   * the user table by status code or response shape. The actual
+   * existence check is deferred to step 2, where it's covered by
+   * the same generic error as a bad signature.
+   */
+  beginPasswordReset: configuredProcedure
+    .input(BeginPasswordResetInput)
+    .output(BeginPasswordResetResult)
+    .mutation(async ({ input, ctx }) => {
+      // Per-IP throttle. Per-username throttle protects each account
+      // from being held hostage by floods of nonce requests.
+      const ipLimit = rateLimit({
+        key: `pwreset:begin:ip:${ctx.ip}`,
+        limit: 30,
+        windowSeconds: 10 * 60,
+      });
+      if (!ipLimit.allowed) {
+        throw new TRPCError({
+          code: "TOO_MANY_REQUESTS",
+          message: `Too many reset requests. Try again in ${ipLimit.resetInSeconds}s.`,
+        });
+      }
+      const userLimit = rateLimit({
+        key: `pwreset:begin:user:${input.username.toLowerCase()}`,
+        limit: 10,
+        windowSeconds: 10 * 60,
+      });
+      if (!userLimit.allowed) {
+        throw new TRPCError({
+          code: "TOO_MANY_REQUESTS",
+          message: `Too many reset requests for this account. Try again in ${userLimit.resetInSeconds}s.`,
+        });
+      }
+
+      // Always issue, regardless of whether the user exists. We
+      // touch the DB anyway so timing is uniform.
+      const db = getDb();
+      await db
+        .select({ id: schema.users.id })
+        .from(schema.users)
+        .where(eq(schema.users.username, input.username.toLowerCase()))
+        .limit(1);
+
+      const { nonce, expiresInSeconds } = issueResetChallenge(
+        input.username.toLowerCase(),
+      );
+      return { challengeNonce: nonce, expiresInSeconds };
+    }),
+
+  /**
+   * Step 2: verify the Ed25519 signature of the challenge nonce
+   * against the user's stored identity public key, then update the
+   * password. A single generic error covers all failure modes
+   * (unknown user, wrong recovery phrase, expired/replayed nonce)
+   * to avoid leaking which case occurred.
+   */
+  completePasswordReset: configuredProcedure
+    .input(CompletePasswordResetInput)
+    .output(CompletePasswordResetResult)
+    .mutation(async ({ input, ctx }) => {
+      const ipLimit = rateLimit({
+        key: `pwreset:complete:ip:${ctx.ip}`,
+        limit: 20,
+        windowSeconds: 10 * 60,
+      });
+      if (!ipLimit.allowed) {
+        throw new TRPCError({
+          code: "TOO_MANY_REQUESTS",
+          message: `Too many attempts. Try again in ${ipLimit.resetInSeconds}s.`,
+        });
+      }
+
+      const genericFailure = new TRPCError({
+        code: "UNAUTHORIZED",
+        message:
+          "We couldn't verify your recovery key. Double-check the 12 words and try again.",
+      });
+
+      const username = consumeResetChallenge(input.challengeNonce);
+      if (!username) throw genericFailure;
+
+      const db = getDb();
+      const found = await db
+        .select({
+          id: schema.users.id,
+          identityPubkey: schema.users.identityPubkey,
+        })
+        .from(schema.users)
+        .where(eq(schema.users.username, username))
+        .limit(1);
+      if (found.length === 0) throw genericFailure;
+      const user = found[0]!;
+
+      // The pubkey the client claims to have derived from the phrase
+      // must match the one we stored at signup. If it does, and the
+      // signature verifies, the user proved possession of the phrase.
+      let claimedPub: Buffer;
+      try {
+        claimedPub = Buffer.from(input.identityPubkey, "base64");
+      } catch {
+        throw genericFailure;
+      }
+      const storedPub = Buffer.from(user.identityPubkey);
+      if (
+        claimedPub.length !== storedPub.length ||
+        !claimedPub.equals(storedPub)
+      ) {
+        throw genericFailure;
+      }
+
+      let valid = false;
+      try {
+        valid = ed25519.verify(
+          Uint8Array.from(Buffer.from(input.signature, "base64")),
+          new TextEncoder().encode(input.challengeNonce),
+          Uint8Array.from(storedPub),
+        );
+      } catch {
+        valid = false;
+      }
+      if (!valid) throw genericFailure;
+
+      const newHash = await bcrypt.hash(input.newPassword, 12);
+      await db
+        .update(schema.users)
+        .set({ passwordHash: newHash })
+        .where(eq(schema.users.id, user.id));
+
+      // Belt-and-suspenders: clear any active failure-lockout state
+      // so the user can sign in immediately with the new password.
+      try {
+        clearFailures(username, ctx.ip);
+      } catch {
+        // best-effort
+      }
+
+      return { ok: true as const };
     }),
 
   /* ─────────── Bot challenge (slide-to-verify) ─────────── */

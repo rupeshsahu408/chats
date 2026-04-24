@@ -479,6 +479,17 @@ export function RandomLoginPage() {
           Log in
         </PrimaryButton>
 
+        <button
+          type="button"
+          onClick={() => navigate("/forgot-password")}
+          className={
+            "self-center text-[13px] text-wa-green-dark dark:text-wa-green " +
+            "hover:underline underline-offset-2"
+          }
+        >
+          Forgot password?
+        </button>
+
         {passkeysAvailable && (
           <>
             <OrDivider />

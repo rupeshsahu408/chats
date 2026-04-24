@@ -18,6 +18,7 @@ import { RandomIdSignupPage } from "./pages/RandomIdSignupPage";
 import { LoginPage } from "./pages/LoginPage";
 import { RandomLoginPage } from "./pages/RandomLoginPage";
 import { PhoneLoginPage } from "./pages/PhoneLoginPage";
+import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { ChatsPage } from "./pages/ChatsPage";
 import { ChatThreadPage } from "./pages/ChatThreadPage";
 import { ProfilePage } from "./pages/ProfilePage";
@@ -92,6 +93,7 @@ export function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/login/phone" element={<PhoneLoginPage />} />
           <Route path="/login/random" element={<RandomLoginPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/chats" element={<ChatsPage />} />
           <Route path="/chats/:peerId" element={<ChatThreadPage />} />
           <Route path="/profile/:peerId" element={<ProfilePage />} />

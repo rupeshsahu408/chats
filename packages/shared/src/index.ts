@@ -1351,3 +1351,53 @@ export const FetchGroupHistoryResult = z.object({
   hasMore: z.boolean(),
 });
 export type FetchGroupHistoryResult = z.infer<typeof FetchGroupHistoryResult>;
+
+/* ─────────── Forgot password (recovery-key reset) ─────────── */
+
+/**
+ * Step 1: user enters their username. Server returns an HMAC-bound
+ * challenge nonce (always — even for unknown usernames, to prevent
+ * enumeration). The client must sign that nonce with the Ed25519
+ * private key derived from the user's 12-word recovery phrase, then
+ * call `auth.completePasswordReset` with the signature, public key,
+ * and new password.
+ */
+export const BeginPasswordResetInput = z.object({
+  username: UsernameSchema,
+});
+export type BeginPasswordResetInput = z.infer<typeof BeginPasswordResetInput>;
+
+export const BeginPasswordResetResult = z.object({
+  challengeNonce: z.string().min(1),
+  expiresInSeconds: z.number().int().positive(),
+});
+export type BeginPasswordResetResult = z.infer<
+  typeof BeginPasswordResetResult
+>;
+
+/**
+ * Step 2: client proves ownership of the recovery phrase by signing
+ * the challenge nonce with the derived Ed25519 private key. The
+ * server verifies the signature against the public key it stored on
+ * the user row at signup.
+ *
+ * The recovery phrase itself never leaves the device.
+ */
+export const CompletePasswordResetInput = z.object({
+  challengeNonce: z.string().min(1),
+  /** Base64 of the 32-byte Ed25519 public key derived from the phrase. */
+  identityPubkey: z.string().min(1),
+  /** Base64 of the 64-byte Ed25519 signature over the challenge nonce. */
+  signature: z.string().min(1),
+  newPassword: PasswordSchema,
+});
+export type CompletePasswordResetInput = z.infer<
+  typeof CompletePasswordResetInput
+>;
+
+export const CompletePasswordResetResult = z.object({
+  ok: z.literal(true),
+});
+export type CompletePasswordResetResult = z.infer<
+  typeof CompletePasswordResetResult
+>;
