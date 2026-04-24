@@ -36,6 +36,7 @@ import {
 } from "../components/Layout";
 import { UnlockGate } from "../components/UnlockGate";
 import { peerLabel } from "../lib/peerLabel";
+import { useWallpaperStore, getWallpaperStyle } from "../lib/wallpaperStore";
 import { EmojiPicker, ReactionPicker } from "../components/EmojiPicker";
 import {
   db,
@@ -423,6 +424,11 @@ function GroupChatInner({ groupId }: { groupId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [pollOpen, setPollOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const wallpaperPref = useWallpaperStore((s) => s.pref);
+  const wallpaperStyle = useMemo(
+    () => getWallpaperStyle(wallpaperPref),
+    [wallpaperPref],
+  );
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // @mention autocomplete state
@@ -1255,7 +1261,8 @@ function GroupChatInner({ groupId }: { groupId: string }) {
       {/* Message list */}
       <div
         ref={scrollRef}
-        className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-1.5 bg-bg"
+        style={wallpaperStyle}
+        className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-1.5"
       >
         <div className="self-center text-[11px] text-text-muted bg-panel border border-line rounded-full px-3 py-1 mb-2 inline-flex items-center gap-1">
           <LockIcon className="w-3 h-3" /> End-to-end encrypted · sender keys

@@ -78,6 +78,7 @@ import {
 } from "../lib/messageEnvelope";
 import { trpcClientProxy } from "../lib/trpcClientProxy";
 import { useStealthPrefs } from "../lib/stealthPrefs";
+import { useWallpaperStore, getWallpaperStyle } from "../lib/wallpaperStore";
 import { safetyNumberFromB64 } from "../lib/safetyNumber";
 import {
   biometricSupported,
@@ -306,6 +307,11 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
   const [pendingPreview, setPendingPreview] = useState<EnvelopeLinkPreview | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const wallpaperPref = useWallpaperStore((s) => s.pref);
+  const wallpaperStyle = useMemo(
+    () => getWallpaperStyle(wallpaperPref),
+    [wallpaperPref],
+  );
 
   // Peer online status — seeded from REST query, kept live via WS presence events.
   const peerOnlineQuery = trpc.me.peerOnline.useQuery(
@@ -907,7 +913,8 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
 
       <div
         ref={scrollRef}
-        className="flex-1 min-h-0 overflow-y-auto bg-bg bg-chat-wallpaper bg-wallpaper px-3 py-4 flex flex-col gap-1"
+        style={wallpaperStyle}
+        className="flex-1 min-h-0 overflow-y-auto px-3 py-4 flex flex-col gap-1"
       >
         {!filteredMessages || filteredMessages.length === 0 ? (
           <EmptyState

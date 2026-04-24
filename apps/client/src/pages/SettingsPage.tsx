@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { trpc } from "../lib/trpc";
 import { useAuthStore } from "../lib/store";
@@ -17,6 +17,14 @@ import {
 import { MainShell } from "../components/MainShell";
 import { ScheduledMessagesSheet } from "../components/ScheduledMessagesSheet";
 import { useThemeStore, THEME_META } from "../lib/themeStore";
+import {
+  useWallpaperStore,
+  getWallpaperStyle,
+  fileToCompressedDataUrl,
+  SOLID_PALETTE,
+  DOT_PALETTE,
+  type WallpaperKind,
+} from "../lib/wallpaperStore";
 import { ensurePushSubscription, disablePushSubscription } from "../lib/push";
 import { clearIdentity, loadIdentity } from "../lib/db";
 import { useStealthPrefs } from "../lib/stealthPrefs";
@@ -139,6 +147,7 @@ export function SettingsPage() {
 
         <SectionHeader>Appearance</SectionHeader>
         <ThemeRow />
+        <WallpaperRow />
 
         <SectionHeader>Privacy</SectionHeader>
         <PrivacyRows />
@@ -1195,6 +1204,195 @@ function ThemeRow() {
           );
         })}
       </div>
+    </div>
+  );
+}
+
+function WallpaperRow() {
+  const pref = useWallpaperStore((s) => s.pref);
+  const setPref = useWallpaperStore((s) => s.setPref);
+  const reset = useWallpaperStore((s) => s.reset);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const previewStyle = useMemo(() => getWallpaperStyle(pref), [pref]);
+
+  const kindOptions: { value: WallpaperKind; label: string; hint: string }[] = [
+    { value: "default", label: "Default", hint: "Theme dot pattern" },
+    { value: "solid", label: "Solid", hint: "Flat color" },
+    { value: "dots", label: "Dotted", hint: "Pick the dot color" },
+    { value: "image", label: "Image", hint: "Upload your own" },
+  ];
+
+  async function handleFile(file: File | null | undefined) {
+    if (!file) return;
+    setError(null);
+    setBusy(true);
+    try {
+      const dataUrl = await fileToCompressedDataUrl(file);
+      setPref({ kind: "image", imageData: dataUrl });
+    } catch (e) {
+      const msg =
+        e instanceof Error
+          ? e.message
+          : "Couldn't save that image. Try a smaller one.";
+      setError(msg);
+    } finally {
+      setBusy(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
+  return (
+    <div className="px-4 py-4 border-b border-line/60">
+      <div className="font-medium text-text mb-1">Chat wallpaper</div>
+      <div className="text-xs text-text-muted mb-3">
+        Customize the background behind your messages. Stored only on this
+        device.
+      </div>
+
+      {/* Preview — shows the current wallpaper with two sample bubbles */}
+      <div
+        className="relative h-28 rounded-xl border border-line overflow-hidden mb-3"
+        style={previewStyle}
+        aria-label="Wallpaper preview"
+      >
+        <div className="absolute left-3 top-3 max-w-[55%] rounded-lg rounded-tl-sm bg-wa-bubble-in text-text text-xs px-2.5 py-1.5 shadow-bubble">
+          Hey there 👋
+        </div>
+        <div className="absolute right-3 bottom-3 max-w-[55%] rounded-lg rounded-br-sm bg-wa-bubble-out text-text text-xs px-2.5 py-1.5 shadow-bubble">
+          Looking good!
+        </div>
+      </div>
+
+      {/* Kind segmented control */}
+      <div className="grid grid-cols-4 gap-1.5 mb-3">
+        {kindOptions.map((o) => {
+          const isActive = pref.kind === o.value;
+          return (
+            <button
+              key={o.value}
+              onClick={() => {
+                setError(null);
+                if (o.value === "image") {
+                  fileInputRef.current?.click();
+                } else if (o.value === "solid") {
+                  setPref({ kind: "solid", color: pref.color ?? SOLID_PALETTE[0]!.value });
+                } else if (o.value === "dots") {
+                  setPref({ kind: "dots", color: pref.color ?? DOT_PALETTE[0]!.value });
+                } else {
+                  setPref({ kind: "default" });
+                }
+              }}
+              className={
+                "flex flex-col items-center gap-0.5 rounded-lg px-2 py-2 border text-center wa-tap transition " +
+                (isActive
+                  ? "border-wa-green bg-wa-green-soft/40 text-text"
+                  : "border-line bg-surface text-text-muted hover:text-text")
+              }
+              aria-pressed={isActive}
+            >
+              <span className="text-xs font-medium leading-tight">
+                {o.label}
+              </span>
+              <span className="text-[10px] text-text-faint leading-tight">
+                {o.hint}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Hidden file input — triggered by the "Image" segmented button */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => handleFile(e.target.files?.[0])}
+      />
+
+      {/* Per-kind controls */}
+      {pref.kind === "solid" && (
+        <ColorSwatchPicker
+          options={SOLID_PALETTE}
+          selected={pref.color}
+          onPick={(c) => setPref({ kind: "solid", color: c })}
+        />
+      )}
+
+      {pref.kind === "dots" && (
+        <ColorSwatchPicker
+          options={DOT_PALETTE}
+          selected={pref.color}
+          onPick={(c) => setPref({ kind: "dots", color: c })}
+        />
+      )}
+
+      {pref.kind === "image" && (
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={busy}
+            className="text-xs px-3 py-1.5 rounded-full border border-line bg-surface text-text hover:bg-elevated wa-tap disabled:opacity-60"
+          >
+            {pref.imageData ? "Replace image" : "Choose image…"}
+          </button>
+          {pref.imageData && (
+            <button
+              onClick={() => reset()}
+              className="text-xs px-3 py-1.5 rounded-full text-text-muted hover:text-text wa-tap"
+            >
+              Remove
+            </button>
+          )}
+          {busy && (
+            <span className="text-[11px] text-text-muted">Processing…</span>
+          )}
+        </div>
+      )}
+
+      {error && (
+        <div className="mt-2 text-[11px] text-red-500" role="alert">
+          {error}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ColorSwatchPicker({
+  options,
+  selected,
+  onPick,
+}: {
+  options: { value: string; label: string }[];
+  selected: string | undefined;
+  onPick: (value: string) => void;
+}) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {options.map((o) => {
+        const isActive =
+          (selected ?? "").toLowerCase() === o.value.toLowerCase();
+        return (
+          <button
+            key={o.value}
+            onClick={() => onPick(o.value)}
+            title={o.label}
+            aria-label={o.label}
+            aria-pressed={isActive}
+            className={
+              "size-8 rounded-full border-2 wa-tap transition " +
+              (isActive
+                ? "border-wa-green ring-2 ring-wa-green/30"
+                : "border-line hover:border-text-muted/60")
+            }
+            style={{ background: o.value }}
+          />
+        );
+      })}
     </div>
   );
 }
