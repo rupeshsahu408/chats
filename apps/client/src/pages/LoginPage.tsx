@@ -1,216 +1,112 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { trpc } from "../lib/trpc";
-import { useAuthStore } from "../lib/store";
 import {
   ScreenShell,
   Logo,
-  PrimaryButton,
   SecondaryButton,
-  FieldLabel,
-  ErrorMessage,
-  InfoMessage,
 } from "../components/Layout";
-import { isFirebaseConfigured } from "../lib/firebase";
-import { postAuthLandingPath } from "../lib/inviteRedirect";
+import { isPasskeySupported } from "../lib/passkey";
 
-type Step = "method" | "email-input" | "email-code";
-
+/**
+ * Method picker for the sign-in screen.
+ *
+ * The premium "Username + password" flow lives at /login/random — it
+ * carries the silent risk-detection, slide-puzzle, press-and-hold,
+ * lockout, last-location and passkey suggestion logic. We surface
+ * that as the primary path, with secondary entry points for users
+ * who originally signed up via phone.
+ *
+ * Email / SMS code flows are intentionally not part of the premium
+ * sign-in story: see `/login/random` for the canonical path.
+ */
 export function LoginPage() {
   const navigate = useNavigate();
-  const setAuth = useAuthStore((s) => s.setAuth);
+  const [passkeySupported, setPasskeySupported] = useState(false);
 
-  const [step, setStep] = useState<Step>("method");
-  const [email, setEmail] = useState("");
-  const [code, setCode] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [info, setInfo] = useState<string | null>(null);
+  useEffect(() => {
+    setPasskeySupported(isPasskeySupported());
+  }, []);
 
-  const requestOtp = trpc.auth.requestEmailOtp.useMutation();
-  const verifyOtp = trpc.auth.verifyEmailOtp.useMutation();
+  return (
+    <ScreenShell back="/" phase="Sign in">
+      <div className="flex flex-col items-center gap-3 mb-2">
+        <Logo />
+        <h2 className="text-2xl font-semibold">Welcome back</h2>
+        <p className="text-sm text-text-muted text-center">
+          Sign in to pick up where you left off.
+        </p>
+      </div>
 
-  function navigateAfterLogin() {
-    navigate(postAuthLandingPath());
-  }
-
-  async function onSendEmailCode() {
-    setError(null);
-    setInfo(null);
-    try {
-      const r = await requestOtp.mutateAsync({ email, purpose: "login" });
-      if (r.devCode) {
-        setInfo(`Dev mode: code is ${r.devCode}.`);
-      } else {
-        setInfo("If an account exists, we sent a code to your inbox.");
-      }
-      setStep("email-code");
-    } catch (e: unknown) {
-      setError(messageOf(e));
-    }
-  }
-
-  async function onVerifyEmailCode() {
-    setError(null);
-    try {
-      const r = await verifyOtp.mutateAsync({ email, code, purpose: "login" });
-      setAuth({ accessToken: r.accessToken, refreshToken: r.refreshToken, refreshExpiresIn: r.refreshExpiresIn, user: r.user });
-      navigateAfterLogin();
-    } catch (e: unknown) {
-      setError(messageOf(e));
-    }
-  }
-
-  if (step === "method") {
-    return (
-      <ScreenShell back="/" phase="Log in">
-        <div className="flex flex-col items-center gap-3 mb-2">
-          <Logo />
-          <h2 className="text-2xl font-semibold">Log in to Veil</h2>
-          <p className="text-sm text-text-muted text-center">
-            Choose how you signed up.
-          </p>
-        </div>
-        <div className="w-full grid gap-3">
+      <div className="w-full grid gap-3">
+        <LoginOption
+          title="Continue with username"
+          sub="Username and password — the recommended way."
+          recommended
+          onClick={() => navigate("/login/random")}
+        />
+        {passkeySupported && (
           <LoginOption
-            title="Email"
-            sub="6-digit OTP to your inbox"
-            onClick={() => setStep("email-input")}
-            disabled
-            comingSoon
+            title="Use a passkey"
+            sub="Face ID, Touch ID, or your security key."
+            onClick={() => navigate("/login/random?passkey=1")}
           />
-          <LoginOption
-            title="Phone"
-            sub="SMS verification"
-            onClick={() => navigate("/login/phone")}
-            disabled
-            comingSoon
-          />
-          <LoginOption
-            title="Random ID"
-            sub="Use your 12-word recovery phrase"
-            onClick={() => navigate("/login/random")}
-          />
-        </div>
-      </ScreenShell>
-    );
-  }
+        )}
+        <LoginOption
+          title="Continue with phone"
+          sub="One-time SMS code."
+          onClick={() => navigate("/login/phone")}
+        />
+      </div>
 
-  if (step === "email-input") {
-    return (
-      <ScreenShell back="/" phase="Log in · Email">
-        <div className="flex flex-col items-center gap-3 mb-2">
-          <Logo />
-          <h2 className="text-2xl font-semibold">Log in with email</h2>
-        </div>
-        <div>
-          <FieldLabel>Email</FieldLabel>
-          <input
-            type="email"
-            autoComplete="email"
-            inputMode="email"
-            autoFocus
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="you@example.com"
-            className="w-full rounded-xl bg-surface border border-line px-4 py-3 outline-none focus:border-wa-green transition"
-          />
-        </div>
-        <ErrorMessage>{error}</ErrorMessage>
-        <PrimaryButton
-          onClick={onSendEmailCode}
-          loading={requestOtp.isPending}
-          disabled={!email.trim()}
+      <div className="text-center text-xs text-text-muted">
+        New to Veil?{" "}
+        <button
+          type="button"
+          onClick={() => navigate("/welcome")}
+          className="text-wa-green hover:underline"
         >
-          Send code
-        </PrimaryButton>
-        <SecondaryButton onClick={() => setStep("method")}>Back</SecondaryButton>
-      </ScreenShell>
-    );
-  }
+          Create an account
+        </button>
+      </div>
 
-  if (step === "email-code") {
-    return (
-      <ScreenShell back="/" phase="Log in · Verify">
-        <div className="flex flex-col items-center gap-3 mb-2">
-          <Logo />
-          <h2 className="text-2xl font-semibold">Enter the code</h2>
-          <p className="text-sm text-text-muted text-center">
-            Sent to <span className="text-text">{email}</span>
-          </p>
-        </div>
-        <InfoMessage>{info}</InfoMessage>
-        <div>
-          <FieldLabel>6-digit code</FieldLabel>
-          <input
-            type="text"
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            maxLength={6}
-            autoFocus
-            value={code}
-            onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
-            placeholder="••••••"
-            className="w-full rounded-xl bg-surface border border-line px-4 py-3 text-center text-2xl tracking-[0.5em] outline-none focus:border-wa-green transition"
-          />
-        </div>
-        <ErrorMessage>{error}</ErrorMessage>
-        <PrimaryButton
-          onClick={onVerifyEmailCode}
-          loading={verifyOtp.isPending}
-          disabled={code.length !== 6}
-        >
-          Log in
-        </PrimaryButton>
-        <SecondaryButton onClick={() => setStep("email-input")}>
-          Use a different email
-        </SecondaryButton>
-      </ScreenShell>
-    );
-  }
-
-  return null;
+      <SecondaryButton onClick={() => navigate("/")}>Back</SecondaryButton>
+    </ScreenShell>
+  );
 }
 
 function LoginOption({
   title,
   sub,
   onClick,
-  disabled,
-  comingSoon,
+  recommended,
 }: {
   title: string;
   sub: string;
   onClick: () => void;
-  disabled?: boolean;
-  comingSoon?: boolean;
+  recommended?: boolean;
 }) {
   return (
     <button
-      onClick={disabled ? undefined : onClick}
-      disabled={disabled}
-      className="w-full text-left rounded-xl border border-line bg-surface px-4 py-3 hover:bg-elevated transition flex items-center justify-between disabled:opacity-60 disabled:pointer-events-none"
+      onClick={onClick}
+      className={
+        "w-full text-left rounded-xl border bg-surface px-4 py-3 " +
+        "hover:bg-elevated transition flex items-center justify-between " +
+        "wa-tap " +
+        (recommended ? "border-wa-green/50" : "border-line")
+      }
     >
-      <div>
+      <div className="min-w-0">
         <div className="font-medium flex items-center gap-2">
           <span>{title}</span>
-          {comingSoon && (
+          {recommended && (
             <span className="text-[10px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded-full bg-wa-green/15 text-wa-green-dark dark:text-wa-green border border-wa-green/30">
-              Coming soon
+              Recommended
             </span>
           )}
         </div>
-        <div className="text-xs text-text-muted">{sub}</div>
+        <div className="text-xs text-text-muted truncate">{sub}</div>
       </div>
       <span className="text-text-faint">→</span>
     </button>
   );
-}
-
-function messageOf(e: unknown): string {
-  if (e && typeof e === "object" && "message" in e) {
-    return String(
-      (e as { message?: unknown }).message ?? "Something went wrong.",
-    );
-  }
-  return "Something went wrong.";
 }
