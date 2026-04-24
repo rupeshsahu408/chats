@@ -1151,8 +1151,9 @@ function VeilKeyboardRow() {
       {/* Helpful disclosure when there's no touch input */}
       {!isCoarse && (
         <div className="mt-2 text-[11px] text-text-faint">
-          You're on a device with a physical keyboard, so this setting only
-          matters when you sign in from a phone or tablet.
+          On this device the Veil keyboard opens as a click-to-type panel
+          inside each chat — your physical keyboard keeps working, so you
+          can mix mouse-clicks and key presses for sensitive characters.
         </div>
       )}
     </div>

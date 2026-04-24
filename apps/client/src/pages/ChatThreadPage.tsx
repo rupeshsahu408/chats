@@ -3030,8 +3030,15 @@ function Composer({
   const photoActivityTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ─── Veil keyboard ───────────────────────────────────────────────
-  // The user's stored preference (off by default). Only meaningful on
-  // touch devices — desktops always use the physical keyboard.
+  // The user's stored preference (off by default). Available on both
+  // touch devices and desktops, but with device-adapted behavior:
+  //   - Touch devices: replaces the OS soft keyboard, auto-opens on
+  //     focus, and `inputMode="none"` suppresses the system IME.
+  //   - Desktops/laptops: opt-in click-to-open panel that runs
+  //     alongside the physical keyboard. It never auto-pops (that
+  //     would be jarring when a real keyboard is present) and it
+  //     doesn't disable the physical keyboard, so the user can click
+  //     sensitive characters with the mouse and type the rest.
   const useVeilKbPref = useKeyboardPrefs((s) => s.useVeilKeyboard);
   const showKbSwitch = useKeyboardPrefs((s) => s.showComposerSwitch);
   const [coarsePointer] = useState(() => isCoarsePointerDevice());
@@ -3039,8 +3046,7 @@ function Composer({
   // keyboard and system keyboard for this composer until the user
   // navigates away, without changing the global pref.
   const [sessionUseSystem, setSessionUseSystem] = useState(false);
-  const veilKbActive =
-    coarsePointer && useVeilKbPref && !sessionUseSystem;
+  const veilKbActive = useVeilKbPref && !sessionUseSystem;
   const [veilKbOpen, setVeilKbOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -3229,14 +3235,19 @@ function Composer({
             }
           }}
           onFocus={() => {
-            if (veilKbActive) setVeilKbOpen(true);
+            // Auto-open only on touch devices. On desktop the user
+            // already has a physical keyboard, so silently popping a
+            // panel would be obnoxious — they open it explicitly via
+            // the ⌨ button.
+            if (veilKbActive && coarsePointer) setVeilKbOpen(true);
           }}
           rows={1}
           placeholder="Type a message"
-          // Suppress the OS keyboard when the Veil keyboard is active
-          // — the textarea still gets focus + cursor, the OS just
-          // doesn't pop up its IME.
-          inputMode={veilKbActive ? "none" : undefined}
+          // Suppress the OS soft keyboard only on touch devices when
+          // the Veil keyboard is active. On desktop we deliberately
+          // keep the physical keyboard usable alongside the on-screen
+          // panel — the user can mix mouse-clicks and key presses.
+          inputMode={veilKbActive && coarsePointer ? "none" : undefined}
           className="flex-1 bg-transparent text-text placeholder:text-text-muted resize-none outline-none max-h-32 py-1.5 px-1"
           style={{ minHeight: "24px" }}
         />
@@ -3244,15 +3255,27 @@ function Composer({
           <KeyboardSwitchButton
             active={true}
             onClick={() => {
-              setSessionUseSystem(true);
-              setVeilKbOpen(false);
-              // Re-focus so the OS keyboard pops up immediately.
-              requestAnimationFrame(() => textareaRef.current?.focus());
+              if (coarsePointer) {
+                // Touch: hand control back to the OS soft keyboard.
+                setSessionUseSystem(true);
+                setVeilKbOpen(false);
+                requestAnimationFrame(() => textareaRef.current?.focus());
+              } else {
+                // Desktop: just toggle the panel open/closed. The
+                // physical keyboard always remains available.
+                setVeilKbOpen((open) => !open);
+              }
             }}
-            label="Switch to system keyboard for this chat"
+            label={
+              coarsePointer
+                ? "Switch to system keyboard for this chat"
+                : veilKbOpen
+                  ? "Hide Veil keyboard"
+                  : "Show Veil keyboard"
+            }
           />
         )}
-        {!veilKbActive && useVeilKbPref && coarsePointer && showKbSwitch && (
+        {!veilKbActive && useVeilKbPref && showKbSwitch && (
           <KeyboardSwitchButton
             active={false}
             onClick={() => {
