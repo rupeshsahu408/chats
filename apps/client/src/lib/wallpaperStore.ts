@@ -22,7 +22,13 @@ export interface WallpaperPref {
   imageData?: string;
 }
 
-const STORAGE_KEY = "veil:wallpaper";
+/** A scope key identifies a single chat surface. */
+export type ChatScope =
+  | { type: "dm"; peerId: string }
+  | { type: "group"; groupId: string };
+
+const STORAGE_KEY_GLOBAL = "veil:wallpaper";
+const STORAGE_KEY_OVERRIDES = "veil:wallpaper:overrides";
 const DEFAULT_PREF: WallpaperPref = { kind: "default" };
 
 /** Curated palette of theme-friendly solid backgrounds. */
@@ -48,62 +54,116 @@ export const DOT_PALETTE: { value: string; label: string }[] = [
   { value: "#9333EA", label: "Violet" },
 ];
 
-function readStored(): WallpaperPref {
+function isWallpaperPref(v: unknown): v is WallpaperPref {
+  if (!v || typeof v !== "object") return false;
+  const k = (v as { kind?: unknown }).kind;
+  return k === "default" || k === "solid" || k === "dots" || k === "image";
+}
+
+function readStoredGlobal(): WallpaperPref {
   if (typeof window === "undefined") return DEFAULT_PREF;
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(STORAGE_KEY_GLOBAL);
     if (!raw) return DEFAULT_PREF;
-    const parsed = JSON.parse(raw) as Partial<WallpaperPref>;
-    if (
-      parsed &&
-      (parsed.kind === "default" ||
-        parsed.kind === "solid" ||
-        parsed.kind === "dots" ||
-        parsed.kind === "image")
-    ) {
-      return {
-        kind: parsed.kind,
-        color: typeof parsed.color === "string" ? parsed.color : undefined,
-        imageData:
-          typeof parsed.imageData === "string" ? parsed.imageData : undefined,
-      };
-    }
+    const parsed = JSON.parse(raw) as unknown;
+    if (isWallpaperPref(parsed)) return parsed;
   } catch {
     /* ignore */
   }
   return DEFAULT_PREF;
 }
 
-function writeStored(pref: WallpaperPref): void {
-  if (typeof window === "undefined") return;
+function readStoredOverrides(): Record<string, WallpaperPref> {
+  if (typeof window === "undefined") return {};
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(pref));
-  } catch (e) {
-    // Most likely QuotaExceededError from a too-large image. Surface it
-    // to callers so the picker UI can show a helpful message.
-    throw e instanceof Error ? e : new Error("Failed to save wallpaper");
+    const raw = localStorage.getItem(STORAGE_KEY_OVERRIDES);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== "object") return {};
+    const out: Record<string, WallpaperPref> = {};
+    for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
+      if (isWallpaperPref(v)) out[k] = v;
+    }
+    return out;
+  } catch {
+    return {};
   }
 }
 
-interface WallpaperState {
-  pref: WallpaperPref;
-  setPref: (pref: WallpaperPref) => void;
-  reset: () => void;
+function writeStoredGlobal(pref: WallpaperPref): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(STORAGE_KEY_GLOBAL, JSON.stringify(pref));
 }
 
-const initialPref = readStored();
+function writeStoredOverrides(overrides: Record<string, WallpaperPref>): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(STORAGE_KEY_OVERRIDES, JSON.stringify(overrides));
+}
 
-export const useWallpaperStore = create<WallpaperState>((set) => ({
-  pref: initialPref,
+/** Build the localStorage key suffix for a chat scope. */
+export function scopeKey(scope: ChatScope): string {
+  return scope.type === "dm" ? `dm:${scope.peerId}` : `group:${scope.groupId}`;
+}
+
+interface WallpaperState {
+  /** Global default wallpaper, used when a chat has no override. */
+  pref: WallpaperPref;
+  /** Per-chat overrides keyed by scopeKey(scope). */
+  overrides: Record<string, WallpaperPref>;
+  setPref: (pref: WallpaperPref) => void;
+  reset: () => void;
+  setChatPref: (scope: ChatScope, pref: WallpaperPref) => void;
+  /** Drop the per-chat override so the chat falls back to the global pref. */
+  clearChatPref: (scope: ChatScope) => void;
+}
+
+export const useWallpaperStore = create<WallpaperState>((set, get) => ({
+  pref: readStoredGlobal(),
+  overrides: readStoredOverrides(),
   setPref: (pref) => {
-    writeStored(pref);
+    writeStoredGlobal(pref);
     set({ pref });
   },
   reset: () => {
-    writeStored(DEFAULT_PREF);
+    writeStoredGlobal(DEFAULT_PREF);
     set({ pref: DEFAULT_PREF });
   },
+  setChatPref: (scope, pref) => {
+    const key = scopeKey(scope);
+    const next = { ...get().overrides, [key]: pref };
+    writeStoredOverrides(next);
+    set({ overrides: next });
+  },
+  clearChatPref: (scope) => {
+    const key = scopeKey(scope);
+    const current = get().overrides;
+    if (!(key in current)) return;
+    const next = { ...current };
+    delete next[key];
+    writeStoredOverrides(next);
+    set({ overrides: next });
+  },
 }));
+
+/**
+ * React hook: returns the effective wallpaper for a chat scope.
+ *
+ * If an override exists for that scope, returns it together with
+ * `hasOverride: true`. Otherwise falls back to the global pref.
+ */
+export function useEffectiveWallpaper(scope: ChatScope | null): {
+  pref: WallpaperPref;
+  hasOverride: boolean;
+} {
+  const global = useWallpaperStore((s) => s.pref);
+  const overrides = useWallpaperStore((s) => s.overrides);
+  if (!scope) return { pref: global, hasOverride: false };
+  const key = scopeKey(scope);
+  const override = overrides[key];
+  return override
+    ? { pref: override, hasOverride: true }
+    : { pref: global, hasOverride: false };
+}
 
 /**
  * Compute the inline style for the chat scroll container. Returning an

@@ -78,7 +78,8 @@ import {
 } from "../lib/messageEnvelope";
 import { trpcClientProxy } from "../lib/trpcClientProxy";
 import { useStealthPrefs } from "../lib/stealthPrefs";
-import { useWallpaperStore, getWallpaperStyle } from "../lib/wallpaperStore";
+import { useEffectiveWallpaper, getWallpaperStyle } from "../lib/wallpaperStore";
+import { ChatWallpaperSheet } from "../components/ChatWallpaperSheet";
 import { safetyNumberFromB64 } from "../lib/safetyNumber";
 import {
   biometricSupported,
@@ -194,7 +195,15 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState<
-    null | "main" | "ttl" | "seenTtl" | "safety" | "report" | "starred" | "scheduledList"
+    | null
+    | "main"
+    | "ttl"
+    | "seenTtl"
+    | "safety"
+    | "report"
+    | "starred"
+    | "scheduledList"
+    | "wallpaper"
   >(null);
   /** Header search bar (in-chat search) visibility + query. */
   const [searchOpen, setSearchOpen] = useState(false);
@@ -307,7 +316,10 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
   const [pendingPreview, setPendingPreview] = useState<EnvelopeLinkPreview | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const wallpaperPref = useWallpaperStore((s) => s.pref);
+  const { pref: wallpaperPref } = useEffectiveWallpaper({
+    type: "dm",
+    peerId,
+  });
   const wallpaperStyle = useMemo(
     () => getWallpaperStyle(wallpaperPref),
     [wallpaperPref],
@@ -1318,6 +1330,14 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
             setSelectedIds(new Set());
           }}
           onShowScheduled={() => setMenuOpen("scheduledList")}
+          onWallpaper={() => setMenuOpen("wallpaper")}
+        />
+      )}
+      {menuOpen === "wallpaper" && (
+        <ChatWallpaperSheet
+          scope={{ type: "dm", peerId }}
+          chatLabel={displayName}
+          onClose={() => setMenuOpen(null)}
         />
       )}
       {menuOpen === "ttl" && (
@@ -2406,6 +2426,7 @@ function ChatMenu({
   onShowStarred,
   onSelectMessages,
   onShowScheduled,
+  onWallpaper,
 }: {
   onClose: () => void;
   ttlLabel: string;
@@ -2431,6 +2452,7 @@ function ChatMenu({
   onShowStarred: () => void;
   onSelectMessages: () => void;
   onShowScheduled: () => void;
+  onWallpaper: () => void;
 }) {
   return (
     <Sheet onClose={onClose}>
@@ -2474,6 +2496,7 @@ function ChatMenu({
           onShowScheduled();
         }}
       />
+      <MenuItem label="Chat wallpaper" onClick={onWallpaper} />
       <MenuItem label={`Disappearing messages · ${ttlLabel}`} onClick={onTTL} />
       <MenuItem label={`Seen settings · ${seenTtlLabel}`} onClick={onSeenTtl} />
       <MenuItem

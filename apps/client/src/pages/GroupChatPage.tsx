@@ -36,7 +36,8 @@ import {
 } from "../components/Layout";
 import { UnlockGate } from "../components/UnlockGate";
 import { peerLabel } from "../lib/peerLabel";
-import { useWallpaperStore, getWallpaperStyle } from "../lib/wallpaperStore";
+import { useEffectiveWallpaper, getWallpaperStyle } from "../lib/wallpaperStore";
+import { ChatWallpaperSheet } from "../components/ChatWallpaperSheet";
 import { EmojiPicker, ReactionPicker } from "../components/EmojiPicker";
 import {
   db,
@@ -424,7 +425,9 @@ function GroupChatInner({ groupId }: { groupId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [pollOpen, setPollOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const wallpaperPref = useWallpaperStore((s) => s.pref);
+  const { pref: wallpaperPref } = useEffectiveWallpaper(
+    groupId ? { type: "group", groupId } : null,
+  );
   const wallpaperStyle = useMemo(
     () => getWallpaperStyle(wallpaperPref),
     [wallpaperPref],
@@ -444,6 +447,7 @@ function GroupChatInner({ groupId }: { groupId: string }) {
   const [forwardFor, setForwardFor] = useState<GroupMessageRecord | null>(null);
   const [selection, setSelection] = useState<Set<number>>(new Set());
   const [starredOpen, setStarredOpen] = useState(false);
+  const [wallpaperOpen, setWallpaperOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [ttlPickerOpen, setTtlPickerOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -1627,6 +1631,10 @@ function GroupChatInner({ groupId }: { groupId: string }) {
             setMenuOpen(false);
             setStarredOpen(true);
           }}
+          onWallpaper={() => {
+            setMenuOpen(false);
+            setWallpaperOpen(true);
+          }}
           onClearChat={async () => {
             setMenuOpen(false);
             if (confirm("Clear all messages from this group on this device?")) {
@@ -1638,6 +1646,14 @@ function GroupChatInner({ groupId }: { groupId: string }) {
             setMenuOpen(false);
             navigate(`/groups/${groupId}/settings`);
           }}
+        />
+      )}
+
+      {wallpaperOpen && groupId && (
+        <ChatWallpaperSheet
+          scope={{ type: "group", groupId }}
+          chatLabel={group?.name ?? "this group"}
+          onClose={() => setWallpaperOpen(false)}
         />
       )}
 
@@ -2163,6 +2179,7 @@ function GroupMenu({
   onToggleBiometric,
   onSearch,
   onShowStarred,
+  onWallpaper,
   onClearChat,
   onGroupInfo,
 }: {
@@ -2173,6 +2190,7 @@ function GroupMenu({
   onToggleBiometric: () => void;
   onSearch: () => void;
   onShowStarred: () => void;
+  onWallpaper: () => void;
   onClearChat: () => void;
   onGroupInfo: () => void;
 }) {
@@ -2199,6 +2217,26 @@ function GroupMenu({
           icon={<StarIcon className="w-5 h-5" />}
           label="Starred messages"
           onClick={onShowStarred}
+        />
+        <SheetItem
+          icon={
+            <svg
+              className="w-5 h-5"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+              <circle cx="8.5" cy="8.5" r="1.5" />
+              <path d="M21 15l-5-5L5 21" />
+            </svg>
+          }
+          label="Chat wallpaper"
+          onClick={onWallpaper}
         />
         <SheetItem
           icon={<TimerIcon className="w-5 h-5" />}
