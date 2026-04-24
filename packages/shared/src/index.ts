@@ -740,6 +740,86 @@ export const ChangePasswordResult = z.object({
 });
 export type ChangePasswordResult = z.infer<typeof ChangePasswordResult>;
 
+/* ─────────── Auth: premium login flow (V3) ─────────── */
+
+/**
+ * Step 1 of the new login flow. Verifies the username + password and
+ * silently classifies the request risk based on device + network +
+ * recent behaviour.
+ *
+ * - On low risk: returns a full session immediately.
+ * - On medium/high risk: returns a short-lived challenge nonce. The
+ *   caller must then complete a bot puzzle and call
+ *   `auth.completeLoginV2` with the nonce + bot token.
+ */
+export const BeginLoginV2Input = z.object({
+  username: z.string().trim().toLowerCase().min(3).max(30),
+  password: PasswordSchema,
+});
+export type BeginLoginV2Input = z.infer<typeof BeginLoginV2Input>;
+
+export const RiskLevelSchema = z.enum(["low", "medium", "high"]);
+export type RiskLevel = z.infer<typeof RiskLevelSchema>;
+
+export const LoginContextInfo = z.object({
+  /** City name from IP geolocation, or null when unknown. */
+  city: z.string().nullable(),
+  /** Country name from IP geolocation, or null when unknown. */
+  country: z.string().nullable(),
+  /** Friendly device label e.g. "Chrome on macOS". */
+  device: z.string(),
+  /** ISO timestamp; null when this is the user's first sign-in. */
+  at: z.string().nullable(),
+});
+export type LoginContextInfo = z.infer<typeof LoginContextInfo>;
+
+export const BeginLoginV2Result = z.discriminatedUnion("status", [
+  z.object({
+    status: z.literal("ok"),
+    /**
+     * Information about the user's previous successful sign-in (last
+     * city + device). Shown on the welcome step after a low-risk login.
+     */
+    lastLogin: LoginContextInfo.nullable(),
+    /** Full session — same shape as AuthResult. */
+    user: PublicUserSchema,
+    accessToken: z.string(),
+    refreshToken: z.string(),
+    refreshExpiresIn: z.number().int().positive(),
+    expiresIn: z.number().int().positive(),
+  }),
+  z.object({
+    status: z.literal("challenge"),
+    /** Why we asked the user to verify. Plain, friendly strings. */
+    reasons: z.array(z.string()),
+    risk: RiskLevelSchema,
+    /** Short-lived nonce (≤2 min) the client returns with the bot token. */
+    challengeNonce: z.string().min(8).max(200),
+    challengeExpiresInSeconds: z.number().int().positive(),
+  }),
+]);
+export type BeginLoginV2Result = z.infer<typeof BeginLoginV2Result>;
+
+export const CompleteLoginV2Input = z.object({
+  challengeNonce: z.string().min(8).max(200),
+  /** One-shot HMAC token returned by `auth.verifyBotChallenge`. */
+  botToken: z.string().min(8).max(400),
+});
+export type CompleteLoginV2Input = z.infer<typeof CompleteLoginV2Input>;
+
+export const CompleteLoginV2Result = z.object({
+  user: PublicUserSchema,
+  accessToken: z.string(),
+  refreshToken: z.string(),
+  refreshExpiresIn: z.number().int().positive(),
+  expiresIn: z.number().int().positive(),
+  lastLogin: LoginContextInfo.nullable(),
+});
+export type CompleteLoginV2Result = z.infer<typeof CompleteLoginV2Result>;
+
+export const LastLoginInfoResult = LoginContextInfo.nullable();
+export type LastLoginInfoResult = z.infer<typeof LastLoginInfoResult>;
+
 /* ─────────── Profile ─────────── */
 
 export const UpdateProfileInput = z.object({

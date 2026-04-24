@@ -194,6 +194,21 @@ export const sessions = pgTable(
     /** SHA-256 hash of the refresh token (we never store it raw). */
     refreshTokenHash: text("refresh_token_hash").notNull().unique(),
     deviceLabel: text("device_label"),
+    /**
+     * IPv4 /24 prefix (e.g. "203.0.113") or IPv6 /64 prefix of the
+     * client at session creation time. Used by the login risk classifier
+     * to spot sign-ins from a brand-new network without storing the
+     * full client IP. Nullable for legacy rows.
+     */
+    ipPrefix: text("ip_prefix"),
+    /**
+     * City name from a best-effort IP-to-geo lookup at session creation
+     * time. Shown back to the user on the welcome step ("Last sign-in
+     * from <city>"). Nullable when the lookup fails or for legacy rows.
+     */
+    lastCity: text("last_city"),
+    /** Country name from the same lookup. */
+    lastCountry: text("last_country"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

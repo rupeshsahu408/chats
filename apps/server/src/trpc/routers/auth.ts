@@ -27,8 +27,26 @@ import {
   SetVerificationPasswordResult,
   ChangePasswordInput,
   ChangePasswordResult,
+  BeginLoginV2Input,
+  BeginLoginV2Result,
+  CompleteLoginV2Input,
+  CompleteLoginV2Result,
+  LastLoginInfoResult,
   type AuthResult,
+  type LoginContextInfo,
 } from "@veil/shared";
+import {
+  classifyRisk,
+  ipPrefix,
+  deviceFingerprint,
+  deviceLabel as describeDevice,
+  checkLockout,
+  recordFailure,
+  clearFailures,
+  issueLoginChallenge,
+  consumeLoginChallenge,
+  lookupCity,
+} from "../../lib/loginRisk.js";
 import {
   issueBotChallenge,
   verifyBotChallenge,
@@ -102,6 +120,116 @@ function clearRefreshCookie(res: {
     secure: env.COOKIE_SECURE,
     sameSite: REFRESH_COOKIE_SAMESITE,
   });
+}
+
+/**
+ * Read the user's most-recent prior session and turn it into a
+ * friendly "last sign-in from <city>, <device>" payload. Returns null
+ * when this is the user's first sign-in (no prior session row).
+ */
+async function buildLastLoginInfo(
+  userId: string,
+): Promise<LoginContextInfo | null> {
+  const db = getDb();
+  const rows = await db
+    .select({
+      city: schema.sessions.lastCity,
+      country: schema.sessions.lastCountry,
+      deviceLabel: schema.sessions.deviceLabel,
+      createdAt: schema.sessions.createdAt,
+    })
+    .from(schema.sessions)
+    .where(eq(schema.sessions.userId, userId))
+    .orderBy(desc(schema.sessions.createdAt))
+    .limit(1);
+  const r = rows[0];
+  if (!r) return null;
+  return {
+    city: r.city ?? null,
+    country: r.country ?? null,
+    device: describeDevice(r.deviceLabel),
+    at: r.createdAt.toISOString(),
+  };
+}
+
+/**
+ * Variant of `issueSession` that captures device fingerprint, network
+ * prefix and a coarse city for the new session row (used by the
+ * premium login flow). Also returns the *previous* session's context
+ * so the client can render "Last sign-in from …" after a successful
+ * login.
+ */
+async function issueSessionWithContext(
+  ctx: {
+    req: { headers: Record<string, string | string[] | undefined> };
+    res: unknown;
+    ip: string;
+  },
+  userId: string,
+  accountType: "email" | "phone" | "random",
+  accountCreatedAt: Date,
+): Promise<{ auth: AuthResult; lastLogin: LoginContextInfo | null }> {
+  const lastLogin = await buildLastLoginInfo(userId);
+
+  const db = getDb();
+  const accessToken = await signAccessToken({ sub: userId });
+  const refreshToken = generateRefreshToken();
+  const refreshExpires = new Date(
+    Date.now() + TOKEN_TTL.refreshSeconds * 1000,
+  );
+
+  const ua =
+    (ctx.req.headers["user-agent"] as string | undefined)?.slice(0, 200) ??
+    null;
+  const prefix = ipPrefix(ctx.ip);
+  const geo = await lookupCity(ctx.ip);
+
+  await db.insert(schema.sessions).values({
+    userId,
+    refreshTokenHash: sha256Hex(refreshToken),
+    deviceLabel: ua,
+    ipPrefix: prefix,
+    lastCity: geo.city,
+    lastCountry: geo.country,
+    expiresAt: refreshExpires,
+  });
+  await db
+    .update(schema.users)
+    .set({ lastSeenAt: new Date() })
+    .where(eq(schema.users.id, userId));
+
+  const profile = await db
+    .select({
+      username: schema.users.username,
+      displayName: schema.users.displayName,
+      bio: schema.users.bio,
+      avatarDataUrl: schema.users.avatarDataUrl,
+    })
+    .from(schema.users)
+    .where(eq(schema.users.id, userId))
+    .limit(1);
+  const p = profile[0];
+
+  setRefreshCookie(ctx.res as never, refreshToken);
+
+  return {
+    auth: {
+      user: {
+        id: userId,
+        accountType,
+        createdAt: accountCreatedAt.toISOString(),
+        username: p?.username ?? null,
+        displayName: p?.displayName ?? null,
+        bio: p?.bio ?? null,
+        avatarDataUrl: p?.avatarDataUrl ?? null,
+      },
+      accessToken,
+      refreshToken,
+      refreshExpiresIn: TOKEN_TTL.refreshSeconds,
+      expiresIn: TOKEN_TTL.accessSeconds,
+    },
+    lastLogin,
+  };
 }
 
 async function issueSession(
@@ -1054,4 +1182,226 @@ export const authRouter = router({
     await db.delete(schema.sessions).where(lt(schema.sessions.expiresAt, now));
     return { ok: true as const };
   }),
+
+  /* ─────────── Premium login flow (V3) ─────────── */
+
+  /**
+   * Step 1 of the new login flow. Verifies the username + password,
+   * silently classifies the request risk, and either:
+   *   - returns a full session immediately (low risk), or
+   *   - returns a short-lived challenge nonce (medium/high risk),
+   *     which the client must then return alongside a bot-puzzle
+   *     token via `auth.completeLoginV2`.
+   *
+   * Lockout: 3 failed attempts from the same (username, IP) within
+   * 10 minutes blocks further attempts for 10 minutes.
+   */
+  beginLoginV2: configuredProcedure
+    .input(BeginLoginV2Input)
+    .output(BeginLoginV2Result)
+    .mutation(async ({ input, ctx }) => {
+      const db = getDb();
+
+      // Hard lockout (3-strikes) — checked BEFORE rate limiting so
+      // blocked users get a clear message and a retry-after.
+      const lockout = checkLockout(input.username, ctx.ip);
+      if (lockout.blocked) {
+        throw new TRPCError({
+          code: "TOO_MANY_REQUESTS",
+          message: `Too many attempts. Please try again in ${Math.ceil(
+            lockout.retryInSeconds / 60,
+          )} minute${lockout.retryInSeconds >= 120 ? "s" : ""}.`,
+        });
+      }
+
+      // Volume rate limit (per IP and per username).
+      const ipLimit = rateLimit({
+        key: `login:ip:${ctx.ip}`,
+        limit: 30,
+        windowSeconds: 10 * 60,
+      });
+      const userLimit = rateLimit({
+        key: `login:user:${input.username}`,
+        limit: 10,
+        windowSeconds: 10 * 60,
+      });
+      if (!ipLimit.allowed || !userLimit.allowed) {
+        throw new TRPCError({
+          code: "TOO_MANY_REQUESTS",
+          message: "Too many login attempts. Please wait a few minutes.",
+        });
+      }
+
+      const found = await db
+        .select({
+          id: schema.users.id,
+          createdAt: schema.users.createdAt,
+          passwordHash: schema.users.passwordHash,
+        })
+        .from(schema.users)
+        .where(eq(schema.users.username, input.username))
+        .limit(1);
+
+      const row = found[0];
+      // Constant-time-ish dummy compare so we don't leak account
+      // existence via response timing.
+      const hash =
+        row?.passwordHash ??
+        "$2a$12$abcdefghijklmnopqrstuuabcdefghijklmnopqrstuvwxyz012345";
+      const ok = await bcrypt.compare(input.password, hash);
+
+      if (!row || !ok) {
+        const after = recordFailure(input.username, ctx.ip);
+        if (after.blocked) {
+          throw new TRPCError({
+            code: "TOO_MANY_REQUESTS",
+            message: `Too many attempts. Please try again in ${Math.ceil(
+              after.retryInSeconds / 60,
+            )} minutes.`,
+          });
+        }
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "Wrong username or password.",
+        });
+      }
+
+      // Risk classification against the user's known sessions.
+      const knownSessions = await db
+        .select({
+          ipPrefix: schema.sessions.ipPrefix,
+          deviceLabel: schema.sessions.deviceLabel,
+        })
+        .from(schema.sessions)
+        .where(eq(schema.sessions.userId, row.id))
+        .orderBy(desc(schema.sessions.createdAt))
+        .limit(20);
+
+      const ua =
+        (ctx.req.headers["user-agent"] as string | undefined) ?? null;
+      const risk = classifyRisk({
+        knownDevices: knownSessions,
+        ip: ctx.ip,
+        userAgent: ua,
+        failuresInWindow: checkLockout(input.username, ctx.ip).failuresInWindow,
+      });
+
+      if (risk.level === "low") {
+        clearFailures(input.username, ctx.ip);
+        const issued = await issueSessionWithContext(
+          ctx,
+          row.id,
+          "random",
+          row.createdAt,
+        );
+        return {
+          status: "ok" as const,
+          lastLogin: issued.lastLogin,
+          ...issued.auth,
+        };
+      }
+
+      // Medium / high → require puzzle + press-and-hold on the client.
+      const challenge = issueLoginChallenge(row.id, ctx.ip, ua);
+      return {
+        status: "challenge" as const,
+        risk: risk.level,
+        reasons: risk.reasons,
+        challengeNonce: challenge.nonce,
+        challengeExpiresInSeconds: challenge.expiresInSeconds,
+      };
+    }),
+
+  /**
+   * Step 2 of the new login flow. Burns the bot-challenge token from
+   * the slide puzzle, validates the pending challenge nonce minted by
+   * `beginLoginV2`, and only then issues a real session.
+   */
+  completeLoginV2: configuredProcedure
+    .input(CompleteLoginV2Input)
+    .output(CompleteLoginV2Result)
+    .mutation(async ({ input, ctx }) => {
+      if (!consumeBotToken(input.botToken)) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "Verification expired. Please try again.",
+        });
+      }
+      const userId = consumeLoginChallenge(input.challengeNonce);
+      if (!userId) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "Sign-in attempt expired. Please start over.",
+        });
+      }
+
+      const db = getDb();
+      const found = await db
+        .select({
+          id: schema.users.id,
+          createdAt: schema.users.createdAt,
+          accountType: schema.users.accountType,
+        })
+        .from(schema.users)
+        .where(eq(schema.users.id, userId))
+        .limit(1);
+      const row = found[0];
+      if (!row) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "Account no longer exists.",
+        });
+      }
+
+      // The risky branch implies the user did pass the password check
+      // a moment ago — clear any failure counters so subsequent logins
+      // start clean.
+      const issued = await issueSessionWithContext(
+        ctx,
+        row.id,
+        row.accountType,
+        row.createdAt,
+      );
+      // Best-effort: we don't know the username anymore, so just clear
+      // the per-IP side too.
+      clearFailures("", ctx.ip);
+      // Reference the imported helper so the type checker doesn't drop it.
+      void deviceFingerprint;
+      return {
+        ...issued.auth,
+        lastLogin: issued.lastLogin,
+      };
+    }),
+
+  /**
+   * Returns the user's previous sign-in context (city + device), or
+   * null when there is no prior session. Used by the welcome step on
+   * the client.
+   */
+  getLastLoginInfo: protectedProcedure
+    .output(LastLoginInfoResult)
+    .query(async ({ ctx }) => {
+      const db = getDb();
+      // The newest session belongs to the *current* sign-in; we want
+      // the one before it.
+      const rows = await db
+        .select({
+          city: schema.sessions.lastCity,
+          country: schema.sessions.lastCountry,
+          deviceLabel: schema.sessions.deviceLabel,
+          createdAt: schema.sessions.createdAt,
+        })
+        .from(schema.sessions)
+        .where(eq(schema.sessions.userId, ctx.userId))
+        .orderBy(desc(schema.sessions.createdAt))
+        .limit(2);
+      const prev = rows[1] ?? null;
+      if (!prev) return null;
+      return {
+        city: prev.city ?? null,
+        country: prev.country ?? null,
+        device: describeDevice(prev.deviceLabel),
+        at: prev.createdAt.toISOString(),
+      };
+    }),
 });

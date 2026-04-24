@@ -11,6 +11,9 @@ import {
   TextInput,
   ErrorMessage,
 } from "../components/Layout";
+import { SlidePuzzle } from "../components/SlidePuzzle";
+import { PressAndHold } from "../components/PressAndHold";
+import { PasskeySetupCard } from "../components/PasskeySetupCard";
 import {
   bytesToBase64,
   isValidRecoveryPhrase,
@@ -27,21 +30,47 @@ import {
   startPasskeyAuthentication,
 } from "../lib/passkey";
 import { humanizeErrorMessage } from "../lib/humanizeError";
+import type {
+  CompleteLoginV2Result,
+  LoginContextInfo,
+  RiskLevel,
+} from "@veil/shared";
 
 /**
- * New username + password login flow.
+ * Premium login flow.
  *
- * Auth itself is just username + password. The recovery key is only
- * needed when the local IndexedDB doesn't already hold a derived
- * identity (i.e. fresh device or after a wipe). On a returning device
- * we skip the recovery-key step entirely.
+ *   username  →  password  →  (verify if risky)  →  welcome  →  passkey?
+ *
+ * Each step is its own screen. Risk classification happens silently
+ * on `auth.beginLoginV2`; the verify step only renders when the
+ * server flags the request as medium / high risk. After a successful
+ * sign-in we briefly show the user where + when their last sign-in
+ * happened (for trust signal), then suggest creating a passkey
+ * (skippable). The final step also handles the recovery-key path
+ * when the local IndexedDB doesn't yet hold a derived identity.
  */
+
+type Step =
+  | "username"
+  | "password"
+  | "verify"
+  | "welcome"
+  | "passkey"
+  | "recovery";
+
+interface PendingChallenge {
+  nonce: string;
+  reasons: string[];
+  risk: RiskLevel;
+  expiresInSeconds: number;
+}
+
 export function RandomLoginPage() {
   const navigate = useNavigate();
   const setAuth = useAuthStore((s) => s.setAuth);
   const setUnlocked = useUnlockStore((s) => s.setIdentity);
 
-  const [step, setStep] = useState<"credentials" | "recovery">("credentials");
+  const [step, setStep] = useState<Step>("username");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -49,14 +78,122 @@ export function RandomLoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [pendingUserId, setPendingUserId] = useState<string | null>(null);
+  const [challenge, setChallenge] = useState<PendingChallenge | null>(null);
+  const [puzzleToken, setPuzzleToken] = useState<string | null>(null);
+  const [holdDone, setHoldDone] = useState(false);
+  const [lastLogin, setLastLogin] = useState<LoginContextInfo | null>(null);
+  const [needsRecoveryAfter, setNeedsRecoveryAfter] = useState<
+    "welcome" | "passkey" | null
+  >(null);
 
-  const loginV2 = trpc.auth.loginRandomV2.useMutation();
+  const beginLogin = trpc.auth.beginLoginV2.useMutation();
+  const completeLogin = trpc.auth.completeLoginV2.useMutation();
   const setX25519 = trpc.me.setX25519Identity.useMutation();
   const uploadPrekeys = trpc.prekeys.upload.useMutation();
   const passkeyOptions = trpc.passkey.getAuthenticationOptions.useMutation();
   const passkeyVerify = trpc.passkey.verifyAuthentication.useMutation();
   const [passkeyBusy, setPasskeyBusy] = useState(false);
   const passkeysAvailable = isPasskeySupported();
+
+  const cleanUsername = username.trim().toLowerCase();
+  const credsValid = cleanUsername.length >= 3 && password.length >= 8;
+  const phraseValid = isValidRecoveryPhrase(phrase.trim().toLowerCase());
+
+  /**
+   * Land the freshly-issued session in the auth store, then either
+   * unlock immediately (when we already have the derived identity for
+   * this user on this device) or branch into the recovery-key step.
+   */
+  async function landSession(
+    r: CompleteLoginV2Result,
+    next: "welcome",
+  ): Promise<void> {
+    setAuth({
+      accessToken: r.accessToken,
+      refreshToken: r.refreshToken,
+      refreshExpiresIn: r.refreshExpiresIn,
+      user: r.user,
+    });
+    setLastLogin(r.lastLogin);
+
+    const local = await loadIdentity().catch(() => null);
+    if (
+      local &&
+      local.userId === r.user.id &&
+      local.encX25519PrivateKey &&
+      local.x25519PublicKey
+    ) {
+      await setUnlocked({
+        userId: r.user.id,
+        ed25519: {
+          privateKey: base64ToBytes(local.encPrivateKey),
+          publicKey: base64ToBytes(local.publicKey),
+        },
+        x25519: {
+          privateKey: base64ToBytes(local.encX25519PrivateKey),
+          publicKey: base64ToBytes(local.x25519PublicKey),
+        },
+      });
+      setStep(next);
+      return;
+    }
+    // No local identity yet — we'll need the recovery key, but only
+    // *after* the welcome / passkey screens so the flow stays smooth.
+    setPendingUserId(r.user.id);
+    setNeedsRecoveryAfter("passkey");
+    setStep(next);
+  }
+
+  /* ─────────── username step ─────────── */
+
+  function onContinueFromUsername() {
+    setError(null);
+    if (cleanUsername.length < 3) {
+      setError("Username must be at least 3 characters.");
+      return;
+    }
+    setStep("password");
+  }
+
+  /* ─────────── password step ─────────── */
+
+  async function onLogin() {
+    setError(null);
+    setLoading(true);
+    try {
+      const r = await beginLogin.mutateAsync({
+        username: cleanUsername,
+        password,
+      });
+      if (r.status === "ok") {
+        await landSession(
+          {
+            user: r.user,
+            accessToken: r.accessToken,
+            refreshToken: r.refreshToken,
+            refreshExpiresIn: r.refreshExpiresIn,
+            expiresIn: r.expiresIn,
+            lastLogin: r.lastLogin,
+          },
+          "welcome",
+        );
+      } else {
+        setChallenge({
+          nonce: r.challengeNonce,
+          reasons: r.reasons,
+          risk: r.risk,
+          expiresInSeconds: r.challengeExpiresInSeconds,
+        });
+        setPuzzleToken(null);
+        setHoldDone(false);
+        setStep("verify");
+      }
+    } catch (e) {
+      setError(humanizeErrorMessage(e));
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function onPasskeyLogin() {
     if (passkeyBusy) return;
@@ -69,39 +206,18 @@ export function RandomLoginPage() {
         sessionId: opts.sessionId,
         response: credential,
       });
-      setAuth({
-        accessToken: r.accessToken,
-        refreshToken: r.refreshToken,
-        refreshExpiresIn: r.refreshExpiresIn,
-        user: r.user,
-      });
-
-      // Same post-auth path as the password flow: if we already have
-      // the derived identity locally we go straight in; otherwise we
-      // still need the recovery key to decrypt messages on this device.
-      const local = await loadIdentity().catch(() => null);
-      if (
-        local &&
-        local.userId === r.user.id &&
-        local.encX25519PrivateKey &&
-        local.x25519PublicKey
-      ) {
-        await setUnlocked({
-          userId: r.user.id,
-          ed25519: {
-            privateKey: base64ToBytes(local.encPrivateKey),
-            publicKey: base64ToBytes(local.publicKey),
-          },
-          x25519: {
-            privateKey: base64ToBytes(local.encX25519PrivateKey),
-            publicKey: base64ToBytes(local.x25519PublicKey),
-          },
-        });
-        navigate(postAuthLandingPath());
-        return;
-      }
-      setPendingUserId(r.user.id);
-      setStep("recovery");
+      await landSession(
+        {
+          user: r.user,
+          accessToken: r.accessToken,
+          refreshToken: r.refreshToken,
+          refreshExpiresIn: r.refreshExpiresIn,
+          expiresIn: r.expiresIn,
+          // Passkey path doesn't currently surface lastLogin; keep null.
+          lastLogin: null,
+        },
+        "welcome",
+      );
     } catch (e) {
       setError(humanizeErrorMessage(e));
     } finally {
@@ -109,57 +225,30 @@ export function RandomLoginPage() {
     }
   }
 
-  const cleanUsername = username.trim().toLowerCase();
-  const credsValid = cleanUsername.length >= 3 && password.length >= 8;
-  const phraseValid = isValidRecoveryPhrase(phrase.trim().toLowerCase());
+  /* ─────────── verify step ─────────── */
 
-  async function onLogin() {
+  async function onCompleteChallenge() {
+    if (!challenge || !puzzleToken || !holdDone) return;
     setError(null);
     setLoading(true);
     try {
-      const r = await loginV2.mutateAsync({
-        username: cleanUsername,
-        password,
+      const r = await completeLogin.mutateAsync({
+        challengeNonce: challenge.nonce,
+        botToken: puzzleToken,
       });
-      setAuth({
-        accessToken: r.accessToken,
-        refreshToken: r.refreshToken,
-        refreshExpiresIn: r.refreshExpiresIn,
-        user: r.user,
-      });
-
-      // If we already have a derived identity for this user on this
-      // device, we're done. Otherwise we need the recovery key to
-      // re-derive Ed25519/X25519.
-      const local = await loadIdentity().catch(() => null);
-      if (
-        local &&
-        local.userId === r.user.id &&
-        local.encX25519PrivateKey &&
-        local.x25519PublicKey
-      ) {
-        await setUnlocked({
-          userId: r.user.id,
-          ed25519: {
-            privateKey: base64ToBytes(local.encPrivateKey),
-            publicKey: base64ToBytes(local.publicKey),
-          },
-          x25519: {
-            privateKey: base64ToBytes(local.encX25519PrivateKey),
-            publicKey: base64ToBytes(local.x25519PublicKey),
-          },
-        });
-        navigate(postAuthLandingPath());
-        return;
-      }
-      setPendingUserId(r.user.id);
-      setStep("recovery");
+      await landSession(r, "welcome");
     } catch (e) {
-      setError(messageOf(e));
+      setError(humanizeErrorMessage(e));
+      // Burn the puzzle token — server already consumed it. Force a
+      // fresh puzzle round.
+      setPuzzleToken(null);
+      setHoldDone(false);
     } finally {
       setLoading(false);
     }
   }
+
+  /* ─────────── recovery step ─────────── */
 
   async function onRestoreFromRecovery() {
     if (!pendingUserId) return;
@@ -211,10 +300,246 @@ export function RandomLoginPage() {
 
       navigate(postAuthLandingPath());
     } catch (e) {
-      setError(messageOf(e));
+      setError(humanizeErrorMessage(e));
     } finally {
       setLoading(false);
     }
+  }
+
+  /**
+   * Called from welcome / passkey when the user is ready to enter the
+   * app. If they still need to enter a recovery phrase, we route them
+   * through `recovery`; otherwise we go straight in.
+   */
+  function continueIntoApp() {
+    if (needsRecoveryAfter) {
+      setStep("recovery");
+    } else {
+      navigate(postAuthLandingPath());
+    }
+  }
+
+  /* ─────────── render ─────────── */
+
+  if (step === "username") {
+    return (
+      <ScreenShell back="/login" phase="Log in">
+        <div className="flex flex-col items-center gap-3 mb-2">
+          <Logo />
+          <h2 className="text-2xl font-semibold">Welcome back</h2>
+          <p className="text-sm text-text-muted text-center">
+            Enter your username to continue.
+          </p>
+        </div>
+
+        <div>
+          <FieldLabel>Username</FieldLabel>
+          <div className="relative">
+            <span className="absolute inset-y-0 left-3 flex items-center text-text-muted">
+              @
+            </span>
+            <TextInput
+              autoFocus
+              value={username}
+              onChange={(e) => setUsername(e.target.value.toLowerCase())}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && cleanUsername.length >= 3) {
+                  onContinueFromUsername();
+                }
+              }}
+              placeholder="yourname"
+              autoComplete="username"
+              spellCheck={false}
+              className="pl-7"
+            />
+          </div>
+        </div>
+
+        <ErrorMessage>{error}</ErrorMessage>
+        <PrimaryButton
+          onClick={onContinueFromUsername}
+          disabled={cleanUsername.length < 3}
+        >
+          Continue
+        </PrimaryButton>
+
+        {passkeysAvailable && (
+          <>
+            <OrDivider />
+            <PasskeyButton onClick={onPasskeyLogin} busy={passkeyBusy} />
+          </>
+        )}
+
+        <SecondaryButton onClick={() => navigate("/login")}>
+          Back
+        </SecondaryButton>
+      </ScreenShell>
+    );
+  }
+
+  if (step === "password") {
+    return (
+      <ScreenShell back="#" phase="Log in">
+        <div className="flex flex-col items-center gap-3 mb-2">
+          <Logo />
+          <h2 className="text-2xl font-semibold">
+            Hi <span className="text-wa-green">@{cleanUsername}</span>
+          </h2>
+          <p className="text-sm text-text-muted text-center">
+            Enter your password to continue.
+          </p>
+        </div>
+
+        <div>
+          <FieldLabel>Password</FieldLabel>
+          <TextInput
+            autoFocus
+            type={showPassword ? "text" : "password"}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && credsValid && !loading) onLogin();
+            }}
+            placeholder="Your password"
+            autoComplete="current-password"
+          />
+        </div>
+
+        <label className="flex items-center gap-2 text-sm text-text-muted">
+          <input
+            type="checkbox"
+            checked={showPassword}
+            onChange={(e) => setShowPassword(e.target.checked)}
+            className="accent-wa-green"
+          />
+          Show password
+        </label>
+
+        <ErrorMessage>{error}</ErrorMessage>
+        <PrimaryButton onClick={onLogin} loading={loading} disabled={!credsValid}>
+          Log in
+        </PrimaryButton>
+
+        {passkeysAvailable && (
+          <>
+            <OrDivider />
+            <PasskeyButton onClick={onPasskeyLogin} busy={passkeyBusy} />
+          </>
+        )}
+
+        <SecondaryButton onClick={() => setStep("username")}>
+          Use a different username
+        </SecondaryButton>
+      </ScreenShell>
+    );
+  }
+
+  if (step === "verify") {
+    const reasonText =
+      challenge && challenge.reasons.length > 0
+        ? challenge.reasons.join(" · ")
+        : "unusual activity";
+    const canSubmit = Boolean(puzzleToken) && holdDone && !loading;
+    return (
+      <ScreenShell back="#" phase="Quick check">
+        <div className="flex flex-col items-center gap-3 mb-2">
+          <Logo />
+          <h2 className="text-2xl font-semibold">Quick check</h2>
+          <p className="text-sm text-text-muted text-center">
+            Unusual activity detected. Please confirm you're a real user.
+          </p>
+          <p className="text-[11px] text-text-faint text-center">
+            ({reasonText})
+          </p>
+        </div>
+
+        <div>
+          <FieldLabel>Step 1 — Solve the puzzle</FieldLabel>
+          {puzzleToken ? (
+            <div className="rounded-xl border border-wa-green/40 bg-wa-green/5 p-3 text-sm text-wa-green-dark dark:text-wa-green text-center">
+              Puzzle solved ✓
+            </div>
+          ) : (
+            <SlidePuzzle onSolved={(t) => setPuzzleToken(t)} />
+          )}
+        </div>
+
+        <div className="mt-2">
+          <FieldLabel>Step 2 — Press &amp; hold</FieldLabel>
+          <PressAndHold
+            disabled={!puzzleToken}
+            onComplete={() => setHoldDone(true)}
+            label={puzzleToken ? "Press and hold to continue" : "Solve the puzzle first"}
+          />
+        </div>
+
+        <ErrorMessage>{error}</ErrorMessage>
+        <PrimaryButton
+          onClick={onCompleteChallenge}
+          loading={loading}
+          disabled={!canSubmit}
+        >
+          Confirm and continue
+        </PrimaryButton>
+
+        <SecondaryButton onClick={() => setStep("password")}>
+          Back
+        </SecondaryButton>
+      </ScreenShell>
+    );
+  }
+
+  if (step === "welcome") {
+    return (
+      <ScreenShell back="#" phase="Welcome">
+        <div className="flex flex-col items-center gap-3 mb-2">
+          <SuccessCheck />
+          <h2 className="text-2xl font-semibold">You're signed in</h2>
+          {lastLogin ? (
+            <p className="text-sm text-text-muted text-center">
+              Last sign-in {formatPlace(lastLogin)} on{" "}
+              <span className="text-text">{lastLogin.device}</span>
+              {lastLogin.at ? (
+                <>
+                  {" "}
+                  · <span className="text-text-muted">{formatRelative(lastLogin.at)}</span>
+                </>
+              ) : null}
+              .
+            </p>
+          ) : (
+            <p className="text-sm text-text-muted text-center">
+              Welcome to Veil — your messages stay between you.
+            </p>
+          )}
+        </div>
+
+        <PrimaryButton onClick={() => setStep("passkey")}>
+          Continue
+        </PrimaryButton>
+      </ScreenShell>
+    );
+  }
+
+  if (step === "passkey") {
+    return (
+      <ScreenShell back="#" phase="One last thing">
+        <div className="flex flex-col items-center gap-3 mb-2">
+          <Logo />
+          <h2 className="text-2xl font-semibold">Sign in faster next time</h2>
+          <p className="text-sm text-text-muted text-center">
+            Add a passkey to skip your password — sign in with Face ID, Touch
+            ID, or your security key.
+          </p>
+        </div>
+
+        <PasskeySetupCard onAdded={() => continueIntoApp()} />
+
+        <SecondaryButton onClick={continueIntoApp}>
+          Skip for now
+        </SecondaryButton>
+      </ScreenShell>
+    );
   }
 
   if (step === "recovery") {
@@ -254,102 +579,91 @@ export function RandomLoginPage() {
         >
           Restore
         </PrimaryButton>
-        <SecondaryButton onClick={() => setStep("credentials")}>
-          Back
-        </SecondaryButton>
       </ScreenShell>
     );
   }
 
+  return null;
+}
+
+/* ─────────── small helpers + presentational pieces ─────────── */
+
+function OrDivider() {
   return (
-    <ScreenShell back="/login" phase="Log in">
-      <div className="flex flex-col items-center gap-3 mb-2">
-        <Logo />
-        <h2 className="text-2xl font-semibold">Log in to Veil</h2>
-        <p className="text-sm text-text-muted text-center">
-          Use the username and password you picked at signup.
-        </p>
+    <div className="relative my-1">
+      <div className="absolute inset-0 flex items-center" aria-hidden>
+        <div className="w-full border-t border-line" />
       </div>
-
-      <div>
-        <FieldLabel>Username</FieldLabel>
-        <div className="relative">
-          <span className="absolute inset-y-0 left-3 flex items-center text-text-muted">
-            @
-          </span>
-          <TextInput
-            autoFocus
-            value={username}
-            onChange={(e) => setUsername(e.target.value.toLowerCase())}
-            placeholder="yourname"
-            autoComplete="username"
-            spellCheck={false}
-            className="pl-7"
-          />
-        </div>
+      <div className="relative flex justify-center">
+        <span className="bg-bg px-3 text-xs uppercase tracking-wider text-text-muted">
+          or
+        </span>
       </div>
-
-      <div>
-        <FieldLabel>Password</FieldLabel>
-        <TextInput
-          type={showPassword ? "text" : "password"}
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder="Your password"
-          autoComplete="current-password"
-        />
-      </div>
-
-      <label className="flex items-center gap-2 text-sm text-text-muted">
-        <input
-          type="checkbox"
-          checked={showPassword}
-          onChange={(e) => setShowPassword(e.target.checked)}
-          className="accent-wa-green"
-        />
-        Show password
-      </label>
-
-      <ErrorMessage>{error}</ErrorMessage>
-      <PrimaryButton onClick={onLogin} loading={loading} disabled={!credsValid}>
-        Log in
-      </PrimaryButton>
-
-      {passkeysAvailable && (
-        <>
-          <div className="relative my-1">
-            <div className="absolute inset-0 flex items-center" aria-hidden>
-              <div className="w-full border-t border-line" />
-            </div>
-            <div className="relative flex justify-center">
-              <span className="bg-bg px-3 text-xs uppercase tracking-wider text-text-muted">
-                or
-              </span>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={onPasskeyLogin}
-            disabled={passkeyBusy}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-line bg-surface text-text font-semibold hover:bg-white/5 transition disabled:opacity-60 wa-tap"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-              <path
-                d="M12 11c0 4 .5 6.5 2 9M8.5 19c-1-2-1.5-4-1.5-7a5 5 0 0110 0v1c0 2 .3 4 1 6M5 16c-.6-1.4-1-3-1-5a8 8 0 0116 0M9 9.5A3 3 0 0115 11c0 3 .3 5 1 7"
-                stroke="currentColor"
-                strokeWidth="1.6"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-            {passkeyBusy ? "Waiting for passkey…" : "Sign in with a passkey"}
-          </button>
-        </>
-      )}
-
-      <SecondaryButton onClick={() => navigate("/login")}>Back</SecondaryButton>
-    </ScreenShell>
+    </div>
   );
+}
+
+function PasskeyButton({
+  onClick,
+  busy,
+}: {
+  onClick: () => void;
+  busy: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={busy}
+      className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-line bg-surface text-text font-semibold hover:bg-white/5 transition disabled:opacity-60 wa-tap"
+    >
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+        <path
+          d="M12 11c0 4 .5 6.5 2 9M8.5 19c-1-2-1.5-4-1.5-7a5 5 0 0110 0v1c0 2 .3 4 1 6M5 16c-.6-1.4-1-3-1-5a8 8 0 0116 0M9 9.5A3 3 0 0115 11c0 3 .3 5 1 7"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+      {busy ? "Waiting for passkey…" : "Sign in with a passkey"}
+    </button>
+  );
+}
+
+function SuccessCheck() {
+  return (
+    <div className="w-16 h-16 rounded-full bg-wa-green/15 border border-wa-green/40 flex items-center justify-center">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+        <path
+          d="M5 12.5l4.5 4.5L19 7.5"
+          stroke="currentColor"
+          strokeWidth="2.4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="text-wa-green"
+        />
+      </svg>
+    </div>
+  );
+}
+
+function formatPlace(info: LoginContextInfo): string {
+  if (info.city && info.country) return `from ${info.city}, ${info.country}`;
+  if (info.city) return `from ${info.city}`;
+  if (info.country) return `from ${info.country}`;
+  return "from a known network";
+}
+
+function formatRelative(iso: string): string {
+  const t = new Date(iso).getTime();
+  if (!Number.isFinite(t)) return "";
+  const diffSec = Math.max(0, Math.floor((Date.now() - t) / 1000));
+  if (diffSec < 60) return "just now";
+  if (diffSec < 3600) return `${Math.floor(diffSec / 60)} min ago`;
+  if (diffSec < 86_400) return `${Math.floor(diffSec / 3600)} hr ago`;
+  if (diffSec < 30 * 86_400) return `${Math.floor(diffSec / 86_400)} days ago`;
+  return new Date(iso).toLocaleDateString();
 }
 
 function base64ToBytes(b64: string): Uint8Array {
@@ -357,13 +671,4 @@ function base64ToBytes(b64: string): Uint8Array {
   const out = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
   return out;
-}
-
-function messageOf(e: unknown): string {
-  if (e && typeof e === "object" && "message" in e) {
-    return String(
-      (e as { message?: unknown }).message ?? "Something went wrong.",
-    );
-  }
-  return "Something went wrong.";
 }
