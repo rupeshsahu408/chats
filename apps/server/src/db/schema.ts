@@ -43,9 +43,16 @@ export const reportReason = pgEnum("report_reason", [
   "other",
 ]);
 
-const bytea = customType<{ data: Buffer; default: false }>({
-  dataType: () => "bytea",
-});
+const bytea = customType<{ data: Buffer; driverData: string; default: false }>(
+  {
+    dataType: () => "bytea",
+    toDriver: (val: Buffer) => "\\x" + val.toString("hex"),
+    fromDriver: (val: string | Buffer) =>
+      typeof val === "string"
+        ? Buffer.from(val.startsWith("\\x") ? val.slice(2) : val, "hex")
+        : Buffer.from(val),
+  },
+);
 
 /* ─────────── users ─────────── */
 
