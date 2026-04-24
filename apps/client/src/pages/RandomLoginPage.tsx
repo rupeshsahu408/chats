@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { trpc } from "../lib/trpc";
 import { useAuthStore } from "../lib/store";
 import {
@@ -77,8 +77,46 @@ interface PendingMustChange {
   expiresInSeconds: number;
 }
 
+/**
+ * "Skip for now" memory: don't pester the user about adding a passkey
+ * on every single sign-in. If they declined recently, give it a rest.
+ */
+const PASSKEY_SNOOZE_KEY = "veil:passkey_suggestion_snoozed_until";
+const PASSKEY_SNOOZE_MS = 14 * 24 * 60 * 60 * 1000;
+
+function isPasskeySuggestionSnoozed(): boolean {
+  try {
+    const raw = localStorage.getItem(PASSKEY_SNOOZE_KEY);
+    if (!raw) return false;
+    const until = Number(raw);
+    return Number.isFinite(until) && until > Date.now();
+  } catch {
+    return false;
+  }
+}
+
+function snoozePasskeySuggestion(): void {
+  try {
+    localStorage.setItem(
+      PASSKEY_SNOOZE_KEY,
+      String(Date.now() + PASSKEY_SNOOZE_MS),
+    );
+  } catch {
+    /* ignore storage errors (private mode, full quota, etc.) */
+  }
+}
+
+function clearPasskeySnooze(): void {
+  try {
+    localStorage.removeItem(PASSKEY_SNOOZE_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
 export function RandomLoginPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const setAuth = useAuthStore((s) => s.setAuth);
   const setUnlocked = useUnlockStore((s) => s.setIdentity);
 
@@ -118,7 +156,10 @@ export function RandomLoginPage() {
   });
   const hasExistingPasskey = (passkeyListQuery.data?.length ?? 0) > 0;
   const shouldOfferPasskey =
-    passkeysAvailable && !loggedInViaPasskey && !hasExistingPasskey;
+    passkeysAvailable &&
+    !loggedInViaPasskey &&
+    !hasExistingPasskey &&
+    !isPasskeySuggestionSnoozed();
 
   const cleanUsername = username.trim().toLowerCase();
   const credsValid = cleanUsername.length >= 3 && password.length >= 8;
@@ -233,6 +274,19 @@ export function RandomLoginPage() {
       setLoading(false);
     }
   }
+
+  // If the method picker linked here with `?passkey=1`, kick off the
+  // passkey ceremony as soon as the page mounts so the user lands
+  // straight in their device's biometric prompt — no extra tap.
+  const autoPasskeyTriggered = useRef(false);
+  useEffect(() => {
+    if (autoPasskeyTriggered.current) return;
+    if (searchParams.get("passkey") !== "1") return;
+    if (!passkeysAvailable) return;
+    autoPasskeyTriggered.current = true;
+    void onPasskeyLogin();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, passkeysAvailable]);
 
   async function onPasskeyLogin() {
     if (passkeyBusy) return;
@@ -756,11 +810,28 @@ export function RandomLoginPage() {
           </p>
         </div>
 
-        <PasskeySetupCard onAdded={() => continueIntoApp()} />
+        <PasskeySetupCard
+          onAdded={() => {
+            // User added one — drop any prior "snooze" so the suggestion
+            // logic stays accurate next time they sign in elsewhere.
+            clearPasskeySnooze();
+            continueIntoApp();
+          }}
+        />
 
-        <SecondaryButton onClick={continueIntoApp}>
-          Skip for now
+        <SecondaryButton
+          onClick={() => {
+            // Politely remember "no, not right now" for a couple of weeks
+            // instead of asking on every single sign-in.
+            snoozePasskeySuggestion();
+            continueIntoApp();
+          }}
+        >
+          Not now
         </SecondaryButton>
+        <p className="text-[11px] text-text-faint text-center">
+          You can add a passkey any time from Settings → Security.
+        </p>
       </ScreenShell>
     );
   }

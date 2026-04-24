@@ -28,6 +28,19 @@ const DEFAULT: FriendlyError = {
 };
 
 /**
+ * For a few error codes the server crafts a user-facing message that is
+ * MORE specific than our generic CODE_MAP fallback (e.g. lockout
+ * surfacing the remaining minutes). For those codes, prefer the raw
+ * server message when present — but still tag it with a friendly
+ * title.
+ */
+const PREFER_SERVER_MESSAGE: Record<string, string> = {
+  TOO_MANY_REQUESTS: "Too many attempts",
+  PRECONDITION_FAILED: "Setup needed",
+  BAD_REQUEST: "Check your input",
+};
+
+/**
  * Map known tRPC / HTTP-ish error codes to friendly copy. Anything not
  * in this map falls through to the cleaned-up server message (which is
  * usually already a polite English sentence on Veil's backend).
@@ -193,9 +206,20 @@ export function humanizeError(e: unknown): FriendlyError {
   if (e == null) return DEFAULT;
 
   const code = extractCode(e);
-  if (code && CODE_MAP[code]) return CODE_MAP[code];
-
   const raw = extractMessage(e);
+
+  // For codes where the server's own message is more useful than our
+  // canned fallback (e.g. "Too many attempts. Please try again in
+  // 5 minutes."), surface that — but with a polished title.
+  if (code && raw && PREFER_SERVER_MESSAGE[code]) {
+    return {
+      title: PREFER_SERVER_MESSAGE[code]!,
+      message: clean(raw),
+      code,
+    };
+  }
+
+  if (code && CODE_MAP[code]) return CODE_MAP[code];
 
   if (raw) {
     for (const { test, out } of PATTERN_MAP) {

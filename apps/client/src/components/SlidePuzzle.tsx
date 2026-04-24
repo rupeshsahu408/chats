@@ -30,6 +30,9 @@ export function SlidePuzzle({
   const trackRef = useRef<HTMLDivElement | null>(null);
   const startXRef = useRef(0);
   const startPieceXRef = useRef(0);
+  // True once the pointer has actually travelled — prevents a no-op
+  // tap on the piece from burning a server-issued challenge.
+  const movedRef = useRef(false);
 
   async function loadPuzzle() {
     setErr(null);
@@ -58,12 +61,14 @@ export function SlidePuzzle({
     setDragging(true);
     startXRef.current = clientX(e);
     startPieceXRef.current = pieceX;
+    movedRef.current = false;
     setStatus("idle");
   }
 
   function onPointerMove(e: React.PointerEvent) {
     if (!dragging || !puzzle) return;
     const dx = clientX(e) - startXRef.current;
+    if (Math.abs(dx) > 2) movedRef.current = true;
     const max = puzzle.puzzleWidth - puzzle.pieceWidth;
     const next = Math.min(max, Math.max(0, startPieceXRef.current + dx));
     setPieceX(next);
@@ -72,6 +77,9 @@ export function SlidePuzzle({
   async function onPointerUp() {
     if (!dragging || !puzzle) return;
     setDragging(false);
+    // No movement = no attempt. Don't burn a fresh challenge on a
+    // misclick or someone exploring the page.
+    if (!movedRef.current) return;
     setStatus("checking");
     try {
       const r = await verify.mutateAsync({
