@@ -312,3 +312,59 @@ html.veil-privacy-blur body::after {
   z-index: 2147483647;
   pointer-events: none;
 }
+
+/* ───────── Toast & inline alert animations ───────── */
+
+.veil-toast {
+  opacity: 0;
+  transform: translateY(8px) scale(0.98);
+  transition:
+    opacity 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: opacity, transform;
+}
+.veil-toast.veil-toast-enter {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+.veil-toast.veil-toast-exit {
+  opacity: 0;
+  transform: translateY(-6px) scale(0.98);
+}
+
+@media (min-width: 640px) {
+  .veil-toast {
+    transform: translateX(12px) scale(0.98);
+  }
+  .veil-toast.veil-toast-enter {
+    transform: translateX(0) scale(1);
+  }
+  .veil-toast.veil-toast-exit {
+    transform: translateX(12px) scale(0.98);
+  }
+}
+
+.veil-inline-alert {
+  animation: veil-inline-alert-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes veil-inline-alert-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .veil-toast,
+  .veil-toast.veil-toast-enter,
+  .veil-toast.veil-toast-exit,
+  .veil-inline-alert {
+    animation: none !important;
+    transition-duration: 1ms !important;
+    transform: none !important;
+  }
+}

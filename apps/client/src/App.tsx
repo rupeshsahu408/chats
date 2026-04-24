@@ -41,6 +41,8 @@ import { unlockAudioOnFirstGesture } from "./lib/sound";
 import { InstallPrompt } from "./components/InstallPrompt";
 import { PushPermissionPrompt } from "./components/PushPermissionPrompt";
 import { DailyVerificationGate } from "./components/DailyVerificationGate";
+import { AppErrorBoundary } from "./components/ErrorBoundary";
+import { ToastViewport } from "./lib/toast";
 
 export function App() {
   const [queryClient] = useState(
@@ -74,11 +76,12 @@ export function App() {
   usePrivacyBlur();
 
   return (
-    <trpc.Provider client={trpcClient} queryClient={queryClient}>
-      <QueryClientProvider client={queryClient}>
-        <SessionBootstrap />
-        <SessionSync />
-        <Routes>
+    <AppErrorBoundary>
+      <trpc.Provider client={trpcClient} queryClient={queryClient}>
+        <QueryClientProvider client={queryClient}>
+          <SessionBootstrap />
+          <SessionSync />
+          <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/welcome" element={<WelcomePage />} />
           <Route path="/signup/email" element={<EmailSignupPage />} />
@@ -109,8 +112,10 @@ export function App() {
         <InstallPrompt />
         <PushPermissionPrompt />
         <DailyVerificationGate />
-      </QueryClientProvider>
-    </trpc.Provider>
+        <ToastViewport />
+        </QueryClientProvider>
+      </trpc.Provider>
+    </AppErrorBoundary>
   );
 }
 

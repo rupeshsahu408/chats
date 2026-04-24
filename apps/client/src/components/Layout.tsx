@@ -188,11 +188,63 @@ export function TextInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
   );
 }
 
-export function ErrorMessage({ children }: { children: ReactNode }) {
+/**
+ * Inline error block used by forms and screens. Premium polish:
+ * leading icon in a soft tinted chip, hairline border, and a gentle
+ * mount animation so the message draws the eye without shouting.
+ *
+ * Optional `title` renders a bold heading above the description —
+ * useful when `humanizeError(...)` returns a `{ title, message }`
+ * pair. Backwards-compatible: passing only `children` still works.
+ */
+export function ErrorMessage({
+  children,
+  title,
+}: {
+  children: ReactNode;
+  title?: ReactNode;
+}) {
   if (!children) return null;
   return (
-    <div className="rounded-lg bg-red-500/10 border border-red-500/30 px-3 py-2 text-sm text-red-600 dark:text-red-300">
-      {children}
+    <div
+      role="alert"
+      className={
+        "veil-inline-alert rounded-xl border border-red-500/25 " +
+        "bg-red-500/8 dark:bg-red-500/10 " +
+        "px-3 py-2.5 flex items-start gap-2.5 " +
+        "text-sm text-red-700 dark:text-red-200"
+      }
+    >
+      <span
+        aria-hidden
+        className={
+          "shrink-0 mt-[1px] size-5 rounded-full grid place-items-center " +
+          "bg-red-500/15 text-red-600 dark:text-red-300 ring-1 ring-red-500/25"
+        }
+      >
+        <svg
+          viewBox="0 0 24 24"
+          width={12}
+          height={12}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={2.4}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 8v4.5" />
+          <path d="M12 16v.01" />
+        </svg>
+      </span>
+      <div className="min-w-0 leading-snug">
+        {title && (
+          <div className="font-semibold text-[13.5px] tracking-tight text-red-800 dark:text-red-100">
+            {title}
+          </div>
+        )}
+        <div className={title ? "mt-0.5" : ""}>{children}</div>
+      </div>
     </div>
   );
 }
@@ -200,8 +252,78 @@ export function ErrorMessage({ children }: { children: ReactNode }) {
 export function InfoMessage({ children }: { children: ReactNode }) {
   if (!children) return null;
   return (
-    <div className="rounded-lg bg-wa-green/10 border border-wa-green/30 px-3 py-2 text-sm text-wa-green-dark dark:text-wa-green">
-      {children}
+    <div
+      role="status"
+      className={
+        "veil-inline-alert rounded-xl border border-wa-green/25 " +
+        "bg-wa-green/8 dark:bg-wa-green/10 " +
+        "px-3 py-2.5 flex items-start gap-2.5 " +
+        "text-sm text-wa-green-dark dark:text-wa-green"
+      }
+    >
+      <span
+        aria-hidden
+        className={
+          "shrink-0 mt-[1px] size-5 rounded-full grid place-items-center " +
+          "bg-wa-green/15 text-wa-green-dark dark:text-wa-green ring-1 ring-wa-green/25"
+        }
+      >
+        <svg
+          viewBox="0 0 24 24"
+          width={12}
+          height={12}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={2.4}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 11v5" />
+          <path d="M12 8v.01" />
+        </svg>
+      </span>
+      <div className="min-w-0 leading-snug">{children}</div>
+    </div>
+  );
+}
+
+/** Soft warning block — lighter than ErrorMessage, sterner than InfoMessage. */
+export function WarningMessage({ children }: { children: ReactNode }) {
+  if (!children) return null;
+  return (
+    <div
+      role="alert"
+      className={
+        "veil-inline-alert rounded-xl border border-amber-500/25 " +
+        "bg-amber-500/8 dark:bg-amber-500/10 " +
+        "px-3 py-2.5 flex items-start gap-2.5 " +
+        "text-sm text-amber-800 dark:text-amber-200"
+      }
+    >
+      <span
+        aria-hidden
+        className={
+          "shrink-0 mt-[1px] size-5 rounded-full grid place-items-center " +
+          "bg-amber-500/15 text-amber-700 dark:text-amber-300 ring-1 ring-amber-500/25"
+        }
+      >
+        <svg
+          viewBox="0 0 24 24"
+          width={12}
+          height={12}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={2.4}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M12 4 2.5 20h19L12 4z" />
+          <path d="M12 10v4" />
+          <path d="M12 17.25v.01" />
+        </svg>
+      </span>
+      <div className="min-w-0 leading-snug">{children}</div>
     </div>
   );
 }

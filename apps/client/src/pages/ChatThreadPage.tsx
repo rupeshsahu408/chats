@@ -4,6 +4,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { trpc } from "../lib/trpc";
 import { useAuthStore } from "../lib/store";
 import { useUnlockStore } from "../lib/unlockStore";
+import { toast } from "../lib/toast";
 import {
   db,
   type ChatMessageRecord,
@@ -771,15 +772,17 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
       return;
     }
     if (!biometricSupported()) {
-      alert("Biometric unlock isn't supported on this device.");
+      toast.warning("Biometric unlock isn't supported on this device.", {
+        title: "Not supported",
+      });
       return;
     }
     try {
       const credId = await registerBiometricCredential(`veil:${peerId}`, displayName);
       await setChatPref(peerId, { biometricCredentialId: credId });
-      alert("Biometric lock enabled for this chat.");
+      toast.success("Biometric lock enabled for this chat.");
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Could not enable biometric lock.");
+      toast.error(e, { title: "Couldn't enable biometric lock" });
     }
   }
 
@@ -1517,7 +1520,9 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
               alsoBlock,
             });
             setMenuOpen(null);
-            alert("Report submitted. Thank you.");
+            toast.success("Report submitted. Thank you.", {
+              title: "Got it",
+            });
           }}
         />
       )}
@@ -3723,7 +3728,9 @@ function Composer({
               setRecording(r.state);
               onActivity?.(true, "voice");
             } else {
-              alert(r.message);
+              toast.error(r.message, {
+                title: "Couldn't start recording",
+              });
             }
           }}
           disabled={sending}

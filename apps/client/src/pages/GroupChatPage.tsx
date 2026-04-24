@@ -5,6 +5,7 @@ import { trpc } from "../lib/trpc";
 import { trpcClientProxy } from "../lib/trpcClientProxy";
 import { useAuthStore } from "../lib/store";
 import { useUnlockStore } from "../lib/unlockStore";
+import { toast as veilToast } from "../lib/toast";
 import { usePresenceStore } from "../lib/presenceStore";
 import {
   AppBar,
@@ -970,7 +971,9 @@ function GroupChatInner({ groupId }: { groupId: string }) {
       return;
     }
     if (!biometricSupported()) {
-      alert("Biometric unlock isn't supported on this device.");
+      veilToast.warning("Biometric unlock isn't supported on this device.", {
+        title: "Not supported",
+      });
       return;
     }
     try {
@@ -980,9 +983,9 @@ function GroupChatInner({ groupId }: { groupId: string }) {
       );
       await setChatPref(prefKey, { biometricCredentialId: credId });
       setBioCredId(credId);
-      alert("Biometric lock enabled for this group.");
+      veilToast.success("Biometric lock enabled for this group.");
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Could not enable biometric lock.");
+      veilToast.error(e, { title: "Couldn't enable biometric lock" });
     }
   }
 
@@ -1757,7 +1760,10 @@ function Composer({
             onClick={async () => {
               const r = await startRecording();
               if (r.kind === "ok") setRecording(r.state);
-              else alert(r.message);
+              else
+                veilToast.error(r.message, {
+                  title: "Couldn't start recording",
+                });
             }}
             disabled={sending}
             className="size-12 rounded-full bg-wa-green text-text-oncolor flex items-center justify-center hover:bg-wa-green-dark transition disabled:opacity-50 wa-tap shrink-0"
