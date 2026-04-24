@@ -40,7 +40,6 @@ export function SessionGuard() {
   const clearUnlock = useUnlockStore((s) => s.clear);
 
   const pendingTick = useSessionEventsStore((s) => s.pendingTick);
-  const resolvedTick = useSessionEventsStore((s) => s.resolvedTick);
   const alertTick = useSessionEventsStore((s) => s.alertTick);
   const revokedTick = useSessionEventsStore((s) => s.revokedTick);
 
@@ -90,10 +89,17 @@ export function SessionGuard() {
   }, [accessToken, refreshPending, refreshAlerts]);
 
   // WS-driven refreshes.
+  // Only pendingTick is used here — resolvedTick intentionally excluded.
+  // When a conflict is resolved by user action, onResolved() already calls
+  // refreshPending(). Including resolvedTick here causes a race: the
+  // login_request_resolved WS event fires before the new conflict C2 is
+  // inserted (server awaits a GeoIP lookup between expiring C1 and
+  // inserting C2), so refreshPending() would return [] and dismiss the
+  // modal before C2 is ready.
   useEffect(() => {
     if (!accessToken) return;
     void refreshPending();
-  }, [pendingTick, resolvedTick, accessToken, refreshPending]);
+  }, [pendingTick, accessToken, refreshPending]);
 
   useEffect(() => {
     if (!accessToken) return;

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { PendingLoginRequestEntry } from "@veil/shared";
 import { trpc } from "../lib/trpc";
 import { toast } from "../lib/toast";
@@ -29,6 +29,16 @@ export function IncomingLoginRequestModal({ request, onResolved }: Props) {
     Math.max(0, Math.floor((expiresMs - Date.now()) / 1000)),
   );
 
+  // Keep a stable ref to onResolved so the countdown interval below
+  // doesn't restart every time the parent re-renders (which would
+  // happen every time SessionGuard re-renders, since onResolved is an
+  // inline arrow function). The interval only needs to restart when
+  // expiresMs actually changes (i.e., when the conflict itself changes).
+  const onResolvedRef = useRef(onResolved);
+  useEffect(() => {
+    onResolvedRef.current = onResolved;
+  }, [onResolved]);
+
   useEffect(() => {
     const t = setInterval(() => {
       const left = Math.max(0, Math.floor((expiresMs - Date.now()) / 1000));
@@ -36,11 +46,11 @@ export function IncomingLoginRequestModal({ request, onResolved }: Props) {
       if (left <= 0) {
         clearInterval(t);
         // Local timeout — let the guard re-poll & dismiss.
-        onResolved();
+        onResolvedRef.current();
       }
     }, 1000);
     return () => clearInterval(t);
-  }, [expiresMs, onResolved]);
+  }, [expiresMs]);
 
   async function decide(decision: "accept" | "reject") {
     if (busy) return;

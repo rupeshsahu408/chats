@@ -1203,9 +1203,45 @@ export const authRouter = router({
     );
     if (token) {
       const db = getDb();
+      const hash = sha256Hex(token);
+
+      // Resolve the session so we know the userId before deleting.
+      const sessionRows = await db
+        .select({ userId: schema.sessions.userId })
+        .from(schema.sessions)
+        .where(eq(schema.sessions.refreshTokenHash, hash))
+        .limit(1);
+
       await db
         .delete(schema.sessions)
-        .where(eq(schema.sessions.refreshTokenHash, sha256Hex(token)));
+        .where(eq(schema.sessions.refreshTokenHash, hash));
+
+      // Expire any pending login-conflict rows for this user so a
+      // new device that was parked waiting for approval gets an
+      // immediate "expired" response on its next poll and can retry
+      // the login without hitting the conflict screen again.
+      if (sessionRows[0]) {
+        const userId = sessionRows[0].userId;
+        const now = new Date();
+        const expired = await db
+          .update(schema.loginConflicts)
+          .set({ status: "expired", resolvedAt: now })
+          .where(
+            and(
+              eq(schema.loginConflicts.userId, userId),
+              eq(schema.loginConflicts.status, "pending"),
+              gt(schema.loginConflicts.expiresAt, now),
+            ),
+          )
+          .returning({ id: schema.loginConflicts.id });
+        for (const c of expired) {
+          wsPublish(userId, {
+            type: "login_request_resolved",
+            conflictId: c.id,
+            decision: "expired",
+          });
+        }
+      }
     }
     clearRefreshCookie(ctx.res as never);
     return { ok: true as const };
