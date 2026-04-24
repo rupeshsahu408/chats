@@ -46,6 +46,15 @@ export function MainShell({
   );
 }
 
+/**
+ * Premium tab strip.
+ *
+ * Sits on a neutral panel surface (rather than the brand bar) so the
+ * navigation reads as elegant and content-first instead of bold and
+ * branded. The active tab uses the accent color for both icon and
+ * label, with a smooth pill-shaped underline that animates between
+ * tabs. Inactive tabs are muted text with a quiet hover wash.
+ */
 function TabStrip({ active }: { active: "chats" | "people" | "settings" }) {
   const tabs = [
     { id: "chats" as const, label: "Chats", to: "/chats", icon: <ChatIcon /> },
@@ -63,7 +72,13 @@ function TabStrip({ active }: { active: "chats" | "people" | "settings" }) {
     },
   ];
   return (
-    <nav className="bg-bar text-text-oncolor flex shadow-bar sticky top-14 z-10">
+    <nav
+      className={
+        "bg-panel text-text flex sticky top-14 z-10 " +
+        "border-b border-line/60 " +
+        "[box-shadow:0_1px_0_rgba(11,20,26,0.04)]"
+      }
+    >
       {tabs.map((t) => {
         const isActive = active === t.id;
         return (
@@ -71,16 +86,28 @@ function TabStrip({ active }: { active: "chats" | "people" | "settings" }) {
             key={t.id}
             to={t.to}
             className={
-              "flex-1 h-12 flex items-center justify-center gap-2 wa-tap text-sm font-medium uppercase tracking-wide transition relative " +
+              "flex-1 h-12 flex items-center justify-center gap-2 wa-tap " +
+              "text-[12.5px] font-semibold tracking-tight " +
+              "transition-colors duration-150 ease-veil-soft relative " +
               (isActive
-                ? "text-text-oncolor"
-                : "text-text-oncolor/70 hover:text-text-oncolor")
+                ? "text-wa-green"
+                : "text-text-muted hover:text-text hover:bg-surface/60")
             }
+            aria-current={isActive ? "page" : undefined}
           >
-            <span className="opacity-90">{t.icon}</span>
+            <span className={isActive ? "opacity-100" : "opacity-90"}>
+              {t.icon}
+            </span>
             <span className="hidden sm:inline">{t.label}</span>
             {isActive && (
-              <span className="absolute bottom-0 left-0 right-0 h-[3px] bg-text-oncolor rounded-t" />
+              <span
+                className={
+                  "absolute bottom-0 left-1/2 -translate-x-1/2 " +
+                  "h-[3px] w-10 rounded-t-full bg-wa-green " +
+                  "[box-shadow:0_0_12px_rgb(0_168_132/0.45)] " +
+                  "animate-fade-in"
+                }
+              />
             )}
           </Link>
         );

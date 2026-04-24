@@ -53,8 +53,25 @@ export default {
       },
       boxShadow: {
         bubble: "0 1px 0.5px rgba(11,20,26,0.13)",
-        bar: "0 1px 0 rgba(11,20,26,0.08)",
+        bar: "0 1px 0 rgba(11,20,26,0.06)",
         sheet: "0 8px 32px rgba(11,20,26,0.20)",
+        // ─── Premium elevation scale ───
+        // Soft layered shadows that mimic light passing over a real
+        // material — subtle ambient + tighter directional. Tuned to
+        // feel calm in light mode and not muddy in dark mode.
+        card:
+          "0 1px 2px rgba(11,20,26,0.06), 0 1px 1px rgba(11,20,26,0.04)",
+        "card-hover":
+          "0 4px 14px rgba(11,20,26,0.08), 0 2px 4px rgba(11,20,26,0.05)",
+        raised:
+          "0 6px 20px rgba(11,20,26,0.12), 0 2px 6px rgba(11,20,26,0.06)",
+        popover:
+          "0 12px 40px rgba(11,20,26,0.18), 0 4px 10px rgba(11,20,26,0.08)",
+        // Inset highlight used to give pills/buttons a "glassy" top edge.
+        "inset-top": "inset 0 1px 0 rgba(255,255,255,0.10)",
+        // Soft accent glow used on the primary button + FAB on hover.
+        "glow-accent":
+          "0 8px 24px rgba(0,168,132,0.28), 0 2px 6px rgba(0,168,132,0.18)",
       },
       backgroundImage: {
         // Subtle WhatsApp-like chat wallpaper (faint pattern over bg).
@@ -97,12 +114,30 @@ export default {
           "70%": { opacity: "1", transform: "scale(1.04)" },
           "100%": { opacity: "1", transform: "scale(1)" },
         },
+        // Premium page-level entrances. Slightly slower and more
+        // restrained than the bubble springs — they should set tone,
+        // not draw attention.
+        "fade-in": {
+          "0%": { opacity: "0" },
+          "100%": { opacity: "1" },
+        },
+        "slide-up": {
+          "0%": { opacity: "0", transform: "translateY(8px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+        "slide-down": {
+          "0%": { opacity: "0", transform: "translateY(-6px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
       },
       animation: {
         "bubble-in-out": "bubble-in-out 220ms cubic-bezier(0.34, 1.56, 0.64, 1) both",
         "bubble-in-in": "bubble-in-in 180ms cubic-bezier(0.22, 1, 0.36, 1) both",
         "tap-pulse": "tap-pulse 180ms cubic-bezier(0.34, 1.56, 0.64, 1)",
         "soft-pop": "soft-pop 220ms cubic-bezier(0.34, 1.56, 0.64, 1) both",
+        "fade-in": "fade-in 280ms cubic-bezier(0.22, 1, 0.36, 1) both",
+        "slide-up": "slide-up 320ms cubic-bezier(0.22, 1, 0.36, 1) both",
+        "slide-down": "slide-down 240ms cubic-bezier(0.22, 1, 0.36, 1) both",
       },
     },
   },

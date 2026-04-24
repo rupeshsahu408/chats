@@ -173,15 +173,24 @@
   }
   body {
     @apply bg-bg text-text antialiased;
+    /* Use the platform's native font stack so the app feels at home
+     * on every OS (San Francisco on Apple, Segoe on Windows, Roboto
+     * on Android/Linux). System fonts render crisper than webfonts
+     * and ship zero KB. */
     font-family:
-      "Segoe UI",
-      "Helvetica Neue",
-      Helvetica,
-      system-ui,
-      -apple-system,
-      Roboto,
+      -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI",
+      "Inter", "Helvetica Neue", Helvetica, system-ui, Roboto,
       sans-serif;
-    font-feature-settings: "ss01", "cv11";
+    font-feature-settings: "ss01", "cv11", "kern", "calt";
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    letter-spacing: -0.005em;
+  }
+  /* Refined hierarchy — slightly tighter tracking on display sizes
+   * gives headlines a more confident, premium feel. */
+  h1, h2, h3 {
+    letter-spacing: -0.018em;
   }
   input,
   textarea,
@@ -189,14 +198,21 @@
   button {
     font-family: inherit;
   }
-  /* WhatsApp-style scrollbar (thin) */
+  /* Subtle, premium scrollbar — narrower and themed. */
   ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
   }
   ::-webkit-scrollbar-thumb {
     background: rgb(var(--wa-line));
-    border-radius: 4px;
+    border-radius: 999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgb(var(--wa-text-faint) / 0.4);
+  }
+  /* Cleaner default focus ring — only visible to keyboard users. */
+  :focus-visible {
+    outline: none;
   }
 }
 
@@ -235,6 +251,33 @@
   }
   .veil-soft-pop {
     animation: soft-pop 220ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  }
+
+  /* Premium focus ring — a soft 2px halo in the accent color, used
+   * by all inputs and interactive surfaces. Replaces the default
+   * harsh browser outline and the previous border-swap. */
+  .veil-focus-ring:focus-within,
+  .veil-focus-ring:focus {
+    outline: none;
+    border-color: rgb(var(--wa-green) / 0.55);
+    box-shadow:
+      0 0 0 3px rgb(var(--wa-green) / 0.18),
+      0 1px 2px rgb(11 20 26 / 0.04);
+  }
+
+  /* Reusable elevated card surface. */
+  .veil-card {
+    background: rgb(var(--wa-surface));
+    border: 1px solid rgb(var(--wa-line) / 0.7);
+    border-radius: 14px;
+    box-shadow:
+      0 1px 2px rgb(11 20 26 / 0.06),
+      0 1px 1px rgb(11 20 26 / 0.04);
+  }
+
+  /* Hairline divider that sits flush with parent radius. */
+  .veil-hairline {
+    border-color: rgb(var(--wa-line) / 0.6);
   }
 }
 

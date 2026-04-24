@@ -71,7 +71,14 @@ export function Logo({ size = 64 }: { size?: number }) {
   );
 }
 
-/** Filled green pill button (WhatsApp primary action). */
+/**
+ * Primary action button.
+ *
+ * Premium polish: a soft accent gradient + subtle inset top
+ * highlight + ambient accent glow on hover gives this button real
+ * presence without being loud. Active state lifts off slightly so
+ * the press feels physical.
+ */
 export function PrimaryButton({
   children,
   loading,
@@ -91,18 +98,34 @@ export function PrimaryButton({
       }}
       disabled={loading || props.disabled}
       className={
-        "w-full h-12 rounded-full bg-wa-green px-6 font-medium text-text-oncolor " +
-        "hover:bg-wa-green-dark " +
-        "disabled:opacity-50 disabled:cursor-not-allowed wa-tap " +
+        "w-full h-12 rounded-full px-6 " +
+        "font-semibold text-[15px] tracking-tight text-text-oncolor " +
+        "bg-gradient-to-b from-wa-green to-wa-green-dark " +
+        "shadow-card hover:shadow-glow-accent " +
+        "[box-shadow:inset_0_1px_0_rgba(255,255,255,0.18),0_1px_2px_rgba(11,20,26,0.06),0_1px_1px_rgba(11,20,26,0.04)] " +
+        "hover:[box-shadow:inset_0_1px_0_rgba(255,255,255,0.18),0_8px_24px_rgba(0,168,132,0.28),0_2px_6px_rgba(0,168,132,0.18)] " +
+        "transition-[box-shadow,transform] duration-180 ease-veil-soft " +
+        "disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none " +
+        "wa-tap " +
         (className ?? "")
       }
     >
-      {loading ? "Working…" : children}
+      {loading ? (
+        <span className="inline-flex items-center justify-center gap-2">
+          <Spinner size={16} />
+          <span>Working…</span>
+        </span>
+      ) : (
+        children
+      )}
     </button>
   );
 }
 
-/** Outlined / ghost secondary button. */
+/**
+ * Outlined / ghost secondary button. Carries a hairline border and
+ * a soft hover lift so it reads as a real surface, not just text.
+ */
 export function SecondaryButton({
   children,
   className,
@@ -119,9 +142,13 @@ export function SecondaryButton({
         onClick?.(e);
       }}
       className={
-        "w-full h-12 rounded-full border border-line bg-transparent px-6 " +
-        "font-medium text-text hover:bg-surface " +
-        "disabled:opacity-50 wa-tap " +
+        "w-full h-12 rounded-full border border-line/80 " +
+        "bg-surface/60 backdrop-blur-sm " +
+        "px-6 font-semibold text-[15px] tracking-tight text-text " +
+        "hover:bg-surface hover:border-line " +
+        "transition-[background-color,border-color,box-shadow] duration-150 ease-veil-soft " +
+        "disabled:opacity-50 disabled:cursor-not-allowed " +
+        "wa-tap " +
         (className ?? "")
       }
     >
@@ -138,14 +165,23 @@ export function FieldLabel({ children }: { children: ReactNode }) {
   );
 }
 
-/** Standard text/number/email input with WhatsApp styling. */
+/**
+ * Standard text/number/email input.
+ *
+ * Premium polish: a soft accent halo on focus instead of a hard
+ * border swap, plus a subtle inner shadow so the input reads as a
+ * recessed surface rather than a flat panel.
+ */
 export function TextInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
       {...props}
       className={
-        "w-full rounded-xl bg-surface border border-line text-text " +
-        "px-4 py-3 outline-none focus:border-wa-green transition " +
+        "w-full rounded-xl bg-surface border border-line/80 text-text " +
+        "placeholder:text-text-faint " +
+        "px-4 py-3 outline-none veil-focus-ring " +
+        "transition-[box-shadow,border-color] duration-150 ease-veil-soft " +
+        "[box-shadow:inset_0_1px_0_rgb(11_20_26/0.02)] " +
         (props.className ?? "")
       }
     />
@@ -185,15 +221,27 @@ export function NavCard({
   onClick?: () => void;
 }) {
   const inner = (
-    <div className="w-full text-left rounded-xl bg-surface border border-line px-4 py-3 hover:bg-elevated transition flex items-center justify-between gap-3 wa-tap">
+    <div
+      className={
+        "w-full text-left rounded-2xl bg-surface " +
+        "border border-line/70 shadow-card hover:shadow-card-hover " +
+        "px-4 py-3.5 flex items-center justify-between gap-3 " +
+        "transition-[box-shadow,background-color,transform] duration-180 ease-veil-soft " +
+        "wa-tap wa-tap-soft"
+      }
+    >
       <div className="min-w-0">
-        <div className="font-medium flex items-center gap-2 text-text">
+        <div className="font-semibold tracking-tight flex items-center gap-2 text-text">
           <span className="truncate">{title}</span>
           {badge}
         </div>
-        {sub && <div className="text-xs text-text-muted truncate">{sub}</div>}
+        {sub && (
+          <div className="text-[12.5px] text-text-muted truncate mt-0.5">
+            {sub}
+          </div>
+        )}
       </div>
-      <ChevronRightIcon className="text-text-muted shrink-0" />
+      <ChevronRightIcon className="text-text-faint shrink-0" />
     </div>
   );
   if (to) return <Link to={to}>{inner}</Link>;
@@ -212,15 +260,23 @@ export function Pill({
   tone?: "neutral" | "accent" | "warn" | "danger" | "ok";
 }) {
   const tones: Record<string, string> = {
-    neutral: "bg-surface text-text-muted border border-line",
-    accent: "bg-wa-green/15 text-wa-green-dark dark:text-wa-green",
-    warn: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
-    danger: "bg-red-500/15 text-red-700 dark:text-red-300",
-    ok: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
+    neutral: "bg-surface/80 text-text-muted border-line/80",
+    accent:
+      "bg-wa-green/12 text-wa-green-dark dark:text-wa-green border-wa-green/25",
+    warn:
+      "bg-amber-500/12 text-amber-700 dark:text-amber-300 border-amber-500/25",
+    danger:
+      "bg-red-500/12 text-red-700 dark:text-red-300 border-red-500/25",
+    ok:
+      "bg-emerald-500/12 text-emerald-700 dark:text-emerald-300 border-emerald-500/25",
   };
   return (
     <span
-      className={`inline-block text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full ${tones[tone]}`}
+      className={
+        "inline-flex items-center text-[10px] font-semibold uppercase tracking-[0.08em] " +
+        "px-2 py-[3px] rounded-full border " +
+        tones[tone]
+      }
     >
       {children}
     </span>
@@ -242,7 +298,15 @@ export function Divider({ children }: { children?: ReactNode }) {
 
 /* ───────────── New WhatsApp-style components ───────────── */
 
-/** Top app bar (green in light mode, dark surface in dark mode). */
+/**
+ * Top app bar.
+ *
+ * Premium polish: lays a subtle gradient over the brand color so the
+ * bar reads as a real material with depth, plus a hairline bottom
+ * shadow for separation that doesn't compete with the content below.
+ * The back button gets a slightly larger tap target and a softer
+ * resting opacity so it disappears into the bar until reached for.
+ */
 export function AppBar({
   title,
   back,
@@ -258,7 +322,7 @@ export function AppBar({
     typeof back === "string" ? (
       <Link
         to={back}
-        className="text-text-oncolor/90 hover:text-text-oncolor wa-tap p-1 -ml-1"
+        className="text-text-oncolor/85 hover:text-text-oncolor hover:bg-white/10 active:bg-white/15 wa-tap size-9 -ml-1 grid place-items-center rounded-full transition-colors duration-150"
         aria-label="Back"
       >
         <ChevronLeftIcon />
@@ -266,7 +330,7 @@ export function AppBar({
     ) : (
       <button
         onClick={back}
-        className="text-text-oncolor/90 hover:text-text-oncolor wa-tap p-1 -ml-1"
+        className="text-text-oncolor/85 hover:text-text-oncolor hover:bg-white/10 active:bg-white/15 wa-tap size-9 -ml-1 grid place-items-center rounded-full transition-colors duration-150"
         aria-label="Back"
       >
         <ChevronLeftIcon />
@@ -274,20 +338,41 @@ export function AppBar({
     )
   );
   return (
-    <header className="h-14 px-3 flex items-center gap-3 bg-bar text-text-oncolor shadow-bar sticky top-0 z-20">
+    <header
+      className={
+        "h-14 px-3 flex items-center gap-3 sticky top-0 z-20 " +
+        "bg-bar text-text-oncolor " +
+        "bg-gradient-to-b from-bar to-bar/95 " +
+        "[box-shadow:0_1px_0_rgba(11,20,26,0.06),0_4px_12px_rgba(11,20,26,0.06)] " +
+        "[backdrop-filter:saturate(140%)_blur(6px)]"
+      }
+    >
       {BackBtn}
       <div className="flex-1 min-w-0">
-        <div className="font-semibold text-base truncate">{title}</div>
+        <div className="font-semibold text-[16px] tracking-tight truncate">
+          {title}
+        </div>
         {subtitle && (
-          <div className="text-xs text-text-oncolor/80 truncate">{subtitle}</div>
+          <div className="text-[11.5px] text-text-oncolor/75 truncate -mt-0.5">
+            {subtitle}
+          </div>
         )}
       </div>
-      {right && <div className="flex items-center gap-1">{right}</div>}
+      {right && <div className="flex items-center gap-0.5">{right}</div>}
     </header>
   );
 }
 
-/** Round avatar bubble with deterministic color from peer fingerprint/id. */
+/**
+ * Round avatar bubble with deterministic gradient from peer
+ * fingerprint/id.
+ *
+ * Premium polish: replaces the flat HSL fill with a soft diagonal
+ * gradient that gives every avatar a subtle 3D feel. The hue is
+ * still deterministic from the seed, so the same person always gets
+ * the same avatar. Initials are tightened with a slight letter-
+ * spacing pull for a confident, designed look.
+ */
 export function Avatar({
   seed,
   label,
@@ -309,7 +394,9 @@ export function Avatar({
         alt=""
         style={{ width: size, height: size }}
         className={
-          "rounded-full object-cover shrink-0 select-none " + (className ?? "")
+          "rounded-full object-cover shrink-0 select-none " +
+          "ring-1 ring-line/50 " +
+          (className ?? "")
         }
       />
     );
@@ -321,11 +408,14 @@ export function Avatar({
       style={{
         width: size,
         height: size,
-        background: `hsl(${hue}deg 45% 55%)`,
+        background: `linear-gradient(135deg, hsl(${hue}deg 55% 62%) 0%, hsl(${(hue + 28) % 360}deg 50% 48%) 100%)`,
         fontSize: size * 0.38,
+        boxShadow:
+          "inset 0 1px 0 rgba(255,255,255,0.18), 0 1px 2px rgba(11,20,26,0.08)",
       }}
       className={
-        "rounded-full flex items-center justify-center text-white font-medium shrink-0 select-none " +
+        "rounded-full flex items-center justify-center text-white " +
+        "font-semibold tracking-tight shrink-0 select-none " +
         (className ?? "")
       }
     >
@@ -340,7 +430,13 @@ function stringToHue(s: string): number {
   return Math.abs(h) % 360;
 }
 
-/** A row in the chats / contacts list. */
+/**
+ * A row in the chats / contacts list.
+ *
+ * Premium polish: larger avatar, refined typography rhythm, hairline
+ * dividers that fade at the edges, and a softer hover/active state
+ * that feels intentional rather than reactive.
+ */
 export function ChatListRow({
   to,
   onClick,
@@ -363,16 +459,32 @@ export function ChatListRow({
   right?: ReactNode;
 }) {
   const body = (
-    <div className="flex items-center gap-3 px-4 py-3 hover:bg-surface active:bg-elevated transition wa-tap border-b border-line/60 last:border-b-0">
-      <Avatar seed={seed} src={avatarSrc} />
+    <div
+      className={
+        "flex items-center gap-3.5 px-4 py-3 " +
+        "hover:bg-surface/70 active:bg-elevated/80 " +
+        "transition-colors duration-150 ease-veil-soft " +
+        "wa-tap wa-tap-soft " +
+        "border-b border-line/40 last:border-b-0"
+      }
+    >
+      <Avatar seed={seed} src={avatarSrc} size={48} />
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline gap-2">
-          <div className="font-medium text-text truncate flex-1">{title}</div>
-          {meta && <div className="text-[11px] text-text-muted shrink-0">{meta}</div>}
+          <div className="font-semibold text-[15px] tracking-tight text-text truncate flex-1">
+            {title}
+          </div>
+          {meta && (
+            <div className="text-[11px] text-text-faint shrink-0 tabular-nums">
+              {meta}
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-2 mt-0.5">
-          <div className="text-sm text-text-muted truncate flex-1">
-            {subtitle ?? <span className="italic">No messages yet</span>}
+          <div className="text-[13.5px] text-text-muted truncate flex-1 leading-snug">
+            {subtitle ?? (
+              <span className="italic text-text-faint">No messages yet</span>
+            )}
           </div>
           {badge && <div className="shrink-0">{badge}</div>}
         </div>
@@ -400,7 +512,14 @@ export function UnreadBadge({ count }: { count: number }) {
   );
 }
 
-/** WhatsApp-style chat bubble. Springs into view on first mount. */
+/**
+ * Chat bubble.
+ *
+ * Premium polish: slightly larger radius, refined padding rhythm,
+ * a soft layered shadow (ambient + tight contact) that gives the
+ * bubble a sense of resting on the chat surface, and a tighter
+ * timestamp row that reads as metadata, not as part of the message.
+ */
 export function MessageBubble({
   direction,
   children,
@@ -416,17 +535,18 @@ export function MessageBubble({
   return (
     <div
       className={
-        "max-w-[78%] px-3 py-1.5 rounded-2xl shadow-bubble text-[14.5px] leading-snug " +
+        "max-w-[78%] px-3 py-2 rounded-[18px] text-[14.5px] leading-[1.4] " +
+        "[box-shadow:0_1px_2px_rgba(11,20,26,0.08),0_0.5px_0.5px_rgba(11,20,26,0.04)] " +
         (isOut
-          ? "self-end bg-wa-bubble-out text-text rounded-tr-sm veil-bubble-out"
-          : "self-start bg-wa-bubble-in text-text rounded-tl-sm veil-bubble-in")
+          ? "self-end bg-wa-bubble-out text-text rounded-tr-[6px] veil-bubble-out"
+          : "self-start bg-wa-bubble-in text-text rounded-tl-[6px] veil-bubble-in")
       }
     >
       <div className="whitespace-pre-wrap break-words">{children}</div>
       <div
         className={
-          "flex items-center gap-1 justify-end mt-0.5 text-[10.5px] " +
-          (isOut ? "text-text/55" : "text-text-muted")
+          "flex items-center gap-1 justify-end mt-1 text-[10.5px] tabular-nums " +
+          (isOut ? "text-text/55" : "text-text-muted/80")
         }
       >
         {time && <span>{time}</span>}
@@ -454,7 +574,14 @@ function StatusTicks({
   return null;
 }
 
-/** Sticky bottom message-composer bar. */
+/**
+ * Sticky bottom message-composer bar.
+ *
+ * Premium polish: a frosted backdrop with a hairline top border so
+ * the composer feels like a separate plane floating over the chat,
+ * a more generous pill-shaped textarea wrapper, and a send button
+ * with a soft accent glow when armed.
+ */
 export function MessageInputBar({
   value,
   onChange,
@@ -468,35 +595,58 @@ export function MessageInputBar({
   sending?: boolean;
   placeholder?: string;
 }) {
+  const armed = !sending && !!value.trim();
   return (
-    <div className="sticky bottom-0 bg-bg/95 backdrop-blur px-2 py-2 border-t border-line/60 flex items-end gap-2">
-      <div className="flex-1 bg-surface rounded-3xl px-4 py-2 flex items-end">
+    <div
+      className={
+        "sticky bottom-0 px-2.5 pt-2 pb-2.5 flex items-end gap-2 " +
+        "bg-bg/85 [backdrop-filter:saturate(160%)_blur(12px)] " +
+        "border-t border-line/50"
+      }
+    >
+      <div
+        className={
+          "flex-1 bg-surface/90 rounded-[22px] px-4 py-2 flex items-end " +
+          "border border-line/60 " +
+          "[box-shadow:inset_0_1px_0_rgb(11_20_26/0.02),0_1px_2px_rgb(11_20_26/0.04)] " +
+          "focus-within:border-wa-green/50 focus-within:[box-shadow:0_0_0_3px_rgb(0_168_132/0.15),0_1px_2px_rgb(11_20_26/0.04)] " +
+          "transition-[box-shadow,border-color] duration-150 ease-veil-soft"
+        }
+      >
         <textarea
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
-              if (!sending && value.trim()) onSend();
+              if (armed) onSend();
             }
           }}
           rows={1}
           placeholder={placeholder}
-          className="w-full bg-transparent text-text placeholder:text-text-muted resize-none outline-none max-h-32"
+          className="w-full bg-transparent text-text placeholder:text-text-faint resize-none outline-none max-h-32 leading-snug"
           style={{ minHeight: "24px" }}
         />
       </div>
       <button
         onClick={() => {
-          if (sending || !value.trim()) return;
+          if (!armed) return;
           // We deliberately don't fire `feedback.press()` here —
           // `sendChatMessage` plays the proper rising 3-note "send"
           // motif once the encrypted envelope actually leaves the
           // device, which is the moment the user wants confirmed.
           onSend();
         }}
-        disabled={sending || !value.trim()}
-        className="size-12 rounded-full bg-wa-green text-text-oncolor flex items-center justify-center hover:bg-wa-green-dark disabled:opacity-50 wa-tap shrink-0"
+        disabled={!armed}
+        className={
+          "size-12 rounded-full text-text-oncolor flex items-center justify-center shrink-0 wa-tap " +
+          "bg-gradient-to-b from-wa-green to-wa-green-dark " +
+          "[box-shadow:inset_0_1px_0_rgba(255,255,255,0.18),0_1px_2px_rgba(11,20,26,0.08)] " +
+          (armed
+            ? "hover:[box-shadow:inset_0_1px_0_rgba(255,255,255,0.18),0_8px_22px_rgba(0,168,132,0.30)] "
+            : "opacity-55 cursor-not-allowed ") +
+          "transition-[box-shadow,opacity] duration-180 ease-veil-soft"
+        }
         aria-label="Send"
       >
         <SendIcon />
@@ -505,7 +655,14 @@ export function MessageInputBar({
   );
 }
 
-/** Floating action button (FAB) used on chat list, etc. */
+/**
+ * Floating action button (FAB).
+ *
+ * Premium polish: rounded-full (more iOS-like than rounded-2xl),
+ * accent gradient, layered ambient shadow + soft accent glow on
+ * hover, and a slight lift on hover that anchors the button as a
+ * floating element.
+ */
 export function FAB({
   onClick,
   to,
@@ -518,7 +675,13 @@ export function FAB({
   children: ReactNode;
 }) {
   const cls =
-    "fixed bottom-20 right-5 sm:bottom-6 size-14 rounded-2xl bg-wa-green text-text-oncolor shadow-sheet flex items-center justify-center hover:bg-wa-green-dark wa-tap z-30";
+    "fixed bottom-20 right-5 sm:bottom-6 size-14 rounded-full text-text-oncolor " +
+    "bg-gradient-to-b from-wa-green to-wa-green-dark " +
+    "flex items-center justify-center wa-tap z-30 " +
+    "[box-shadow:inset_0_1px_0_rgba(255,255,255,0.18),0_10px_28px_rgba(0,168,132,0.30),0_4px_10px_rgba(11,20,26,0.10)] " +
+    "hover:[box-shadow:inset_0_1px_0_rgba(255,255,255,0.18),0_14px_36px_rgba(0,168,132,0.38),0_6px_14px_rgba(11,20,26,0.12)] " +
+    "hover:-translate-y-[1px] " +
+    "transition-[box-shadow,transform] duration-200 ease-veil-soft";
   if (to)
     return (
       <Link to={to} aria-label={label} className={cls} onClick={() => feedback.tap()}>
@@ -539,7 +702,12 @@ export function FAB({
   );
 }
 
-/** Round icon button (used inside app bars). */
+/**
+ * Round icon button (used inside app bars).
+ *
+ * Premium polish: a quiet hover wash and a slightly more pronounced
+ * active state that match the bar's material.
+ */
 export function IconButton({
   onClick,
   label,
@@ -561,7 +729,9 @@ export function IconButton({
       }}
       aria-label={label}
       className={
-        "size-10 rounded-full flex items-center justify-center hover:bg-white/10 wa-tap " +
+        "size-10 rounded-full flex items-center justify-center wa-tap " +
+        "hover:bg-white/12 active:bg-white/18 " +
+        "transition-colors duration-150 " +
         (className ?? "")
       }
     >
@@ -570,7 +740,12 @@ export function IconButton({
   );
 }
 
-/** Empty-state placeholder. */
+/**
+ * Empty-state placeholder.
+ *
+ * Premium polish: refined type hierarchy with a measured display
+ * size, softer surrounding muted text, and a more breathable layout.
+ */
 export function EmptyState({
   icon,
   title,
@@ -583,11 +758,19 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center text-center gap-3 py-16 px-6 text-text-muted">
-      {icon && <div className="text-text-faint">{icon}</div>}
-      <div className="text-text font-medium text-lg">{title}</div>
-      {message && <div className="text-sm max-w-sm">{message}</div>}
-      {action && <div className="mt-2 w-full max-w-xs">{action}</div>}
+    <div className="flex flex-col items-center justify-center text-center gap-3 py-20 px-6 text-text-muted animate-fade-in">
+      {icon && (
+        <div className="text-text-faint mb-1 [&>svg]:size-12">{icon}</div>
+      )}
+      <div className="text-text font-semibold text-[19px] tracking-tight">
+        {title}
+      </div>
+      {message && (
+        <div className="text-[13.5px] max-w-sm leading-relaxed text-text-muted">
+          {message}
+        </div>
+      )}
+      {action && <div className="mt-3 w-full max-w-xs">{action}</div>}
     </div>
   );
 }
@@ -622,7 +805,13 @@ export function Spinner({ size = 18 }: { size?: number }) {
   );
 }
 
-/** Settings list row (icon · label · sub · right). */
+/**
+ * Settings list row (icon · label · sub · right).
+ *
+ * Premium polish: a subtle accent-tinted icon container, refined
+ * type rhythm, and a softer divider treatment for a more curated
+ * settings list feel.
+ */
 export function SettingsRow({
   icon,
   label,
@@ -641,28 +830,53 @@ export function SettingsRow({
   danger?: boolean;
 }) {
   const body = (
-    <div className="flex items-center gap-4 px-4 py-3 hover:bg-surface active:bg-elevated transition wa-tap">
-      {icon && <div className="text-text-muted shrink-0 w-6 flex justify-center">{icon}</div>}
+    <div
+      className={
+        "flex items-center gap-3.5 px-4 py-3.5 " +
+        "hover:bg-surface/70 active:bg-elevated/80 " +
+        "transition-colors duration-150 ease-veil-soft wa-tap wa-tap-soft"
+      }
+    >
+      {icon && (
+        <div
+          className={
+            "size-9 rounded-xl shrink-0 grid place-items-center " +
+            (danger
+              ? "bg-red-500/10 text-red-500"
+              : "bg-surface/80 text-text-muted border border-line/50")
+          }
+        >
+          {icon}
+        </div>
+      )}
       <div className="flex-1 min-w-0">
-        <div className={"font-medium " + (danger ? "text-red-500" : "text-text")}>
+        <div
+          className={
+            "font-medium tracking-tight text-[15px] " +
+            (danger ? "text-red-500" : "text-text")
+          }
+        >
           {label}
         </div>
-        {sub && <div className="text-xs text-text-muted truncate">{sub}</div>}
+        {sub && (
+          <div className="text-[12.5px] text-text-muted truncate mt-0.5">
+            {sub}
+          </div>
+        )}
       </div>
       {right}
     </div>
   );
-  if (to) return <Link to={to} className="block border-b border-line/60 last:border-b-0">{body}</Link>;
+  const wrapCls =
+    "block border-b border-line/40 last:border-b-0";
+  if (to) return <Link to={to} className={wrapCls}>{body}</Link>;
   if (onClick)
     return (
-      <button
-        onClick={onClick}
-        className="block w-full text-left border-b border-line/60 last:border-b-0"
-      >
+      <button onClick={onClick} className={wrapCls + " w-full text-left"}>
         {body}
       </button>
     );
-  return <div className="border-b border-line/60 last:border-b-0">{body}</div>;
+  return <div className={wrapCls}>{body}</div>;
 }
 
 /* ───────────── Icons (inline SVG, currentColor) ───────────── */
