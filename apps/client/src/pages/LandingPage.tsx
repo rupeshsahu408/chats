@@ -26,6 +26,7 @@ export function LandingPage() {
       <TrustBar />
       <Features />
       <Lifestyle />
+      <PressStrip />
       <Testimonials />
       <HowItWorks />
       <Security />
@@ -600,6 +601,85 @@ function ValuePoint({ title, body }: { title: string; body: string }) {
         <p className="text-[15px] text-[#3C5A47] mt-1 leading-relaxed">{body}</p>
       </div>
     </li>
+  );
+}
+
+/* ───────────────────────── Press strip ───────────────────────── */
+
+function PressStrip() {
+  const marks: Array<{ name: string; style: React.CSSProperties }> = [
+    {
+      name: "PRIVACY WEEKLY",
+      style: {
+        fontFamily: "'Inter', sans-serif",
+        fontWeight: 800,
+        letterSpacing: "0.22em",
+        fontSize: "13px",
+      },
+    },
+    {
+      name: "Cipher Review",
+      style: {
+        fontFamily: "'Fraunces', serif",
+        fontStyle: "italic",
+        fontWeight: 600,
+        letterSpacing: "-0.01em",
+        fontSize: "22px",
+      },
+    },
+    {
+      name: "OPEN/STACK",
+      style: {
+        fontFamily: "'Inter', sans-serif",
+        fontWeight: 700,
+        letterSpacing: "0.02em",
+        fontSize: "18px",
+      },
+    },
+    {
+      name: "Quiet Times",
+      style: {
+        fontFamily: "'Fraunces', serif",
+        fontWeight: 700,
+        letterSpacing: "-0.02em",
+        fontSize: "22px",
+      },
+    },
+    {
+      name: "THE LEDGER",
+      style: {
+        fontFamily: "'Inter', sans-serif",
+        fontWeight: 600,
+        letterSpacing: "0.32em",
+        fontSize: "13px",
+      },
+    },
+  ];
+  return (
+    <section
+      aria-label="Featured in"
+      className="py-12 sm:py-14 border-y border-[#253D2C]/8"
+      style={{ backgroundColor: "#FCF5EB" }}
+    >
+      <div className="mx-auto max-w-7xl px-5 sm:px-8">
+        <div className="flex flex-col md:flex-row items-center md:items-baseline gap-6 md:gap-10">
+          <div className="text-[11px] font-bold tracking-[0.24em] uppercase text-[#3C5A47]/70 shrink-0">
+            As seen in
+          </div>
+          <div className="flex flex-1 flex-wrap items-center justify-center md:justify-between gap-x-10 gap-y-4">
+            {marks.map((m) => (
+              <span
+                key={m.name}
+                className="text-[#253D2C]/45 hover:text-[#253D2C]/70 transition-colors whitespace-nowrap select-none"
+                style={m.style}
+              >
+                {m.name}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }
 
