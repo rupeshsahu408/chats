@@ -85,6 +85,7 @@ export function DiscoverProfilePage() {
     <main className="min-h-full flex flex-col bg-bg text-text">
       <AppBar title="Profile" back="/discover" />
 
+      <div className="w-full mx-auto lg:max-w-2xl lg:my-4 lg:rounded-2xl lg:border lg:border-line/60 lg:bg-panel lg:shadow-card lg:overflow-hidden">
       <div className="flex flex-col items-center text-center px-6 pt-8 pb-6">
         <Avatar
           seed={user.id}
@@ -146,6 +147,7 @@ export function DiscoverProfilePage() {
           {relationship === "connected" &&
             "You're already connected on Veil."}
         </p>
+      </div>
       </div>
     </main>
   );

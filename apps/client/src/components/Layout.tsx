@@ -462,26 +462,77 @@ export function AppBar({
   return (
     <header
       className={
-        "h-14 px-3 flex items-center gap-3 sticky top-0 z-20 " +
+        "h-14 lg:h-16 sticky top-0 z-20 " +
         "bg-bar text-text-oncolor " +
         "bg-gradient-to-b from-bar to-bar/95 " +
         "[box-shadow:0_1px_0_rgba(11,20,26,0.06),0_4px_12px_rgba(11,20,26,0.06)] " +
         "[backdrop-filter:saturate(140%)_blur(6px)]"
       }
     >
-      {BackBtn}
-      <div className="flex-1 min-w-0">
-        <div className="font-semibold text-[16px] tracking-tight truncate">
-          {title}
-        </div>
-        {subtitle && (
-          <div className="text-[11.5px] text-text-oncolor/75 truncate -mt-0.5">
-            {subtitle}
+      <div className="h-full mx-auto w-full max-w-screen-2xl px-3 sm:px-4 lg:px-6 flex items-center gap-3">
+        {BackBtn}
+        <div className="flex-1 min-w-0">
+          <div className="font-semibold text-[16px] sm:text-[17px] tracking-tight truncate">
+            {title}
           </div>
-        )}
+          {subtitle && (
+            <div className="text-[11.5px] sm:text-[12px] text-text-oncolor/75 truncate -mt-0.5">
+              {subtitle}
+            </div>
+          )}
+        </div>
+        {right && <div className="flex items-center gap-0.5 sm:gap-1">{right}</div>}
       </div>
-      {right && <div className="flex items-center gap-0.5">{right}</div>}
     </header>
+  );
+}
+
+/**
+ * Responsive content container used by interior pages (settings,
+ * profile, privacy, vault, sound, focus mode, etc.).
+ *
+ * - Mobile: full-width with comfortable side padding.
+ * - Tablet: same, but with a touch more breathing room.
+ * - Desktop: content is centered with a sensible max-width so it stays
+ *   readable on large screens instead of stretching across the whole
+ *   viewport.
+ *
+ * `width` lets a page opt into a different reading width:
+ *   - "narrow"  → ~max-w-xl (forms, single-column reading)
+ *   - "default" → ~max-w-2xl (settings, profile, most interior pages)
+ *   - "wide"    → ~max-w-3xl (chat threads, lists)
+ *   - "full"    → no cap (rare; for pages that genuinely need full bleed)
+ */
+export function PageContainer({
+  children,
+  width = "default",
+  className,
+  as: As = "div",
+}: {
+  children: ReactNode;
+  width?: "narrow" | "default" | "wide" | "full";
+  className?: string;
+  as?: "div" | "main" | "section" | "article";
+}) {
+  const cap =
+    width === "narrow"
+      ? "max-w-xl"
+      : width === "wide"
+        ? "max-w-3xl"
+        : width === "full"
+          ? ""
+          : "max-w-2xl";
+  return (
+    <As
+      className={
+        "w-full mx-auto px-3 sm:px-4 md:px-5 lg:px-6 " +
+        cap +
+        " " +
+        (className ?? "")
+      }
+    >
+      {children}
+    </As>
   );
 }
 

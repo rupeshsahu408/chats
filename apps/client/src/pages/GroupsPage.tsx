@@ -76,7 +76,7 @@ export function GroupsPage() {
           <UnlockGate />
         </div>
       ) : (
-        <div className="bg-panel flex-1">
+        <div className="bg-panel flex-1 w-full mx-auto lg:max-w-3xl lg:my-4 lg:rounded-2xl lg:border lg:border-line/60 lg:shadow-card lg:overflow-hidden">
           <div className="flex items-center gap-2 px-4 pt-3 pb-1">
             <button
               className="px-3 py-1 rounded-full text-sm bg-surface border border-line text-text"

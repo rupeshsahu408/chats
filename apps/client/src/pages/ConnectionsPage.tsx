@@ -181,7 +181,7 @@ export function ConnectionsPage() {
         />
       </div>
 
-      <div className="flex-1 bg-panel">
+      <div className="flex-1 bg-panel w-full mx-auto lg:max-w-3xl lg:my-4 lg:rounded-2xl lg:border lg:border-line/60 lg:shadow-card lg:overflow-hidden">
         {error && (
           <div className="px-4 pt-3">
             <ErrorMessage>{error}</ErrorMessage>

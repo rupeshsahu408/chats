@@ -61,7 +61,7 @@ export function PrivacyReportPage() {
     <div className="min-h-screen bg-bg flex flex-col">
       <AppBar title="Privacy Report" back={() => navigate(-1)} />
 
-      <div className="flex-1 bg-panel pb-10">
+      <div className="flex-1 bg-panel pb-10 w-full mx-auto lg:max-w-2xl lg:my-4 lg:rounded-2xl lg:border lg:border-line/60 lg:shadow-card lg:overflow-hidden">
         {/* ─── Hero ─── */}
         <div className="px-5 pt-7 pb-6 text-center bg-gradient-to-b from-wa-green/8 to-transparent">
           <div className="text-[11px] uppercase tracking-[0.18em] text-text-muted font-semibold">

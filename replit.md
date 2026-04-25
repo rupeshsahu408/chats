@@ -357,6 +357,20 @@ Remaining: **Principle #5 — group chat simplicity** (a focused pass on `GroupS
 
 - **Daily-password fallback for new-device recovery (Apr 2026).** The fresh-device gate for Random-ID accounts now offers two paths via a `recover-choose` picker. **Option A — recovery phrase** (recommended): the existing `recoverIdentityFromPhraseOnNewDevice` flow, preserves chat history. **Option B — daily verification password**: new `me.replaceIdentityWithDailyPassword` server endpoint (rate-limited 5/10min) verifies the user's daily password via bcrypt, then in a single transaction overwrites both `identityPubkey` (Ed25519) and `identityX25519Pubkey` on the user row and deletes all `signedPrekeys` + `oneTimePrekeys` for that user. New client helper `recoverIdentityWithDailyPassword(password, userId)` in `lib/unlock.ts` generates a brand-new BIP-39 phrase, derives fresh Ed25519/X25519, calls the endpoint, persists the new identity locally as `phrase-derived`, and uploads a fresh prekey bundle. UnlockGate then enters a `recover-show-phrase` step that displays the freshly generated 12-word phrase in a numbered grid with a Copy button — only after the user clicks "I've saved it — continue" do we commit the identity to `useUnlockStore` and close the gate. Surfaces clear warnings to the user: old chat history is unrecoverable (peers will see "safety number changed", just like reinstalling Signal) and a new phrase must be saved or they could lock themselves out for good. Server endpoint throws `PRECONDITION_FAILED` for accounts with no daily password set up.
 
+## Responsive layout pass (Apr 2026)
+
+One-shot responsive sweep (no redesign, no removed features) so the existing UI works cleanly on mobile, tablet, and laptop.
+
+- **AppBar** (`components/Layout.tsx`) — inner row wrapped in `mx-auto max-w-screen-2xl` with responsive padding; height bumps from `h-14` to `lg:h-16`.
+- **MainShell** (`components/MainShell.tsx`) — added desktop `SideRail` (`lg:flex`, `w-[240px] xl:w-[260px]`, sticky full-height) with brand block, three nav items (Chats / People / Settings) with active pill, and an encryption-hint footer. The mobile/tablet `TabStrip` becomes `lg:hidden`.
+- **`PageContainer` helper** in `Layout.tsx` (`narrow|default|wide|full`) for any new pages.
+- **Centered card pattern** added to every long-form interior page so content sits in a max-width column on `lg+`: `ConnectionsPage`, `GroupsPage`, `DiscoverPage`, `ProfilePage`, `VaultPage`, `PrivacyReportPage`, `UnderTheHoodPage`, `WhatWeStorePage`, `FocusModePage`, `SoundPage`, `PromisesPage`, `DiscoverProfilePage`, `ChatsPage`. Pattern: `lg:max-w-2xl|3xl lg:mx-auto lg:my-4 lg:rounded-2xl lg:border lg:border-line/60 lg:shadow-card lg:overflow-hidden`.
+- **Chat threads** — `ChatThreadPage` and `GroupChatPage` scroll areas + composers use a centered-padding trick (`lg:px-[max(1rem,calc((100%-48rem)/2))]`) so the bg/border still spans the viewport while messages and the composer center under a 48rem column. `EncryptionNoticeBanner` (cream WhatsApp-style pill with inline padlock SVG and dynamic peer label) added at the top of `ChatThreadPage`.
+- **Auth/Invite pages** already use `ScreenShell` (`max-w-md md:max-w-lg`) — auto-responsive, no changes needed.
+- **SettingsPage** already had a 2-pane layout (`md:w-80` sidebar) that pairs cleanly with the new SideRail.
+
+`pnpm --filter @veil/client typecheck` and `pnpm --filter @veil/client build` are both green.
+
 ## Next phase
 
 **Native iOS (Phase 8) and Android Play Store (Phase 9) are deferred.** The product launches as an installable PWA: Android users install via Chrome's prompt, iOS users use Add-to-Home-Screen (web push works on iOS 16.4+ once installed). Phase 7 wrap-up — manual e2e group test (3 accounts) + push verification — remains the only outstanding item before launch readiness.

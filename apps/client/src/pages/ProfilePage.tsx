@@ -83,9 +83,9 @@ export function ProfilePage() {
           </div>
         </div>
       ) : (
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto w-full mx-auto lg:max-w-2xl lg:my-4 lg:rounded-2xl lg:border lg:border-line/60 lg:bg-panel lg:shadow-card">
           {/* Hero: avatar + public name */}
-          <div className="bg-panel py-8 flex flex-col items-center gap-3 border-b border-line">
+          <div className="bg-panel py-8 flex flex-col items-center gap-3 border-b border-line lg:rounded-t-2xl">
             <Avatar
               seed={peer.username || peer.id}
               src={peer.avatarDataUrl ?? null}

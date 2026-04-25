@@ -259,26 +259,28 @@ export function ChatsPage() {
       }
     >
       {searching && (
-        <div className="bg-panel border-b border-line px-4 py-2">
-          <input
-            autoFocus
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by name, @username or fingerprint…"
-            className="w-full bg-surface border border-line rounded-full px-4 py-2 text-sm outline-none focus:border-wa-green text-text"
-          />
+        <div className="bg-panel border-b border-line">
+          <div className="w-full mx-auto lg:max-w-3xl px-4 py-2">
+            <input
+              autoFocus
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by name, @username or fingerprint…"
+              className="w-full bg-surface border border-line rounded-full px-4 py-2 text-sm outline-none focus:border-wa-green text-text"
+            />
+          </div>
         </div>
       )}
 
       {!identity && (
-        <div className="p-4">
+        <div className="p-4 w-full mx-auto lg:max-w-2xl">
           <UnlockGate />
         </div>
       )}
 
       {identity && (
-        <div className="bg-panel flex-1">
+        <div className="bg-panel flex-1 w-full mx-auto lg:max-w-3xl lg:my-4 lg:rounded-2xl lg:border lg:border-line/60 lg:shadow-card lg:overflow-hidden">
           <div className="px-4 pt-3 pb-1">
             <DirectGroupsTabs
               active="direct"

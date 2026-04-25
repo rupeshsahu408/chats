@@ -1023,7 +1023,16 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
       <div
         ref={scrollRef}
         style={wallpaperStyle}
-        className="flex-1 min-h-0 overflow-y-auto px-3 py-3 flex flex-col gap-1.5"
+        className={
+          "flex-1 min-h-0 overflow-y-auto py-3 flex flex-col gap-1.5 " +
+          // Mobile: edge-to-edge with comfortable side padding.
+          // Tablet+: same edges. Desktop (lg+): centered max-width via
+          // computed side padding so the wallpaper still covers the
+          // whole viewport but bubbles never stretch absurdly wide.
+          "px-3 sm:px-4 " +
+          "lg:px-[max(1rem,calc((100%-48rem)/2))] " +
+          "xl:px-[max(1.5rem,calc((100%-56rem)/2))]"
+        }
       >
         <EncryptionNoticeBanner
           peerLabel={
@@ -3422,7 +3431,7 @@ function Composer({
 
   return (
     <>
-    <div className="sticky bottom-0 bg-bg/95 backdrop-blur border-t border-line/60">
+    <div className="sticky bottom-0 bg-bg/95 backdrop-blur border-t border-line/60 lg:px-[max(1rem,calc((100%-48rem)/2))] xl:px-[max(1.5rem,calc((100%-56rem)/2))]">
       {replyTo && (
         <div className="px-3 py-2 border-b border-line/60 bg-surface/40 flex items-start gap-2">
           <div

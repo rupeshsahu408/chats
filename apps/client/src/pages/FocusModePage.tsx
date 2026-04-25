@@ -73,7 +73,7 @@ export function FocusModePage() {
   return (
     <div className="min-h-screen bg-bg flex flex-col">
       <AppBar title="Focus Mode" back={() => navigate(-1)} />
-      <div className="flex-1 bg-panel pb-12">
+      <div className="flex-1 bg-panel pb-12 w-full mx-auto lg:max-w-2xl lg:my-4 lg:rounded-2xl lg:border lg:border-line/60 lg:shadow-card lg:overflow-hidden">
         {/* ─── Hero / live status ─── */}
         <div className="px-5 pt-7 pb-5 text-center bg-gradient-to-b from-wa-green/8 to-transparent">
           <div className="inline-flex items-center gap-2 rounded-full bg-wa-green/12 text-wa-green-dark dark:text-wa-green px-3 py-1 text-[11px] font-semibold uppercase tracking-widest">

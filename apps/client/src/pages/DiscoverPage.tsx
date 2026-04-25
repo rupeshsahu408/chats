@@ -54,7 +54,7 @@ export function DiscoverPage() {
     <main className="min-h-full flex flex-col bg-bg text-text">
       <AppBar title="Discover people" back="/chats" />
 
-      <div className="px-4 pt-3 pb-2">
+      <div className="px-4 pt-3 pb-2 w-full mx-auto lg:max-w-2xl">
         <label className="relative block">
           <span className="sr-only">Search people</span>
           <input
@@ -76,7 +76,7 @@ export function DiscoverPage() {
         </label>
       </div>
 
-      <div className="flex-1">
+      <div className="flex-1 w-full mx-auto lg:max-w-2xl lg:my-2 lg:rounded-2xl lg:border lg:border-line/60 lg:bg-panel lg:shadow-card lg:overflow-hidden">
         {list.isLoading ? (
           <div className="flex items-center justify-center py-16 text-text-muted">
             <Spinner />

@@ -1202,7 +1202,16 @@ function GroupChatInner({ groupId }: { groupId: string }) {
       <div
         ref={scrollRef}
         style={wallpaperStyle}
-        className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-1.5"
+        className={
+          "flex-1 overflow-y-auto py-3 flex flex-col gap-1.5 " +
+          // Mobile: edge-to-edge with comfortable side padding.
+          // Desktop (lg+): centered max-width via computed side
+          // padding so the wallpaper still covers the whole viewport
+          // but message bubbles never stretch absurdly wide.
+          "px-3 sm:px-4 " +
+          "lg:px-[max(1rem,calc((100%-48rem)/2))] " +
+          "xl:px-[max(1.5rem,calc((100%-56rem)/2))]"
+        }
       >
         <div className="self-center text-[11px] text-text-muted bg-panel border border-line rounded-full px-3 py-1 mb-2 inline-flex items-center gap-1">
           <LockIcon className="w-3 h-3" /> End-to-end encrypted · sender keys
@@ -1710,7 +1719,7 @@ function Composer({
   }
 
   return (
-    <div className="sticky bottom-0 bg-bg/95 backdrop-blur border-t border-line">
+    <div className="sticky bottom-0 bg-bg/95 backdrop-blur border-t border-line lg:px-[max(1rem,calc((100%-48rem)/2))] xl:px-[max(1.5rem,calc((100%-56rem)/2))]">
       {emojiOpen && (
         <div className="px-2 pb-2 pt-1">
           <EmojiPicker

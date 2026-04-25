@@ -224,7 +224,7 @@ export function VaultPage() {
           clearError={() => setVerifyErr(null)}
         />
       ) : (
-        <div className="bg-panel flex-1 animate-fade-in">
+        <div className="bg-panel flex-1 animate-fade-in w-full mx-auto lg:max-w-2xl lg:my-4 lg:rounded-2xl lg:border lg:border-line/60 lg:shadow-card lg:overflow-hidden">
           <div className="px-4 pt-4 pb-2 flex items-center justify-between">
             <div>
               <div className="text-[15px] font-semibold tracking-tight text-text">
