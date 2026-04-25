@@ -1025,6 +1025,11 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
         style={wallpaperStyle}
         className="flex-1 min-h-0 overflow-y-auto px-3 py-3 flex flex-col gap-1.5"
       >
+        <EncryptionNoticeBanner
+          peerLabel={
+            peer?.peer?.username ? `@${peer.peer.username}` : displayName
+          }
+        />
         {!filteredMessages || filteredMessages.length === 0 ? (
           <EmptyState
             title={searchOpen && searchQuery ? "No matches" : "No messages yet"}
@@ -4334,6 +4339,90 @@ function DeleteMessageDialog({
 }
 
 /* ───────────── Phase-1 polish components: pin banner, edit, info, starred ───────────── */
+
+/**
+ * WhatsApp-style end-to-end encryption notice. Renders as a small,
+ * centered "pill" at the very top of the chat scroll area — the first
+ * thing the user sees inside the conversation. Uses a custom inline
+ * SVG padlock (rounded shackle, filled body, keyhole) so the icon
+ * stays crisp at any size and reads as premium.
+ */
+export function EncryptionNoticeBanner({ peerLabel }: { peerLabel: string }) {
+  return (
+    <div
+      className="self-center w-full flex justify-center pt-1 pb-2 animate-fade-in"
+      role="note"
+      aria-label="End-to-end encryption notice"
+    >
+      <div
+        className="
+          max-w-[88%] sm:max-w-md
+          flex items-start gap-2.5
+          px-3.5 py-2
+          rounded-2xl
+          shadow-card
+          ring-1 ring-black/5
+          text-center
+        "
+        style={{
+          backgroundColor: "rgb(var(--wa-encryption-bg, 255 248 196))",
+          color: "rgb(var(--wa-encryption-text, 84 64 12))",
+        }}
+      >
+        <span
+          className="shrink-0 mt-[2px] inline-flex items-center justify-center"
+          aria-hidden="true"
+        >
+          <svg
+            width="14"
+            height="16"
+            viewBox="0 0 14 16"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M3 7V5a4 4 0 1 1 8 0v2"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              opacity="0.9"
+            />
+            <rect
+              x="1.5"
+              y="7"
+              width="11"
+              height="8"
+              rx="2.2"
+              fill="currentColor"
+              opacity="0.95"
+            />
+            <circle cx="7" cy="10.6" r="1.1" fill="white" opacity="0.95" />
+            <rect
+              x="6.45"
+              y="11"
+              width="1.1"
+              height="2.2"
+              rx="0.5"
+              fill="white"
+              opacity="0.95"
+            />
+          </svg>
+        </span>
+        <div className="flex-1 min-w-0 text-left">
+          <div className="text-[11.5px] font-semibold leading-tight tracking-tight">
+            End-to-end encrypted
+          </div>
+          <div className="text-[11px] leading-snug opacity-85 mt-0.5 break-words">
+            Only you and{" "}
+            <span className="font-medium">{peerLabel}</span>{" "}
+            can read these messages.
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 /**
  * Sticky banner under the AppBar showing the currently-pinned message.
