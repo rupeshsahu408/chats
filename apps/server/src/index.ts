@@ -18,6 +18,11 @@ const app = Fastify({
   // Encrypted media now uploads directly to R2 via presigned URLs, so the
   // server only ever sees small JSON envelopes again.
   bodyLimit: 1 * 1024 * 1024,
+  // tRPC batches GET requests by joining procedure names with commas in
+  // the URL path (e.g. `/trpc/a.b,c.d,e.f`). Fastify's default
+  // `maxParamLength` of 100 rejects long batches with a 404 before the
+  // tRPC plugin ever sees them. Bump it well above any realistic batch.
+  maxParamLength: 5000,
   logger: isDev
     ? {
         level: "info",

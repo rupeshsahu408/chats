@@ -1,0 +1,84 @@
+Request URL
+https://chats-fk6e.onrender.com/trpc/connections.listIncoming,me.get,privacy.getLastSeenPrivacy,discover.getDiscoverability,privacy.listBlocked,prekeys.status,scheduled.list?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7D%2C%221%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7D%2C%222%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7D%2C%223%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7D%2C%224%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7D%2C%225%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7D%2C%226%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7D%7D
+Request Method
+GET
+Status Code
+404 Not Found
+Remote Address
+[64:ff9b::d818:3907]:443
+Referrer Policy
+strict-origin-when-cross-origin
+access-control-allow-credentials
+true
+access-control-allow-origin
+https://chats-client-vert.vercel.app
+alt-svc
+h3=":443"; ma=86400
+cf-cache-status
+DYNAMIC
+cf-ray
+9f1bf4ba9834520a-BOM
+content-encoding
+br
+content-length
+261
+content-type
+application/json; charset=utf-8
+date
+Sat, 25 Apr 2026 08:25:14 GMT
+priority
+u=1,i
+rndr-id
+cf0a95a5-a61b-4b33
+server
+cloudflare
+server-timing
+cfExtPri
+vary
+Origin
+vary
+Accept-Encoding
+x-render-origin-server
+Render
+:authority
+chats-fk6e.onrender.com
+:method
+GET
+:path
+/trpc/connections.listIncoming,me.get,privacy.getLastSeenPrivacy,discover.getDiscoverability,privacy.listBlocked,prekeys.status,scheduled.list?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7D%2C%221%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7D%2C%222%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7D%2C%223%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7D%2C%224%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7D%2C%225%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7D%2C%226%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%2C%22v%22%3A1%7D%7D%7D
+:scheme
+https
+accept
+*/*
+accept-encoding
+gzip, deflate, br, zstd
+accept-language
+en-US,en;q=0.5
+authorization
+Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiI3MWJhMDk4MS1hOGRiLTRjNzctYTcxOC1jM2YzYjkyMmNmNTMiLCJpYXQiOjE3NzcxMDU1MDIsImlzcyI6InZlaWwiLCJhdWQiOiJ2ZWlsLWNsaWVudCIsImV4cCI6MTc3NzEwNjQwMn0.R3x6pYSYLGahQc7gDWVmD-zQWskwoQyCulb3YP3qnEE
+origin
+https://chats-client-vert.vercel.app
+priority
+u=1, i
+referer
+https://chats-client-vert.vercel.app/
+sec-ch-ua
+"Brave";v="147", "Not.A/Brand";v="8", "Chromium";v="147"
+sec-ch-ua-mobile
+?0
+sec-ch-ua-platform
+"Windows"
+sec-fetch-dest
+empty
+sec-fetch-mode
+cors
+sec-fetch-site
+cross-site
+sec-fetch-storage-access
+none
+sec-gpc
+1
+user-agent
+Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36
+x-refresh-token
+sCIs_QmGkgovgoX5o12wL0SDyRYG52OgjsmIhpzC4igwibAp-pRAYBarPMcXifHI
