@@ -2058,7 +2058,7 @@ function Footer() {
             links={[
               { label: "GitHub", href: "https://github.com" },
               { label: "Privacy Policy", to: "/privacy-policy" },
-              { label: "Terms", href: "#" },
+              { label: "Terms & Conditions", to: "/terms" },
               { label: "Contact", href: "mailto:hello@veil.app" },
             ]}
           />
