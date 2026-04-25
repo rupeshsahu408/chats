@@ -98,6 +98,41 @@ export function SessionSync() {
     void useStealthPrefs.getState().hydrate();
   }, []);
 
+  // Proactive access-token refresh.
+  //
+  // Access tokens expire after 15 minutes (see `apps/server/src/lib/jwt.ts`).
+  // Without a periodic refresh, every authenticated request — REST,
+  // tRPC, and the WebSocket — starts failing with 401 the moment the
+  // token expires, even though the long-lived refresh token is still
+  // valid. We renew every 10 minutes so the access token is always
+  // fresh while the user is around.
+  useEffect(() => {
+    if (!accessToken) return;
+    let cancelled = false;
+    const renew = async () => {
+      const { refreshToken } = useAuthStore.getState();
+      if (!refreshToken) return;
+      try {
+        const r = await trpcClientProxy().auth.refresh.mutate();
+        if (cancelled) return;
+        useAuthStore.getState().setAuth({
+          accessToken: r.accessToken,
+          refreshToken: r.refreshToken,
+          refreshExpiresIn: r.refreshExpiresIn,
+          user: r.user,
+        });
+      } catch {
+        /* network blip or genuinely expired refresh token —
+           SessionGuard will pick up real revocations. */
+      }
+    };
+    const t = setInterval(renew, 10 * 60_000);
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
+  }, [accessToken]);
+
   // App-wide scheduled-message dispatcher. Runs whenever the identity
   // is unlocked, regardless of which page the user is currently on.
   useScheduledMessageSender(identity);

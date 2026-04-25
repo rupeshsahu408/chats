@@ -156,6 +156,38 @@ function SessionBootstrap() {
     // dedicated toggle on the Settings screen).
     void ensurePushSubscription({ requestPermission: false });
 
+    // Helper: route an already-authenticated user away from the
+    // pre-auth landing/login pages. Pending invite (if any) wins.
+    const routeAuthenticated = () => {
+      const pending = readPendingInvite();
+      const onAuthLandingPath =
+        location.pathname === "/" ||
+        location.pathname === "/welcome" ||
+        location.pathname === "/login" ||
+        location.pathname === "/login/phone" ||
+        location.pathname === "/login/random" ||
+        location.pathname === "/signup/email" ||
+        location.pathname === "/signup/phone" ||
+        location.pathname === "/signup/random";
+      if (pending) {
+        clearPendingInvite();
+        navigate(`/i/${encodeURIComponent(pending)}`, { replace: true });
+      } else if (onAuthLandingPath) {
+        navigate("/chats", { replace: true });
+      }
+    };
+
+    // FAST PATH: if the auth store already hydrated a valid session
+    // from localStorage, route the user immediately so they aren't
+    // stuck on the landing/login page while we wait for the network
+    // round-trip. The background refresh below still runs to mint a
+    // fresh access token.
+    const { accessToken: existingAccess, user: existingUser } =
+      useAuthStore.getState();
+    if (existingAccess && existingUser) {
+      routeAuthenticated();
+    }
+
     // Skip the refresh attempt entirely when there's no persisted
     // refresh token. On the deployed Vercel ↔ Render setup the
     // `veil_refresh` cookie is third-party and is often blocked by
@@ -165,25 +197,20 @@ function SessionBootstrap() {
       return;
     }
 
-    // Use the long-lived refresh cookie to mint a new access token.
+    // Use the long-lived refresh cookie / x-refresh-token header to
+    // mint a new access token.
     refresh
       .mutateAsync()
       .then((r) => {
-        setAuth({ accessToken: r.accessToken, refreshToken: r.refreshToken, refreshExpiresIn: r.refreshExpiresIn, user: r.user });
-        const pending = readPendingInvite();
-        const onAuthLandingPath =
-          location.pathname === "/" ||
-          location.pathname === "/welcome" ||
-          location.pathname === "/login" ||
-          location.pathname === "/signup/email" ||
-          location.pathname === "/signup/phone" ||
-          location.pathname === "/signup/random";
-        if (pending) {
-          clearPendingInvite();
-          navigate(`/i/${encodeURIComponent(pending)}`, { replace: true });
-        } else if (onAuthLandingPath) {
-          // Already signed in but on a pre-auth screen — push them to chats.
-          navigate("/chats", { replace: true });
+        setAuth({
+          accessToken: r.accessToken,
+          refreshToken: r.refreshToken,
+          refreshExpiresIn: r.refreshExpiresIn,
+          user: r.user,
+        });
+        // If we hadn't already taken the fast path above, route now.
+        if (!existingAccess || !existingUser) {
+          routeAuthenticated();
         }
       })
       .catch(() => {

@@ -26,8 +26,17 @@ export function trpcClientProxy() {
           return fetch(url, { ...options, credentials: "include" });
         },
         headers() {
-          const token = useAuthStore.getState().accessToken;
-          return token ? { authorization: `Bearer ${token}` } : {};
+          const { accessToken, refreshToken } = useAuthStore.getState();
+          const h: Record<string, string> = {};
+          if (accessToken) h.authorization = `Bearer ${accessToken}`;
+          // Mirror the React tRPC client: in cross-site setups (Vercel
+          // client ↔ Render server) the `veil_refresh` cookie is often
+          // blocked, so we always also pass the refresh token in a
+          // header. Without this, every server-side call that depends
+          // on the refresh cookie (e.g. `auth.checkSessionStatus`)
+          // would falsely report the user as signed-out.
+          if (refreshToken) h["x-refresh-token"] = refreshToken;
+          return h;
         },
       }),
     ],

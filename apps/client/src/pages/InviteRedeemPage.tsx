@@ -43,7 +43,11 @@ export function InviteRedeemPage() {
   async function onAccept() {
     setError(null);
     if (!accessToken) {
-      navigate(`/?invite=${encodeURIComponent(token)}`);
+      // Token is already in sessionStorage (see effect above); the
+      // signup/login flows pick it up via `postAuthLandingPath()` and
+      // bring the user back to this exact invite. Sending them to
+      // `/welcome` lets them choose how they want to authenticate.
+      navigate("/welcome");
       return;
     }
     try {

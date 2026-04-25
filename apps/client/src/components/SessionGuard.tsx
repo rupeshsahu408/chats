@@ -76,6 +76,14 @@ export function SessionGuard() {
   // session_revoked: verify our own session is still alive; if not,
   // wipe local auth + bounce to the login page. Tailor the toast to
   // the reason we got from the WS payload.
+  //
+  // Important: we only treat `reason === "revoked"` as a real
+  // server-side revocation. `reason === "no_cookie"` means the
+  // refresh-token credential never reached the server (which
+  // routinely happens in cross-site setups like Vercel client ↔
+  // Render server, where browsers block the third-party
+  // `veil_refresh` cookie). Treating that case as a logout would
+  // false-positive sign the user out on every poll.
   useEffect(() => {
     if (!accessToken) return;
     if (revokedTick === 0) return;
@@ -86,7 +94,7 @@ export function SessionGuard() {
         const status =
           await trpcClientProxy().auth.checkSessionStatus.query();
         if (cancelled) return;
-        if (!status.active) {
+        if (!status.active && status.reason === "revoked") {
           clearAuth();
           await clearUnlock().catch(() => undefined);
           const message =
@@ -108,14 +116,21 @@ export function SessionGuard() {
   }, [revokedTick, accessToken, clearAuth, clearUnlock, navigate]);
 
   // Periodic liveness check (every 60s) so a missed WS push
-  // doesn't keep us pretending to be signed in indefinitely.
+  // doesn't keep us pretending to be signed in indefinitely. Same
+  // guard as above: only act on an explicit "revoked" reason so a
+  // dropped/blocked refresh credential never accidentally signs
+  // the user out.
   useEffect(() => {
     if (!accessToken) return;
     const t = setInterval(async () => {
       try {
         const status =
           await trpcClientProxy().auth.checkSessionStatus.query();
-        if (!status.active && useAuthStore.getState().accessToken) {
+        if (
+          !status.active &&
+          status.reason === "revoked" &&
+          useAuthStore.getState().accessToken
+        ) {
           clearAuth();
           await clearUnlock().catch(() => undefined);
           toast.warning("You were signed out from another device.", {
