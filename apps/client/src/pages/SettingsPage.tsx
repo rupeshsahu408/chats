@@ -289,7 +289,7 @@ export function SettingsPage() {
           <SettingsSectionPanel>
             <SettingsRow
               label="Our promises"
-              sub="No ads, no data sharing, local-first, open source — in plain words"
+              sub="No ads, no data sharing, local-first, independently audited — in plain words"
               to="/promises"
             />
             <SettingsRow

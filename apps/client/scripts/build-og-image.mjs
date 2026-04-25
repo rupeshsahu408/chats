@@ -85,7 +85,7 @@ const svg = `<?xml version="1.0" encoding="UTF-8"?>
     <text x="62" y="36"
           font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', system-ui, sans-serif"
           font-size="20" font-weight="600" letter-spacing="0.4"
-          fill="#00866A">END-TO-END ENCRYPTED · OPEN SOURCE</text>
+          fill="#00866A">END-TO-END ENCRYPTED · PRIVACY-FIRST</text>
   </g>
 </svg>`;
 

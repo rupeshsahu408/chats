@@ -65,9 +65,9 @@ export function PromisesPage() {
           />
           <PromiseCard
             number="04"
-            headline="The code is open."
-            body="Every line of VeilChat — client, server, cryptography — is open source under a permissive license. Anyone can audit it, fork it, or run their own."
-            proof="Our promises mean nothing if you can't verify them. The source is the receipt."
+            headline="Built to be verified."
+            body="VeilChat is built on the same battle‑tested cryptographic standards (Signal Protocol, Double Ratchet, X3DH) that secure billions of conversations every day. No homemade crypto. No proprietary tricks. Just well‑understood math you don't have to take our word for."
+            proof="Our promises mean nothing if you can't verify them. The cryptography is the receipt."
             icon={<CodeIcon />}
           />
         </div>

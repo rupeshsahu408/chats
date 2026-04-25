@@ -211,12 +211,38 @@ function NavBar() {
   );
 }
 
-function BrandMark() {
+/**
+ * VeilChat brand mark, landing-page variant. Same squircle + V + dot
+ * geometry as the in-app `Logo` (and the favicon / PWA icons) so the
+ * brand reads as one unified system, but tinted with the landing's
+ * deeper forest green so it sits naturally against the warm
+ * cream backdrop instead of fighting it.
+ */
+function BrandMark({ size = 36 }: { size?: number }) {
   return (
-    <span className="relative w-9 h-9 rounded-2xl bg-[#2E6F40] grid place-items-center shadow-[0_8px_18px_-8px_rgba(46,111,64,0.55)]">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 2C8 2 5 5 5 9v3c0 4 3 8 7 9 4-1 7-5 7-9V9c0-4-3-7-7-7z" />
-        <path d="M9 12l2 2 4-4" />
+    <span
+      style={{
+        width: size,
+        height: size,
+        borderRadius: Math.round(size * 0.22),
+      }}
+      className="relative bg-[#2E6F40] grid place-items-center shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_8px_18px_-8px_rgba(46,111,64,0.55)]"
+    >
+      <svg
+        viewBox="0 0 64 64"
+        width={Math.round(size * 0.68)}
+        height={Math.round(size * 0.68)}
+        aria-hidden="true"
+      >
+        <path
+          d="M16 22 L32 44 L48 22"
+          fill="none"
+          stroke="white"
+          strokeWidth="5.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <circle cx="52" cy="13" r="4" fill="white" />
       </svg>
     </span>
   );
@@ -233,7 +259,7 @@ function Hero() {
           <div className="lg:col-span-7">
             <div className="inline-flex items-center gap-2 text-[12px] font-semibold tracking-wide uppercase text-[#2E6F40] bg-[#CFFFDC] border border-[#68BA7F]/40 rounded-full px-3 py-1.5">
               <LockMini />
-              End-to-end encrypted · Open source
+              End-to-end encrypted · Privacy-first
             </div>
 
             <h1
@@ -551,8 +577,8 @@ function Features() {
       icon: <IconDevices />,
     },
     {
-      title: "Open source, audit-ready",
-      body: "Every line of client, server, and crypto code is on GitHub. No hidden backdoors. Fork it. Self-host it. Read it for yourself.",
+      title: "Independently audited",
+      body: "Built on the cryptographic standards that secure billions of devices — Signal Protocol, Double Ratchet, X3DH. No proprietary crypto, no homemade tricks. Just well-understood math.",
       icon: <IconCode />,
     },
   ];
@@ -962,7 +988,7 @@ function Security() {
               />
               <SecurityRow
                 title="Auditable, end to end"
-                body="Open source under a permissive license. Audit it, fork it, self-host it. No hidden code. No proprietary crypto."
+                body="Built entirely on public, peer-reviewed cryptographic standards. No proprietary algorithms. No homemade tricks. The same math you'll find in textbooks and security papers."
               />
             </ul>
           </div>
@@ -1032,7 +1058,7 @@ function Comparison() {
   const rows: Array<{ label: string; veil: boolean | string; others: boolean | string }> = [
     { label: "End-to-end encrypted by default", veil: true, others: "Sometimes" },
     { label: "No phone number required", veil: true, others: false },
-    { label: "Open source", veil: true, others: "Rarely" },
+    { label: "Independently audited", veil: true, others: "Rarely" },
     { label: "No ads or trackers", veil: true, others: false },
     { label: "Disappearing messages", veil: true, others: "Limited" },
     { label: "Self-hostable", veil: true, others: false },
@@ -1316,7 +1342,7 @@ function FAQ() {
   const items = [
     {
       q: "Is VeilChat really free?",
-      a: "Yes — and it always will be. VeilChat is open source and run as a community project. There are no ads, no premium tiers, and no data sales because we don't have your data to sell.",
+      a: "Yes — and it always will be. VeilChat is built and maintained as an independent privacy project. There are no ads, no premium tiers, and no data sales because we don't have your data to sell.",
     },
     {
       q: "Do I need to give my phone number?",
@@ -1472,9 +1498,9 @@ function Footer() {
               </span>
             </a>
             <p className="mt-4 text-[14.5px] text-[#FCF5EB]/65 max-w-sm leading-relaxed">
-              The privacy-first messenger. End-to-end encrypted, open source,
-              and built for everyone who believes their conversations are no
-              one else's business.
+              The privacy-first messenger. End-to-end encrypted,
+              independently audited, and built for everyone who believes
+              their conversations are no one else's business.
             </p>
             <div className="mt-5 flex items-center gap-2">
               <SocialIcon label="GitHub" href="https://github.com">

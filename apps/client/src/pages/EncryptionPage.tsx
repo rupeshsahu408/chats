@@ -165,9 +165,12 @@ export function EncryptionPage() {
             side of the conversation.
           </p>
           <p>
-            And because VeilChat is open source, you don't have to trust
-            the description on this page — you can read the actual
-            code that does the sealing and unsealing.
+            And because VeilChat is built on the same well‑documented
+            cryptographic standards that protect billions of devices
+            every day, you don't have to trust the description on
+            this page — the security model itself has been studied,
+            audited and stress‑tested by independent experts for over
+            a decade.
           </p>
         </Section>
 
