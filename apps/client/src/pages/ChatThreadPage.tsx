@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
 import { trpc } from "../lib/trpc";
@@ -49,6 +49,7 @@ import {
   EmptyState,
   LockIcon,
   PaperclipIcon,
+  PlusIcon,
   MicIcon,
   PlayIcon,
   PauseIcon,
@@ -3363,6 +3364,12 @@ function Composer({
   const [recording, setRecording] = useState<RecordingState | null>(null);
   const [micShake, setMicShake] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
+  // Mobile-only "+" attachment sheet. On phones the secondary
+  // composer actions (photo, poll, view-once) collapse behind a
+  // single "+" so the input row stays clean and WhatsApp-tight.
+  // On tablet+ the menu is bypassed entirely and the buttons render
+  // inline as before.
+  const [attachOpen, setAttachOpen] = useState(false);
   // Auto-cancel "choosing a photo…" if the OS file dialog is dismissed —
   // we have no `cancel` event, so we rely on focus returning + a timeout.
   const photoActivityTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -3492,6 +3499,61 @@ function Composer({
         </div>
       )}
 
+      {/*
+        Mobile-only attachment sheet. Slides into view above the input
+        row when the user taps the "+" button, exposing the photo /
+        poll / view-once actions as labeled tiles. Each tile closes
+        the sheet on tap so the user is never stuck looking at it.
+      */}
+      {attachOpen && (
+        <div className="px-2 pb-2 pt-1 sm:hidden">
+          <div className="bg-surface rounded-2xl border border-line shadow-card p-2 grid grid-cols-3 gap-1.5">
+            <AttachAction
+              icon={
+                viewOnceDefault || oneShotViewOnce ? (
+                  <span className="text-xl leading-none">👁</span>
+                ) : (
+                  <PaperclipIcon className="w-5 h-5" />
+                )
+              }
+              label={
+                viewOnceDefault || oneShotViewOnce ? "View-once photo" : "Photo"
+              }
+              onClick={() => {
+                setAttachOpen(false);
+                onActivity?.(true, "photo");
+                if (photoActivityTimer.current)
+                  clearTimeout(photoActivityTimer.current);
+                photoActivityTimer.current = setTimeout(() => {
+                  onActivity?.(false, "photo");
+                }, 30_000);
+                fileInput.current?.click();
+              }}
+              disabled={sending}
+            />
+            <AttachAction
+              icon={<PollIcon className="w-5 h-5" />}
+              label="Poll"
+              onClick={() => {
+                setAttachOpen(false);
+                onCreatePoll();
+              }}
+              disabled={sending}
+            />
+            <AttachAction
+              icon={<span className="text-xl leading-none">👁</span>}
+              label={oneShotViewOnce ? "View-once on" : "View-once"}
+              active={oneShotViewOnce}
+              onClick={() => {
+                setAttachOpen(false);
+                onToggleOneShotViewOnce();
+              }}
+              disabled={sending}
+            />
+          </div>
+        </div>
+      )}
+
       <div className="px-1.5 sm:px-2 py-1.5 sm:py-2 flex items-end gap-1.5 sm:gap-2">
       <input
         ref={fileInput}
@@ -3507,7 +3569,10 @@ function Composer({
       <div className="flex-1 min-w-0 bg-surface rounded-3xl px-1.5 sm:px-2 py-1 flex items-end gap-0.5 sm:gap-1">
         <button
           type="button"
-          onClick={() => setEmojiOpen((v) => !v)}
+          onClick={() => {
+            setEmojiOpen((v) => !v);
+            setAttachOpen(false);
+          }}
           className={
             "size-8 sm:size-9 rounded-full hover:bg-white/10 flex items-center justify-center shrink-0 text-lg sm:text-xl " +
             (emojiOpen ? "text-wa-green" : "text-text-muted hover:text-text")
@@ -3516,6 +3581,29 @@ function Composer({
           aria-expanded={emojiOpen}
         >
           😊
+        </button>
+        {/*
+          Mobile "+" entry point that opens the attachment sheet.
+          Hidden on tablet+, where the inline buttons take over.
+        */}
+        <button
+          type="button"
+          onClick={() => {
+            setAttachOpen((v) => !v);
+            setEmojiOpen(false);
+          }}
+          disabled={sending}
+          className={
+            "sm:hidden size-8 rounded-full hover:bg-white/10 flex items-center justify-center shrink-0 disabled:opacity-50 " +
+            (attachOpen
+              ? "text-wa-green bg-wa-green/15 rotate-45 transition-transform duration-200"
+              : "text-text-muted hover:text-text transition-transform duration-200")
+          }
+          aria-label={attachOpen ? "Close attachment menu" : "Open attachment menu"}
+          aria-expanded={attachOpen}
+          title="Attach"
+        >
+          <PlusIcon className="w-[20px] h-[20px]" />
         </button>
         <button
           type="button"
@@ -3530,7 +3618,7 @@ function Composer({
             fileInput.current?.click();
           }}
           disabled={sending}
-          className="size-8 sm:size-9 rounded-full text-text-muted hover:text-text hover:bg-white/10 flex items-center justify-center shrink-0 disabled:opacity-50"
+          className="hidden sm:flex size-9 rounded-full text-text-muted hover:text-text hover:bg-white/10 items-center justify-center shrink-0 disabled:opacity-50"
           aria-label={
             viewOnceDefault || oneShotViewOnce
               ? "Attach view-once image"
@@ -3541,27 +3629,27 @@ function Composer({
           }
         >
           {viewOnceDefault || oneShotViewOnce ? (
-            <span className="text-base sm:text-lg">👁</span>
+            <span className="text-lg">👁</span>
           ) : (
-            <PaperclipIcon className="w-[18px] h-[18px] sm:w-5 sm:h-5" />
+            <PaperclipIcon className="w-5 h-5" />
           )}
         </button>
         <button
           type="button"
           onClick={onCreatePoll}
           disabled={sending}
-          className="size-8 sm:size-9 rounded-full text-text-muted hover:text-text hover:bg-white/10 flex items-center justify-center shrink-0 disabled:opacity-50"
+          className="hidden sm:flex size-9 rounded-full text-text-muted hover:text-text hover:bg-white/10 items-center justify-center shrink-0 disabled:opacity-50"
           aria-label="Create poll"
           title="Create poll"
         >
-          <PollIcon className="w-[18px] h-[18px] sm:w-5 sm:h-5" />
+          <PollIcon className="w-5 h-5" />
         </button>
         <button
           type="button"
           onClick={onToggleOneShotViewOnce}
           disabled={sending}
           className={
-            "size-8 sm:size-9 rounded-full hover:bg-white/10 flex items-center justify-center shrink-0 text-base sm:text-lg disabled:opacity-50 " +
+            "hidden sm:flex size-9 rounded-full hover:bg-white/10 items-center justify-center shrink-0 text-lg disabled:opacity-50 " +
             (oneShotViewOnce
               ? "text-wa-green bg-wa-green/15"
               : "text-text-muted hover:text-text")
@@ -3731,6 +3819,58 @@ function Composer({
       />
     )}
     </>
+  );
+}
+
+/**
+ * One labeled tile inside the mobile composer's "+" attachment sheet.
+ *
+ * Renders as a square card with the icon centred on top and a tiny
+ * label beneath, matching the visual rhythm of WhatsApp's attachment
+ * tray. Tapping it triggers the parent's onClick (which also closes
+ * the sheet) so the user is never stranded looking at the menu.
+ *
+ * The `active` flag adds a subtle brand-tinted background — used by
+ * the View-once tile to communicate "this mode is currently armed".
+ */
+function AttachAction({
+  icon,
+  label,
+  onClick,
+  active = false,
+  disabled = false,
+}: {
+  icon: ReactNode;
+  label: string;
+  onClick: () => void;
+  active?: boolean;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-pressed={active}
+      className={
+        "flex flex-col items-center justify-center gap-1 py-2.5 px-1 rounded-xl wa-tap transition-colors " +
+        "disabled:opacity-50 active:scale-[0.98] " +
+        (active
+          ? "bg-wa-green/15 text-wa-green"
+          : "text-text-muted hover:bg-white/10 hover:text-text")
+      }
+    >
+      <span
+        aria-hidden="true"
+        className={
+          "size-9 rounded-full grid place-items-center " +
+          (active ? "bg-wa-green/15" : "bg-bg/60")
+        }
+      >
+        {icon}
+      </span>
+      <span className="text-[11px] font-medium leading-tight">{label}</span>
+    </button>
   );
 }
 
