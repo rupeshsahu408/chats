@@ -39,13 +39,32 @@ const app = Fastify({
       },
 });
 
+/**
+ * Match an origin against an allow-list entry.
+ * Supports exact matches and `*` as a hostname wildcard, e.g.
+ *   https://*.vercel.app          → any Vercel subdomain over https
+ *   https://chats-*.vercel.app    → any chats-* preview on Vercel
+ *   *                              → allow any origin (use with care)
+ */
+function originMatches(origin: string, pattern: string): boolean {
+  if (pattern === "*") return true;
+  if (pattern === origin) return true;
+  if (!pattern.includes("*")) return false;
+  const escaped = pattern
+    .replace(/[.+?^${}()|[\]\\]/g, "\\$&")
+    .replace(/\*/g, "[^/]*");
+  return new RegExp(`^${escaped}$`).test(origin);
+}
+
 await app.register(cors, {
   origin: (origin, cb) => {
     if (!origin) return cb(null, true);
     const allowList = env.CORS_ORIGIN.split(",")
       .map((s) => s.trim())
       .filter(Boolean);
-    if (allowList.includes(origin)) return cb(null, true);
+    if (allowList.some((pattern) => originMatches(origin, pattern))) {
+      return cb(null, true);
+    }
     if (isDev) {
       try {
         const host = new URL(origin).hostname;
@@ -61,6 +80,7 @@ await app.register(cors, {
         // fall through
       }
     }
+    app.log.warn({ origin, allowList }, "CORS origin rejected");
     cb(new Error(`Origin not allowed: ${origin}`), false);
   },
   credentials: true,
