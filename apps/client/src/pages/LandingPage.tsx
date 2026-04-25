@@ -25,6 +25,7 @@ export function LandingPage() {
       <Hero />
       <TrustBar />
       <Features />
+      <DeviceShowcase />
       <Lifestyle />
       <PressStrip />
       <Testimonials />
@@ -489,6 +490,524 @@ function Bubble({
         <span className="absolute bottom-1.5 right-2.5 inline-flex items-center gap-0.5 text-[10px] text-[#2E6F40]">
           9:41
           <svg width="12" height="9" viewBox="0 0 16 11" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M1 6l3 3 6-7" />
+            <path d="M6 6l3 3 6-7" />
+          </svg>
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/* ───────────────────────── Device showcase ─────────────────────────
+ *
+ * "Beautifully native on every device." A hero composition showing the
+ * VeilChat chat experience as it appears on a laptop, tablet, and phone.
+ *
+ * Visual design:
+ *  • The laptop is the centerpiece — widest, most info-dense, shows the
+ *    real two-pane chat shell (sidebar + active thread).
+ *  • The tablet overlaps front-left, the phone overlaps front-right,
+ *    creating depth and the classic Apple/Linear marketing-shot feel.
+ *  • Each device shows a *different* conversation so the showcase reads
+ *    like a slice of real life rather than a repeated screenshot.
+ *  • On mobile (md-), the three devices reflow into a clean stack so
+ *    every frame stays legible at small widths.
+ *
+ * Implementation notes:
+ *  • All frames are pure HTML/CSS — no raster assets — so they stay
+ *    crisp at any pixel density and load instantly on the landing page.
+ *  • Colors deliberately mirror the existing PhoneMockup in the hero
+ *    (#2E6F40 header, #E6FFDA chat body, #CFFFDC out-bubble) so the
+ *    section reads as one unified brand.
+ */
+
+function DeviceShowcase() {
+  return (
+    <section className="py-24 md:py-32 px-6" style={{ backgroundColor: "#FCF5EB" }}>
+      <div className="max-w-7xl mx-auto">
+        <div className="text-center mb-14 md:mb-20">
+          <SectionLabel>Built for every screen</SectionLabel>
+          <SectionHeading
+            title={
+              <>
+                Beautifully native,
+                <br className="hidden sm:block" /> wherever you chat.
+              </>
+            }
+            subtitle="The same private, end-to-end encrypted experience — perfectly tuned for your laptop, tablet, and phone."
+          />
+        </div>
+
+        {/* Desktop / tablet layout — overlapping marketing composition */}
+        <div className="hidden md:block relative">
+          <div className="relative max-w-5xl mx-auto">
+            {/* Laptop sits centered, the hero of the composition */}
+            <div className="relative z-10">
+              <LaptopFrame />
+            </div>
+
+            {/* Tablet — overlaps front-left, slightly tilted via skew */}
+            <div
+              className="absolute z-20 left-[-2%] -bottom-16 lg:-bottom-20 w-[34%] max-w-[300px]"
+              style={{ transform: "rotate(-4deg)" }}
+            >
+              <TabletFrame />
+            </div>
+
+            {/* Phone — overlaps front-right, slight opposite tilt */}
+            <div
+              className="absolute z-20 right-[2%] -bottom-20 lg:-bottom-24 w-[19%] max-w-[180px]"
+              style={{ transform: "rotate(5deg)" }}
+            >
+              <PhoneFrameAlt />
+            </div>
+          </div>
+
+          {/* Spacer so the absolutely-positioned tablet/phone don't collide
+              with the next section. */}
+          <div className="h-24 lg:h-32" />
+        </div>
+
+        {/* Mobile layout — clean vertical stack so each device stays legible */}
+        <div className="md:hidden space-y-10">
+          <div className="mx-auto max-w-md">
+            <LaptopFrame />
+          </div>
+          <div className="grid grid-cols-2 gap-4 items-end">
+            <div className="mx-auto w-full max-w-[200px]">
+              <TabletFrame />
+            </div>
+            <div className="mx-auto w-full max-w-[140px]">
+              <PhoneFrameAlt />
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * MacBook-style laptop frame rendering the two-pane VeilChat web app:
+ * a chat list on the left and the active conversation on the right.
+ *
+ * The frame is two stacked layers — the screen "lid" (dark bezel +
+ * inner display) and the wedge-shaped "base" beneath it — connected by
+ * a subtle hinge band. A soft notch indent sits at the bottom of the
+ * base to match the silhouette of a real laptop.
+ */
+function LaptopFrame() {
+  return (
+    <div className="relative w-full">
+      {/* Soft brand glow underneath, echoing the hero phone treatment */}
+      <div
+        className="absolute -inset-10 rounded-[40%]"
+        style={{
+          background:
+            "radial-gradient(ellipse at center, rgba(46,111,64,0.18), rgba(46,111,64,0) 65%)",
+        }}
+      />
+
+      {/* Lid (screen + bezel) */}
+      <div
+        className="relative rounded-[18px] p-[10px] shadow-[0_50px_100px_-30px_rgba(17,27,33,0.45)]"
+        style={{
+          background:
+            "linear-gradient(180deg, #1c2a31 0%, #0f181d 100%)",
+        }}
+      >
+        {/* Webcam dot */}
+        <div className="absolute top-[3px] left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-[#3c4a52]" />
+
+        {/* Inner screen */}
+        <div
+          className="rounded-[10px] overflow-hidden"
+          style={{ backgroundColor: "#FCF5EB" }}
+        >
+          <ChatTwoPaneMini />
+        </div>
+      </div>
+
+      {/* Hinge */}
+      <div
+        className="mx-auto h-[6px] rounded-b-md w-[101%] -mt-[1px]"
+        style={{
+          background:
+            "linear-gradient(180deg, #2a363c 0%, #1a2429 100%)",
+        }}
+      />
+
+      {/* Base wedge */}
+      <div className="relative">
+        <div
+          className="mx-auto h-[10px] rounded-b-[14px]"
+          style={{
+            width: "108%",
+            marginLeft: "-4%",
+            background:
+              "linear-gradient(180deg, #c8cdd1 0%, #8a949b 100%)",
+            boxShadow: "0 8px 12px -6px rgba(17,27,33,0.35)",
+          }}
+        />
+        {/* Center notch indent at bottom of base */}
+        <div
+          className="absolute top-0 left-1/2 -translate-x-1/2 w-[14%] h-[5px] rounded-b-full"
+          style={{ backgroundColor: "#7a848b" }}
+        />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The two-pane web shell shown inside the laptop:
+ * a left sidebar with a list of recent chats (one active), and a right
+ * pane showing the active conversation. Mirrors the actual layout of
+ * `ChatTwoPaneShell` so the screenshot feels truthful, not decorative.
+ */
+function ChatTwoPaneMini() {
+  const sidebarChats = [
+    { name: "Sam Iyer", preview: "Coffee tomorrow?", time: "9:42", unread: 0, active: true, initial: "S", tint: "#2E6F40" },
+    { name: "Mom 💚", preview: "So glad! Sweet dreams.", time: "8:14", unread: 0, active: false, initial: "M", tint: "#A05A2C" },
+    { name: "Sara", preview: "Sent the link 🙂", time: "7:30", unread: 2, active: false, initial: "S", tint: "#5B4B8A" },
+    { name: "Design team", preview: "Maya: shipping the icons today", time: "Yesterday", unread: 0, active: false, initial: "D", tint: "#1F6E8C" },
+    { name: "Alex Mendoza", preview: "You always do.", time: "Yesterday", unread: 0, active: false, initial: "A", tint: "#7A3E3E" },
+    { name: "Nightowls", preview: "Jordan: Same energy.", time: "Mon", unread: 0, active: false, initial: "N", tint: "#3C5A47" },
+  ];
+  return (
+    <div className="flex h-[420px] text-[11px]">
+      {/* Sidebar */}
+      <div
+        className="w-[34%] border-r flex flex-col"
+        style={{ borderColor: "rgba(17,27,33,0.08)", backgroundColor: "#FCF5EB" }}
+      >
+        {/* Sidebar header */}
+        <div
+          className="px-3 py-2.5 flex items-center justify-between"
+          style={{ backgroundColor: "#2E6F40" }}
+        >
+          <div className="flex items-center gap-2 text-white">
+            <div className="w-5 h-5 rounded-md bg-white/20 grid place-items-center text-[9px] font-bold">V</div>
+            <span className="text-[11px] font-semibold">VeilChat</span>
+          </div>
+          <div className="flex items-center gap-2 text-white/85">
+            <span className="w-3 h-3 rounded-full bg-white/15" />
+            <span className="w-3 h-3 rounded-full bg-white/15" />
+          </div>
+        </div>
+
+        {/* Search */}
+        <div className="px-2.5 py-2">
+          <div
+            className="h-6 rounded-md px-2 flex items-center text-[10px] text-[#3C5A47]/60"
+            style={{ backgroundColor: "white", border: "1px solid rgba(17,27,33,0.08)" }}
+          >
+            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" className="mr-1.5">
+              <circle cx="11" cy="11" r="7" />
+              <path d="M21 21l-4.3-4.3" />
+            </svg>
+            Search chats
+          </div>
+        </div>
+
+        {/* Chat list */}
+        <div className="flex-1 overflow-hidden">
+          {sidebarChats.map((c) => (
+            <div
+              key={c.name}
+              className={
+                "px-2.5 py-2 flex items-center gap-2 " +
+                (c.active ? "bg-[#2E6F40]/10" : "hover:bg-black/[0.03]")
+              }
+            >
+              <div
+                className="w-7 h-7 rounded-full grid place-items-center text-white text-[10px] font-semibold shrink-0"
+                style={{ backgroundColor: c.tint }}
+              >
+                {c.initial}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] font-semibold text-[#111B21] truncate">{c.name}</span>
+                  <span className="text-[9px] text-[#3C5A47]/55 shrink-0">{c.time}</span>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] text-[#3C5A47]/70 truncate">{c.preview}</span>
+                  {c.unread > 0 && (
+                    <span className="text-[8px] font-bold text-white rounded-full px-1.5 min-w-[14px] h-[14px] grid place-items-center" style={{ backgroundColor: "#2E6F40" }}>
+                      {c.unread}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Right pane — active conversation */}
+      <div className="flex-1 flex flex-col" style={{ backgroundColor: "#FCF5EB" }}>
+        {/* Thread header */}
+        <div
+          className="px-3.5 py-2.5 flex items-center gap-2.5"
+          style={{ backgroundColor: "#2E6F40" }}
+        >
+          <div className="w-7 h-7 rounded-full bg-white/20 grid place-items-center text-white text-[10px] font-semibold">S</div>
+          <div className="flex-1">
+            <div className="text-[12px] font-semibold text-white leading-tight">Sam Iyer</div>
+            <div className="text-[9px] text-[#CFFFDC] flex items-center gap-1">
+              <LockMini />
+              end-to-end encrypted
+            </div>
+          </div>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" className="opacity-80"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="white" className="opacity-80"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>
+        </div>
+
+        {/* Thread body */}
+        <div
+          className="flex-1 px-4 py-3 space-y-1.5 overflow-hidden"
+          style={{
+            backgroundColor: "#E6FFDA",
+            backgroundImage: `url("data:image/svg+xml;utf8,${encodeURIComponent(
+              `<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'><g fill='none' stroke='%232E6F40' stroke-opacity='0.06' stroke-width='1.2'><circle cx='12' cy='12' r='6'/><path d='M48 18l8 8-8 8-8-8z'/><circle cx='66' cy='52' r='4'/><path d='M22 56l6 0 0 6'/></g></svg>`,
+            )}")`,
+            backgroundSize: "120px 120px",
+          }}
+        >
+          <div className="text-center mb-1.5">
+            <span className="inline-flex items-center gap-1 text-[8px] font-medium text-[#3C5A47] bg-[#CFFFDC]/80 backdrop-blur px-2 py-0.5 rounded-full">
+              <LockMini />
+              Messages and calls are end-to-end encrypted.
+            </span>
+          </div>
+          <MiniBubble side="in">Just sent the wrap deck — let me know what you think.</MiniBubble>
+          <MiniBubble side="out">Looks great. One tiny tweak on slide 6.</MiniBubble>
+          <MiniBubble side="in">On it. Thanks for catching that.</MiniBubble>
+          <MiniBubble side="out">Anytime. Coffee tomorrow?</MiniBubble>
+          <MiniBubble side="in">9:30 at the usual spot?</MiniBubble>
+        </div>
+
+        {/* Composer */}
+        <div className="px-2.5 py-2 flex items-center gap-1.5" style={{ backgroundColor: "#FCF5EB" }}>
+          <span className="text-[12px]">😊</span>
+          <span className="text-[12px]">📎</span>
+          <div className="flex-1 h-6 rounded-full bg-white border border-[#253D2C]/10 px-2.5 flex items-center text-[10px] text-[#3C5A47]/60">
+            Message
+          </div>
+          <div className="w-6 h-6 rounded-full grid place-items-center text-white" style={{ backgroundColor: "#2E6F40" }}>
+            <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * iPad-style tablet frame, single-pane chat thread.
+ * Slimmer bezel than the phone, single front camera dot at the top.
+ * Shows a warm conversation with "Mom" so the showcase reads as
+ * everyday life rather than a corporate screenshot.
+ */
+function TabletFrame() {
+  return (
+    <div className="relative w-full">
+      <div
+        className="absolute -inset-6 rounded-[35%]"
+        style={{
+          background:
+            "radial-gradient(ellipse at center, rgba(46,111,64,0.18), rgba(46,111,64,0) 65%)",
+        }}
+      />
+      <div
+        className="relative rounded-[24px] p-[8px] shadow-[0_40px_80px_-25px_rgba(17,27,33,0.45)]"
+        style={{
+          background:
+            "linear-gradient(180deg, #1c2a31 0%, #0f181d 100%)",
+        }}
+      >
+        {/* Front camera */}
+        <div className="absolute top-[3px] left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-[#3c4a52]" />
+        <div
+          className="rounded-[18px] overflow-hidden"
+          style={{ backgroundColor: "#FCF5EB" }}
+        >
+          {/* Status bar */}
+          <div className="px-3.5 pt-1.5 pb-1 flex items-center justify-between text-[8px] text-[#253D2C]/70 font-semibold">
+            <span>9:41</span>
+            <span className="flex items-center gap-1">
+              <span className="w-0.5 h-0.5 rounded-full bg-[#253D2C]/60" />
+              <span className="w-0.5 h-0.5 rounded-full bg-[#253D2C]/60" />
+              <span className="ml-0.5">100%</span>
+            </span>
+          </div>
+
+          {/* Thread header */}
+          <div className="px-3 py-2 flex items-center gap-2" style={{ backgroundColor: "#2E6F40" }}>
+            <div className="w-6 h-6 rounded-full grid place-items-center text-white text-[9px] font-semibold" style={{ backgroundColor: "#A05A2C" }}>M</div>
+            <div className="flex-1">
+              <div className="text-[10px] font-semibold text-white leading-tight">Mom 💚</div>
+              <div className="text-[7.5px] text-[#CFFFDC] flex items-center gap-0.5">
+                <LockMini />
+                end-to-end encrypted
+              </div>
+            </div>
+          </div>
+
+          {/* Thread body */}
+          <div
+            className="px-3 py-2 space-y-1 min-h-[200px]"
+            style={{
+              backgroundColor: "#E6FFDA",
+              backgroundImage: `url("data:image/svg+xml;utf8,${encodeURIComponent(
+                `<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'><g fill='none' stroke='%232E6F40' stroke-opacity='0.06' stroke-width='1.2'><circle cx='12' cy='12' r='6'/><path d='M48 18l8 8-8 8-8-8z'/><circle cx='66' cy='52' r='4'/><path d='M22 56l6 0 0 6'/></g></svg>`,
+              )}")`,
+              backgroundSize: "100px 100px",
+            }}
+          >
+            <MiniBubble side="out">Made it home safe ❤️</MiniBubble>
+            <MiniBubble side="in">So glad! Sweet dreams.</MiniBubble>
+            <MiniBubble side="out">Talk tomorrow?</MiniBubble>
+          </div>
+
+          {/* Composer */}
+          <div className="px-2 py-1.5 flex items-center gap-1" style={{ backgroundColor: "#FCF5EB" }}>
+            <span className="text-[10px]">😊</span>
+            <div className="flex-1 h-5 rounded-full bg-white border border-[#253D2C]/10 px-2 flex items-center text-[8px] text-[#3C5A47]/60">
+              Message
+            </div>
+            <div className="w-5 h-5 rounded-full grid place-items-center text-white" style={{ backgroundColor: "#2E6F40" }}>
+              <svg width="7" height="7" viewBox="0 0 24 24" fill="currentColor"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Phone frame variant used in the device showcase. Visually echoes the
+ * hero PhoneMockup but with a Dynamic-Island-style notch and a
+ * different conversation (a late-night group thread) so the page
+ * doesn't feel like the same screenshot twice.
+ */
+function PhoneFrameAlt() {
+  return (
+    <div className="relative w-full">
+      <div
+        className="absolute -inset-5 rounded-full"
+        style={{
+          background:
+            "radial-gradient(circle, rgba(46,111,64,0.20), rgba(46,111,64,0) 60%)",
+        }}
+      />
+      <div
+        className="relative rounded-[2rem] p-[5px] shadow-[0_40px_80px_-25px_rgba(17,27,33,0.45)]"
+        style={{ backgroundColor: "#111B21" }}
+      >
+        <div
+          className="rounded-[1.7rem] overflow-hidden relative"
+          style={{ backgroundColor: "#FCF5EB" }}
+        >
+          {/* Dynamic Island */}
+          <div className="absolute top-1.5 left-1/2 -translate-x-1/2 w-12 h-3 rounded-full bg-[#0a0e10] z-10" />
+
+          {/* Status bar */}
+          <div className="px-4 pt-2 pb-1.5 flex items-center justify-between text-[8px] text-[#253D2C]/70 font-semibold">
+            <span>9:41</span>
+            <span className="opacity-0">.</span>
+            <span className="flex items-center gap-1">
+              <span className="ml-0.5">100%</span>
+            </span>
+          </div>
+
+          {/* Thread header */}
+          <div className="px-2.5 py-1.5 flex items-center gap-1.5" style={{ backgroundColor: "#2E6F40" }}>
+            <div className="w-5 h-5 rounded-full grid place-items-center text-white text-[8px] font-semibold" style={{ backgroundColor: "#3C5A47" }}>N</div>
+            <div className="flex-1 min-w-0">
+              <div className="text-[9px] font-semibold text-white leading-tight truncate">Nightowls</div>
+              <div className="text-[7px] text-[#CFFFDC] flex items-center gap-0.5">
+                <LockMini />
+                4 members
+              </div>
+            </div>
+          </div>
+
+          {/* Thread body */}
+          <div
+            className="px-2 py-1.5 space-y-1 min-h-[170px]"
+            style={{
+              backgroundColor: "#E6FFDA",
+              backgroundImage: `url("data:image/svg+xml;utf8,${encodeURIComponent(
+                `<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'><g fill='none' stroke='%232E6F40' stroke-opacity='0.06' stroke-width='1.2'><circle cx='12' cy='12' r='6'/><path d='M48 18l8 8-8 8-8-8z'/></g></svg>`,
+              )}")`,
+              backgroundSize: "70px 70px",
+            }}
+          >
+            <MiniBubble side="in" author="Maya">Anyone up?</MiniBubble>
+            <MiniBubble side="out">Pulling an all-nighter. You?</MiniBubble>
+            <MiniBubble side="in" author="Jordan">Same energy.</MiniBubble>
+            <MiniBubble side="out">Pizza in 20?</MiniBubble>
+          </div>
+
+          {/* Composer */}
+          <div className="px-1.5 py-1 flex items-center gap-1" style={{ backgroundColor: "#FCF5EB" }}>
+            <span className="text-[8px]">😊</span>
+            <div className="flex-1 h-4 rounded-full bg-white border border-[#253D2C]/10 px-1.5 flex items-center text-[7px] text-[#3C5A47]/60">
+              Message
+            </div>
+            <div className="w-4 h-4 rounded-full grid place-items-center text-white" style={{ backgroundColor: "#2E6F40" }}>
+              <svg width="6" height="6" viewBox="0 0 24 24" fill="currentColor"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Smaller, tighter chat bubble used inside the device-showcase frames.
+ * Same visual language as `Bubble` (the hero phone bubble), but scaled
+ * down and with optional `author` line for group-chat messages.
+ */
+function MiniBubble({
+  children,
+  side,
+  author,
+}: {
+  children: React.ReactNode;
+  side: "in" | "out";
+  author?: string;
+}) {
+  if (side === "in") {
+    return (
+      <div className="flex justify-start">
+        <div className="relative max-w-[82%] text-[9px] leading-snug px-2 py-1 pr-7 rounded-xl bg-white text-[#111B21] shadow-[0_1px_1px_rgba(17,27,33,0.06)]">
+          {author && (
+            <div className="text-[8px] font-semibold mb-0.5" style={{ color: "#A05A2C" }}>
+              {author}
+            </div>
+          )}
+          {children}
+          <span className="absolute bottom-0.5 right-1.5 text-[7px] text-[#3C5A47]/55">9:41</span>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="flex justify-end">
+      <div
+        className="relative max-w-[82%] text-[9px] leading-snug px-2 py-1 pr-8 rounded-xl text-[#111B21] shadow-[0_1px_1px_rgba(17,27,33,0.06)]"
+        style={{ backgroundColor: "#CFFFDC" }}
+      >
+        {children}
+        <span className="absolute bottom-0.5 right-1.5 inline-flex items-center gap-0.5 text-[7px] text-[#2E6F40]">
+          9:41
+          <svg width="8" height="6" viewBox="0 0 16 11" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <path d="M1 6l3 3 6-7" />
             <path d="M6 6l3 3 6-7" />
           </svg>
@@ -1635,7 +2154,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-function SectionHeading({ title, subtitle }: { title: string; subtitle?: string }) {
+function SectionHeading({ title, subtitle }: { title: React.ReactNode; subtitle?: string }) {
   return (
     <>
       <h2
