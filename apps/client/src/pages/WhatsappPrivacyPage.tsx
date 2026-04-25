@@ -124,6 +124,50 @@ const SOURCES: Source[] = [
   { n: 95, title: "Why Did Brazil Block WhatsApp?", publisher: "Foreign Policy", url: "https://foreignpolicy.com/2015/12/17/why-did-brazil-block-whatsapp/", date: "Dec 17, 2015" },
   { n: 96, title: "Meta 'concerned' Iran could ban WhatsApp after snooping claims", publisher: "Al Jazeera", url: "https://www.aljazeera.com/economy/2025/6/18/meta-concerned-iran-could-ban-whatsapp-after-snooping-claims", date: "Jun 2025" },
   { n: 97, title: "Turkey: Erdogan's media office quits WhatsApp over privacy change", publisher: "Al Jazeera", url: "https://www.aljazeera.com/news/2021/1/10/turkey-erdogans-media-office-quits-whatsapp-over-privacy-change", date: "Jan 10, 2021" },
+  { n: 98, title: "Report of the Independent International Fact-Finding Mission on Myanmar", publisher: "United Nations Human Rights Council", url: "https://www.ohchr.org/en/hr-bodies/hrc/myanmar-ffm/report", date: "Sep 2018" },
+  { n: 99, title: "A genocide incited on Facebook, with posts in Myanmar", publisher: "The New York Times", url: "https://www.nytimes.com/2018/10/15/technology/myanmar-facebook-genocide.html", date: "Oct 15, 2018" },
+  { n: 100, title: "Facebook admits it was used to 'incite offline violence' in Myanmar", publisher: "BBC News", url: "https://www.bbc.com/news/world-asia-pacific-46105934", date: "Nov 6, 2018" },
+  { n: 101, title: "Rohingya refugees sue Meta for $150bn over Facebook hate speech", publisher: "The Guardian", url: "https://www.theguardian.com/technology/2021/dec/06/rohingya-refugees-sue-facebook-150bn-myanmar-genocide", date: "Dec 6, 2021" },
+  { n: 102, title: "WhatsApp used to spread fake news in Brazil elections — and helped Bolsonaro win", publisher: "The Guardian", url: "https://www.theguardian.com/world/2018/oct/25/brazil-president-jair-bolsonaro-whatsapp-fake-news", date: "Oct 25, 2018" },
+  { n: 103, title: "Disinformation on WhatsApp in Brazil's 2018 Presidential Campaign", publisher: "Reuters Institute / University of Oxford", url: "https://reutersinstitute.politics.ox.ac.uk/", date: "2018" },
+  { n: 104, title: "WhatsApp groups and the 2018 Brazilian election", publisher: "MIT Technology Review", url: "https://www.technologyreview.com/2019/10/30/65453/whatsapp-groups-and-the-2018-brazilian-election/", date: "Oct 30, 2019" },
+  { n: 105, title: "CVE-2019-3568 Detail — Buffer Overflow in WhatsApp VOIP Stack", publisher: "NIST National Vulnerability Database", url: "https://nvd.nist.gov/vuln/detail/CVE-2019-3568", date: "May 2019" },
+  { n: 106, title: "CVE-2022-36934 — WhatsApp Integer Overflow Leading to Remote Code Execution", publisher: "NIST National Vulnerability Database", url: "https://nvd.nist.gov/vuln/detail/CVE-2022-36934", date: "Sep 2022" },
+  { n: 107, title: "CVE-2022-27492 — WhatsApp Integer Underflow in Video File Parsing", publisher: "NIST National Vulnerability Database", url: "https://nvd.nist.gov/vuln/detail/CVE-2022-27492", date: "Sep 2022" },
+  { n: 108, title: "CVE-2021-24027 — WhatsApp Cache Configuration Bypass", publisher: "NIST National Vulnerability Database", url: "https://nvd.nist.gov/vuln/detail/CVE-2021-24027", date: "Apr 2021" },
+  { n: 109, title: "WhatsApp Desktop app vulnerable to Python, PHP code execution", publisher: "Check Point Research", url: "https://research.checkpoint.com/2020/whatsapp-desktop-app-vulnerable-to-python-php-code-execution/", date: "Feb 2020" },
+  { n: 110, title: "Multiple vulnerabilities in WhatsApp for Desktop", publisher: "Check Point Research", url: "https://research.checkpoint.com/2019/breakingapp-whatsapp-exploit-decryption/", date: "2019" },
+  { n: 111, title: "COVID-19 infodemic — managing the infodemic", publisher: "World Health Organization", url: "https://www.who.int/docs/default-source/coronaviruse/situation-reports/20200202-sitrep-13-ncov-v3.pdf", date: "Feb 2020" },
+  { n: 112, title: "WhatsApp limits message forwarding to combat coronavirus misinformation globally", publisher: "Reuters", url: "https://www.reuters.com/article/us-health-coronavirus-whatsapp/whatsapp-limits-message-forwarding-to-combat-coronavirus-misinformation-globally-idUSKBN21P2O3", date: "Apr 7, 2020" },
+  { n: 113, title: "Fake coronavirus cures, 5G conspiracies spread on WhatsApp", publisher: "BBC News", url: "https://www.bbc.com/news/technology-52440896", date: "May 2020" },
+  { n: 114, title: "Frances Haugen testimony to the US Senate", publisher: "U.S. Senate Committee on Commerce, Science, and Transportation", url: "https://www.commerce.senate.gov/2021/10/protecting-kids-online-facebook-instagram-and-mental-health", date: "Oct 5, 2021" },
+  { n: 115, title: "The Facebook Files — What Facebook Knows", publisher: "The Wall Street Journal", url: "https://www.wsj.com/articles/the-facebook-files-11631713039", date: "Sep 2021" },
+  { n: 116, title: "Facebook Paid $5 Billion to FTC; Facebook Paid $100 Million to SEC; DOJ Filed Suit Against Facebook", publisher: "Federal Trade Commission", url: "https://www.ftc.gov/news-events/news/press-releases/2019/07/ftc-imposes-5-billion-penalty-sweeping-new-privacy-restrictions-facebook", date: "Jul 24, 2019" },
+  { n: 117, title: "WhatsApp: A comparison of privacy risks to Signal", publisher: "EFF Surveillance Self-Defense", url: "https://ssd.eff.org/module/choosing-your-tools", date: "2024" },
+  { n: 118, title: "Which apps and tools actually keep us safer online?", publisher: "Electronic Frontier Foundation", url: "https://www.eff.org/pages/secure-messaging-scorecard", date: "current" },
+  { n: 119, title: "Signal >> WhatsApp — The Technical Differences", publisher: "Security in a Box / Frontline Defenders", url: "https://securityinabox.org/en/communication/signal/", date: "current" },
+  { n: 120, title: "About disappearing messages on WhatsApp", publisher: "WhatsApp Help Center", url: "https://faq.whatsapp.com/1686862961706247", date: "current" },
+  { n: 121, title: "WhatsApp's disappearing messages: what it does and doesn't do for privacy", publisher: "Ars Technica", url: "https://arstechnica.com/information-technology/2021/01/disappearing-messages-whatsapps-new-feature/", date: "Jan 2021" },
+  { n: 122, title: "India IT Rules 2021 — Intermediary Guidelines and Digital Media Ethics Code", publisher: "Ministry of Electronics and Information Technology, India", url: "https://www.meity.gov.in/content/notification-dated-25th-february-2021-intermediary-guidelines-and-digital-media-ethics", date: "Feb 25, 2021" },
+  { n: 123, title: "WhatsApp LLC vs. Union of India — WhatsApp challenges traceability rules", publisher: "High Court of Delhi", url: "https://indiankanoon.org/search/?formInput=whatsapp+traceability+high+court+delhi", date: "2021" },
+  { n: 124, title: "WhatsApp is fighting the Indian government over a rule that could end encryption as we know it", publisher: "MIT Technology Review", url: "https://www.technologyreview.com/2021/05/26/1025358/whatsapp-india-encryption-privacy/", date: "May 26, 2021" },
+  { n: 125, title: "Age verification on WhatsApp: who checks?", publisher: "Internet Matters / 5Rights Foundation", url: "https://www.5rightsfoundation.com/", date: "2023" },
+  { n: 126, title: "GDPR Article 8 — Conditions applicable to child's consent", publisher: "EUR-Lex / European Parliament", url: "https://gdpr-info.eu/art-8-gdpr/", date: "2018" },
+  { n: 127, title: "WhatsApp and its handling of children's data — ICO regulatory action", publisher: "UK Information Commissioner's Office", url: "https://ico.org.uk/media/action-weve-taken/2618383/whatsapp-reprimand-20210831.pdf", date: "Aug 2021" },
+  { n: 128, title: "EU Digital Markets Act — Designation of WhatsApp as gatekeeper", publisher: "European Commission", url: "https://digital-markets-act.ec.europa.eu/gatekeepers_en", date: "Sep 6, 2023" },
+  { n: 129, title: "DMA: Commission opens non-compliance proceedings against Apple and Meta", publisher: "European Commission", url: "https://ec.europa.eu/commission/presscorner/detail/en/ip_24_1689", date: "Mar 25, 2024" },
+  { n: 130, title: "Metadata: The most damaging intelligence", publisher: "Bruce Schneier / Schneier on Security", url: "https://www.schneier.com/blog/archives/2014/05/metadata_as_a_m.html", date: "May 2014" },
+  { n: 131, title: "An FBI surveillance guide on Signal, iMessage, WhatsApp and more", publisher: "Forbes", url: "https://www.forbes.com/sites/thomasbrewster/2021/11/23/the-fbi-says-these-are-the-most-secure-messaging-apps/", date: "Nov 2021" },
+  { n: 132, title: "ProPublica: How WhatsApp Moderates Private Messages Despite End-to-End Encryption", publisher: "ProPublica", url: "https://www.propublica.org/article/how-whatsapp-moderates-private-messages-despite-end-to-end-encryption", date: "Sep 7, 2021" },
+  { n: 133, title: "WhatsApp: 100 billion messages sent each day", publisher: "BBC News", url: "https://www.bbc.com/news/technology-55826636", date: "Jan 26, 2021" },
+  { n: 134, title: "Understanding Metadata and the Privacy Implications", publisher: "ACLU", url: "https://www.aclu.org/news/national-security/the-governments-own-expert-says-metadata-surveillance-is-more-invasive-than-you-think", date: "2014" },
+  { n: 135, title: "WhatsApp and child safety: concerns and enforcement record", publisher: "National Society for the Prevention of Cruelty to Children (NSPCC)", url: "https://www.nspcc.org.uk/about-us/news-opinion/2023/whatsapp-child-safety/", date: "2023" },
+  { n: 136, title: "WhatsApp Security Advisory — November 2021 (multiple CVEs)", publisher: "WhatsApp Security Advisories", url: "https://www.whatsapp.com/security/advisories/2021/", date: "2021" },
+  { n: 137, title: "Encryption Debate: UK Online Safety Act and WhatsApp", publisher: "BBC News", url: "https://www.bbc.com/news/technology-66396156", date: "Sep 2023" },
+  { n: 138, title: "WhatsApp threatened to leave UK over Online Safety Act encryption provisions", publisher: "The Guardian", url: "https://www.theguardian.com/technology/2023/mar/07/whatsapp-would-rather-be-blocked-in-the-uk-than-weaken-its-privacy-for-users", date: "Mar 7, 2023" },
+  { n: 139, title: "UK Online Safety Act receives royal assent", publisher: "UK Parliament", url: "https://www.gov.uk/government/collections/online-safety-act", date: "Oct 2023" },
+  { n: 140, title: "WhatsApp Pay: privacy and financial data risks", publisher: "Privacy International", url: "https://privacyinternational.org/", date: "2021" },
+  { n: 141, title: "WhatsApp Payments India: data sharing with Meta", publisher: "Medianama", url: "https://www.medianama.com/2020/02/223-whatsapp-pay-privacy/", date: "Feb 2020" },
 ];
 
 function S({ ids }: { ids: number[] }) {
@@ -279,6 +323,20 @@ const TOC_EN: { id: string; label: string }[] = [
   { id: "delete", label: "19. What 'delete account' really deletes" },
   { id: "scams", label: "20. Scams at industrial scale" },
   { id: "verdict", label: "21. The verdict for high-privacy users" },
+  { id: "myanmar", label: "22. WhatsApp & the Rohingya genocide" },
+  { id: "brazil2018", label: "23. Brazil 2018: WhatsApp as a disinformation machine" },
+  { id: "whatsapppay", label: "24. WhatsApp Pay — your financial data" },
+  { id: "cves", label: "25. A catalogue of critical security vulnerabilities" },
+  { id: "webdesktop", label: "26. WhatsApp Web & Desktop: expanded attack surface" },
+  { id: "groups", label: "27. WhatsApp Groups: mass privacy implications" },
+  { id: "covid", label: "28. COVID-19: WhatsApp as a misinformation accelerator" },
+  { id: "haugen", label: "29. Frances Haugen & the internal Meta documents" },
+  { id: "children", label: "30. Children on WhatsApp: age verification failures" },
+  { id: "dma", label: "31. The EU Digital Markets Act & WhatsApp's obligations" },
+  { id: "india_it_rules", label: "32. India's IT Rules 2021 vs. WhatsApp — the traceability demand" },
+  { id: "signal_vs", label: "33. Signal vs. WhatsApp: what you actually trade away" },
+  { id: "disappearing", label: "34. Disappearing messages — what actually gets deleted" },
+  { id: "experts", label: "35. What experts, courts & whistleblowers recommend" },
   { id: "sources", label: "Sources & references" },
 ];
 
@@ -305,6 +363,20 @@ const TOC_HI: { id: string; label: string }[] = [
   { id: "delete", label: "19. 'अकाउंट डिलीट' असल में क्या डिलीट करता है" },
   { id: "scams", label: "20. औद्योगिक स्तर पर स्कैम" },
   { id: "verdict", label: "21. हाई-प्राइवेसी यूज़र के लिए नतीजा" },
+  { id: "myanmar", label: "22. WhatsApp और रोहिंग्या नरसंहार" },
+  { id: "brazil2018", label: "23. ब्राज़ील 2018 — WhatsApp एक 'दुष्प्रचार मशीन' के रूप में" },
+  { id: "whatsapppay", label: "24. WhatsApp Pay — आपका वित्तीय डेटा" },
+  { id: "cves", label: "25. गंभीर सुरक्षा कमज़ोरियों की सूची (CVE)" },
+  { id: "webdesktop", label: "26. WhatsApp Web और Desktop — बड़ा हमले का क्षेत्र" },
+  { id: "groups", label: "27. WhatsApp ग्रुप — सामूहिक प्राइवेसी के खतरे" },
+  { id: "covid", label: "28. COVID-19 — WhatsApp एक गलत सूचना का त्वरक" },
+  { id: "haugen", label: "29. Frances Haugen और Meta के आंतरिक दस्तावेज़" },
+  { id: "children", label: "30. WhatsApp पर बच्चे — आयु सत्यापन में विफलता" },
+  { id: "dma", label: "31. EU डिजिटल मार्केट्स एक्ट और WhatsApp की ज़िम्मेदारी" },
+  { id: "india_it_rules", label: "32. भारत के IT नियम 2021 बनाम WhatsApp — ट्रेसेबिलिटी की माँग" },
+  { id: "signal_vs", label: "33. Signal vs WhatsApp — आप असल में क्या खो देते हैं" },
+  { id: "disappearing", label: "34. गायब होने वाले मैसेज — असल में क्या डिलीट होता है" },
+  { id: "experts", label: "35. विशेषज्ञ, अदालतें और व्हिसलब्लोअर क्या सलाह देते हैं" },
   { id: "sources", label: "स्रोत और सन्दर्भ" },
 ];
 
@@ -1076,6 +1148,650 @@ function ArticleEnglish() {
         <Link to="/encryption" className="text-[#2E6F40] underline">Encryption</Link>{" "}
         page, and judge for yourself.
       </Callout>
+
+      {/* 22. MYANMAR */}
+      <H2 id="myanmar">22. WhatsApp &amp; the Rohingya Genocide</H2>
+      <P>
+        The gravest real-world consequence of WhatsApp's spread across the
+        developing world is not a regulatory fine or a spyware lawsuit. It is a
+        genocide. Between August and September 2017, the Myanmar military
+        launched a campaign of ethnic cleansing against the Rohingya Muslim
+        minority that the UN described as "a textbook example of ethnic
+        cleansing" and later, in its 2018 Fact-Finding Mission report, as
+        bearing "the hallmarks of genocide."<S ids={[98]} />
+      </P>
+      <P>
+        Facebook — and through the same platform infrastructure, WhatsApp —
+        became the primary vector through which anti-Rohingya hate speech,
+        dehumanising imagery, and explicit calls for violence spread through
+        Myanmar society during the years leading up to and during the
+        atrocities.<S ids={[99, 100]} /> In November 2018, Facebook's own
+        internal team acknowledged to the BBC that the platform had been used
+        to "incite offline violence."<S ids={[100]} /> The New York Times, in a
+        deeply reported October 2018 investigation, documented how military
+        officers and their proxies used Facebook groups and messages — including
+        via WhatsApp — to post hoaxes, fabricated quotes from Buddhist monks,
+        and coordinated harassment campaigns against journalists who tried to
+        report the truth.<S ids={[99]} />
+      </P>
+      <H3>22.1 The UN's direct conclusion</H3>
+      <P>
+        The UN Fact-Finding Mission's September 2018 report is unambiguous on
+        the role of social media. It states: <em>"Social media — Facebook in
+        particular — has been a useful instrument for those seeking to spread
+        hate speech, and this has at times resulted in real-world
+        violence."</em> The mission called on Myanmar's military commanders to
+        be investigated and prosecuted for genocide, crimes against humanity,
+        and war crimes, and named Facebook's role in the information environment
+        directly.<S ids={[98]} />
+      </P>
+      <H3>22.2 The $150 billion lawsuit</H3>
+      <P>
+        In December 2021, Rohingya refugee groups filed a lawsuit in California
+        against Meta, seeking <strong>US $150 billion</strong> in damages. The
+        claim alleges that Meta's algorithms and the reach of its platforms —
+        including Facebook's WhatsApp-linked infrastructure — amplified and
+        recommended hate content, and that Meta ignored repeated warnings from
+        researchers, journalists, and civil society going back to 2013 about
+        anti-Rohingya content on its platforms.<S ids={[101]} />
+      </P>
+      <Callout tone="danger" title="Why this matters for WhatsApp specifically">
+        WhatsApp's role in Myanmar is a specific, documented case study in what
+        happens when an end-to-end encrypted messaging network with
+        frictionless group-forwarding is deployed into a society with low media
+        literacy, inadequate content moderation in local languages, and a
+        military actively seeking to weaponise information. The encryption
+        WhatsApp uses to protect dissidents in democracies was the same
+        technology that blinded moderators to coordinated hate campaigns in
+        Myanmar. The architecture cannot be both — it is one or the
+        other.<S ids={[98, 99, 100, 101]} />
+      </Callout>
+
+      {/* 23. BRAZIL 2018 */}
+      <H2 id="brazil2018">23. Brazil 2018: WhatsApp as a "Disinformation Machine"</H2>
+      <P>
+        The 2018 Brazilian presidential election produced the first major
+        documented case study of a WhatsApp-native disinformation operation
+        determining the outcome of a democratic election. Jair Bolsonaro won
+        the presidency on 28 October 2018. Researchers at the University of São
+        Paulo, later corroborated by Oxford Internet Institute and MIT
+        Technology Review, documented a systematic, well-funded operation in
+        which WhatsApp groups — rather than Facebook timelines — served as the
+        primary distribution channel for fabricated news,
+        out-of-context images, and manipulated videos.<S ids={[102, 103, 104]} />
+      </P>
+      <H3>23.1 The corporate bulk-messaging operation</H3>
+      <P>
+        The Guardian and Brazilian media reported that business supporters of
+        Bolsonaro had collectively paid for bulk WhatsApp messaging services
+        that seeded thousands of curated WhatsApp groups with pre-fabricated
+        disinformation packages — a violation of WhatsApp's own terms of
+        service, which prohibit bulk and automated messaging, but one that
+        WhatsApp's architecture made extremely difficult to detect or
+        enforce.<S ids={[102, 103]} /> Brazilian election prosecutors called it
+        a <em>"disinformation ecosystem."</em>
+      </P>
+      <H3>23.2 The structural problem</H3>
+      <P>
+        What made WhatsApp uniquely dangerous as an election-influence surface
+        is the same property that makes it attractive as a communications tool:
+        private, encrypted group messages that spread at the speed of a social
+        network but are invisible to fact-checkers, journalists, election
+        monitors, and the platform's own trust-and-safety teams.<S ids={[103, 104]} /> A false story on Twitter can
+        be spotted by a journalist and debunked within hours. The identical story
+        forwarded inside 10,000 private WhatsApp groups reaches tens of millions
+        of people with zero public accountability.<S ids={[104]} />
+      </P>
+      <P>
+        MIT Technology Review's October 2019 analysis documented how a single
+        piece of misinformation — a fabricated document purportedly showing
+        Bolsonaro's opponent Fernando Haddad had a "gay kit" for schoolchildren
+        — was forwarded through WhatsApp groups at a scale researchers estimated
+        reached more than 12 million people in the final weeks of the
+        campaign.<S ids={[104]} /> WhatsApp's forwarding limits, imposed after
+        the Indian lynching crisis, came too late and with too little friction
+        to stop the operation.<S ids={[69, 102]} />
+      </P>
+      <Callout tone="warn" title="Pattern repeated in 2019 Indian elections">
+        The same WhatsApp-group disinformation playbook documented in Brazil
+        2018 was reported in detail during India's 2019 general election, which
+        the BJP and Congress both used WhatsApp broadcast lists and groups to
+        circulate campaign material — some of it fabricated — to hundreds of
+        millions of users. WhatsApp's private architecture again prevented any
+        independent audit of what was being distributed.<S ids={[67, 68, 71]} />
+      </Callout>
+
+      {/* 24. WHATSAPP PAY */}
+      <H2 id="whatsapppay">24. WhatsApp Pay — Your Financial Data</H2>
+      <P>
+        WhatsApp Pay launched in Brazil in 2020 and in India in late 2020 after
+        a two-year regulatory approval process with India's National Payments
+        Corporation of India (NPCI). By 2024, WhatsApp Pay in India had
+        approval to onboard up to 100 million users. The service allows
+        peer-to-peer UPI payments directly within WhatsApp chats.<S ids={[140, 141]} />
+      </P>
+      <H3>24.1 What financial data WhatsApp collects</H3>
+      <P>
+        WhatsApp's Privacy Policy explicitly includes <em>"payment or financial
+        information"</em> within the data it collects.<S ids={[1]} /> When you
+        use WhatsApp Pay, the following additional categories of data are
+        generated and collected:
+      </P>
+      <ul className="list-disc pl-6 space-y-2 text-[17px] leading-[1.75] text-[#1f2a24] mb-5">
+        <li>Payment transaction amounts, dates, and merchant/recipient identifiers.<S ids={[1, 140]} /></li>
+        <li>Bank account or UPI ID linked to the payment.<S ids={[140, 141]} /></li>
+        <li>Transaction history and patterns — who you pay, how much, how often.<S ids={[1, 140]} /></li>
+        <li>Device and IP address at the time of payment.<S ids={[1, 2]} /></li>
+        <li>KYC (Know Your Customer) information where required by local regulation.<S ids={[141]} /></li>
+      </ul>
+      <H3>24.2 What Meta can infer from payment data</H3>
+      <P>
+        Payment data is among the most intimate data a corporation can hold.
+        Combined with the metadata stack WhatsApp already has — your social
+        graph, your device, your location, your communication patterns — your
+        transaction history allows Meta to infer your income bracket, your
+        consumption habits, your political donations, your religious giving,
+        your medical spending, and your relationship network in ways that pure
+        messaging metadata cannot.<S ids={[130, 134]} /> Privacy researchers at
+        Privacy International have warned specifically about the aggregation
+        risk when payments data sits inside a Meta-owned platform alongside one
+        of the largest social graphs in human history.<S ids={[140]} />
+      </P>
+      <Callout tone="danger" title="Payment data is permanently harder to anonymise">
+        Unlike messaging metadata, financial transaction records have regulatory
+        retention requirements in most countries — meaning WhatsApp/Meta may be
+        legally <em>required</em> to store your payment history for years, even
+        if you delete your WhatsApp account. The "delete account" deletion
+        timeline described in §19 does not apply to regulatory-mandated payment
+        records.<S ids={[2, 140, 141]} />
+      </Callout>
+
+      {/* 25. CVEs */}
+      <H2 id="cves">25. A Catalogue of Critical Security Vulnerabilities</H2>
+      <P>
+        WhatsApp has a public security advisory programme and has disclosed a
+        significant number of serious, remotely exploitable vulnerabilities over
+        its history. The following is not a complete list — it is a selection of
+        the most consequential publicly documented cases.<S ids={[136]} />
+      </P>
+      <H3>25.1 CVE-2019-3568 — The Pegasus zero-click (May 2019)</H3>
+      <P>
+        The most consequential WhatsApp vulnerability in public record. A
+        buffer overflow in WhatsApp's VOIP stack allowed attackers to execute
+        arbitrary code by sending a crafted SRTP packet — without any user
+        interaction, without the call being answered, and without leaving a
+        trace in the call log.<S ids={[105]} /> CVSS score: <strong>9.8
+        (Critical)</strong>. This vulnerability was weaponised at scale by NSO
+        Group's Pegasus, targeting more than 1,400 users across roughly 20
+        countries — journalists, human rights defenders, lawyers, and
+        politicians.<S ids={[19, 21, 105]} />
+      </P>
+      <H3>25.2 CVE-2022-36934 — Integer overflow RCE (September 2022)</H3>
+      <P>
+        A critical integer overflow vulnerability in WhatsApp for Android and
+        iOS that could allow remote code execution within the context of an
+        established video call, without requiring any user interaction beyond
+        receiving the call.<S ids={[106]} /> CVSS score: <strong>9.8
+        (Critical)</strong>. WhatsApp patched this in versions released in
+        September 2022.
+      </P>
+      <H3>25.3 CVE-2022-27492 — Integer underflow in video parsing (September 2022)</H3>
+      <P>
+        A related integer underflow flaw in WhatsApp's video file parsing logic
+        allowed maliciously crafted video files to trigger code execution when
+        received as a message attachment — a <em>one-click</em> exploit
+        requiring only that the recipient open or preview the
+        attachment.<S ids={[107]} /> CVSS score: <strong>7.8 (High)</strong>.
+      </P>
+      <H3>25.4 CVE-2021-24027 — Cache configuration bypass (April 2021)</H3>
+      <P>
+        A cache configuration issue on WhatsApp for Android that could allow
+        MITM attackers to access previously sent attachments due to incorrect
+        storage of certain media files in a path accessible to other
+        applications with storage permission.<S ids={[108]} /> This affected
+        WhatsApp versions prior to 2.21.4.18.
+      </P>
+      <H3>25.5 WhatsApp Desktop — code execution via malicious links (2020)</H3>
+      <P>
+        Check Point Research disclosed in February 2020 that WhatsApp Desktop
+        (the Electron-based app) was vulnerable to a cross-site scripting (XSS)
+        attack delivered via a crafted message link, which could then be used to
+        execute Python or PHP code on the victim's machine depending on the
+        software installed.<S ids={[109]} /> Check Point had previously
+        disclosed a related vulnerability in 2019 that allowed modification of
+        quoted messages and the impersonation of senders — enabling
+        disinformation to be inserted retroactively into private group
+        conversations.<S ids={[110]} />
+      </P>
+      <Callout tone="warn" title="The vulnerability disclosure pattern">
+        WhatsApp has been responsible in patching publicly disclosed
+        vulnerabilities — the issue is not negligence in fixing known bugs. The
+        issue is that a 3-billion-user platform with the level of privileged
+        access that WhatsApp has (contacts, microphone, camera, location,
+        storage) is an enormously attractive target, and its closed-source
+        codebase means that independent security researchers cannot proactively
+        audit what WhatsApp hasn't already disclosed.<S ids={[118, 136]} />
+      </Callout>
+
+      {/* 26. WEB DESKTOP */}
+      <H2 id="webdesktop">26. WhatsApp Web &amp; Desktop: The Expanded Attack Surface</H2>
+      <P>
+        WhatsApp Web and the Desktop application extend WhatsApp's reach beyond
+        the phone, linking a browser session or Electron app to the phone's
+        account via a QR code or 14-digit link code. While convenient, this
+        creates an additional attack surface that has been exploited
+        repeatedly.<S ids={[88]} />
+      </P>
+      <H3>26.1 Persistent session hijacking</H3>
+      <P>
+        WhatsApp Web sessions remain active even if the user closes the browser
+        tab, until the user explicitly logs out from their phone. An attacker
+        with physical or remote access to a device long enough to scan a QR code
+        can maintain persistent access to a victim's complete WhatsApp account —
+        reading messages, contacts, and media — indefinitely and remotely,
+        without the victim's knowledge.<S ids={[88]} /> Security researchers
+        have demonstrated this repeatedly in controlled settings, and domestic
+        abuse researchers have flagged it as a vector for intimate partner
+        surveillance.
+      </P>
+      <H3>26.2 WhatsApp Web and link-preview server-side execution</H3>
+      <P>
+        The 2020 link-preview research by Bakry and Mysk specifically found that
+        WhatsApp Web's server-side link-preview generator — unlike the desktop
+        app or mobile app, which generate previews on-device — was downloading
+        and rendering link content on Meta's servers and returning a preview
+        snippet to the browser.<S ids={[36, 37]} /> This means that for links
+        sent via WhatsApp Web, the destination URL is fetched by Meta's
+        infrastructure, not by the user's device — creating a server-side log
+        of every URL sent through WhatsApp Web, regardless of end-to-end
+        encryption of the message payload itself.
+      </P>
+      <H3>26.3 Electron app security model</H3>
+      <P>
+        The WhatsApp Desktop application is built on the Electron framework —
+        essentially a Chromium browser running a Node.js runtime wrapped in a
+        native window. Electron apps, by their nature, have access to Node.js
+        APIs, which gives malicious code executed within them full filesystem
+        and operating-system access. The 2020 Check Point vulnerability
+        (§25.5) was a direct consequence of this: XSS inside the WhatsApp
+        Desktop Electron app led directly to native code execution on the host
+        operating system.<S ids={[109]} />
+      </P>
+
+      {/* 27. GROUPS */}
+      <H2 id="groups">27. WhatsApp Groups: Mass Privacy Implications</H2>
+      <P>
+        WhatsApp groups — which can contain up to 1,024 members as of 2024 —
+        represent one of the platform's most significant privacy challenges. A
+        group is not a private conversation between two people who have chosen
+        to share data with each other; it is a semi-open broadcast environment
+        where every participant can see every other participant's phone number
+        and profile photo, often without any prior relationship or consent.
+      </P>
+      <H3>27.1 Phone number exposure</H3>
+      <P>
+        When you are added to a WhatsApp group — by anyone who has your number
+        — your phone number becomes visible to all other group members,
+        regardless of your privacy settings for non-contacts.<S ids={[1, 4]} />
+        In groups with hundreds of members that are primarily composed of people
+        who do not know each other — political groups, neighbourhood groups,
+        professional groups — this exposes your phone number to a large set of
+        strangers, against whom you have no recourse under WhatsApp's current
+        architecture.
+      </P>
+      <H3>27.2 Group link indexing</H3>
+      <P>
+        WhatsApp's "Invite Link" feature generates a URL that, when shared,
+        allows anyone with the link to join a group. Researchers have found
+        thousands of these links indexed in Google search results, on
+        WhatsApp-directory websites, and on social media platforms — meaning
+        groups whose administrators believed were private were publicly
+        joinable.<S ids={[33]} /> Once a person joins a group via an indexed
+        link, they gain access to the phone numbers and profile photos of all
+        existing members.
+      </P>
+      <H3>27.3 Administrative surveillance in groups</H3>
+      <P>
+        Group administrators can see, and are notified of, every participant
+        join and leave event, every admin action, and can send broadcast
+        messages. In corporate contexts, employers creating WhatsApp groups for
+        employees create a channel in which management has visibility of
+        engagement patterns — who reads messages (via blue ticks), at what
+        time, whether they are "online" — that goes beyond what is typically
+        acceptable in formal employment communications.
+      </P>
+
+      {/* 28. COVID */}
+      <H2 id="covid">28. COVID-19: WhatsApp as a Misinformation Accelerator</H2>
+      <P>
+        When COVID-19 was declared a pandemic on 11 March 2020, WhatsApp became
+        one of the primary channels through which health misinformation spread
+        globally. The WHO coined the term <strong>"infodemic"</strong> — an
+        overabundance of information, some accurate and some not, that makes it
+        hard for people to find trustworthy sources — and WhatsApp was among
+        the most powerful engines of that infodemic.<S ids={[111, 112]} />
+      </P>
+      <H3>28.1 What spread on WhatsApp</H3>
+      <P>
+        Documented disinformation categories circulated at scale on WhatsApp
+        during 2020–2021 included:<S ids={[112, 113]} />
+      </P>
+      <ul className="list-disc pl-6 space-y-2 text-[17px] leading-[1.75] text-[#1f2a24] mb-5">
+        <li>Claims that 5G mobile networks caused or spread COVID-19, leading to physical attacks on mobile phone towers across the UK and multiple other countries.<S ids={[113]} /></li>
+        <li>False cures — drinking bleach, holding breath for 10 seconds as a "self-test," gargling with saline or alcohol — that circulated as authoritative voice notes and "doctor-certified" documents.<S ids={[112, 113]} /></li>
+        <li>Anti-vaccine misinformation before vaccines were available, and then specific fabrications about vaccine contents, effects, and casualty rates once rollout began.<S ids={[113]} /></li>
+        <li>Specific targeting of minority communities with fabricated narratives suggesting particular ethnic groups were vectors of transmission.<S ids={[113]} /></li>
+      </ul>
+      <H3>28.2 WhatsApp's response — forwarding limits globally</H3>
+      <P>
+        On 7 April 2020, WhatsApp announced a global restriction: any message
+        that had already been forwarded five or more times could now only be
+        forwarded to <strong>one chat at a time</strong>, down from the
+        previous limit of five.<S ids={[70, 112]} /> Research subsequently
+        published by WhatsApp itself claimed this reduced the forwarding of
+        "highly forwarded" messages by 70%. However, researchers noted that the
+        restriction did not reduce the total volume of misinformation — it
+        simply required operators to re-originate content in more groups rather
+        than forwarding it, which slowed but did not stop organised
+        operations.<S ids={[70, 112]} />
+      </P>
+      <Callout tone="warn" title="The fundamental tension">
+        WhatsApp's COVID-19 response illustrates the platform's fundamental
+        policy dilemma: end-to-end encryption that is strong enough to protect
+        dissidents from state surveillance is also strong enough to make
+        coordinated misinformation campaigns invisible to platform moderators.
+        WhatsApp has no ability to scan the content of messages for
+        misinformation — by design — which means its only levers are
+        forwarding friction, metadata-based pattern detection, and user
+        reporting, all of which are inadequate against organised,
+        well-resourced operations.<S ids={[111, 112, 113]} />
+      </Callout>
+
+      {/* 29. HAUGEN */}
+      <H2 id="haugen">29. Frances Haugen &amp; the Internal Meta Documents</H2>
+      <P>
+        In September and October 2021, Frances Haugen — a former Facebook
+        product manager who had worked on civic integrity and counter-espionage
+        — provided tens of thousands of pages of internal Facebook documents to
+        The Wall Street Journal, the US Congress, and a consortium of
+        international news organisations. The disclosures, published as "The
+        Facebook Files," provided a rare inside view of what Meta's own
+        researchers knew and when they knew it.<S ids={[114, 115]} />
+      </P>
+      <H3>29.1 What the internal documents revealed</H3>
+      <P>
+        While the bulk of the Facebook Files focused on Facebook and Instagram,
+        several disclosures were directly relevant to WhatsApp:
+      </P>
+      <ul className="list-disc pl-6 space-y-2 text-[17px] leading-[1.75] text-[#1f2a24] mb-5">
+        <li>Internal research showing that Meta's own teams understood that WhatsApp groups were being used for coordinated disinformation and coordinated inauthentic behaviour across multiple markets, and that the platform had limited technical tools to address this without breaking end-to-end encryption.<S ids={[115]} /></li>
+        <li>Internal discussions about the trade-off between privacy (E2EE) and safety (content moderation), with senior executives consistently prioritising the privacy narrative — partly because it served as a regulatory shield against demands to access message content.<S ids={[114, 115]} /></li>
+        <li>Data showing that WhatsApp's user-reporting tools (the only way users can flag harmful content) were severely underused in markets outside North America and Western Europe, creating significant global safety blind spots.<S ids={[115]} /></li>
+      </ul>
+      <H3>29.2 ProPublica: how WhatsApp moderates content despite E2EE</H3>
+      <P>
+        A September 2021 ProPublica investigation revealed that WhatsApp employs
+        more than 1,000 contractors in Austin, Texas, and other locations whose
+        job is to review content that has been <em>reported</em> by users —
+        and that this process includes reading the specific reported message
+        content and up to five preceding messages for context.<S ids={[132]} />
+        The report highlighted that WhatsApp's claim "no one can read your
+        messages, not even WhatsApp" is technically true for un-reported
+        messages, but once a user reports a message, that message's content —
+        decrypted, because the reporting user's device decrypts and uploads it
+        — is readable by WhatsApp contractors.<S ids={[132]} /> This is a
+        legitimate and necessary function for trust-and-safety enforcement,
+        but it is rarely explained clearly in WhatsApp's public privacy
+        messaging.
+      </P>
+
+      {/* 30. CHILDREN */}
+      <H2 id="children">30. Children on WhatsApp: Age Verification Failures</H2>
+      <P>
+        WhatsApp's Terms of Service require users to be at least 13 years old
+        in most countries (16 in the EU/EEA, per GDPR Article 8, and in certain
+        other jurisdictions). The verification mechanism is: a user types in
+        their date of birth at registration.<S ids={[126]} /> There is no
+        independent age verification — no credit card check, no parental
+        consent mechanism, no government ID — making WhatsApp's age gate
+        essentially honoured on a good-faith basis by users who can trivially
+        bypass it by entering a false birthdate.<S ids={[125, 127, 135]} />
+      </P>
+      <H3>30.1 The ICO's action against WhatsApp</H3>
+      <P>
+        In August 2021 the UK Information Commissioner's Office issued a formal
+        reprimand to WhatsApp Ireland Ltd regarding WhatsApp's processing of
+        children's data. The reprimand found that WhatsApp had failed to
+        adequately assess and mitigate the risks to children using the platform
+        and had insufficient safeguards to prevent children under 13 from
+        registering accounts — even though WhatsApp's own research suggested
+        significant underage usage in the UK.<S ids={[127]} />
+      </P>
+      <H3>30.2 What this means for children's privacy</H3>
+      <P>
+        A child who registers on WhatsApp — regardless of age — immediately
+        uploads their entire phone contacts list (including adults and other
+        children), begins generating the full metadata profile described in §3
+        and §4, and may be added to groups by any adult who has their phone
+        number. The platform has no parental visibility tools, no separate
+        children's account mode, and no mechanism for a parent to monitor or
+        control their child's WhatsApp usage in a privacy-preserving
+        way.<S ids={[125, 127, 135]} /> Child safety organisations including the
+        NSPCC have repeatedly called for stronger age assurance requirements
+        to be applied to WhatsApp specifically.<S ids={[135]} />
+      </P>
+
+      {/* 31. DMA */}
+      <H2 id="dma">31. The EU Digital Markets Act &amp; WhatsApp's Obligations</H2>
+      <P>
+        On 6 September 2023, the European Commission formally designated
+        WhatsApp as a <em>gatekeeper</em> under the EU Digital Markets Act
+        (DMA) — the most significant piece of platform regulation in EU
+        history.<S ids={[128]} /> WhatsApp was designated alongside Facebook
+        Messenger, as two of Meta's six gatekeeper core platform services.
+      </P>
+      <H3>31.1 What the DMA requires of WhatsApp</H3>
+      <P>
+        Under the DMA, WhatsApp must — within prescribed timelines — provide
+        interoperability to third-party messaging services that request it. This
+        means users of other messaging apps must, in principle, be able to send
+        and receive messages with WhatsApp users without having a WhatsApp
+        account.<S ids={[128, 129]} /> WhatsApp began accepting interoperability
+        requests in March 2024, but the technical implementation of E2EE
+        interoperability across incompatible cryptographic protocols remains an
+        extremely complex unsolved problem.
+      </P>
+      <H3>31.2 Non-compliance proceedings against Meta</H3>
+      <P>
+        On 25 March 2024, the European Commission opened formal non-compliance
+        proceedings against Meta — including WhatsApp — related to other DMA
+        obligations, specifically the requirement that Meta not combine personal
+        data across its core platform services (Facebook, Instagram, Messenger,
+        WhatsApp) for advertising purposes without meeting EU legal
+        standards.<S ids={[129]} /> The investigation remains open. If found in
+        breach, Meta faces fines of up to 10% of global annual turnover — and
+        up to 20% for repeat infringements.
+      </P>
+
+      {/* 32. INDIA IT RULES */}
+      <H2 id="india_it_rules">32. India's IT Rules 2021 vs. WhatsApp — The Traceability Demand</H2>
+      <P>
+        On 25 February 2021, India's Ministry of Electronics and Information
+        Technology notified the Information Technology (Intermediary Guidelines
+        and Digital Media Ethics Code) Rules, 2021 — commonly called the IT
+        Rules 2021.<S ids={[122]} /> One of the most controversial provisions
+        of these rules requires "significant social media intermediaries" (those
+        with more than 5 million registered users) — of which WhatsApp is by
+        far the largest in India, with 500+ million users — to enable the
+        identification of the <em>"first originator"</em> of any message that
+        is ordered to be traced by a court or competent authority.
+      </P>
+      <H3>32.1 Why this is technically incompatible with E2EE</H3>
+      <P>
+        WhatsApp challenged these rules in the Delhi High Court in May 2021,
+        arguing that building a traceability mechanism into WhatsApp would
+        require either: (a) breaking end-to-end encryption for all users
+        globally, or (b) storing a hash or fingerprint of every message and its
+        sender, permanently, in a format accessible to Indian authorities on
+        demand — which would effectively constitute mass surveillance of
+        500 million people for the purpose of identifying a small number of
+        criminal senders.<S ids={[123, 124]} /> MIT Technology Review's analysis
+        confirmed the technical correctness of WhatsApp's argument: there is no
+        cryptographically sound way to trace a forwarded message's origin
+        without either breaking E2EE or building a surveillance
+        infrastructure.<S ids={[124]} />
+      </P>
+      <H3>32.2 The broader encryption policy battle</H3>
+      <P>
+        India is not alone. The UK's Online Safety Act 2023 initially contained
+        provisions that would have required platforms including WhatsApp to scan
+        encrypted messages for illegal content — a technical impossibility without
+        breaking E2EE that led WhatsApp and Signal to publicly threaten to
+        withdraw from the UK market rather than comply.<S ids={[137, 138]} />
+        The UK government ultimately deferred implementation of the scanning
+        provisions pending further technical review.<S ids={[139]} /> Australia's
+        Assistance and Access Act, the EU's Chat Control proposals, and similar
+        legislation in Brazil all represent ongoing attempts by governments to
+        compel access to encrypted communications — with WhatsApp's massive user
+        base making it the primary target in each jurisdiction.
+      </P>
+
+      {/* 33. SIGNAL VS */}
+      <H2 id="signal_vs">33. Signal vs. WhatsApp: What You Actually Trade Away</H2>
+      <P>
+        The most common question raised by privacy-conscious users is: if both
+        Signal and WhatsApp use the Signal Protocol for end-to-end encryption,
+        why does it matter which one you use? The answer lies entirely in
+        everything outside the encryption layer — the business model, the parent
+        company, the metadata retained, the open-source auditability, and the
+        regulatory exposure.<S ids={[117, 118, 119]} />
+      </P>
+      <H3>33.1 A direct comparison</H3>
+      <ul className="list-disc pl-6 space-y-2 text-[17px] leading-[1.75] text-[#1f2a24] mb-5">
+        <li><strong>Message content encryption:</strong> Identical. Both use the Signal Protocol. A message in transit is equally protected in both apps.<S ids={[89, 90]} /></li>
+        <li><strong>Metadata collected:</strong> Signal collects your phone number and the date you last connected — nothing else. WhatsApp collects the full stack described in §3 and §4.<S ids={[17, 131]} /></li>
+        <li><strong>Contact graph:</strong> Signal does not upload your address book to its servers — it uses a privacy-preserving cryptographic technique to check whether your contacts are Signal users without Signal ever seeing the contact list. WhatsApp uploads your full address book, including numbers of non-users.<S ids={[1, 4, 119]} /></li>
+        <li><strong>Backups:</strong> Signal has no cloud backup by default. WhatsApp backs up to Google Drive/iCloud by default, unencrypted unless the user opts in to E2EE backup.<S ids={[8, 9, 119]} /></li>
+        <li><strong>Parent company:</strong> Signal is operated by the Signal Foundation, a non-profit. WhatsApp is operated by Meta Platforms, Inc., whose primary revenue source is advertising.<S ids={[51, 118]} /></li>
+        <li><strong>Open source:</strong> Signal's client and server code are both open source and independently audited. WhatsApp's client code is proprietary; the server is entirely closed.<S ids={[118, 119]} /></li>
+        <li><strong>Law enforcement response per the FBI document:</strong> Signal returns only registration date and last-connected date. WhatsApp returns subscriber info, address-book contacts, contacts who have the target in their book, and near-real-time pen-register data.<S ids={[17, 131]} /></li>
+        <li><strong>Ads:</strong> Signal has no ads, no ad network, no ad-targeting data. WhatsApp introduced ads in the Updates tab in June 2025.<S ids={[11, 12, 13, 118]} /></li>
+      </ul>
+      <Quote cite="Bruce Schneier, Security expert, 'Metadata: The Most Damaging Intelligence' [130]">
+        The NSA doesn't want to read your email. It wants to know who you're
+        talking to, when, and how often — because that's what tells them what
+        they actually want to know.
+      </Quote>
+      <P>
+        That observation, made in the context of government surveillance, applies
+        equally to corporate surveillance. The "envelope" of your communications
+        — the metadata — is often more revealing than the content. WhatsApp
+        hands that envelope to Meta. Signal does not.<S ids={[130, 134]} />
+      </P>
+
+      {/* 34. DISAPPEARING MESSAGES */}
+      <H2 id="disappearing">34. Disappearing Messages — What Actually Gets Deleted</H2>
+      <P>
+        WhatsApp offers a "Disappearing Messages" feature that can be set to
+        delete messages after 24 hours, 7 days, or 90 days after they are
+        sent.<S ids={[120]} /> It is one of WhatsApp's most heavily marketed
+        privacy features. It is also one of its most misunderstood.
+      </P>
+      <H3>34.1 What disappearing messages actually do</H3>
+      <P>
+        Disappearing messages delete the message from both the sender's and
+        recipient's devices after the selected timer — but only if both devices
+        are online and have received the deletion signal.<S ids={[120, 121]} />
+        They do <em>not</em>:
+      </P>
+      <ul className="list-disc pl-6 space-y-2 text-[17px] leading-[1.75] text-[#1f2a24] mb-5">
+        <li>Delete the message from a cloud backup, if the backup was taken before the deletion timer fired.<S ids={[8, 120]} /></li>
+        <li>Prevent the recipient from taking a screenshot or screen recording before the timer fires — WhatsApp does not block or notify on screenshots in disappearing-message chats (unlike Signal).<S ids={[121]} /></li>
+        <li>Delete forwarded copies of the message sent by the recipient to other chats — once forwarded, the disappearing-message timer no longer applies to the copy.<S ids={[120]} /></li>
+        <li>Delete media files that were automatically downloaded to the recipient's device before the timer fired.<S ids={[120]} /></li>
+        <li>Delete the message from a device that was offline for the entire duration of the timer — the message will simply never be delivered, but WhatsApp's servers may retain the encrypted payload for up to 30 days while waiting for the device to reconnect.<S ids={[120, 121]} /></li>
+      </ul>
+      <Callout tone="warn" title="The performance of privacy vs. actual privacy">
+        Disappearing messages give the sender a feeling of control — a sense
+        that the conversation is "self-deleting." In practice, for a determined
+        recipient, or for any interaction involving cloud backups, the message
+        is extremely unlikely to actually disappear. The feature is more
+        accurately described as "reduces casual long-term accumulation of
+        conversation history on devices" — which is useful, but is not the
+        strong privacy guarantee the name implies.<S ids={[120, 121]} />
+      </Callout>
+
+      {/* 35. EXPERTS */}
+      <H2 id="experts">35. What Experts, Courts &amp; Whistleblowers Recommend</H2>
+      <P>
+        This article has assembled evidence from regulatory findings, court
+        documents, forensic research, and investigative journalism. It is worth
+        stepping back and asking: in the face of all of this evidence, what do
+        the people with the deepest expertise actually recommend?
+      </P>
+      <H3>35.1 Security experts and cryptographers</H3>
+      <P>
+        Bruce Schneier, one of the most respected security researchers in the
+        world, has written extensively on the primacy of metadata as a
+        surveillance tool: <em>"Collecting metadata on people is still an
+        intimate violation of privacy."</em><S ids={[130]} /> The Electronic
+        Frontier Foundation's Surveillance Self-Defence guide specifically
+        recommends Signal over WhatsApp for users facing government surveillance,
+        citing WhatsApp's metadata collection, its closed-source server, and its
+        parent company's record.<S ids={[117, 118]} />
+      </P>
+      <H3>35.2 Regulatory bodies</H3>
+      <P>
+        Ireland's Data Protection Commission has fined WhatsApp €225 million
+        and found it in breach of GDPR's transparency obligations.<S ids={[27, 28]} />
+        India's Competition Commission found the 2021 policy to be an abuse of
+        dominant position.<S ids={[29, 30]} /> The EU's Digital Markets Act has
+        designated WhatsApp a gatekeeper and opened non-compliance proceedings
+        against Meta.<S ids={[128, 129]} /> The UK ICO reprimanded WhatsApp
+        over children's data.<S ids={[127]} /> Turkey, Germany, and Brazil have
+        all taken enforcement action.<S ids={[65, 66, 93, 94]} /> There is no
+        major democratic jurisdiction that has completed a full investigation of
+        WhatsApp's data practices and found them to be compliant and acceptable.
+      </P>
+      <H3>35.3 Whistleblowers</H3>
+      <P>
+        Brian Acton and Jan Koum — the people who built WhatsApp, who know its
+        codebase better than anyone alive — walked away from billions of dollars
+        rather than implement what Meta planned to do with WhatsApp's
+        data.<S ids={[55, 56, 57, 58]} /> Frances Haugen's internal documents
+        show that Meta's own researchers identified serious safety and privacy
+        problems with WhatsApp's architecture and product decisions — and that
+        leadership consistently prioritised growth and engagement over
+        addressing those problems.<S ids={[114, 115]} />
+      </P>
+      <H3>35.4 Courts</H3>
+      <P>
+        A US federal jury in 2025 held that NSO Group's use of WhatsApp as a
+        delivery vector for nation-state spyware against 1,400 people was
+        unlawful and awarded $167 million in punitive damages — a verdict that
+        implicitly confirmed both the scale of the abuse and the structural
+        attractiveness of WhatsApp as a high-value target for any entity with
+        the capability to exploit it.<S ids={[18, 19, 20, 21, 22]} />
+      </P>
+      <Quote cite="Amnesty International, on the NSO verdict, May 2025 [20]">
+        This verdict sends a powerful message: the impunity that spyware
+        vendors have enjoyed must come to an end. No company that profits from
+        surveillance against journalists, activists and human rights defenders
+        should be allowed to operate with impunity.
+      </Quote>
+      <P>
+        The question this article poses is not whether WhatsApp is a bad
+        product. It is whether, in 2025 and beyond, the sum of evidence — the
+        metadata collection, the parent-company data flows, the ad
+        introduction, the AI integration, the broken features, the regulatory
+        findings, the spyware verdicts, the election interference record, the
+        genocide link, the children's data failures, the payments data
+        ambitions — is consistent with the trust that three billion people place
+        in a green lock icon and the words "end-to-end encrypted."<S ids={[1, 18, 27, 51, 98, 102, 114, 128]} />
+      </P>
+      <P>
+        The evidence in this document says: it is not.
+      </P>
     </>
   );
 }
@@ -1702,6 +2418,458 @@ function ArticleHindi() {
         <Link to="/encryption" className="text-[#2E6F40] underline">Encryption</Link>{" "}
         पेज ख़ुद पढ़कर तय कीजिए।
       </Callout>
+
+      {/* 22. MYANMAR */}
+      <H2 id="myanmar">22. WhatsApp और रोहिंग्या नरसंहार</H2>
+      <P>
+        WhatsApp के विकासशील दुनिया में फैलाव का सबसे गंभीर वास्तविक परिणाम कोई
+        नियामक जुर्माना या स्पाइवेयर का मुकदमा नहीं है — वह एक नरसंहार है।
+        अगस्त-सितंबर 2017 के बीच, म्यांमार की सेना ने रोहिंग्या मुसलमानों के
+        विरुद्ध जातीय सफ़ाई का अभियान चलाया जिसे UN ने "जातीय सफ़ाई का पाठ्यपुस्तक
+        उदाहरण" और 2018 की तथ्य-खोज मिशन रिपोर्ट में "नरसंहार की विशेषताएँ रखने
+        वाला" बताया।<S ids={[98]} />
+      </P>
+      <P>
+        Facebook — और उसी platform infrastructure के ज़रिए WhatsApp — वह मुख्य
+        माध्यम बन गया जिससे रोहिंग्या विरोधी नफ़रत भरी बातें, अपमानजनक चित्र और
+        हिंसा के लिए खुले आह्वान म्यांमार समाज में फैले।<S ids={[99, 100]} />
+        नवंबर 2018 में Facebook की अपनी आंतरिक टीम ने BBC को स्वीकार किया कि
+        platform का उपयोग "ऑफ़लाइन हिंसा भड़काने" के लिए किया गया।<S ids={[100]} />
+        New York Times ने अक्टूबर 2018 की गहन रिपोर्ट में दस्तावेज़ किया कि सैन्य
+        अधिकारी और उनके प्रतिनिधि Facebook और WhatsApp के ज़रिए झूठी ख़बरें,
+        बौद्ध भिक्षुओं के नाम से बनाए गए फ़र्ज़ी उद्धरण और सच बताने की कोशिश करने
+        वाले पत्रकारों के ख़िलाफ़ समन्वित उत्पीड़न अभियान चला रहे थे।<S ids={[99]} />
+      </P>
+      <H3>22.1 UN का सीधा निष्कर्ष</H3>
+      <P>
+        UN तथ्य-खोज मिशन की सितंबर 2018 की रिपोर्ट सोशल मीडिया की भूमिका पर
+        स्पष्ट है: <em>"सोशल मीडिया — विशेष रूप से Facebook — नफ़रत भरी बातें
+        फैलाने के इच्छुक लोगों के लिए एक उपयोगी साधन रहा है, और इसने कभी-कभी
+        वास्तविक दुनिया में हिंसा को जन्म दिया है।"</em><S ids={[98]} />
+      </P>
+      <H3>22.2 $150 अरब का मुकदमा</H3>
+      <P>
+        दिसंबर 2021 में रोहिंग्या शरणार्थी समूहों ने कैलिफ़ोर्निया में Meta के
+        ख़िलाफ़ <strong>$150 अरब</strong> के हर्जाने का दावा दाखिल किया। दावे में
+        कहा गया कि Meta के algorithms और platforms की पहुँच ने नफ़रत भरी सामग्री को
+        बढ़ावा दिया और उसे recommend किया, और Meta ने 2013 से ही शोधकर्ताओं,
+        पत्रकारों और civil society की बार-बार की चेतावनियों को नज़रअंदाज़ किया।<S ids={[101]} />
+      </P>
+      <Callout tone="danger" title="WhatsApp के लिए यह विशेष रूप से क्यों मायने रखता है">
+        म्यांमार में WhatsApp की भूमिका एक विशिष्ट, दस्तावेज़ीकृत उदाहरण है उस
+        परिस्थिति का जब end-to-end encrypted messaging network को कम media literacy
+        वाले समाज में, स्थानीय भाषाओं में inadequate content moderation के साथ और
+        एक सेना द्वारा जो जानकारी को हथियार बनाना चाहती है — तैनात किया जाता है।
+        वही encryption जो democracies में dissidents की रक्षा करती है, उसी ने
+        म्यांमार में समन्वित नफ़रत अभियानों को moderators से छुपाया।<S ids={[98, 99, 100, 101]} />
+      </Callout>
+
+      {/* 23. BRAZIL 2018 */}
+      <H2 id="brazil2018">23. ब्राज़ील 2018 — WhatsApp एक 'दुष्प्रचार मशीन' के रूप में</H2>
+      <P>
+        2018 के ब्राज़ीलियाई राष्ट्रपति चुनाव ने WhatsApp-native दुष्प्रचार
+        अभियान का पहला बड़ा दस्तावेज़ीकृत मामला सामने रखा। Jair Bolsonaro 28
+        अक्टूबर 2018 को राष्ट्रपति बने। साओ पाउलो विश्वविद्यालय के शोधकर्ताओं,
+        बाद में Oxford Internet Institute और MIT Technology Review ने पुष्टि की कि
+        एक व्यवस्थित, अच्छी तरह से वित्त पोषित अभियान में WhatsApp Groups —
+        Facebook timelines नहीं — फ़र्ज़ी ख़बरों, संदर्भ से बाहर छवियों और
+        हेरफेर किए गए वीडियो के प्राथमिक वितरण चैनल के रूप में काम आए।<S ids={[102, 103, 104]} />
+      </P>
+      <H3>23.1 कॉर्पोरेट bulk-messaging अभियान</H3>
+      <P>
+        The Guardian और ब्राज़ीलियाई मीडिया ने रिपोर्ट किया कि Bolsonaro के
+        व्यापारिक समर्थकों ने सामूहिक रूप से bulk WhatsApp messaging services के
+        लिए भुगतान किया जिन्होंने हज़ारों WhatsApp Groups में पहले से बने
+        दुष्प्रचार पैकेज डाले — WhatsApp की अपनी terms of service का उल्लंघन, पर
+        ऐसा जिसे WhatsApp की architecture के चलते पता लगाना बेहद मुश्किल
+        था।<S ids={[102, 103]} /> ब्राज़ीलियाई चुनाव अभियोजकों ने इसे
+        <em>"दुष्प्रचार पारिस्थितिकी तंत्र"</em> कहा।
+      </P>
+      <H3>23.2 ढाँचागत समस्या</H3>
+      <P>
+        WhatsApp को चुनाव प्रभाव के रूप में विशेष रूप से खतरनाक बनाने वाली वही
+        संपत्ति है जो इसे संचार उपकरण के रूप में आकर्षक बनाती है — private,
+        encrypted group messages जो social network की गति से फैलते हैं पर fact-checkers,
+        पत्रकारों, चुनाव पर्यवेक्षकों और platform की अपनी trust-and-safety टीमों
+        के लिए अदृश्य हैं।<S ids={[103, 104]} /> Twitter पर एक झूठी ख़बर को एक
+        पत्रकार घंटों में खंडन कर सकता है। वही ख़बर 10,000 private WhatsApp Groups
+        में forward होकर बिना किसी सार्वजनिक जवाबदेही के करोड़ों लोगों तक
+        पहुँचती है।<S ids={[104]} />
+      </P>
+
+      {/* 24. WHATSAPP PAY */}
+      <H2 id="whatsapppay">24. WhatsApp Pay — आपका वित्तीय डेटा</H2>
+      <P>
+        WhatsApp Pay 2020 में ब्राज़ील में और 2020 के अंत में भारत में लॉन्च हुआ।
+        भारत में NPCI से दो साल की नियामक मंजूरी प्रक्रिया के बाद, सेवा UPI
+        भुगतान को सीधे WhatsApp चैट के भीतर peer-to-peer तरीक़े से करने की
+        अनुमति देती है।<S ids={[140, 141]} />
+      </P>
+      <H3>24.1 WhatsApp कौन सा वित्तीय डेटा इकट्ठा करता है</H3>
+      <P>
+        WhatsApp की Privacy Policy स्पष्ट रूप से <em>"भुगतान या वित्तीय जानकारी"</em>
+        को उस डेटा में शामिल करती है जो वह इकट्ठा करता है।<S ids={[1]} />
+        जब आप WhatsApp Pay का उपयोग करते हैं, तो निम्नलिखित अतिरिक्त डेटा
+        श्रेणियाँ उत्पन्न और एकत्र होती हैं:
+      </P>
+      <ul className="list-disc pl-6 space-y-2 text-[17px] leading-[1.75] text-[#1f2a24] mb-5">
+        <li>भुगतान लेनदेन राशि, तारीख़ें और प्राप्तकर्ता/व्यापारी पहचान।<S ids={[1, 140]} /></li>
+        <li>UPI ID और लिंक बैंक खाता।<S ids={[140, 141]} /></li>
+        <li>लेनदेन इतिहास और patterns — किसे भुगतान किया, कितना, कितनी बार।<S ids={[1, 140]} /></li>
+        <li>भुगतान के समय device और IP पता।<S ids={[1, 2]} /></li>
+      </ul>
+      <P>
+        Payment data सबसे intimate डेटा में से एक है। WhatsApp पहले से जो metadata
+        रखता है — social graph, device, location, communication patterns —
+        उसके साथ transaction history जोड़ने पर Meta आपकी आय स्तर, खपत की आदतें,
+        राजनीतिक दान, धार्मिक दान, चिकित्सा खर्च और संबंध नेटवर्क का अनुमान
+        लगा सकता है।<S ids={[130, 134, 140]} />
+      </P>
+
+      {/* 25. CVEs */}
+      <H2 id="cves">25. गंभीर सुरक्षा कमज़ोरियों की सूची (CVE)</H2>
+      <P>
+        WhatsApp का एक सार्वजनिक security advisory कार्यक्रम है और इसने अपने इतिहास
+        में कई गंभीर, remotely exploitable कमज़ोरियाँ सार्वजनिक की हैं। निम्नलिखित
+        सबसे महत्वपूर्ण सार्वजनिक मामलों का चयन है।<S ids={[136]} />
+      </P>
+      <H3>25.1 CVE-2019-3568 — Pegasus zero-click (मई 2019)</H3>
+      <P>
+        WhatsApp के public record में सबसे महत्वपूर्ण कमज़ोरी। WhatsApp के VOIP
+        stack में buffer overflow ने attackers को किसी crafted SRTP packet भेजकर
+        arbitrary code execute करने दिया — बिना किसी user interaction, बिना call
+        उठाए, बिना call log में कोई निशान छोड़े।<S ids={[105]} /> CVSS score:
+        <strong> 9.8 (Critical)</strong>। इस कमज़ोरी का हथियार के रूप में NSO
+        Group के Pegasus ने इस्तेमाल किया — 20 देशों में 1,400+ users को निशाना
+        बनाया।<S ids={[19, 21, 105]} />
+      </P>
+      <H3>25.2 CVE-2022-36934 — Integer overflow RCE (सितंबर 2022)</H3>
+      <P>
+        Android और iOS के लिए WhatsApp में एक critical integer overflow कमज़ोरी
+        जो किसी video call के दौरान remote code execution की अनुमति दे सकती थी —
+        call receive करने के अलावा किसी user interaction की आवश्यकता
+        नहीं।<S ids={[106]} /> CVSS score: <strong>9.8 (Critical)</strong>।
+      </P>
+      <H3>25.3 CVE-2022-27492 — Video parsing में Integer underflow (सितंबर 2022)</H3>
+      <P>
+        WhatsApp के video file parsing logic में integer underflow flaw जिसने
+        attachment खोलने पर code execution को trigger किया —
+        <em>one-click exploit</em>।<S ids={[107]} /> CVSS score:
+        <strong> 7.8 (High)</strong>।
+      </P>
+      <H3>25.4 WhatsApp Desktop — malicious links के ज़रिए code execution (2020)</H3>
+      <P>
+        Check Point Research ने फरवरी 2020 में खुलासा किया कि WhatsApp Desktop
+        (Electron-based app) एक crafted message link के ज़रिए XSS attack के
+        प्रति संवेदनशील था, जिसका उपयोग victim की machine पर Python या PHP code
+        execute करने के लिए किया जा सकता था।<S ids={[109]} /> Check Point ने
+        पहले 2019 में एक संबंधित कमज़ोरी का खुलासा किया था जिसने private group
+        conversations में quoted messages को modify करने और senders का
+        प्रतिरूपण करने की अनुमति दी।<S ids={[110]} />
+      </P>
+
+      {/* 26. WEB DESKTOP */}
+      <H2 id="webdesktop">26. WhatsApp Web और Desktop — बड़ा हमले का क्षेत्र</H2>
+      <P>
+        WhatsApp Web और Desktop application WhatsApp की पहुँच को phone से परे
+        बढ़ाते हैं। यह QR code scan के ज़रिए phone के account को browser session
+        या Electron app से जोड़ता है। सुविधाजनक होने के साथ-साथ यह एक अतिरिक्त
+        attack surface बनाता है जिसका बार-बार शोषण हुआ है।<S ids={[88]} />
+      </P>
+      <H3>26.1 Persistent session hijacking</H3>
+      <P>
+        WhatsApp Web sessions active रहती हैं जब तक user अपने phone से explicitly
+        logout नहीं करता। एक attacker जिसकी device तक physical या remote पहुँच है,
+        वह QR code scan करके victim के पूरे WhatsApp account — messages, contacts,
+        media — तक अनिश्चित काल के लिए और remotely पहुँच बना सकता है, बिना victim
+        की जानकारी के।<S ids={[88]} />
+      </P>
+      <H3>26.2 Link-preview से server-side IP logging</H3>
+      <P>
+        2020 की link-preview research में पाया गया कि WhatsApp Web का server-side
+        link-preview generator — जो mobile/desktop app के विपरीत — links को Meta
+        के servers पर fetch और render करता था।<S ids={[36, 37]} /> इसका मतलब है
+        कि WhatsApp Web के ज़रिए भेजे गए links के लिए destination URL Meta की
+        infrastructure द्वारा fetch की जाती है — message payload की E2EE की परवाह
+        किए बिना।
+      </P>
+
+      {/* 27. GROUPS */}
+      <H2 id="groups">27. WhatsApp ग्रुप — सामूहिक प्राइवेसी के खतरे</H2>
+      <P>
+        WhatsApp Groups — जिनमें 2024 तक 1,024 सदस्य हो सकते हैं — platform की
+        सबसे महत्वपूर्ण गोपनीयता चुनौतियों में से एक हैं। एक group दो लोगों के
+        बीच की private बातचीत नहीं है — यह एक अर्ध-खुला broadcast environment है
+        जहाँ हर participant हर दूसरे participant का phone number और profile photo
+        देख सकता है।
+      </P>
+      <H3>27.1 Phone number exposure</H3>
+      <P>
+        जब आपको किसी WhatsApp group में जोड़ा जाता है — जिसके पास भी आपका number
+        है — आपका phone number सभी group members को दिखने लगता है, भले ही आपकी
+        non-contacts के लिए privacy settings कुछ भी हों।<S ids={[1, 4]} />
+        इसका मतलब है कि political groups, neighbourhood groups, professional
+        groups जैसे सैकड़ों members वाले groups में आपका number अजनबियों को दिख
+        जाता है, जिनके ख़िलाफ़ WhatsApp की current architecture में आपके पास
+        कोई उपाय नहीं है।
+      </P>
+      <H3>27.2 Group link indexing</H3>
+      <P>
+        WhatsApp का "Invite Link" feature एक URL generate करता है। Researchers ने
+        Google search results में हज़ारों ऐसे links indexed पाए, जिसका मतलब है
+        कि जिन groups को administrators ने private समझा था, वे publicly joinable
+        थे।<S ids={[33]} /> Group link के ज़रिए join करने वाला कोई भी person
+        सभी existing members के phone numbers और profile photos तक पहुँच जाता है।
+      </P>
+
+      {/* 28. COVID */}
+      <H2 id="covid">28. COVID-19 — WhatsApp एक गलत सूचना का त्वरक</H2>
+      <P>
+        जब 11 मार्च 2020 को COVID-19 को pandemic घोषित किया गया, WhatsApp वैश्विक
+        स्वास्थ्य ग़लत सूचना के प्राथमिक चैनलों में से एक बन गया। WHO ने
+        <strong>"infodemic"</strong> शब्द गढ़ा — सूचनाओं की अधिकता, जिनमें कुछ
+        सही और कुछ ग़लत, जो विश्वसनीय स्रोत खोजना मुश्किल बना देती है — और
+        WhatsApp उस infodemic का सबसे शक्तिशाली इंजन था।<S ids={[111, 112]} />
+      </P>
+      <H3>28.1 WhatsApp पर क्या फैला</H3>
+      <ul className="list-disc pl-6 space-y-2 text-[17px] leading-[1.75] text-[#1f2a24] mb-5">
+        <li>दावे कि 5G mobile networks ने COVID-19 फैलाया — UK और कई अन्य देशों में mobile towers पर physical attacks हुए।<S ids={[113]} /></li>
+        <li>झूठे इलाज — bleach पीना, 10 सेकंड साँस रोकना, saline से gargling — authoritative voice notes के रूप में।<S ids={[112, 113]} /></li>
+        <li>Anti-vaccine misinformation और vaccine contents के बारे में fabrications।<S ids={[113]} /></li>
+        <li>Minority communities को specific fabrications के ज़रिए transmission का vector बताना।<S ids={[113]} /></li>
+      </ul>
+      <H3>28.2 WhatsApp का जवाब</H3>
+      <P>
+        7 अप्रैल 2020 को WhatsApp ने global restriction की घोषणा की: पाँच या उससे
+        अधिक बार forward हो चुका कोई भी message अब <strong>एक chat में</strong> ही
+        forward किया जा सकता है।<S ids={[70, 112]} /> WhatsApp के अपने दावे के
+        अनुसार इससे "highly forwarded" messages की forwarding 70% कम हुई। हालाँकि
+        शोधकर्ताओं ने नोट किया कि इससे ग़लत सूचना की कुल मात्रा नहीं घटी — केवल
+        organised operations को content को नए groups में re-originate करने की
+        आवश्यकता हुई।<S ids={[70, 112]} />
+      </P>
+
+      {/* 29. HAUGEN */}
+      <H2 id="haugen">29. Frances Haugen और Meta के आंतरिक दस्तावेज़</H2>
+      <P>
+        सितंबर-अक्टूबर 2021 में Frances Haugen — Facebook के पूर्व product manager
+        जो civic integrity पर काम करती थीं — ने दसियों हज़ार internal Facebook
+        documents Wall Street Journal, US Congress और international news organisations
+        के consortium को दिए। ये "The Facebook Files" के रूप में प्रकाशित हुए।<S ids={[114, 115]} />
+      </P>
+      <H3>29.1 आंतरिक दस्तावेज़ों ने क्या सामने रखा</H3>
+      <ul className="list-disc pl-6 space-y-2 text-[17px] leading-[1.75] text-[#1f2a24] mb-5">
+        <li>Internal research दिखाता है कि Meta की अपनी teams को पता था कि WhatsApp groups को multiple markets में coordinated disinformation और inauthentic behaviour के लिए इस्तेमाल किया जा रहा था।<S ids={[115]} /></li>
+        <li>Privacy (E2EE) और safety (content moderation) के बीच trade-off पर internal discussions — senior executives ने लगातार privacy narrative को प्राथमिकता दी, आंशिक रूप से इसलिए कि यह message content तक access की माँगों के ख़िलाफ़ regulatory shield का काम करता था।<S ids={[114, 115]} /></li>
+        <li>Data दिखाता है कि WhatsApp के user-reporting tools North America और Western Europe के बाहर के markets में बहुत कम use हो रहे थे।<S ids={[115]} /></li>
+      </ul>
+      <H3>29.2 ProPublica: E2EE के बावजूद WhatsApp content कैसे moderate करता है</H3>
+      <P>
+        सितंबर 2021 की ProPublica की जाँच में सामने आया कि WhatsApp Austin, Texas
+        और अन्य जगहों पर 1,000 से अधिक contractors को employ करता है जो users द्वारा
+        report की गई content को review करते हैं — इसमें report किए गए message की
+        content और context के लिए पहले के पाँच messages पढ़ना शामिल है।<S ids={[132]} />
+        WhatsApp का "कोई भी आपके messages नहीं पढ़ सकता" दावा technically un-reported
+        messages के लिए सही है — पर एक बार user किसी message को report करता है,
+        उस message की content WhatsApp contractors द्वारा readable हो जाती है।<S ids={[132]} />
+      </P>
+
+      {/* 30. CHILDREN */}
+      <H2 id="children">30. WhatsApp पर बच्चे — आयु सत्यापन में विफलता</H2>
+      <P>
+        WhatsApp की Terms of Service अधिकांश देशों में कम से कम 13 साल (EU/EEA में
+        GDPR Article 8 के अनुसार 16 साल) की आयु की आवश्यकता रखती है। Verification
+        mechanism: user registration पर अपनी जन्मतिथि type करता है।<S ids={[126]} />
+        कोई independent age verification नहीं — कोई credit card check नहीं,
+        कोई parental consent mechanism नहीं, कोई government ID नहीं — जिससे
+        WhatsApp का age gate essentially good-faith basis पर है।<S ids={[125, 127, 135]} />
+      </P>
+      <H3>30.1 UK ICO की WhatsApp पर कार्रवाई</H3>
+      <P>
+        अगस्त 2021 में UK Information Commissioner's Office ने WhatsApp Ireland Ltd
+        को बच्चों के data processing के बारे में formal reprimand जारी किया।
+        Reprimand में पाया गया कि WhatsApp बच्चों पर risks को adequately assess
+        और mitigate करने में विफल रहा।<S ids={[127]} />
+      </P>
+      <H3>30.2 बच्चों की privacy के लिए इसका अर्थ</H3>
+      <P>
+        WhatsApp पर register करने वाला बच्चा — उम्र चाहे कुछ भी हो — तुरंत अपनी
+        पूरी phone contacts list upload करता है, §3 और §4 में वर्णित पूरा metadata
+        profile generate करना शुरू करता है, और किसी भी adult द्वारा groups में
+        जोड़ा जा सकता है जिसके पास उसका phone number है।<S ids={[125, 127, 135]} />
+        NSPCC ने बार-बार WhatsApp के लिए stronger age assurance की माँग की है।<S ids={[135]} />
+      </P>
+
+      {/* 31. DMA */}
+      <H2 id="dma">31. EU डिजिटल मार्केट्स एक्ट और WhatsApp की ज़िम्मेदारी</H2>
+      <P>
+        6 सितंबर 2023 को European Commission ने EU Digital Markets Act (DMA) के
+        तहत WhatsApp को <em>gatekeeper</em> के रूप में formally designate किया —
+        EU history में platform regulation का सबसे महत्वपूर्ण कानून।<S ids={[128]} />
+        WhatsApp को Facebook Messenger के साथ Meta के छह gatekeeper core platform
+        services में से एक के रूप में designate किया गया।
+      </P>
+      <H3>31.1 DMA के तहत WhatsApp की ज़िम्मेदारियाँ</H3>
+      <P>
+        DMA के तहत WhatsApp को निर्धारित समय-सीमाओं के भीतर third-party messaging
+        services को interoperability प्रदान करनी होगी। इसका मतलब है कि अन्य
+        messaging apps के users को WhatsApp account के बिना WhatsApp users के साथ
+        messages भेजने-प्राप्त करने में सक्षम होना चाहिए।<S ids={[128, 129]} />
+      </P>
+      <H3>31.2 Meta के ख़िलाफ़ non-compliance proceedings</H3>
+      <P>
+        25 मार्च 2024 को European Commission ने Meta — WhatsApp सहित — के ख़िलाफ़
+        formal non-compliance proceedings शुरू किए। यदि उल्लंघन पाया गया, तो Meta
+        पर global annual turnover का 10% तक जुर्माना हो सकता है — और बार-बार
+        उल्लंघन पर 20%।<S ids={[129]} />
+      </P>
+
+      {/* 32. INDIA IT RULES */}
+      <H2 id="india_it_rules">32. भारत के IT नियम 2021 बनाम WhatsApp — ट्रेसेबिलिटी की माँग</H2>
+      <P>
+        25 फरवरी 2021 को भारत के Ministry of Electronics and Information Technology
+        ने Information Technology (Intermediary Guidelines and Digital Media Ethics
+        Code) Rules, 2021 — सामान्यतः IT Rules 2021 — को अधिसूचित किया।<S ids={[122]} />
+        इनमें एक विवादास्पद प्रावधान है कि "significant social media intermediaries"
+        — जिनमें WhatsApp (भारत में 500+ million users) अग्रणी है — किसी भी
+        message के <em>"first originator"</em> की पहचान सक्षम करें।
+      </P>
+      <H3>32.1 यह E2EE के साथ तकनीकी रूप से असंगत क्यों है</H3>
+      <P>
+        WhatsApp ने मई 2021 में Delhi High Court में इन नियमों को चुनौती दी, यह
+        तर्क देते हुए कि traceability mechanism बनाने के लिए या तो: (a) सभी users
+        के लिए globally end-to-end encryption तोड़नी होगी, या (b) हर message और
+        उसके sender का hash/fingerprint permanently store करना होगा।<S ids={[123, 124]} />
+        MIT Technology Review के analysis ने WhatsApp के technical तर्क की
+        पुष्टि की: E2EE को तोड़े बिना या surveillance infrastructure बनाए बिना
+        forward किए गए message के origin का trace करना cryptographically sound
+        तरीक़े से संभव नहीं है।<S ids={[124]} />
+      </P>
+      <H3>32.2 व्यापक encryption नीति की लड़ाई</H3>
+      <P>
+        भारत अकेला नहीं है। UK के Online Safety Act 2023 में प्रावधान थे जो
+        platforms — WhatsApp सहित — को illegal content के लिए encrypted messages
+        scan करने की आवश्यकता रखते थे। WhatsApp और Signal ने publicly comply करने
+        की बजाय UK market छोड़ने की धमकी दी।<S ids={[137, 138]} /> UK सरकार ने
+        अंततः technical review लंबित scanning provisions के implementation को
+        स्थगित किया।<S ids={[139]} />
+      </P>
+
+      {/* 33. SIGNAL VS */}
+      <H2 id="signal_vs">33. Signal vs WhatsApp — आप असल में क्या खो देते हैं</H2>
+      <P>
+        सबसे आम सवाल: अगर Signal और WhatsApp दोनों Signal Protocol use करते हैं,
+        तो क्या फ़र्क पड़ता है? जवाब encryption layer के बाहर सब कुछ में है —
+        business model, parent company, retained metadata, open-source auditability,
+        और regulatory exposure।<S ids={[117, 118, 119]} />
+      </P>
+      <H3>33.1 तुलनात्मक विश्लेषण</H3>
+      <ul className="list-disc pl-6 space-y-2 text-[17px] leading-[1.75] text-[#1f2a24] mb-5">
+        <li><strong>Message content encryption:</strong> समान। दोनों Signal Protocol use करते हैं।<S ids={[89, 90]} /></li>
+        <li><strong>Collected metadata:</strong> Signal सिर्फ़ phone number और last connected date collect करता है। WhatsApp §3 और §4 में वर्णित पूरा stack।<S ids={[17, 131]} /></li>
+        <li><strong>Contact graph:</strong> Signal address book upload नहीं करता। WhatsApp पूरी address book upload करता है, non-users सहित।<S ids={[1, 4, 119]} /></li>
+        <li><strong>Backups:</strong> Signal में default cloud backup नहीं। WhatsApp default रूप से unencrypted Google Drive/iCloud backup।<S ids={[8, 9, 119]} /></li>
+        <li><strong>Parent company:</strong> Signal Foundation (non-profit). WhatsApp Meta Platforms, Inc. (advertising revenue)।<S ids={[51, 118]} /></li>
+        <li><strong>Open source:</strong> Signal का client और server दोनों open source और independently audited। WhatsApp का client proprietary, server पूरी तरह closed।<S ids={[118, 119]} /></li>
+        <li><strong>Law enforcement (FBI document):</strong> Signal सिर्फ़ registration date और last-connected date देता है। WhatsApp subscriber info, contacts, social graph, और near-real-time pen-register data।<S ids={[17, 131]} /></li>
+        <li><strong>Ads:</strong> Signal में कोई ad नहीं। WhatsApp ने जून 2025 में Updates tab में ads शुरू किए।<S ids={[11, 12, 13, 118]} /></li>
+      </ul>
+      <Quote cite="Bruce Schneier, Security expert [130]">
+        NSA आपका email पढ़ना नहीं चाहता। वह जानना चाहता है कि आप किससे बात कर
+        रहे हैं, कब और कितनी बार — क्योंकि यही उन्हें वह बताता है जो वे जानना
+        चाहते हैं।
+      </Quote>
+      <P>
+        यह observation सरकारी निगरानी के context में की गई थी, पर corporate
+        surveillance पर समान रूप से लागू होती है। आपके communications का
+        "envelope" — metadata — अक्सर content से अधिक revealing होता है।
+        WhatsApp वह envelope Meta को देता है। Signal नहीं देता।<S ids={[130, 134]} />
+      </P>
+
+      {/* 34. DISAPPEARING */}
+      <H2 id="disappearing">34. गायब होने वाले मैसेज — असल में क्या डिलीट होता है</H2>
+      <P>
+        WhatsApp "Disappearing Messages" feature प्रदान करता है जिसे 24 घंटे,
+        7 दिन या 90 दिन बाद messages delete करने के लिए set किया जा सकता है।<S ids={[120]} />
+        यह WhatsApp के सबसे heavily marketed privacy features में से एक है —
+        और सबसे अधिक misunderstood भी।
+      </P>
+      <H3>34.1 Disappearing messages असल में क्या करते हैं</H3>
+      <P>
+        Disappearing messages selected timer के बाद sender और recipient दोनों के
+        devices से message delete करते हैं — <em>केवल तभी</em> जब दोनों devices
+        online हों और deletion signal receive कर चुके हों।<S ids={[120, 121]} />
+        वे <em>नहीं</em> करते:
+      </P>
+      <ul className="list-disc pl-6 space-y-2 text-[17px] leading-[1.75] text-[#1f2a24] mb-5">
+        <li>Timer fire होने से पहले लिए गए cloud backup से message delete नहीं होता।<S ids={[8, 120]} /></li>
+        <li>Recipient को timer fire होने से पहले screenshot लेने से नहीं रोकता — WhatsApp disappearing message chats में screenshots block या notify नहीं करता।<S ids={[121]} /></li>
+        <li>Recipient द्वारा अन्य chats में forward की गई copies delete नहीं होतीं।<S ids={[120]} /></li>
+        <li>Timer fire होने से पहले automatically download हुई media files delete नहीं होतीं।<S ids={[120]} /></li>
+        <li>Offline device पर message deliver नहीं होता, पर WhatsApp के servers encrypted payload को 30 दिन तक retain कर सकते हैं।<S ids={[120, 121]} /></li>
+      </ul>
+      <Callout tone="warn" title="Privacy का आभास बनाम वास्तविक privacy">
+        Disappearing messages sender को नियंत्रण का एहसास देते हैं। व्यवहार में,
+        किसी determined recipient के लिए या cloud backups वाले किसी भी interaction
+        के लिए, message के वास्तव में गायब होने की संभावना बहुत कम है।<S ids={[120, 121]} />
+      </Callout>
+
+      {/* 35. EXPERTS */}
+      <H2 id="experts">35. विशेषज्ञ, अदालतें और व्हिसलब्लोअर क्या सलाह देते हैं</H2>
+      <P>
+        यह लेख regulatory findings, court documents, forensic research और
+        investigative journalism से साक्ष्य एकत्र करता है। यह पूछना उचित है —
+        इस सारे साक्ष्य के सामने, सबसे गहरी विशेषज्ञता वाले लोग वास्तव में क्या
+        recommend करते हैं?
+      </P>
+      <H3>35.1 Security experts और cryptographers</H3>
+      <P>
+        Bruce Schneier ने metadata की primacy पर विस्तार से लिखा है:
+        <em>"लोगों पर metadata collect करना privacy का एक intimate उल्लंघन है।"</em><S ids={[130]} />
+        EFF की Surveillance Self-Defence guide विशेष रूप से government surveillance
+        का सामना करने वाले users के लिए WhatsApp की बजाय Signal recommend करती है।<S ids={[117, 118]} />
+      </P>
+      <H3>35.2 नियामक निकाय</H3>
+      <P>
+        Ireland के DPC ने WhatsApp पर €225 million का जुर्माना लगाया और GDPR की
+        transparency obligations का उल्लंघन पाया।<S ids={[27, 28]} /> India के CCI
+        ने 2021 की policy को dominant position का दुरुपयोग पाया।<S ids={[29, 30]} />
+        EU के DMA ने WhatsApp को gatekeeper designate किया और Meta के ख़िलाफ़
+        non-compliance proceedings शुरू किए।<S ids={[128, 129]} /> UK ICO ने
+        children's data पर reprimand जारी किया।<S ids={[127]} />
+      </P>
+      <H3>35.3 व्हिसलब्लोअर</H3>
+      <P>
+        Brian Acton और Jan Koum — वे लोग जिन्होंने WhatsApp बनाया — अरबों डॉलर
+        छोड़कर चले गए बजाय इसके कि Meta जो WhatsApp के data के साथ करना चाहती थी
+        वह implement करें।<S ids={[55, 56, 57, 58]} /> Frances Haugen के internal
+        documents दिखाते हैं कि Meta के अपने researchers ने WhatsApp की architecture
+        और product decisions में गंभीर safety और privacy problems की पहचान की — और
+        leadership ने लगातार growth और engagement को उन problems को address करने
+        से ऊपर रखा।<S ids={[114, 115]} />
+      </P>
+      <H3>35.4 अदालतें</H3>
+      <P>
+        2025 में एक US federal jury ने माना कि NSO Group का WhatsApp का उपयोग
+        1,400 लोगों के ख़िलाफ़ nation-state spyware delivery के लिए ग़ैर-क़ानूनी था
+        और $167 million के punitive damages दिए।<S ids={[18, 19, 20, 21, 22]} />
+      </P>
+      <Quote cite="Amnesty International, NSO verdict पर, मई 2025 [20]">
+        यह verdict एक शक्तिशाली संदेश भेजता है: spyware vendors को जो दण्डमुक्ति
+        मिली है वह समाप्त होनी चाहिए।
+      </Quote>
+      <P>
+        यह लेख जो सवाल पूछता है वह यह नहीं है कि WhatsApp एक बुरा product है।
+        सवाल यह है कि 2025 और उसके बाद, साक्ष्यों का योग — metadata collection,
+        parent-company data flows, ad introduction, AI integration, broken features,
+        regulatory findings, spyware verdicts, election interference, genocide link,
+        children's data failures, payments data ambitions — उस भरोसे के अनुरूप है
+        या नहीं जो तीन अरब लोग एक हरे lock icon और "end-to-end encrypted" शब्दों
+        में रखते हैं।<S ids={[1, 18, 27, 51, 98, 102, 114, 128]} />
+      </P>
+      <P>
+        इस document के साक्ष्य कहते हैं: नहीं।
+      </P>
     </>
   );
 }
@@ -1722,7 +2890,7 @@ export function WhatsappPrivacyPage() {
       return "en";
     }
   });
-  const readingMinutes = useMemo(() => (lang === "hi" ? 38 : 42), [lang]);
+  const readingMinutes = useMemo(() => (lang === "hi" ? 68 : 75), [lang]);
 
   useEffect(() => {
     try {
