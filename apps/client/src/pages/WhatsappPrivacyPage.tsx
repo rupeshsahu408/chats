@@ -382,6 +382,416 @@ const TOC_HI: { id: string; label: string }[] = [
   { id: "sources", label: "स्रोत और सन्दर्भ" },
 ];
 
+const TOC_PT: { id: string; label: string }[] = [
+  { id: "risk-calc", label: "Sua pontuação de risco pessoal no WhatsApp" },
+  { id: "tldr", label: "Em resumo — o que este artigo prova" },
+  { id: "owners", label: "1. Quem realmente é dono do WhatsApp" },
+  { id: "founders", label: "2. Os próprios fundadores saíram em protesto" },
+  { id: "policy", label: "3. O que a Política de Privacidade realmente diz" },
+  { id: "metadata", label: "4. Metadados — o que a criptografia não esconde" },
+  { id: "y2021", label: "5. A atualização forçada de 2021" },
+  { id: "backups", label: "6. A brecha dos backups em nuvem" },
+  { id: "business", label: "7. WhatsApp Business — onde o E2EE acaba silenciosamente" },
+  { id: "ads", label: "8. Anúncios dentro do WhatsApp (junho 2025)" },
+  { id: "ai", label: "9. Meta AI na sua lista de conversas" },
+  { id: "law", label: "10. Governos e autoridades policiais" },
+  { id: "pegasus", label: "11. Pegasus — veredicto de US$167M do NSO" },
+  { id: "victims", label: "12. Vítimas do Pegasus por país" },
+  { id: "paragon", label: "13. Paragon Graphite (2025)" },
+  { id: "leaks", label: "14. Vazamentos, bugs e recursos quebrados" },
+  { id: "leak2022", label: "15. O vazamento de 487 milhões de números (2022)" },
+  { id: "fines", label: "16. Multas regulatórias e proibições" },
+  { id: "bans", label: "17. Bloqueios em nível nacional" },
+  { id: "lynch", label: "18. WhatsApp, desinformação e linchamentos" },
+  { id: "delete", label: "19. O que 'excluir conta' realmente exclui" },
+  { id: "scams", label: "20. Golpes em escala industrial" },
+  { id: "verdict", label: "21. O veredicto para usuários de alta privacidade" },
+  { id: "myanmar", label: "22. WhatsApp e o genocídio Rohingya" },
+  { id: "brazil2018", label: "23. Brasil 2018 — WhatsApp como máquina de desinformação" },
+  { id: "whatsapppay", label: "24. WhatsApp Pay — seus dados financeiros" },
+  { id: "cves", label: "25. Vulnerabilidades críticas de segurança (CVEs)" },
+  { id: "webdesktop", label: "26. WhatsApp Web e Desktop — superfície de ataque expandida" },
+  { id: "groups", label: "27. Grupos do WhatsApp — riscos coletivos de privacidade" },
+  { id: "covid", label: "28. COVID-19 — WhatsApp como amplificador de desinformação" },
+  { id: "haugen", label: "29. Frances Haugen e os documentos internos da Meta" },
+  { id: "children", label: "30. Crianças no WhatsApp — falha na verificação de idade" },
+  { id: "dma", label: "31. Lei dos Mercados Digitais da UE e o WhatsApp" },
+  { id: "india_it_rules", label: "32. Regras de TI da Índia 2021 vs. WhatsApp" },
+  { id: "signal_vs", label: "33. Signal vs. WhatsApp — o que você realmente perde" },
+  { id: "disappearing", label: "34. Mensagens temporárias — o que realmente é excluído" },
+  { id: "experts", label: "35. O que especialistas, tribunais e whistleblowers recomendam" },
+  { id: "sources", label: "Fontes e referências" },
+];
+
+const TOC_ID: { id: string; label: string }[] = [
+  { id: "risk-calc", label: "Skor risiko privasi WhatsApp Anda" },
+  { id: "tldr", label: "Ringkasan — apa yang dibuktikan artikel ini" },
+  { id: "owners", label: "1. Siapa yang benar-benar memiliki WhatsApp" },
+  { id: "founders", label: "2. Para pendiri sendiri keluar karena privasi" },
+  { id: "policy", label: "3. Apa yang sebenarnya dikatakan Kebijakan Privasi" },
+  { id: "metadata", label: "4. Metadata — yang tidak disembunyikan enkripsi" },
+  { id: "y2021", label: "5. Pembaruan paksa 2021" },
+  { id: "backups", label: "6. Celah backup cloud" },
+  { id: "business", label: "7. WhatsApp Business — di mana E2EE berakhir diam-diam" },
+  { id: "ads", label: "8. Iklan di dalam WhatsApp (Juni 2025)" },
+  { id: "ai", label: "9. Meta AI di daftar obrolan Anda" },
+  { id: "law", label: "10. Pemerintah dan penegak hukum" },
+  { id: "pegasus", label: "11. Pegasus — vonis NSO US$167 juta" },
+  { id: "victims", label: "12. Korban Pegasus per negara" },
+  { id: "paragon", label: "13. Paragon Graphite (2025)" },
+  { id: "leaks", label: "14. Kebocoran, bug, dan fitur rusak" },
+  { id: "leak2022", label: "15. Kebocoran 487 juta nomor (2022)" },
+  { id: "fines", label: "16. Denda regulasi dan larangan" },
+  { id: "bans", label: "17. Pemblokiran di tingkat negara" },
+  { id: "lynch", label: "18. WhatsApp, hoaks, dan pembunuhan massal" },
+  { id: "delete", label: "19. Apa yang benar-benar dihapus saat 'hapus akun'" },
+  { id: "scams", label: "20. Penipuan skala industri" },
+  { id: "verdict", label: "21. Kesimpulan untuk pengguna yang peduli privasi" },
+  { id: "myanmar", label: "22. WhatsApp dan genosida Rohingya" },
+  { id: "brazil2018", label: "23. Brasil 2018 — WhatsApp sebagai mesin disinformasi" },
+  { id: "whatsapppay", label: "24. WhatsApp Pay — data keuangan Anda" },
+  { id: "cves", label: "25. Kerentanan keamanan kritis (CVE)" },
+  { id: "webdesktop", label: "26. WhatsApp Web dan Desktop — permukaan serangan lebih luas" },
+  { id: "groups", label: "27. Grup WhatsApp — risiko privasi kolektif" },
+  { id: "covid", label: "28. COVID-19 — WhatsApp sebagai amplifier disinformasi" },
+  { id: "haugen", label: "29. Frances Haugen dan dokumen internal Meta" },
+  { id: "children", label: "30. Anak-anak di WhatsApp — kegagalan verifikasi usia" },
+  { id: "dma", label: "31. Undang-Undang Pasar Digital UE dan WhatsApp" },
+  { id: "india_it_rules", label: "32. Aturan IT India 2021 vs. WhatsApp" },
+  { id: "signal_vs", label: "33. Signal vs. WhatsApp — apa yang benar-benar Anda korbankan" },
+  { id: "disappearing", label: "34. Pesan menghilang — apa yang benar-benar terhapus" },
+  { id: "experts", label: "35. Apa yang disarankan ahli, pengadilan, dan whistleblower" },
+  { id: "sources", label: "Sumber dan referensi" },
+];
+
+const TOC_ES: { id: string; label: string }[] = [
+  { id: "risk-calc", label: "Tu puntuación de riesgo personal en WhatsApp" },
+  { id: "tldr", label: "En resumen — lo que prueba este artículo" },
+  { id: "owners", label: "1. Quién es el verdadero dueño de WhatsApp" },
+  { id: "founders", label: "2. Los propios fundadores se fueron por privacidad" },
+  { id: "policy", label: "3. Lo que realmente dice la Política de Privacidad" },
+  { id: "metadata", label: "4. Metadatos — lo que el cifrado no oculta" },
+  { id: "y2021", label: "5. La actualización forzada de 2021" },
+  { id: "backups", label: "6. La brecha de las copias de seguridad en la nube" },
+  { id: "business", label: "7. WhatsApp Business — donde el E2EE termina silenciosamente" },
+  { id: "ads", label: "8. Anuncios dentro de WhatsApp (junio 2025)" },
+  { id: "ai", label: "9. Meta AI en tu lista de chats" },
+  { id: "law", label: "10. Gobiernos y fuerzas del orden" },
+  { id: "pegasus", label: "11. Pegasus — veredicto de US$167M contra NSO" },
+  { id: "victims", label: "12. Víctimas de Pegasus por país" },
+  { id: "paragon", label: "13. Paragon Graphite (2025)" },
+  { id: "leaks", label: "14. Filtraciones, errores y funciones rotas" },
+  { id: "leak2022", label: "15. La filtración de 487 millones de números (2022)" },
+  { id: "fines", label: "16. Multas regulatorias y sanciones" },
+  { id: "bans", label: "17. Bloqueos a nivel nacional" },
+  { id: "lynch", label: "18. WhatsApp, bulos y linchamientos" },
+  { id: "delete", label: "19. Lo que 'eliminar cuenta' realmente elimina" },
+  { id: "scams", label: "20. Estafas a escala industrial" },
+  { id: "verdict", label: "21. El veredicto para usuarios de alta privacidad" },
+  { id: "myanmar", label: "22. WhatsApp y el genocidio Rohingya" },
+  { id: "brazil2018", label: "23. Brasil 2018 — WhatsApp como máquina de desinformación" },
+  { id: "whatsapppay", label: "24. WhatsApp Pay — tus datos financieros" },
+  { id: "cves", label: "25. Vulnerabilidades de seguridad críticas (CVE)" },
+  { id: "webdesktop", label: "26. WhatsApp Web y Escritorio — mayor superficie de ataque" },
+  { id: "groups", label: "27. Grupos de WhatsApp — riesgos colectivos de privacidad" },
+  { id: "covid", label: "28. COVID-19 — WhatsApp como amplificador de desinformación" },
+  { id: "haugen", label: "29. Frances Haugen y los documentos internos de Meta" },
+  { id: "children", label: "30. Menores en WhatsApp — fallo en la verificación de edad" },
+  { id: "dma", label: "31. Ley de Mercados Digitales de la UE y WhatsApp" },
+  { id: "india_it_rules", label: "32. Normas IT de India 2021 vs. WhatsApp" },
+  { id: "signal_vs", label: "33. Signal vs. WhatsApp — lo que realmente pierdes" },
+  { id: "disappearing", label: "34. Mensajes temporales — lo que realmente se elimina" },
+  { id: "experts", label: "35. Lo que recomiendan expertos, tribunales y denunciantes" },
+  { id: "sources", label: "Fuentes y referencias" },
+];
+
+const TOC_RU: { id: string; label: string }[] = [
+  { id: "risk-calc", label: "Ваш личный рейтинг риска в WhatsApp" },
+  { id: "tldr", label: "Коротко — что доказывает эта статья" },
+  { id: "owners", label: "1. Кто на самом деле владеет WhatsApp" },
+  { id: "founders", label: "2. Сами основатели ушли из-за конфиденциальности" },
+  { id: "policy", label: "3. Что на самом деле говорит Политика конфиденциальности" },
+  { id: "metadata", label: "4. Метаданные — что не скрывает шифрование" },
+  { id: "y2021", label: "5. Принудительное обновление 2021 года" },
+  { id: "backups", label: "6. Уязвимость облачного резервного копирования" },
+  { id: "business", label: "7. WhatsApp Business — где E2EE незаметно заканчивается" },
+  { id: "ads", label: "8. Реклама внутри WhatsApp (июнь 2025)" },
+  { id: "ai", label: "9. Meta AI в вашем списке чатов" },
+  { id: "law", label: "10. Правительства и правоохранительные органы" },
+  { id: "pegasus", label: "11. Pegasus — приговор NSO на $167 млн" },
+  { id: "victims", label: "12. Жертвы Pegasus по странам" },
+  { id: "paragon", label: "13. Paragon Graphite (2025)" },
+  { id: "leaks", label: "14. Утечки, уязвимости и сломанные функции" },
+  { id: "leak2022", label: "15. Утечка 487 млн номеров (2022)" },
+  { id: "fines", label: "16. Регуляторные штрафы и запреты" },
+  { id: "bans", label: "17. Национальные блокировки" },
+  { id: "lynch", label: "18. WhatsApp, фейки и линчевания" },
+  { id: "delete", label: "19. Что «удалить аккаунт» на самом деле удаляет" },
+  { id: "scams", label: "20. Мошенничество промышленного масштаба" },
+  { id: "verdict", label: "21. Вывод для пользователей, заботящихся о конфиденциальности" },
+  { id: "myanmar", label: "22. WhatsApp и геноцид рохинджа" },
+  { id: "brazil2018", label: "23. Бразилия 2018 — WhatsApp как машина дезинформации" },
+  { id: "whatsapppay", label: "24. WhatsApp Pay — ваши финансовые данные" },
+  { id: "cves", label: "25. Критические уязвимости безопасности (CVE)" },
+  { id: "webdesktop", label: "26. WhatsApp Web и Desktop — расширенная поверхность атаки" },
+  { id: "groups", label: "27. Группы WhatsApp — коллективные риски конфиденциальности" },
+  { id: "covid", label: "28. COVID-19 — WhatsApp как усилитель дезинформации" },
+  { id: "haugen", label: "29. Фрэнсис Хауген и внутренние документы Meta" },
+  { id: "children", label: "30. Дети в WhatsApp — провал проверки возраста" },
+  { id: "dma", label: "31. Закон ЕС о цифровых рынках и WhatsApp" },
+  { id: "india_it_rules", label: "32. Правила IT Индии 2021 против WhatsApp" },
+  { id: "signal_vs", label: "33. Signal против WhatsApp — что вы реально теряете" },
+  { id: "disappearing", label: "34. Исчезающие сообщения — что на самом деле удаляется" },
+  { id: "experts", label: "35. Что рекомендуют эксперты, суды и разоблачители" },
+  { id: "sources", label: "Источники и ссылки" },
+];
+
+const TOC_DE: { id: string; label: string }[] = [
+  { id: "risk-calc", label: "Ihr persönlicher WhatsApp-Risiko-Score" },
+  { id: "tldr", label: "Kurz zusammengefasst — was dieser Artikel beweist" },
+  { id: "owners", label: "1. Wem WhatsApp wirklich gehört" },
+  { id: "founders", label: "2. Die eigenen Gründer verließen das Unternehmen" },
+  { id: "policy", label: "3. Was die Datenschutzrichtlinie wirklich sagt" },
+  { id: "metadata", label: "4. Metadaten — was die Verschlüsselung nicht verbirgt" },
+  { id: "y2021", label: "5. Das erzwungene Update von 2021" },
+  { id: "backups", label: "6. Die Cloud-Backup-Lücke" },
+  { id: "business", label: "7. WhatsApp Business — wo E2EE still endet" },
+  { id: "ads", label: "8. Werbung innerhalb von WhatsApp (Juni 2025)" },
+  { id: "ai", label: "9. Meta AI in Ihrer Chat-Liste" },
+  { id: "law", label: "10. Regierungen und Strafverfolgung" },
+  { id: "pegasus", label: "11. Pegasus — das NSO-Urteil über 167 Mio. USD" },
+  { id: "victims", label: "12. Pegasus-Opfer nach Land" },
+  { id: "paragon", label: "13. Paragon Graphite (2025)" },
+  { id: "leaks", label: "14. Datenlecks, Bugs und kaputte Funktionen" },
+  { id: "leak2022", label: "15. Das Datenleck von 487 Mio. Nummern (2022)" },
+  { id: "fines", label: "16. Bußgelder und behördliche Maßnahmen" },
+  { id: "bans", label: "17. Verbote auf nationaler Ebene" },
+  { id: "lynch", label: "18. WhatsApp, Falschnachrichten und Lynchjustiz" },
+  { id: "delete", label: '19. Was \u201EKonto l\u00F6schen\u201C wirklich l\u00F6scht' },
+  { id: "scams", label: "20. Betrug im industriellen Maßstab" },
+  { id: "verdict", label: "21. Das Fazit für Nutzer mit hohem Datenschutzbedarf" },
+  { id: "myanmar", label: "22. WhatsApp und der Rohingya-Genozid" },
+  { id: "brazil2018", label: "23. Brasilien 2018 — WhatsApp als Desinformationsmaschine" },
+  { id: "whatsapppay", label: "24. WhatsApp Pay — Ihre Finanzdaten" },
+  { id: "cves", label: "25. Kritische Sicherheitslücken (CVEs)" },
+  { id: "webdesktop", label: "26. WhatsApp Web und Desktop — größere Angriffsfläche" },
+  { id: "groups", label: "27. WhatsApp-Gruppen — kollektive Datenschutzrisiken" },
+  { id: "covid", label: "28. COVID-19 — WhatsApp als Desinformations-Verstärker" },
+  { id: "haugen", label: "29. Frances Haugen und Metas interne Dokumente" },
+  { id: "children", label: "30. Kinder bei WhatsApp — versagte Altersverifizierung" },
+  { id: "dma", label: "31. EU Digital Markets Act und WhatsApp" },
+  { id: "india_it_rules", label: "32. Indiens IT-Regeln 2021 vs. WhatsApp" },
+  { id: "signal_vs", label: "33. Signal vs. WhatsApp — was Sie wirklich aufgeben" },
+  { id: "disappearing", label: "34. Selbstlöschende Nachrichten — was wirklich gelöscht wird" },
+  { id: "experts", label: "35. Was Experten, Gerichte und Whistleblower empfehlen" },
+  { id: "sources", label: "Quellen und Belege" },
+];
+
+const TOC_IT: { id: string; label: string }[] = [
+  { id: "risk-calc", label: "Il tuo punteggio di rischio personale su WhatsApp" },
+  { id: "tldr", label: "In sintesi — cosa prova questo articolo" },
+  { id: "owners", label: "1. Chi è il vero proprietario di WhatsApp" },
+  { id: "founders", label: "2. Gli stessi fondatori se ne andarono per la privacy" },
+  { id: "policy", label: "3. Cosa dice davvero l'Informativa sulla privacy" },
+  { id: "metadata", label: "4. Metadati — ciò che la crittografia non nasconde" },
+  { id: "y2021", label: "5. L'aggiornamento forzato del 2021" },
+  { id: "backups", label: "6. La lacuna dei backup cloud" },
+  { id: "business", label: "7. WhatsApp Business — dove l'E2EE finisce silenziosamente" },
+  { id: "ads", label: "8. Pubblicità dentro WhatsApp (giugno 2025)" },
+  { id: "ai", label: "9. Meta AI nella tua lista chat" },
+  { id: "law", label: "10. Governi e forze dell'ordine" },
+  { id: "pegasus", label: "11. Pegasus — la condanna da 167 mln $ a NSO" },
+  { id: "victims", label: "12. Vittime di Pegasus per paese" },
+  { id: "paragon", label: "13. Paragon Graphite (2025)" },
+  { id: "leaks", label: "14. Fughe di dati, bug e funzioni difettose" },
+  { id: "leak2022", label: "15. La fuga di 487 milioni di numeri (2022)" },
+  { id: "fines", label: "16. Sanzioni normative e divieti" },
+  { id: "bans", label: "17. Blocchi a livello nazionale" },
+  { id: "lynch", label: "18. WhatsApp, fake news e linciaggi" },
+  { id: "delete", label: "19. Cosa 'elimina account' cancella davvero" },
+  { id: "scams", label: "20. Truffe su scala industriale" },
+  { id: "verdict", label: "21. Il verdetto per gli utenti attenti alla privacy" },
+  { id: "myanmar", label: "22. WhatsApp e il genocidio Rohingya" },
+  { id: "brazil2018", label: "23. Brasile 2018 — WhatsApp come macchina di disinformazione" },
+  { id: "whatsapppay", label: "24. WhatsApp Pay — i tuoi dati finanziari" },
+  { id: "cves", label: "25. Vulnerabilità di sicurezza critiche (CVE)" },
+  { id: "webdesktop", label: "26. WhatsApp Web e Desktop — superficie di attacco ampliata" },
+  { id: "groups", label: "27. Gruppi WhatsApp — rischi collettivi per la privacy" },
+  { id: "covid", label: "28. COVID-19 — WhatsApp come amplificatore di disinformazione" },
+  { id: "haugen", label: "29. Frances Haugen e i documenti interni di Meta" },
+  { id: "children", label: "30. Bambini su WhatsApp — verifica dell'età fallita" },
+  { id: "dma", label: "31. Legge sui mercati digitali dell'UE e WhatsApp" },
+  { id: "india_it_rules", label: "32. Norme IT India 2021 vs. WhatsApp" },
+  { id: "signal_vs", label: "33. Signal vs. WhatsApp — cosa perdi davvero" },
+  { id: "disappearing", label: "34. Messaggi temporanei — cosa viene davvero eliminato" },
+  { id: "experts", label: "35. Cosa raccomandano esperti, tribunali e whistleblower" },
+  { id: "sources", label: "Fonti e riferimenti" },
+];
+
+const TOC_AR: { id: string; label: string }[] = [
+  { id: "risk-calc", label: "درجة مخاطر الخصوصية الشخصية على واتساب" },
+  { id: "tldr", label: "باختصار — ما الذي يُثبته هذا المقال" },
+  { id: "owners", label: "1. من يمتلك واتساب فعلياً" },
+  { id: "founders", label: "2. المؤسسون أنفسهم غادروا بسبب الخصوصية" },
+  { id: "policy", label: "3. ما تقوله سياسة الخصوصية فعلاً" },
+  { id: "metadata", label: "4. البيانات الوصفية — ما لا يخفيه التشفير" },
+  { id: "y2021", label: "5. تحديث 2021 الإجباري" },
+  { id: "backups", label: "6. ثغرة النسخ الاحتياطي السحابي" },
+  { id: "business", label: "7. واتساب للأعمال — حيث ينتهي E2EE بهدوء" },
+  { id: "ads", label: "8. الإعلانات داخل واتساب (يونيو 2025)" },
+  { id: "ai", label: "9. Meta AI في قائمة محادثاتك" },
+  { id: "law", label: "10. الحكومات وجهات تطبيق القانون" },
+  { id: "pegasus", label: "11. بيغاسوس — حكم 167 مليون دولار ضد NSO" },
+  { id: "victims", label: "12. ضحايا بيغاسوس حسب البلد" },
+  { id: "paragon", label: "13. Paragon Graphite (2025)" },
+  { id: "leaks", label: "14. التسريبات والأخطاء والميزات المعطلة" },
+  { id: "leak2022", label: "15. تسريب 487 مليون رقم (2022)" },
+  { id: "fines", label: "16. الغرامات التنظيمية والحظر" },
+  { id: "bans", label: "17. الحظر على المستوى الوطني" },
+  { id: "lynch", label: "18. واتساب والأخبار الكاذبة وعمليات القتل الجماعي" },
+  { id: "delete", label: "19. ما الذي يحذفه 'حذف الحساب' فعلاً" },
+  { id: "scams", label: "20. عمليات نصب احتيال على نطاق صناعي" },
+  { id: "verdict", label: "21. الحكم للمستخدمين الباحثين عن الخصوصية" },
+  { id: "myanmar", label: "22. واتساب والإبادة الجماعية للروهينجا" },
+  { id: "brazil2018", label: "23. البرازيل 2018 — واتساب كآلة تضليل" },
+  { id: "whatsapppay", label: "24. واتساب باي — بياناتك المالية" },
+  { id: "cves", label: "25. ثغرات الأمان الحرجة (CVE)" },
+  { id: "webdesktop", label: "26. واتساب ويب وسطح المكتب — سطح هجوم أوسع" },
+  { id: "groups", label: "27. مجموعات واتساب — مخاطر الخصوصية الجماعية" },
+  { id: "covid", label: "28. كوفيد-19 — واتساب كمضخم للمعلومات المضللة" },
+  { id: "haugen", label: "29. فرانسيس هاوغن ووثائق ميتا الداخلية" },
+  { id: "children", label: "30. الأطفال على واتساب — فشل التحقق من العمر" },
+  { id: "dma", label: "31. قانون الأسواق الرقمية الأوروبي وواتساب" },
+  { id: "india_it_rules", label: "32. قواعد تكنولوجيا المعلومات الهندية 2021 مقابل واتساب" },
+  { id: "signal_vs", label: "33. Signal مقابل واتساب — ما الذي تخسره فعلاً" },
+  { id: "disappearing", label: "34. الرسائل المختفية — ما الذي يُحذف فعلاً" },
+  { id: "experts", label: "35. ما يوصي به الخبراء والمحاكم والمُبلِّغون عن المخالفات" },
+  { id: "sources", label: "المصادر والمراجع" },
+];
+
+const TOC_TR: { id: string; label: string }[] = [
+  { id: "risk-calc", label: "Kişisel WhatsApp risk puanınız" },
+  { id: "tldr", label: "Özet — bu makale neyi kanıtlıyor" },
+  { id: "owners", label: "1. WhatsApp'ı gerçekte kim sahip" },
+  { id: "founders", label: "2. Kurucuların kendisi gizlilik yüzünden ayrıldı" },
+  { id: "policy", label: "3. Gizlilik Politikası gerçekte ne söylüyor" },
+  { id: "metadata", label: "4. Meta veriler — şifrelemenin gizleyemediği şey" },
+  { id: "y2021", label: "5. 2021'in zorla kabul ettirilen güncellemesi" },
+  { id: "backups", label: "6. Bulut yedekleme açığı" },
+  { id: "business", label: "7. WhatsApp Business — E2EE'nin sessizce bittiği yer" },
+  { id: "ads", label: "8. WhatsApp içindeki reklamlar (Haziran 2025)" },
+  { id: "ai", label: "9. Sohbet listenizde Meta AI" },
+  { id: "law", label: "10. Hükümetler ve kolluk kuvvetleri" },
+  { id: "pegasus", label: "11. Pegasus — NSO'ya 167 milyon dolar ceza" },
+  { id: "victims", label: "12. Pegasus kurbanları ülkeye göre" },
+  { id: "paragon", label: "13. Paragon Graphite (2025)" },
+  { id: "leaks", label: "14. Veri sızıntıları, hatalar ve bozuk özellikler" },
+  { id: "leak2022", label: "15. 487 milyon numaranın sızıntısı (2022)" },
+  { id: "fines", label: "16. Düzenleyici para cezaları ve yasaklar" },
+  { id: "bans", label: "17. Ulusal düzeyde yasaklar" },
+  { id: "lynch", label: "18. WhatsApp, sahte haberler ve linç olayları" },
+  { id: "delete", label: "19. 'Hesabı sil' aslında ne siliyor" },
+  { id: "scams", label: "20. Endüstriyel ölçekte dolandırıcılık" },
+  { id: "verdict", label: "21. Yüksek gizlilik isteyen kullanıcılar için sonuç" },
+  { id: "myanmar", label: "22. WhatsApp ve Rohingya soykırımı" },
+  { id: "brazil2018", label: "23. Brezilya 2018 — WhatsApp bir dezenformasyon makinesi olarak" },
+  { id: "whatsapppay", label: "24. WhatsApp Pay — finansal verileriniz" },
+  { id: "cves", label: "25. Kritik güvenlik açıkları (CVE'ler)" },
+  { id: "webdesktop", label: "26. WhatsApp Web ve Masaüstü — genişleyen saldırı yüzeyi" },
+  { id: "groups", label: "27. WhatsApp grupları — toplu gizlilik riskleri" },
+  { id: "covid", label: "28. COVID-19 — WhatsApp bir dezenformasyon yükselticisi olarak" },
+  { id: "haugen", label: "29. Frances Haugen ve Meta'nın iç belgeleri" },
+  { id: "children", label: "30. WhatsApp'ta çocuklar — yaş doğrulamanın başarısızlığı" },
+  { id: "dma", label: "31. AB Dijital Piyasalar Yasası ve WhatsApp" },
+  { id: "india_it_rules", label: "32. Hindistan BT Kuralları 2021 vs. WhatsApp" },
+  { id: "signal_vs", label: "33. Signal vs. WhatsApp — gerçekte ne kaybediyorsunuz" },
+  { id: "disappearing", label: "34. Kaybolan mesajlar — gerçekte ne siliniyor" },
+  { id: "experts", label: "35. Uzmanlar, mahkemeler ve ihbarcılar ne öneriyor" },
+  { id: "sources", label: "Kaynaklar ve referanslar" },
+];
+
+const TOC_FR: { id: string; label: string }[] = [
+  { id: "risk-calc", label: "Votre score de risque personnel sur WhatsApp" },
+  { id: "tldr", label: "En résumé — ce que prouve cet article" },
+  { id: "owners", label: "1. Qui possède vraiment WhatsApp" },
+  { id: "founders", label: "2. Les fondateurs eux-mêmes sont partis pour la vie privée" },
+  { id: "policy", label: "3. Ce que dit vraiment la Politique de confidentialité" },
+  { id: "metadata", label: "4. Métadonnées — ce que le chiffrement ne cache pas" },
+  { id: "y2021", label: "5. La mise à jour forcée de 2021" },
+  { id: "backups", label: "6. La faille des sauvegardes cloud" },
+  { id: "business", label: "7. WhatsApp Business — là où l'E2EE se termine silencieusement" },
+  { id: "ads", label: "8. Publicités dans WhatsApp (juin 2025)" },
+  { id: "ai", label: "9. Meta AI dans votre liste de conversations" },
+  { id: "law", label: "10. Gouvernements et forces de l'ordre" },
+  { id: "pegasus", label: "11. Pegasus — le verdict de 167 M$ contre NSO" },
+  { id: "victims", label: "12. Victimes de Pegasus par pays" },
+  { id: "paragon", label: "13. Paragon Graphite (2025)" },
+  { id: "leaks", label: "14. Fuites, bugs et fonctionnalités défectueuses" },
+  { id: "leak2022", label: "15. La fuite de 487 millions de numéros (2022)" },
+  { id: "fines", label: "16. Amendes réglementaires et interdictions" },
+  { id: "bans", label: "17. Blocages à l'échelle nationale" },
+  { id: "lynch", label: "18. WhatsApp, fake news et lynchages" },
+  { id: "delete", label: "19. Ce que « supprimer le compte » efface vraiment" },
+  { id: "scams", label: "20. Arnaques à l'échelle industrielle" },
+  { id: "verdict", label: "21. Le verdict pour les utilisateurs soucieux de leur vie privée" },
+  { id: "myanmar", label: "22. WhatsApp et le génocide des Rohingyas" },
+  { id: "brazil2018", label: "23. Brésil 2018 — WhatsApp comme machine à désinformation" },
+  { id: "whatsapppay", label: "24. WhatsApp Pay — vos données financières" },
+  { id: "cves", label: "25. Failles de sécurité critiques (CVE)" },
+  { id: "webdesktop", label: "26. WhatsApp Web et Bureau — surface d'attaque élargie" },
+  { id: "groups", label: "27. Groupes WhatsApp — risques collectifs pour la vie privée" },
+  { id: "covid", label: "28. COVID-19 — WhatsApp comme amplificateur de désinformation" },
+  { id: "haugen", label: "29. Frances Haugen et les documents internes de Meta" },
+  { id: "children", label: "30. Les enfants sur WhatsApp — échec de la vérification d'âge" },
+  { id: "dma", label: "31. Loi sur les marchés numériques de l'UE et WhatsApp" },
+  { id: "india_it_rules", label: "32. Règles IT de l'Inde 2021 vs. WhatsApp" },
+  { id: "signal_vs", label: "33. Signal vs. WhatsApp — ce que vous perdez vraiment" },
+  { id: "disappearing", label: "34. Messages éphémères — ce qui est vraiment supprimé" },
+  { id: "experts", label: "35. Ce que recommandent experts, tribunaux et lanceurs d'alerte" },
+  { id: "sources", label: "Sources et références" },
+];
+
+const TOC_UR: { id: string; label: string }[] = [
+  { id: "risk-calc", label: "واٹس ایپ پر آپ کا ذاتی رسک اسکور" },
+  { id: "tldr", label: "خلاصہ — یہ مضمون کیا ثابت کرتا ہے" },
+  { id: "owners", label: "1. واٹس ایپ کا اصل مالک کون ہے" },
+  { id: "founders", label: "2. بانیوں نے خود پرائیویسی پر میٹا سے اختلاف کیا" },
+  { id: "policy", label: "3. پرائیویسی پالیسی اصل میں کیا کہتی ہے" },
+  { id: "metadata", label: "4. میٹا ڈیٹا — جو انکرپشن چھپا نہیں سکتی" },
+  { id: "y2021", label: "5. 2021 کی جبری پالیسی اپڈیٹ" },
+  { id: "backups", label: "6. کلاؤڈ بیک اپ کی کمزوری" },
+  { id: "business", label: "7. واٹس ایپ بزنس — جہاں E2EE خاموشی سے ختم ہوتی ہے" },
+  { id: "ads", label: "8. واٹس ایپ کے اندر اشتہارات (جون 2025)" },
+  { id: "ai", label: "9. آپ کی چیٹ لسٹ میں Meta AI" },
+  { id: "law", label: "10. حکومتیں اور قانون نافذ کرنے والے ادارے" },
+  { id: "pegasus", label: "11. پیگاسس — 167 ملین ڈالر کا NSO فیصلہ" },
+  { id: "victims", label: "12. پیگاسس کے متاثرین ملک بہ ملک" },
+  { id: "paragon", label: "13. Paragon Graphite (2025)" },
+  { id: "leaks", label: "14. لیکس، بگز اور ٹوٹی ہوئی خصوصیات" },
+  { id: "leak2022", label: "15. 487 ملین نمبروں کا لیک (2022)" },
+  { id: "fines", label: "16. ریگولیٹری جرمانے اور پابندیاں" },
+  { id: "bans", label: "17. ملکی سطح پر پابندیاں" },
+  { id: "lynch", label: "18. واٹس ایپ، جھوٹی خبریں اور ہجومی تشدد" },
+  { id: "delete", label: "19. 'اکاؤنٹ ڈیلیٹ' اصل میں کیا ڈیلیٹ کرتا ہے" },
+  { id: "scams", label: "20. صنعتی پیمانے پر فراڈ" },
+  { id: "verdict", label: "21. اعلی پرائیویسی صارفین کے لیے نتیجہ" },
+  { id: "myanmar", label: "22. واٹس ایپ اور روہنگیا نسل کشی" },
+  { id: "brazil2018", label: "23. برازیل 2018 — واٹس ایپ غلط معلومات کی مشین کے طور پر" },
+  { id: "whatsapppay", label: "24. واٹس ایپ پے — آپ کا مالی ڈیٹا" },
+  { id: "cves", label: "25. سنگین سیکیورٹی کمزوریاں (CVE)" },
+  { id: "webdesktop", label: "26. واٹس ایپ ویب اور ڈیسک ٹاپ — وسیع حملے کا میدان" },
+  { id: "groups", label: "27. واٹس ایپ گروپس — اجتماعی پرائیویسی خطرات" },
+  { id: "covid", label: "28. COVID-19 — واٹس ایپ غلط معلومات کا ایمپلیفائر" },
+  { id: "haugen", label: "29. فرانسس ہاؤگن اور میٹا کی اندرونی دستاویزات" },
+  { id: "children", label: "30. واٹس ایپ پر بچے — عمر کی تصدیق میں ناکامی" },
+  { id: "dma", label: "31. EU ڈیجیٹل مارکیٹس ایکٹ اور واٹس ایپ" },
+  { id: "india_it_rules", label: "32. بھارت کے IT قوانین 2021 بمقابلہ واٹس ایپ" },
+  { id: "signal_vs", label: "33. Signal بمقابلہ واٹس ایپ — آپ اصل میں کیا کھوتے ہیں" },
+  { id: "disappearing", label: "34. غائب ہونے والے پیغامات — اصل میں کیا ڈیلیٹ ہوتا ہے" },
+  { id: "experts", label: "35. ماہرین، عدالتیں اور وِسل بلوئرز کیا کہتے ہیں" },
+  { id: "sources", label: "ذرائع اور حوالہ جات" },
+];
+
 /* ───────────────────────────── RISK CALCULATOR ───────────────────────────── */
 
 type RiskQuestion = {
@@ -494,6 +904,336 @@ const RISK_QUESTIONS_HI: RiskQuestion[] = [
       { label: "नियमित रूप से — यही मुख्य UPI/payment तरीक़ा है", score: 3 },
     ],
   },
+];
+
+const RISK_QUESTIONS_PT: RiskQuestion[] = [
+  { id: "backup", question: "Você usa o backup em nuvem do WhatsApp (Google Drive ou iCloud)?", options: [
+    { label: "Não — nunca faço backup do WhatsApp", score: 0 },
+    { label: "Sim — com backup E2EE ativado", score: 1 },
+    { label: "Sim — backup padrão (sem E2EE)", score: 3 },
+    { label: "Não sei / nunca verifiquei", score: 2 },
+  ]},
+  { id: "business", question: "Você envia mensagens para empresas pelo WhatsApp (bancos, companhias aéreas, entrega, governo)?", options: [
+    { label: "Nunca", score: 0 },
+    { label: "Raramente — uma vez por mês ou menos", score: 1 },
+    { label: "Regularmente — algumas vezes por semana", score: 2 },
+    { label: "É como me comunico principalmente com empresas", score: 3 },
+  ]},
+  { id: "web", question: "Você usa o WhatsApp Web ou WhatsApp Desktop?", options: [
+    { label: "Nunca", score: 0 },
+    { label: "Ocasionalmente e sempre faço logout", score: 1 },
+    { label: "Diariamente, mas encerro a sessão quando termino", score: 2 },
+    { label: "Deixo as sessões abertas permanentemente", score: 3 },
+  ]},
+  { id: "groups", question: "Em quantos grupos grandes do WhatsApp (50+ membros) você participa?", options: [
+    { label: "Nenhum", score: 0 },
+    { label: "1–2 grupos", score: 1 },
+    { label: "3–5 grupos", score: 2 },
+    { label: "6 ou mais grupos", score: 3 },
+  ]},
+  { id: "pay", question: "Você usa o WhatsApp Pay ou envia dinheiro pelo WhatsApp?", options: [
+    { label: "Nunca", score: 0 },
+    { label: "Raramente", score: 1 },
+    { label: "Às vezes", score: 2 },
+    { label: "Regularmente — é meu método de pagamento principal", score: 3 },
+  ]},
+];
+
+const RISK_QUESTIONS_ID: RiskQuestion[] = [
+  { id: "backup", question: "Apakah Anda menggunakan backup cloud WhatsApp (Google Drive atau iCloud)?", options: [
+    { label: "Tidak — saya tidak pernah backup WhatsApp", score: 0 },
+    { label: "Ya — dengan backup E2EE diaktifkan", score: 1 },
+    { label: "Ya — backup standar (bukan E2EE)", score: 3 },
+    { label: "Tidak tahu / belum pernah cek", score: 2 },
+  ]},
+  { id: "business", question: "Apakah Anda mengirim pesan ke bisnis melalui WhatsApp (bank, maskapai, pengiriman, kantor pemerintah)?", options: [
+    { label: "Tidak pernah", score: 0 },
+    { label: "Jarang — sebulan sekali atau lebih jarang", score: 1 },
+    { label: "Rutin — beberapa kali seminggu", score: 2 },
+    { label: "Itu cara utama saya menghubungi perusahaan", score: 3 },
+  ]},
+  { id: "web", question: "Apakah Anda menggunakan WhatsApp Web atau WhatsApp Desktop?", options: [
+    { label: "Tidak pernah", score: 0 },
+    { label: "Sesekali dan selalu logout setelahnya", score: 1 },
+    { label: "Setiap hari — tapi saya tutup sesi setelah selesai", score: 2 },
+    { label: "Saya biarkan sesi terbuka terus-menerus", score: 3 },
+  ]},
+  { id: "groups", question: "Berapa banyak grup WhatsApp besar (50+ anggota) yang Anda ikuti?", options: [
+    { label: "Tidak ada", score: 0 },
+    { label: "1–2 grup", score: 1 },
+    { label: "3–5 grup", score: 2 },
+    { label: "6 grup atau lebih", score: 3 },
+  ]},
+  { id: "pay", question: "Apakah Anda menggunakan WhatsApp Pay atau mengirim uang melalui WhatsApp?", options: [
+    { label: "Tidak pernah", score: 0 },
+    { label: "Jarang", score: 1 },
+    { label: "Kadang-kadang", score: 2 },
+    { label: "Rutin — itu metode pembayaran utama saya", score: 3 },
+  ]},
+];
+
+const RISK_QUESTIONS_ES: RiskQuestion[] = [
+  { id: "backup", question: "¿Usas la copia de seguridad en la nube de WhatsApp (Google Drive o iCloud)?", options: [
+    { label: "No — nunca hago copias de seguridad de WhatsApp", score: 0 },
+    { label: "Sí — con copia de seguridad E2EE activada", score: 1 },
+    { label: "Sí — copia de seguridad estándar (sin E2EE)", score: 3 },
+    { label: "No lo sé / nunca lo he comprobado", score: 2 },
+  ]},
+  { id: "business", question: "¿Envías mensajes a empresas a través de WhatsApp (bancos, aerolíneas, entregas, oficinas gubernamentales)?", options: [
+    { label: "Nunca", score: 0 },
+    { label: "Raramente — una vez al mes o menos", score: 1 },
+    { label: "Regularmente — varias veces por semana", score: 2 },
+    { label: "Es mi forma principal de contactar empresas", score: 3 },
+  ]},
+  { id: "web", question: "¿Usas WhatsApp Web o WhatsApp Desktop?", options: [
+    { label: "Nunca", score: 0 },
+    { label: "Ocasionalmente y siempre cierro sesión después", score: 1 },
+    { label: "A diario — pero cierro la sesión cuando termino", score: 2 },
+    { label: "Dejo las sesiones abiertas permanentemente", score: 3 },
+  ]},
+  { id: "groups", question: "¿En cuántos grupos grandes de WhatsApp (50+ miembros) participas?", options: [
+    { label: "Ninguno", score: 0 },
+    { label: "1–2 grupos", score: 1 },
+    { label: "3–5 grupos", score: 2 },
+    { label: "6 o más grupos", score: 3 },
+  ]},
+  { id: "pay", question: "¿Usas WhatsApp Pay o envías dinero por WhatsApp?", options: [
+    { label: "Nunca", score: 0 },
+    { label: "Raramente", score: 1 },
+    { label: "A veces", score: 2 },
+    { label: "Regularmente — es mi método de pago principal", score: 3 },
+  ]},
+];
+
+const RISK_QUESTIONS_RU: RiskQuestion[] = [
+  { id: "backup", question: "Вы используете облачное резервное копирование WhatsApp (Google Drive или iCloud)?", options: [
+    { label: "Нет — я никогда не делаю резервные копии WhatsApp", score: 0 },
+    { label: "Да — с включённым E2EE-резервным копированием", score: 1 },
+    { label: "Да — стандартное резервное копирование (без E2EE)", score: 3 },
+    { label: "Не знаю / никогда не проверял(а)", score: 2 },
+  ]},
+  { id: "business", question: "Вы пишете в WhatsApp компаниям (банки, авиалинии, доставка, госорганы)?", options: [
+    { label: "Никогда", score: 0 },
+    { label: "Редко — раз в месяц или реже", score: 1 },
+    { label: "Регулярно — несколько раз в неделю", score: 2 },
+    { label: "Это основной способ связи с компаниями", score: 3 },
+  ]},
+  { id: "web", question: "Вы используете WhatsApp Web или WhatsApp Desktop?", options: [
+    { label: "Никогда", score: 0 },
+    { label: "Иногда, и всегда выхожу из системы после", score: 1 },
+    { label: "Ежедневно — но закрываю сессию, когда заканчиваю", score: 2 },
+    { label: "Я оставляю сессии постоянно открытыми", score: 3 },
+  ]},
+  { id: "groups", question: "В скольких больших группах WhatsApp (50+ участников) вы состоите?", options: [
+    { label: "Ни в одной", score: 0 },
+    { label: "1–2 группы", score: 1 },
+    { label: "3–5 групп", score: 2 },
+    { label: "6 или более групп", score: 3 },
+  ]},
+  { id: "pay", question: "Вы используете WhatsApp Pay или отправляете деньги через WhatsApp?", options: [
+    { label: "Никогда", score: 0 },
+    { label: "Редко", score: 1 },
+    { label: "Иногда", score: 2 },
+    { label: "Регулярно — это основной способ оплаты", score: 3 },
+  ]},
+];
+
+const RISK_QUESTIONS_DE: RiskQuestion[] = [
+  { id: "backup", question: "Nutzen Sie das Cloud-Backup von WhatsApp (Google Drive oder iCloud)?", options: [
+    { label: "Nein — ich mache nie ein WhatsApp-Backup", score: 0 },
+    { label: "Ja — mit aktivierter E2EE-Sicherung", score: 1 },
+    { label: "Ja — Standard-Backup (kein E2EE)", score: 3 },
+    { label: "Weiß ich nicht / habe ich nie geprüft", score: 2 },
+  ]},
+  { id: "business", question: "Schreiben Sie Unternehmen über WhatsApp (Banken, Airlines, Lieferung, Behörden)?", options: [
+    { label: "Nie", score: 0 },
+    { label: "Selten — einmal im Monat oder seltener", score: 1 },
+    { label: "Regelmäßig — mehrmals pro Woche", score: 2 },
+    { label: "So kontaktiere ich Unternehmen hauptsächlich", score: 3 },
+  ]},
+  { id: "web", question: "Nutzen Sie WhatsApp Web oder WhatsApp Desktop?", options: [
+    { label: "Nie", score: 0 },
+    { label: "Gelegentlich und melde mich danach immer ab", score: 1 },
+    { label: "Täglich — aber schließe die Sitzung, wenn ich fertig bin", score: 2 },
+    { label: "Ich lasse Sitzungen dauerhaft offen", score: 3 },
+  ]},
+  { id: "groups", question: "In wie vielen großen WhatsApp-Gruppen (50+ Mitglieder) sind Sie?", options: [
+    { label: "Keine", score: 0 },
+    { label: "1–2 Gruppen", score: 1 },
+    { label: "3–5 Gruppen", score: 2 },
+    { label: "6 oder mehr Gruppen", score: 3 },
+  ]},
+  { id: "pay", question: "Nutzen Sie WhatsApp Pay oder senden Sie Geld über WhatsApp?", options: [
+    { label: "Nie", score: 0 },
+    { label: "Selten", score: 1 },
+    { label: "Manchmal", score: 2 },
+    { label: "Regelmäßig — es ist meine Hauptzahlungsmethode", score: 3 },
+  ]},
+];
+
+const RISK_QUESTIONS_IT: RiskQuestion[] = [
+  { id: "backup", question: "Usi il backup cloud di WhatsApp (Google Drive o iCloud)?", options: [
+    { label: "No — non faccio mai backup di WhatsApp", score: 0 },
+    { label: "Sì — con il backup E2EE attivato", score: 1 },
+    { label: "Sì — backup standard (senza E2EE)", score: 3 },
+    { label: "Non lo so / non l'ho mai controllato", score: 2 },
+  ]},
+  { id: "business", question: "Scrivi ad aziende tramite WhatsApp (banche, compagnie aeree, corrieri, uffici pubblici)?", options: [
+    { label: "Mai", score: 0 },
+    { label: "Raramente — una volta al mese o meno", score: 1 },
+    { label: "Regolarmente — alcune volte a settimana", score: 2 },
+    { label: "È il mio modo principale di contattare le aziende", score: 3 },
+  ]},
+  { id: "web", question: "Usi WhatsApp Web o WhatsApp Desktop?", options: [
+    { label: "Mai", score: 0 },
+    { label: "Occasionalmente e faccio sempre il logout", score: 1 },
+    { label: "Ogni giorno — ma chiudo la sessione quando finisco", score: 2 },
+    { label: "Lascio le sessioni aperte in modo permanente", score: 3 },
+  ]},
+  { id: "groups", question: "In quanti gruppi WhatsApp grandi (50+ membri) sei?", options: [
+    { label: "Nessuno", score: 0 },
+    { label: "1–2 gruppi", score: 1 },
+    { label: "3–5 gruppi", score: 2 },
+    { label: "6 o più gruppi", score: 3 },
+  ]},
+  { id: "pay", question: "Usi WhatsApp Pay o invii denaro tramite WhatsApp?", options: [
+    { label: "Mai", score: 0 },
+    { label: "Raramente", score: 1 },
+    { label: "A volte", score: 2 },
+    { label: "Regolarmente — è il mio principale metodo di pagamento", score: 3 },
+  ]},
+];
+
+const RISK_QUESTIONS_AR: RiskQuestion[] = [
+  { id: "backup", question: "هل تستخدم النسخ الاحتياطي السحابي لواتساب (Google Drive أو iCloud)؟", options: [
+    { label: "لا — لا أقوم بأي نسخ احتياطي لواتساب", score: 0 },
+    { label: "نعم — مع تفعيل النسخ الاحتياطي المشفر E2EE", score: 1 },
+    { label: "نعم — نسخ احتياطي عادي (بدون E2EE)", score: 3 },
+    { label: "لا أعرف / لم أتحقق من ذلك", score: 2 },
+  ]},
+  { id: "business", question: "هل ترسل رسائل إلى الشركات عبر واتساب (البنوك، الطيران، التوصيل، الجهات الحكومية)؟", options: [
+    { label: "أبداً", score: 0 },
+    { label: "نادراً — مرة في الشهر أو أقل", score: 1 },
+    { label: "بانتظام — عدة مرات في الأسبوع", score: 2 },
+    { label: "هذه طريقتي الرئيسية للتواصل مع الشركات", score: 3 },
+  ]},
+  { id: "web", question: "هل تستخدم واتساب ويب أو واتساب ديسك توب؟", options: [
+    { label: "أبداً", score: 0 },
+    { label: "أحياناً وأسجل خروجي دائماً بعد الانتهاء", score: 1 },
+    { label: "يومياً — لكن أُغلق الجلسة عند الانتهاء", score: 2 },
+    { label: "أترك الجلسات مفتوحة بشكل دائم", score: 3 },
+  ]},
+  { id: "groups", question: "كم عدد مجموعات واتساب الكبيرة (50+ عضو) التي تنتمي إليها؟", options: [
+    { label: "لا أحد", score: 0 },
+    { label: "1–2 مجموعة", score: 1 },
+    { label: "3–5 مجموعات", score: 2 },
+    { label: "6 مجموعات أو أكثر", score: 3 },
+  ]},
+  { id: "pay", question: "هل تستخدم واتساب باي أو ترسل أموالاً عبر واتساب؟", options: [
+    { label: "أبداً", score: 0 },
+    { label: "نادراً", score: 1 },
+    { label: "أحياناً", score: 2 },
+    { label: "بانتظام — إنها طريقتي الرئيسية للدفع", score: 3 },
+  ]},
+];
+
+const RISK_QUESTIONS_TR: RiskQuestion[] = [
+  { id: "backup", question: "WhatsApp'ın bulut yedeklemesini (Google Drive veya iCloud) kullanıyor musunuz?", options: [
+    { label: "Hayır — WhatsApp'ı hiç yedeklemiyorum", score: 0 },
+    { label: "Evet — E2EE yedekleme açık", score: 1 },
+    { label: "Evet — standart yedekleme (E2EE yok)", score: 3 },
+    { label: "Bilmiyorum / hiç kontrol etmedim", score: 2 },
+  ]},
+  { id: "business", question: "WhatsApp üzerinden işletmelere (bankalar, havayolları, kargo, devlet kurumları) mesaj atıyor musunuz?", options: [
+    { label: "Hiçbir zaman", score: 0 },
+    { label: "Nadiren — ayda bir kez veya daha az", score: 1 },
+    { label: "Düzenli olarak — haftada birkaç kez", score: 2 },
+    { label: "Şirketlerle iletişimimin büyük çoğunluğu böyle", score: 3 },
+  ]},
+  { id: "web", question: "WhatsApp Web veya WhatsApp Desktop kullanıyor musunuz?", options: [
+    { label: "Hiçbir zaman", score: 0 },
+    { label: "Ara sıra ve her seferinde çıkış yapıyorum", score: 1 },
+    { label: "Her gün — ama işim bitince oturumu kapatıyorum", score: 2 },
+    { label: "Oturumları kalıcı olarak açık bırakıyorum", score: 3 },
+  ]},
+  { id: "groups", question: "Kaç büyük WhatsApp grubunda (50+ üye) yer alıyorsunuz?", options: [
+    { label: "Hiçbirinde", score: 0 },
+    { label: "1–2 grup", score: 1 },
+    { label: "3–5 grup", score: 2 },
+    { label: "6 veya daha fazla grup", score: 3 },
+  ]},
+  { id: "pay", question: "WhatsApp Pay kullanıyor veya WhatsApp üzerinden para gönderiyor musunuz?", options: [
+    { label: "Hiçbir zaman", score: 0 },
+    { label: "Nadiren", score: 1 },
+    { label: "Bazen", score: 2 },
+    { label: "Düzenli olarak — ana ödeme yöntemim bu", score: 3 },
+  ]},
+];
+
+const RISK_QUESTIONS_FR: RiskQuestion[] = [
+  { id: "backup", question: "Utilisez-vous la sauvegarde cloud de WhatsApp (Google Drive ou iCloud) ?", options: [
+    { label: "Non — je ne sauvegarde jamais WhatsApp", score: 0 },
+    { label: "Oui — avec la sauvegarde E2EE activée", score: 1 },
+    { label: "Oui — sauvegarde standard (sans E2EE)", score: 3 },
+    { label: "Je ne sais pas / je n'ai jamais vérifié", score: 2 },
+  ]},
+  { id: "business", question: "Envoyez-vous des messages à des entreprises via WhatsApp (banques, compagnies aériennes, livraison, administrations) ?", options: [
+    { label: "Jamais", score: 0 },
+    { label: "Rarement — une fois par mois ou moins", score: 1 },
+    { label: "Régulièrement — plusieurs fois par semaine", score: 2 },
+    { label: "C'est ma façon principale de contacter les entreprises", score: 3 },
+  ]},
+  { id: "web", question: "Utilisez-vous WhatsApp Web ou WhatsApp Desktop ?", options: [
+    { label: "Jamais", score: 0 },
+    { label: "Occasionnellement et je me déconnecte toujours après", score: 1 },
+    { label: "Quotidiennement — mais je ferme la session à la fin", score: 2 },
+    { label: "Je laisse les sessions ouvertes en permanence", score: 3 },
+  ]},
+  { id: "groups", question: "Dans combien de grands groupes WhatsApp (50+ membres) êtes-vous ?", options: [
+    { label: "Aucun", score: 0 },
+    { label: "1–2 groupes", score: 1 },
+    { label: "3–5 groupes", score: 2 },
+    { label: "6 groupes ou plus", score: 3 },
+  ]},
+  { id: "pay", question: "Utilisez-vous WhatsApp Pay ou envoyez-vous de l'argent via WhatsApp ?", options: [
+    { label: "Jamais", score: 0 },
+    { label: "Rarement", score: 1 },
+    { label: "Parfois", score: 2 },
+    { label: "Régulièrement — c'est mon principal moyen de paiement", score: 3 },
+  ]},
+];
+
+const RISK_QUESTIONS_UR: RiskQuestion[] = [
+  { id: "backup", question: "کیا آپ واٹس ایپ کا کلاؤڈ بیک اپ (Google Drive یا iCloud) استعمال کرتے ہیں؟", options: [
+    { label: "نہیں — میں کبھی بھی واٹس ایپ بیک اپ نہیں لیتا/لیتی", score: 0 },
+    { label: "ہاں — E2EE بیک اپ آن کر کے", score: 1 },
+    { label: "ہاں — عام بیک اپ (E2EE نہیں)", score: 3 },
+    { label: "مجھے نہیں معلوم / کبھی چیک نہیں کیا", score: 2 },
+  ]},
+  { id: "business", question: "کیا آپ واٹس ایپ پر کاروباروں (بینک، ایئرلائن، ڈیلیوری، سرکاری دفاتر) کو میسج کرتے ہیں؟", options: [
+    { label: "کبھی نہیں", score: 0 },
+    { label: "کبھی کبھار — مہینے میں ایک بار یا کم", score: 1 },
+    { label: "باقاعدگی سے — ہفتے میں کئی بار", score: 2 },
+    { label: "یہی کمپنیوں سے رابطے کا میرا مرکزی طریقہ ہے", score: 3 },
+  ]},
+  { id: "web", question: "کیا آپ واٹس ایپ ویب یا واٹس ایپ ڈیسک ٹاپ استعمال کرتے ہیں؟", options: [
+    { label: "کبھی نہیں", score: 0 },
+    { label: "کبھی کبھار — اور ہمیشہ لاگ آؤٹ کرتا/کرتی ہوں", score: 1 },
+    { label: "روزانہ — لیکن کام ختم ہونے پر سیشن بند کرتا/کرتی ہوں", score: 2 },
+    { label: "سیشن ہمیشہ کھلے رکھتا/رکھتی ہوں", score: 3 },
+  ]},
+  { id: "groups", question: "آپ کتنے بڑے واٹس ایپ گروپس (50+ ارکان) میں ہیں؟", options: [
+    { label: "کوئی نہیں", score: 0 },
+    { label: "1–2 گروپس", score: 1 },
+    { label: "3–5 گروپس", score: 2 },
+    { label: "6 یا اس سے زیادہ", score: 3 },
+  ]},
+  { id: "pay", question: "کیا آپ واٹس ایپ پے استعمال کرتے ہیں یا واٹس ایپ سے پیسے بھیجتے/لیتے ہیں؟", options: [
+    { label: "کبھی نہیں", score: 0 },
+    { label: "کبھی کبھار", score: 1 },
+    { label: "کبھی کبھی", score: 2 },
+    { label: "باقاعدگی سے — یہی میرا مرکزی ادائیگی کا طریقہ ہے", score: 3 },
+  ]},
 ];
 
 type RiskLevel = "low" | "moderate" | "high" | "critical";
@@ -617,9 +1357,153 @@ const RISK_RESULTS_HI: Record<RiskLevel, { label: string; color: string; bg: str
   },
 };
 
-function PrivacyRiskCalculator({ lang }: { lang: "en" | "hi" }) {
-  const questions = lang === "hi" ? RISK_QUESTIONS_HI : RISK_QUESTIONS_EN;
-  const results = lang === "hi" ? RISK_RESULTS_HI : RISK_RESULTS_EN;
+const RISK_RESULTS_PT: Record<RiskLevel, { label: string; color: string; bg: string; border: string; summary: string; tips: string[] }> = {
+  low: { label: "Baixo Risco", color: "#1a6b3a", bg: "#f0faf3", border: "#2E6F40", summary: "Suas práticas de uso do WhatsApp são relativamente conscientes em relação à privacidade. Mesmo assim, até usuários de baixo risco compartilham número de telefone, contatos, IP e informações do dispositivo com a Meta.", tips: ["Confirme se o backup E2EE está ativado em Configurações → Conversas → Backup.", "Revise as sessões do WhatsApp Web em Configurações → Dispositivos Conectados.", "Verifique em quais grupos você está — mesmo a participação inativa expõe seu número."] },
+  moderate: { label: "Risco Moderado", color: "#8a5a00", bg: "#fffbea", border: "#d4a017", summary: "Seus padrões de uso expõem você a coleta significativa de metadados. Um ou mais hábitos — mensagens para empresas, backup em nuvem ou tamanho dos grupos — ampliam a trilha de dados que a Meta pode construir sobre você.", tips: ["Ative o backup E2EE imediatamente em Configurações → Conversas → Backup.", "Ao enviar mensagens para empresas, presuma que a Meta pode ver essa conversa.", "Saia das sessões do WhatsApp Web quando não estiver usando ativamente."] },
+  high: { label: "Alto Risco", color: "#8a2c00", bg: "#fff3ed", border: "#d45a17", summary: "Múltiplos hábitos de alto risco se combinam para criar uma exposição de privacidade substancial. Seus padrões de comunicação, comportamento financeiro e rede estão sendo amplamente perfilados.", tips: ["Ative o backup E2EE ou desative completamente o backup em nuvem.", "Saia de todas as sessões do WhatsApp Web permanentemente — use apenas o celular.", "Saia de grupos grandes cujos membros você não conhece pessoalmente.", "Considere separar transações financeiras da sua identidade no WhatsApp.", "Leia a seção Veredicto (§21) e a comparação Signal (§33)."] },
+  critical: { label: "Risco Muito Alto", color: "#6e0000", bg: "#fdecec", border: "#c2453a", summary: "Seu uso atual do WhatsApp cria um dos perfis de dados mais abrangentes possíveis no ecossistema da Meta. Você está compartilhando padrões de comunicação, dados financeiros, impressão digital do dispositivo e participação em grupos a um nível que dá à Meta uma imagem excepcionalmente detalhada da sua vida.", tips: ["Desative o backup em nuvem completamente ou mude para backup E2EE com uma senha forte.", "Saia de todas as sessões vinculadas do WhatsApp Web e Desktop imediatamente.", "Saia de grupos com muitos membros que você não conhece pessoalmente.", "Pare de usar o WhatsApp Pay — use um app separado para transações financeiras.", "Leia §33 (Signal vs. WhatsApp) e considere migrar conversas de alta privacidade para o Signal.", "Leia §19 (excluir conta) antes de agir."] },
+};
+
+const RISK_RESULTS_ID: Record<RiskLevel, { label: string; color: string; bg: string; border: string; summary: string; tips: string[] }> = {
+  low: { label: "Risiko Rendah", color: "#1a6b3a", bg: "#f0faf3", border: "#2E6F40", summary: "Kebiasaan penggunaan WhatsApp Anda relatif memperhatikan privasi. Namun, bahkan pengguna dengan risiko rendah tetap berbagi nomor telepon, kontak, IP, dan informasi perangkat dengan Meta.", tips: ["Konfirmasi bahwa backup E2EE diaktifkan di Pengaturan → Obrolan → Backup Obrolan.", "Tinjau sesi WhatsApp Web secara berkala di Pengaturan → Perangkat Tertaut.", "Tinjau grup yang Anda ikuti — keanggotaan saja sudah mengekspos nomor Anda."] },
+  moderate: { label: "Risiko Sedang", color: "#8a5a00", bg: "#fffbea", border: "#d4a017", summary: "Pola penggunaan Anda memperlihatkan Anda pada pengumpulan metadata yang signifikan. Satu atau beberapa kebiasaan — pesan ke bisnis, backup cloud, atau ukuran grup — memperluas jejak data yang dapat dibangun Meta tentang Anda.", tips: ["Aktifkan backup E2EE segera di Pengaturan → Obrolan → Backup Obrolan.", "Saat mengirim pesan ke bisnis, asumsikan Meta dapat melihat percakapan tersebut.", "Logout dari sesi WhatsApp Web saat tidak digunakan."] },
+  high: { label: "Risiko Tinggi", color: "#8a2c00", bg: "#fff3ed", border: "#d45a17", summary: "Beberapa kebiasaan berisiko tinggi bergabung menjadi paparan privasi yang signifikan. Pola komunikasi, perilaku keuangan, dan jaringan Anda sedang diprofilkan secara ekstensif.", tips: ["Aktifkan backup E2EE atau matikan backup cloud sepenuhnya.", "Logout dari semua sesi WhatsApp Web secara permanen — gunakan hanya ponsel.", "Keluar dari grup besar yang anggotanya tidak Anda kenal secara pribadi.", "Pertimbangkan memisahkan transaksi keuangan dari identitas WhatsApp Anda.", "Baca bagian Kesimpulan (§21) dan perbandingan Signal (§33)."] },
+  critical: { label: "Risiko Sangat Tinggi", color: "#6e0000", bg: "#fdecec", border: "#c2453a", summary: "Penggunaan WhatsApp Anda saat ini menciptakan salah satu profil data paling komprehensif yang mungkin ada di ekosistem Meta. Anda berbagi pola komunikasi, data keuangan, sidik jari perangkat, dan keanggotaan grup pada tingkat yang memberi Meta gambaran yang sangat rinci tentang kehidupan Anda.", tips: ["Matikan backup cloud sepenuhnya, atau beralih ke backup E2EE dengan kata sandi yang kuat.", "Logout dari semua sesi WhatsApp Web dan Desktop yang tertaut segera.", "Keluar dari grup dengan banyak anggota yang tidak Anda kenal.", "Berhenti menggunakan WhatsApp Pay — gunakan aplikasi terpisah untuk transaksi keuangan.", "Baca §33 (Signal vs. WhatsApp) dan pertimbangkan untuk memigrasikan percakapan privasi tinggi ke Signal.", "Baca §19 (hapus akun) sebelum mengambil tindakan."] },
+};
+
+const RISK_RESULTS_ES: Record<RiskLevel, { label: string; color: string; bg: string; border: string; summary: string; tips: string[] }> = {
+  low: { label: "Riesgo Bajo", color: "#1a6b3a", bg: "#f0faf3", border: "#2E6F40", summary: "Tus prácticas de uso de WhatsApp son relativamente conscientes en materia de privacidad. Aun así, incluso los usuarios de bajo riesgo comparten número de teléfono, contactos, IP e información del dispositivo con Meta.", tips: ["Confirma que el backup E2EE está activado en Ajustes → Chats → Copia de seguridad.", "Revisa periódicamente las sesiones de WhatsApp Web en Ajustes → Dispositivos vinculados.", "Revisa a qué grupos perteneces — incluso la membresía inactiva expone tu número."] },
+  moderate: { label: "Riesgo Moderado", color: "#8a5a00", bg: "#fffbea", border: "#d4a017", summary: "Tus patrones de uso te exponen a una recopilación significativa de metadatos. Uno o varios hábitos — mensajería con empresas, backup en la nube o tamaño de grupos — amplían el rastro de datos que Meta puede construir sobre ti.", tips: ["Activa el backup E2EE inmediatamente en Ajustes → Chats → Copia de seguridad.", "Al escribir a empresas, asume que Meta puede ver esa conversación.", "Cierra sesión en WhatsApp Web cuando no lo estés usando activamente."] },
+  high: { label: "Riesgo Alto", color: "#8a2c00", bg: "#fff3ed", border: "#d45a17", summary: "Múltiples hábitos de alto riesgo se combinan para crear una exposición sustancial de privacidad. Tus patrones de comunicación, comportamiento financiero y red están siendo perfilados extensamente.", tips: ["Activa el backup E2EE o desactiva completamente el backup en la nube.", "Cierra todas las sesiones de WhatsApp Web de forma permanente — usa solo el móvil.", "Sal de grupos grandes cuyos miembros no conozcas personalmente.", "Considera separar las transacciones financieras de tu identidad de WhatsApp.", "Lee la sección Veredicto (§21) y la comparación Signal (§33)."] },
+  critical: { label: "Riesgo Muy Alto", color: "#6e0000", bg: "#fdecec", border: "#c2453a", summary: "Tu uso actual de WhatsApp crea uno de los perfiles de datos más completos posibles dentro del ecosistema Meta. Estás compartiendo patrones de comunicación, datos financieros, huella digital del dispositivo y membresía en grupos a un nivel que le da a Meta una imagen excepcionalmente detallada de tu vida.", tips: ["Desactiva completamente el backup en la nube, o cambia a backup E2EE con una contraseña segura.", "Cierra inmediatamente todas las sesiones vinculadas de WhatsApp Web y Desktop.", "Sal de grupos con muchos miembros que no conoces personalmente.", "Deja de usar WhatsApp Pay — usa una app separada para transacciones financieras.", "Lee §33 (Signal vs. WhatsApp) y considera migrar conversaciones de alta privacidad a Signal.", "Lee §19 (eliminar cuenta) antes de actuar."] },
+};
+
+const RISK_RESULTS_RU: Record<RiskLevel, { label: string; color: string; bg: string; border: string; summary: string; tips: string[] }> = {
+  low: { label: "Низкий риск", color: "#1a6b3a", bg: "#f0faf3", border: "#2E6F40", summary: "Ваши практики использования WhatsApp относительно осознанны с точки зрения конфиденциальности. Тем не менее даже пользователи с низким риском делятся номером телефона, контактами, IP-адресом и данными устройства с Meta.", tips: ["Убедитесь, что резервное копирование E2EE включено: Настройки → Чаты → Резервное копирование.", "Периодически проверяйте сессии WhatsApp Web: Настройки → Связанные устройства.", "Проверьте, в каких группах вы состоите — даже неактивное участие раскрывает ваш номер."] },
+  moderate: { label: "Умеренный риск", color: "#8a5a00", bg: "#fffbea", border: "#d4a017", summary: "Ваши привычки использования подвергают вас значительному сбору метаданных. Одна или несколько привычек — переписка с компаниями, облачное резервное копирование или размер групп — существенно расширяют след данных, который Meta может составить о вас.", tips: ["Немедленно включите резервное копирование E2EE: Настройки → Чаты → Резервное копирование.", "Переписываясь с компаниями, исходите из того, что Meta может видеть этот разговор.", "Выходите из сессий WhatsApp Web, когда не используете их активно."] },
+  high: { label: "Высокий риск", color: "#8a2c00", bg: "#fff3ed", border: "#d45a17", summary: "Несколько привычек с высоким риском в совокупности создают существенную угрозу конфиденциальности. Ваши паттерны общения, финансовое поведение и сеть контактов активно профилируются.", tips: ["Включите резервное копирование E2EE или полностью отключите облачное резервное копирование.", "Навсегда выйдите из всех сессий WhatsApp Web — используйте только мобильное устройство.", "Выйдите из больших групп, участников которых вы не знаете лично.", "Рассмотрите возможность отделения финансовых операций от вашей идентичности в WhatsApp.", "Прочитайте раздел «Вывод» (§21) и сравнение Signal (§33)."] },
+  critical: { label: "Очень высокий риск", color: "#6e0000", bg: "#fdecec", border: "#c2453a", summary: "Ваше текущее использование WhatsApp создаёт один из наиболее исчерпывающих профилей данных в экосистеме Meta. Вы делитесь паттернами общения, финансовыми данными, отпечатком устройства и членством в группах на уровне, который даёт Meta исключительно подробную картину вашей жизни.", tips: ["Полностью отключите облачное резервное копирование или перейдите на E2EE с надёжным паролем.", "Немедленно выйдите из всех связанных сессий WhatsApp Web и Desktop.", "Выйдите из групп с большим количеством незнакомых участников.", "Прекратите использовать WhatsApp Pay — используйте отдельное приложение для финансовых операций.", "Прочитайте §33 (Signal vs. WhatsApp) и всерьёз рассмотрите перенос важных переписок в Signal.", "Прочитайте §19 (удаление аккаунта) перед принятием каких-либо решений."] },
+};
+
+const RISK_RESULTS_DE: Record<RiskLevel, { label: string; color: string; bg: string; border: string; summary: string; tips: string[] }> = {
+  low: { label: "Geringes Risiko", color: "#1a6b3a", bg: "#f0faf3", border: "#2E6F40", summary: "Ihre WhatsApp-Nutzungsgewohnheiten sind relativ datenschutzbewusst. Dennoch teilen auch Nutzer mit geringem Risiko Telefonnummer, Kontakte, IP-Adresse und Geräteinformationen mit Meta.", tips: ["Vergewissern Sie sich, dass das E2EE-Backup aktiviert ist: Einstellungen → Chats → Chat-Sicherung.", "Überprüfen Sie regelmäßig WhatsApp Web-Sitzungen unter Einstellungen → Verknüpfte Geräte.", "Prüfen Sie, in welchen Gruppen Sie Mitglied sind — selbst inaktive Mitgliedschaft gibt Ihre Nummer preis."] },
+  moderate: { label: "Mittleres Risiko", color: "#8a5a00", bg: "#fffbea", border: "#d4a017", summary: "Ihre Nutzungsmuster setzen Sie einer erheblichen Metadatenerfassung aus. Eine oder mehrere Gewohnheiten — Unternehmenskommunikation, Cloud-Backup oder Gruppengröße — erweitern die Datenspur, die Meta über Sie aufbauen kann.", tips: ["Aktivieren Sie sofort das E2EE-Backup: Einstellungen → Chats → Chat-Sicherung.", "Wenn Sie Unternehmen anschreiben, gehen Sie davon aus, dass Meta das Gespräch sehen kann.", "Melden Sie sich von WhatsApp Web-Sitzungen ab, wenn Sie diese nicht aktiv nutzen."] },
+  high: { label: "Hohes Risiko", color: "#8a2c00", bg: "#fff3ed", border: "#d45a17", summary: "Mehrere risikoreiche Gewohnheiten kombinieren sich zu einer erheblichen Datenschutzverletzung. Ihre Kommunikationsmuster, Ihr Finanzverhalten und Ihr Netzwerk werden umfangreich profiliert.", tips: ["Aktivieren Sie E2EE-Backup oder deaktivieren Sie das Cloud-Backup vollständig.", "Melden Sie sich dauerhaft von allen WhatsApp Web-Sitzungen ab — nutzen Sie nur das Mobilgerät.", "Verlassen Sie große Gruppen, deren Mitglieder Sie nicht persönlich kennen.", "Erwägen Sie, Finanztransaktionen von Ihrer WhatsApp-Identität zu trennen.", "Lesen Sie den Abschnitt Fazit (§21) und den Signal-Vergleich (§33)."] },
+  critical: { label: "Sehr hohes Risiko", color: "#6e0000", bg: "#fdecec", border: "#c2453a", summary: "Ihre aktuelle WhatsApp-Nutzung erstellt eines der umfassendsten Datenprofile im Meta-Ökosystem. Sie teilen Kommunikationsmuster, Finanzdaten, Gerätefingerabdruck und Gruppenmitgliedschaft auf einem Niveau, das Meta ein außergewöhnlich detailliertes Bild Ihres Lebens gibt.", tips: ["Deaktivieren Sie das Cloud-Backup vollständig oder wechseln Sie zu E2EE mit einem sicheren Passwort.", "Melden Sie sich sofort von allen verknüpften WhatsApp Web- und Desktop-Sitzungen ab.", "Verlassen Sie Gruppen mit vielen Mitgliedern, die Sie nicht persönlich kennen.", "Hören Sie auf, WhatsApp Pay zu nutzen — verwenden Sie eine separate App für Finanztransaktionen.", "Lesen Sie §33 (Signal vs. WhatsApp) und erwägen Sie ernsthaft, datenschutzsensible Gespräche zu Signal zu migrieren.", "Lesen Sie §19 (Konto löschen) bevor Sie handeln."] },
+};
+
+const RISK_RESULTS_IT: Record<RiskLevel, { label: string; color: string; bg: string; border: string; summary: string; tips: string[] }> = {
+  low: { label: "Rischio Basso", color: "#1a6b3a", bg: "#f0faf3", border: "#2E6F40", summary: "Le tue pratiche di utilizzo di WhatsApp sono relativamente attente alla privacy. Anche gli utenti a basso rischio condividono comunque il numero di telefono, i contatti, l'IP e le informazioni del dispositivo con Meta.", tips: ["Verifica che il backup E2EE sia attivo in Impostazioni → Chat → Backup chat.", "Controlla periodicamente le sessioni di WhatsApp Web in Impostazioni → Dispositivi collegati.", "Controlla i gruppi di cui fai parte — anche la semplice iscrizione espone il tuo numero."] },
+  moderate: { label: "Rischio Moderato", color: "#8a5a00", bg: "#fffbea", border: "#d4a017", summary: "I tuoi schemi di utilizzo ti espongono a una raccolta significativa di metadati. Una o più abitudini — messaggi ad aziende, backup cloud o dimensione dei gruppi — ampliano la traccia di dati che Meta può costruire su di te.", tips: ["Attiva subito il backup E2EE in Impostazioni → Chat → Backup chat.", "Quando scrivi ad aziende, presumi che Meta possa vedere quella conversazione.", "Esci dalle sessioni di WhatsApp Web quando non le usi attivamente."] },
+  high: { label: "Rischio Alto", color: "#8a2c00", bg: "#fff3ed", border: "#d45a17", summary: "Più abitudini ad alto rischio si combinano per creare una significativa esposizione della privacy. I tuoi schemi di comunicazione, il comportamento finanziario e la rete vengono ampiamente profilati.", tips: ["Attiva il backup E2EE o disattiva completamente il backup cloud.", "Esci definitivamente da tutte le sessioni di WhatsApp Web — usa solo il cellulare.", "Abbandona i gruppi grandi i cui membri non conosci personalmente.", "Considera di separare le transazioni finanziarie dalla tua identità WhatsApp.", "Leggi la sezione Verdetto (§21) e il confronto Signal (§33)."] },
+  critical: { label: "Rischio Molto Alto", color: "#6e0000", bg: "#fdecec", border: "#c2453a", summary: "Il tuo utilizzo attuale di WhatsApp crea uno dei profili di dati più completi possibili nell'ecosistema Meta. Stai condividendo schemi di comunicazione, dati finanziari, impronta digitale del dispositivo e appartenenza a gruppi a un livello che offre a Meta un quadro eccezionalmente dettagliato della tua vita.", tips: ["Disattiva completamente il backup cloud, o passa a backup E2EE con una password sicura.", "Esci immediatamente da tutte le sessioni collegate di WhatsApp Web e Desktop.", "Lascia i gruppi con molti membri che non conosci personalmente.", "Smetti di usare WhatsApp Pay — usa un'app separata per le transazioni finanziarie.", "Leggi §33 (Signal vs. WhatsApp) e considera seriamente di migrare le conversazioni riservate su Signal.", "Leggi §19 (eliminare l'account) prima di agire."] },
+};
+
+const RISK_RESULTS_AR: Record<RiskLevel, { label: string; color: string; bg: string; border: string; summary: string; tips: string[] }> = {
+  low: { label: "مخاطرة منخفضة", color: "#1a6b3a", bg: "#f0faf3", border: "#2E6F40", summary: "ممارساتك في استخدام واتساب تنمّ عن وعي نسبي بالخصوصية. ومع ذلك، حتى المستخدمون ذوو المخاطر المنخفضة يشاركون رقم الهاتف وجهات الاتصال وعنوان IP ومعلومات الجهاز مع ميتا.", tips: ["تأكد من تفعيل النسخ الاحتياطي المشفر E2EE في الإعدادات ← المحادثات ← النسخ الاحتياطي.", "راجع بانتظام جلسات واتساب ويب في الإعدادات ← الأجهزة المرتبطة.", "راجع المجموعات التي تنتمي إليها — حتى العضوية غير النشطة تكشف رقمك."] },
+  moderate: { label: "مخاطرة متوسطة", color: "#8a5a00", bg: "#fffbea", border: "#d4a017", summary: "أنماط استخدامك تعرضك لجمع كبير للبيانات الوصفية. عادة أو أكثر — المراسلة مع الشركات، أو النسخ الاحتياطي السحابي، أو حجم المجموعات — تُوسّع أثر البيانات الذي يمكن لميتا بناؤه عنك.", tips: ["فعّل النسخ الاحتياطي E2EE فوراً في الإعدادات ← المحادثات ← النسخ الاحتياطي.", "عند مراسلة الشركات، افترض أن ميتا يمكنها رؤية تلك المحادثة.", "سجّل خروجك من جلسات واتساب ويب عندما لا تستخدمها بشكل نشط."] },
+  high: { label: "مخاطرة عالية", color: "#8a2c00", bg: "#fff3ed", border: "#d45a17", summary: "عادات متعددة عالية الخطورة تجتمع لتخلق تعرضاً كبيراً للخصوصية. يجري تحليل أنماط تواصلك وسلوكك المالي وشبكتك على نطاق واسع.", tips: ["فعّل النسخ الاحتياطي E2EE أو أوقف النسخ الاحتياطي السحابي نهائياً.", "سجّل خروجك بشكل دائم من جميع جلسات واتساب ويب — استخدم الهاتف فقط.", "غادر المجموعات الكبيرة التي لا تعرف أعضاءها شخصياً.", "فكّر في فصل المعاملات المالية عن هويتك في واتساب.", "اقرأ قسم الحكم (§21) ومقارنة Signal (§33)."] },
+  critical: { label: "مخاطرة عالية جداً", color: "#6e0000", bg: "#fdecec", border: "#c2453a", summary: "استخدامك الحالي لواتساب يخلق أحد أكثر ملفات البيانات شمولاً في منظومة ميتا. أنت تشارك أنماط التواصل والبيانات المالية وبصمة الجهاز والعضوية في المجموعات بمستوى يمنح ميتا صورة استثنائية التفصيل عن حياتك.", tips: ["أوقف النسخ الاحتياطي السحابي نهائياً، أو انتقل إلى النسخ الاحتياطي E2EE بكلمة مرور قوية.", "سجّل خروجك فوراً من جميع جلسات واتساب ويب وسطح المكتب المرتبطة.", "غادر المجموعات الكبيرة التي لا تعرف معظم أعضائها.", "توقف عن استخدام واتساب باي — استخدم تطبيقاً منفصلاً للمعاملات المالية.", "اقرأ §33 (Signal مقابل واتساب) وفكّر جدياً في نقل المحادثات الحساسة إلى Signal.", "اقرأ §19 (حذف الحساب) قبل اتخاذ أي إجراء."] },
+};
+
+const RISK_RESULTS_TR: Record<RiskLevel, { label: string; color: string; bg: string; border: string; summary: string; tips: string[] }> = {
+  low: { label: "Düşük Risk", color: "#1a6b3a", bg: "#f0faf3", border: "#2E6F40", summary: "WhatsApp kullanım alışkanlıklarınız görece gizlilik bilinciyle şekilleniyor. Yine de düşük riskli kullanıcılar bile telefon numarası, kişiler, IP ve cihaz bilgilerini Meta ile paylaşıyor.", tips: ["E2EE yedeklemenin açık olduğunu doğrulayın: Ayarlar → Sohbetler → Sohbet Yedekleme.", "WhatsApp Web oturumlarını düzenli olarak kontrol edin: Ayarlar → Bağlı Cihazlar.", "Hangi gruplarda olduğunuzu gözden geçirin — pasif üyelik bile numaranızı ifşa eder."] },
+  moderate: { label: "Orta Risk", color: "#8a5a00", bg: "#fffbea", border: "#d4a017", summary: "Kullanım alışkanlıklarınız sizi önemli bir meta veri toplamaya maruz bırakıyor. İşletmelere mesaj atmak, bulut yedekleme veya grup büyüklüğü gibi bir veya birkaç alışkanlık, Meta'nın sizin hakkınızda oluşturabileceği veri izini önemli ölçüde genişletiyor.", tips: ["E2EE yedeklemeyi hemen etkinleştirin: Ayarlar → Sohbetler → Sohbet Yedekleme.", "İşletmelere mesaj gönderirken Meta'nın o konuşmayı görebileceğini varsayın.", "WhatsApp Web oturumlarından aktif olarak kullanmadığınızda çıkış yapın."] },
+  high: { label: "Yüksek Risk", color: "#8a2c00", bg: "#fff3ed", border: "#d45a17", summary: "Birden fazla yüksek riskli alışkanlık bir araya gelerek önemli bir gizlilik maruziyeti oluşturuyor. İletişim örüntüleriniz, finansal davranışlarınız ve ağınız kapsamlı biçimde profilleniyor.", tips: ["E2EE yedeklemeyi etkinleştirin ya da bulut yedeklemeyi tamamen devre dışı bırakın.", "Tüm WhatsApp Web oturumlarından kalıcı olarak çıkış yapın — yalnızca mobil cihaz kullanın.", "Üyelerini kişisel olarak tanımadığınız büyük gruplardan çıkın.", "Mali işlemleri WhatsApp kimliğinizden ayırmayı düşünün.", "Sonuç bölümünü (§21) ve Signal karşılaştırmasını (§33) okuyun."] },
+  critical: { label: "Çok Yüksek Risk", color: "#6e0000", bg: "#fdecec", border: "#c2453a", summary: "Mevcut WhatsApp kullanımınız, Meta ekosisteminde mümkün olan en kapsamlı veri profillerinden birini oluşturuyor. İletişim örüntülerini, finansal verileri, cihaz parmak izini ve grup üyeliğini Meta'ya hayatınızın olağanüstü ayrıntılı bir resmini verecek düzeyde paylaşıyorsunuz.", tips: ["Bulut yedeklemeyi tamamen devre dışı bırakın ya da güçlü bir şifreyle E2EE yedeklemeye geçin.", "Bağlı tüm WhatsApp Web ve Masaüstü oturumlarından hemen çıkış yapın.", "Çoğu üyesini tanımadığınız büyük gruplardan ayrılın.", "WhatsApp Pay kullanmayı bırakın — finansal işlemler için ayrı bir uygulama kullanın.", "§33'ü (Signal vs. WhatsApp) okuyun ve yüksek gizlilik gerektiren konuşmaları Signal'e taşımayı ciddi biçimde değerlendirin.", "Herhangi bir adım atmadan önce §19'u (hesabı sil) okuyun."] },
+};
+
+const RISK_RESULTS_FR: Record<RiskLevel, { label: string; color: string; bg: string; border: string; summary: string; tips: string[] }> = {
+  low: { label: "Risque Faible", color: "#1a6b3a", bg: "#f0faf3", border: "#2E6F40", summary: "Vos pratiques d'utilisation de WhatsApp sont relativement respectueuses de la vie privée. Même les utilisateurs à faible risque partagent néanmoins leur numéro de téléphone, leurs contacts, leur IP et les informations de leur appareil avec Meta.", tips: ["Vérifiez que la sauvegarde E2EE est activée dans Paramètres → Discussions → Sauvegarde des discussions.", "Consultez régulièrement les sessions WhatsApp Web dans Paramètres → Appareils connectés.", "Vérifiez les groupes dont vous êtes membre — même une adhésion inactive expose votre numéro."] },
+  moderate: { label: "Risque Modéré", color: "#8a5a00", bg: "#fffbea", border: "#d4a017", summary: "Vos habitudes d'utilisation vous exposent à une collecte significative de métadonnées. Une ou plusieurs habitudes — messagerie avec des entreprises, sauvegarde cloud ou taille des groupes — élargissent la trace de données que Meta peut construire à votre sujet.", tips: ["Activez immédiatement la sauvegarde E2EE dans Paramètres → Discussions → Sauvegarde des discussions.", "Lorsque vous écrivez à des entreprises, considérez que Meta peut voir cette conversation.", "Déconnectez-vous des sessions WhatsApp Web lorsque vous ne les utilisez pas activement."] },
+  high: { label: "Risque Élevé", color: "#8a2c00", bg: "#fff3ed", border: "#d45a17", summary: "Plusieurs habitudes à risque élevé se cumulent pour créer une exposition substantielle de la vie privée. Vos modes de communication, votre comportement financier et votre réseau font l'objet d'un profilage étendu.", tips: ["Activez la sauvegarde E2EE ou désactivez complètement la sauvegarde cloud.", "Déconnectez-vous définitivement de toutes les sessions WhatsApp Web — utilisez uniquement le mobile.", "Quittez les grands groupes dont vous ne connaissez pas personnellement les membres.", "Envisagez de séparer vos transactions financières de votre identité WhatsApp.", "Lisez la section Verdict (§21) et la comparaison Signal (§33)."] },
+  critical: { label: "Risque Très Élevé", color: "#6e0000", bg: "#fdecec", border: "#c2453a", summary: "Votre utilisation actuelle de WhatsApp crée l'un des profils de données les plus complets possibles au sein de l'écosystème Meta. Vous partagez des modes de communication, des données financières, une empreinte numérique d'appareil et une appartenance à des groupes à un niveau qui donne à Meta une image exceptionnellement détaillée de votre vie.", tips: ["Désactivez complètement la sauvegarde cloud, ou passez à une sauvegarde E2EE avec un mot de passe fort.", "Déconnectez-vous immédiatement de toutes les sessions WhatsApp Web et Desktop liées.", "Quittez les groupes avec de nombreux membres que vous ne connaissez pas personnellement.", "Cessez d'utiliser WhatsApp Pay — utilisez une application séparée pour les transactions financières.", "Lisez §33 (Signal vs. WhatsApp) et envisagez sérieusement de migrer vos conversations sensibles vers Signal.", "Lisez §19 (supprimer le compte) avant d'agir."] },
+};
+
+const RISK_RESULTS_UR: Record<RiskLevel, { label: string; color: string; bg: string; border: string; summary: string; tips: string[] }> = {
+  low: { label: "کم خطرہ", color: "#1a6b3a", bg: "#f0faf3", border: "#2E6F40", summary: "واٹس ایپ استعمال کرنے کے آپ کے طریقے نسبتاً پرائیویسی کے حوالے سے باشعور ہیں۔ پھر بھی، کم خطرے کے صارفین بھی فون نمبر، رابطے، IP اور ڈیوائس کی معلومات میٹا کے ساتھ شیئر کرتے ہیں۔", tips: ["E2EE بیک اپ کے فعال ہونے کی تصدیق کریں: ترتیبات ← چیٹس ← چیٹ بیک اپ۔", "واٹس ایپ ویب سیشنز کا باقاعدگی سے جائزہ لیں: ترتیبات ← لنک کردہ ڈیوائسز۔", "جائزہ لیں کہ آپ کن گروپس میں ہیں — غیر فعال رکنیت بھی آپ کا نمبر ظاہر کرتی ہے۔"] },
+  moderate: { label: "اعتدال پسند خطرہ", color: "#8a5a00", bg: "#fffbea", border: "#d4a017", summary: "آپ کے استعمال کے طریقے آپ کو خاصے میٹا ڈیٹا جمع کرنے کا نشانہ بناتے ہیں۔ ایک یا زیادہ عادات — کاروباروں سے میسجنگ، کلاؤڈ بیک اپ، یا گروپ کا حجم — میٹا کے آپ کے بارے میں ڈیٹا ٹریل کو نمایاں طور پر بڑھاتی ہیں۔", tips: ["فوری طور پر E2EE بیک اپ فعال کریں: ترتیبات ← چیٹس ← چیٹ بیک اپ۔", "جب کاروباروں کو میسج کریں، یہ سمجھیں کہ میٹا وہ گفتگو دیکھ سکتی ہے۔", "واٹس ایپ ویب سیشنز سے لاگ آؤٹ کریں جب فعال استعمال میں نہ ہوں۔"] },
+  high: { label: "زیادہ خطرہ", color: "#8a2c00", bg: "#fff3ed", border: "#d45a17", summary: "متعدد زیادہ خطرے والی عادات مل کر ایک اہم پرائیویسی نمائش بناتی ہیں۔ آپ کے رابطے کے طریقے، مالی رویہ اور نیٹ ورک کا وسیع پیمانے پر پروفائل بنایا جا رہا ہے۔", tips: ["E2EE بیک اپ فعال کریں یا کلاؤڈ بیک اپ مکمل طور پر بند کریں۔", "تمام واٹس ایپ ویب سیشنز سے مستقل لاگ آؤٹ کریں — صرف موبائل استعمال کریں۔", "بڑے گروپس چھوڑیں جن کے اراکین کو آپ ذاتی طور پر نہیں جانتے۔", "مالی لین دین کو واٹس ایپ شناخت سے الگ کرنے پر غور کریں۔", "§21 (نتیجہ) اور §33 (Signal بمقابلہ واٹس ایپ) پڑھیں۔"] },
+  critical: { label: "بہت زیادہ خطرہ", color: "#6e0000", bg: "#fdecec", border: "#c2453a", summary: "واٹس ایپ کا آپ کا موجودہ استعمال میٹا ایکوسسٹم میں سب سے جامع ڈیٹا پروفائلز میں سے ایک بناتا ہے۔ آپ رابطے کے طریقے، مالی ڈیٹا، ڈیوائس فنگرپرنٹنگ اور گروپ رکنیت اس سطح پر شیئر کر رہے ہیں جو میٹا کو آپ کی زندگی کی غیر معمولی تفصیلی تصویر دیتی ہے۔", tips: ["کلاؤڈ بیک اپ مکمل طور پر بند کریں، یا مضبوط پاسورڈ کے ساتھ E2EE بیک اپ پر سوئچ کریں۔", "تمام لنک کردہ واٹس ایپ ویب اور ڈیسک ٹاپ سیشنز سے فوری لاگ آؤٹ کریں۔", "زیادہ رکنیت والے گروپس چھوڑیں جن کے اکثر اراکین آپ کی جان پہچان کے نہیں۔", "واٹس ایپ پے استعمال کرنا بند کریں — مالی لین دین کے لیے الگ ایپ استعمال کریں۔", "§33 (Signal بمقابلہ واٹس ایپ) پڑھیں اور اعلی پرائیویسی گفتگو کو Signal پر منتقل کرنے پر سنجیدگی سے غور کریں۔", "کوئی قدم اٹھانے سے پہلے §19 (اکاؤنٹ ڈیلیٹ) پڑھیں۔"] },
+};
+
+type Lang = "en" | "hi" | "pt" | "id" | "es" | "ru" | "de" | "it" | "ar" | "tr" | "fr" | "ur";
+
+const RISK_QUESTIONS_MAP: Record<Lang, RiskQuestion[]> = {
+  en: RISK_QUESTIONS_EN, hi: RISK_QUESTIONS_HI, pt: RISK_QUESTIONS_PT, id: RISK_QUESTIONS_ID,
+  es: RISK_QUESTIONS_ES, ru: RISK_QUESTIONS_RU, de: RISK_QUESTIONS_DE, it: RISK_QUESTIONS_IT,
+  ar: RISK_QUESTIONS_AR, tr: RISK_QUESTIONS_TR, fr: RISK_QUESTIONS_FR, ur: RISK_QUESTIONS_UR,
+};
+
+const RISK_RESULTS_MAP: Record<Lang, Record<RiskLevel, { label: string; color: string; bg: string; border: string; summary: string; tips: string[] }>> = {
+  en: RISK_RESULTS_EN, hi: RISK_RESULTS_HI, pt: RISK_RESULTS_PT, id: RISK_RESULTS_ID,
+  es: RISK_RESULTS_ES, ru: RISK_RESULTS_RU, de: RISK_RESULTS_DE, it: RISK_RESULTS_IT,
+  ar: RISK_RESULTS_AR, tr: RISK_RESULTS_TR, fr: RISK_RESULTS_FR, ur: RISK_RESULTS_UR,
+};
+
+const CALC_UI: Record<Lang, { title: string; subtitle: string; btn: string; retake: string; scoreLabel: string; outOf: string }> = {
+  en: { title: "Your Personal WhatsApp Privacy Risk Score", subtitle: "5 quick questions — get a personalised privacy assessment", btn: "See my score", retake: "Retake quiz", scoreLabel: "Your score", outOf: "out of 15" },
+  hi: { title: "आपका व्यक्तिगत WhatsApp प्राइवेसी जोखिम स्कोर", subtitle: "5 त्वरित प्रश्न — व्यक्तिगत प्राइवेसी मूल्यांकन पाएँ", btn: "मेरा स्कोर देखें", retake: "फिर से लें", scoreLabel: "आपका स्कोर", outOf: "15 में से" },
+  pt: { title: "Sua Pontuação Pessoal de Risco de Privacidade no WhatsApp", subtitle: "5 perguntas rápidas — obtenha uma avaliação de privacidade personalizada", btn: "Ver minha pontuação", retake: "Refazer o teste", scoreLabel: "Sua pontuação", outOf: "de 15" },
+  id: { title: "Skor Risiko Privasi WhatsApp Pribadi Anda", subtitle: "5 pertanyaan singkat — dapatkan penilaian privasi personal", btn: "Lihat skor saya", retake: "Ulangi kuis", scoreLabel: "Skor Anda", outOf: "dari 15" },
+  es: { title: "Tu Puntuación Personal de Riesgo de Privacidad en WhatsApp", subtitle: "5 preguntas rápidas — obtén una evaluación personalizada de privacidad", btn: "Ver mi puntuación", retake: "Repetir el cuestionario", scoreLabel: "Tu puntuación", outOf: "de 15" },
+  ru: { title: "Ваш личный рейтинг риска конфиденциальности в WhatsApp", subtitle: "5 быстрых вопросов — получите персонализированную оценку", btn: "Посмотреть мой результат", retake: "Пройти снова", scoreLabel: "Ваш результат", outOf: "из 15" },
+  de: { title: "Ihr persönlicher WhatsApp-Datenschutzrisiko-Score", subtitle: "5 kurze Fragen — erhalten Sie eine persönliche Datenschutzbewertung", btn: "Mein Ergebnis anzeigen", retake: "Quiz wiederholen", scoreLabel: "Ihr Ergebnis", outOf: "von 15" },
+  it: { title: "Il Tuo Punteggio Personale di Rischio Privacy su WhatsApp", subtitle: "5 domande rapide — ottieni una valutazione personalizzata della privacy", btn: "Vedi il mio punteggio", retake: "Rifare il quiz", scoreLabel: "Il tuo punteggio", outOf: "su 15" },
+  ar: { title: "درجة مخاطر الخصوصية الشخصية على واتساب", subtitle: "5 أسئلة سريعة — احصل على تقييم خصوصية مخصص", btn: "اعرض درجتي", retake: "إعادة الاختبار", scoreLabel: "درجتك", outOf: "من 15" },
+  tr: { title: "Kişisel WhatsApp Gizlilik Risk Puanınız", subtitle: "5 hızlı soru — kişiselleştirilmiş bir gizlilik değerlendirmesi alın", btn: "Puanımı gör", retake: "Testi tekrar al", scoreLabel: "Puanınız", outOf: "15 üzerinden" },
+  fr: { title: "Votre Score Personnel de Risque de Confidentialité sur WhatsApp", subtitle: "5 questions rapides — obtenez une évaluation personnalisée de votre vie privée", btn: "Voir mon score", retake: "Recommencer le quiz", scoreLabel: "Votre score", outOf: "sur 15" },
+  ur: { title: "واٹس ایپ پر آپ کا ذاتی پرائیویسی رسک اسکور", subtitle: "5 فوری سوالات — ذاتی پرائیویسی جائزہ حاصل کریں", btn: "میرا اسکور دیکھیں", retake: "دوبارہ لیں", scoreLabel: "آپ کا اسکور", outOf: "15 میں سے" },
+};
+
+const TIPS_HEADING: Record<Lang, string> = {
+  en: "Immediate steps for you", hi: "आपके लिए तुरंत कदम", pt: "Passos imediatos para você",
+  id: "Langkah segera untuk Anda", es: "Pasos inmediatos para ti", ru: "Немедленные шаги для вас",
+  de: "Sofortige Schritte für Sie", it: "Passi immediati per te", ar: "خطوات فورية لك",
+  tr: "Sizin için anında adımlar", fr: "Étapes immédiates pour vous", ur: "آپ کے لیے فوری اقدامات",
+};
+
+const DISCLAIMER_TEXT: Record<Lang, string> = {
+  en: "This calculator is a simplified risk estimate based on your self-reported usage. The actual data Meta collects is broader than any quiz can capture — see the sources in this article for the full picture.",
+  hi: "यह calculator आपके द्वारा दिए गए उत्तरों के आधार पर एक सरलीकृत जोखिम अनुमान है। Meta द्वारा एकत्र किया गया वास्तविक डेटा इस लेख में detailed sources के अनुसार अधिक हो सकता है।",
+  pt: "Esta calculadora é uma estimativa simplificada de risco com base no seu uso autodeclarado. Os dados reais coletados pela Meta são mais amplos do que qualquer questionário pode capturar.",
+  id: "Kalkulator ini adalah perkiraan risiko yang disederhanakan berdasarkan penggunaan yang Anda laporkan sendiri. Data aktual yang dikumpulkan Meta lebih luas dari yang bisa ditangkap kuis mana pun.",
+  es: "Esta calculadora es una estimación simplificada del riesgo basada en tu uso declarado. Los datos reales que recopila Meta son más amplios de lo que cualquier cuestionario puede capturar.",
+  ru: "Этот калькулятор — упрощённая оценка риска, основанная на ваших самостоятельно сообщённых данных. Фактические данные, которые собирает Meta, шире, чем может охватить любая анкета.",
+  de: "Dieser Rechner ist eine vereinfachte Risikoschätzung basierend auf Ihren selbst gemachten Angaben. Die tatsächlichen Daten, die Meta sammelt, sind umfangreicher, als ein Quiz erfassen kann.",
+  it: "Questa calcolatrice è una stima semplificata del rischio basata sull'utilizzo da te dichiarato. I dati effettivi raccolti da Meta sono più ampi di quanto qualsiasi quiz possa catturare.",
+  ar: "هذه الحاسبة هي تقدير مبسّط للمخاطر بناءً على استخدامك المُبلَّغ عنه ذاتياً. البيانات الفعلية التي تجمعها ميتا أوسع مما يمكن لأي اختبار رصده.",
+  tr: "Bu hesap makinesi, kendi bildirdiğiniz kullanıma dayalı basitleştirilmiş bir risk tahminidir. Meta'nın topladığı gerçek veriler herhangi bir testin yakalayabileceğinden daha geniştir.",
+  fr: "Cette calculatrice est une estimation simplifiée du risque basée sur votre utilisation déclarée. Les données réelles collectées par Meta sont plus larges que ce qu'un questionnaire peut capturer.",
+  ur: "یہ کیلکولیٹر آپ کی خود بتائی گئی استعمال کی عادات پر مبنی ایک سادہ خطرے کا تخمینہ ہے۔ میٹا اصل میں جتنا ڈیٹا جمع کرتی ہے وہ کسی بھی کوئز سے زیادہ وسیع ہے۔",
+};
+
+const INTERACTIVE_LABEL: Record<Lang, string> = {
+  en: "Interactive Tool", hi: "इंटरैक्टिव टूल", pt: "Ferramenta Interativa",
+  id: "Alat Interaktif", es: "Herramienta Interactiva", ru: "Интерактивный инструмент",
+  de: "Interaktives Tool", it: "Strumento Interattivo", ar: "أداة تفاعلية",
+  tr: "Etkileşimli Araç", fr: "Outil Interactif", ur: "انٹرایکٹو ٹول",
+};
+
+const ANSWERED_TEMPLATE: Record<Lang, (a: number, t: number) => string> = {
+  en: (a, t) => `${a} / ${t} questions answered`,
+  hi: (a, t) => `${a} / ${t} सवालों के जवाब दिए`,
+  pt: (a, t) => `${a} / ${t} perguntas respondidas`,
+  id: (a, t) => `${a} / ${t} pertanyaan dijawab`,
+  es: (a, t) => `${a} / ${t} preguntas respondidas`,
+  ru: (a, t) => `${a} / ${t} вопросов отвечено`,
+  de: (a, t) => `${a} / ${t} Fragen beantwortet`,
+  it: (a, t) => `${a} / ${t} domande risposte`,
+  ar: (a, t) => `${a} / ${t} أسئلة تمت الإجابة عليها`,
+  tr: (a, t) => `${a} / ${t} soru yanıtlandı`,
+  fr: (a, t) => `${a} / ${t} questions répondues`,
+  ur: (a, t) => `${a} / ${t} سوالات کے جوابات دیے`,
+};
+
+function PrivacyRiskCalculator({ lang }: { lang: Lang }) {
+  const questions = RISK_QUESTIONS_MAP[lang] ?? RISK_QUESTIONS_EN;
+  const results = RISK_RESULTS_MAP[lang] ?? RISK_RESULTS_EN;
+  const ui = CALC_UI[lang] ?? CALC_UI.en;
 
   const [answers, setAnswers] = useState<Record<string, number>>({});
   const [submitted, setSubmitted] = useState(false);
@@ -631,17 +1515,13 @@ function PrivacyRiskCalculator({ lang }: { lang: "en" | "hi" }) {
 
   const maxScore = questions.length * 3;
 
-  const headingText = lang === "hi" ? "आपका व्यक्तिगत WhatsApp जोखिम स्कोर" : "Your personal WhatsApp risk score";
-  const subText = lang === "hi"
-    ? "नीचे 5 सवालों के जवाब दीजिए — हम आपकी real WhatsApp आदतों के आधार पर आपका privacy risk score बताएँगे।"
-    : "Answer 5 questions about how you actually use WhatsApp and we'll calculate your personal privacy exposure score.";
-  const submitText = lang === "hi" ? "स्कोर देखें" : "See my score";
-  const retakeText = lang === "hi" ? "फिर से करें" : "Retake quiz";
-  const yourScoreText = lang === "hi" ? "आपका स्कोर" : "Your score";
-  const tipsHeading = lang === "hi" ? "आपके लिए तुरंत कदम" : "Immediate steps for you";
-  const disclaimerText = lang === "hi"
-    ? "यह calculator आपके द्वारा दिए गए उत्तरों के आधार पर एक सरलीकृत जोखिम अनुमान है। Meta द्वारा एकत्र किया गया वास्तविक डेटा इस लेख में detailed sources के अनुसार अधिक हो सकता है।"
-    : "This calculator is a simplified risk estimate based on your self-reported usage. The actual data Meta collects is broader than any quiz can capture — see the sources in this article for the full picture.";
+  const headingText = ui.title;
+  const subText = ui.subtitle;
+  const submitText = ui.btn;
+  const retakeText = ui.retake;
+  const yourScoreText = ui.scoreLabel;
+  const tipsHeading = TIPS_HEADING[lang] ?? TIPS_HEADING.en;
+  const disclaimerText = DISCLAIMER_TEXT[lang] ?? DISCLAIMER_TEXT.en;
 
   return (
     <section
@@ -653,7 +1533,7 @@ function PrivacyRiskCalculator({ lang }: { lang: "en" | "hi" }) {
         <div className="flex items-center gap-2 mb-1">
           <span className="text-xl" aria-hidden>🔒</span>
           <span className="text-xs uppercase tracking-wider font-semibold text-[#2E6F40]">
-            {lang === "hi" ? "इंटरैक्टिव टूल" : "Interactive Tool"}
+            {INTERACTIVE_LABEL[lang] ?? INTERACTIVE_LABEL.en}
           </span>
         </div>
         <h2 className="text-[22px] sm:text-[26px] font-semibold text-[#0F2A18] leading-tight">{headingText}</h2>
@@ -705,9 +1585,7 @@ function PrivacyRiskCalculator({ lang }: { lang: "en" | "hi" }) {
 
             <div className="mt-8">
               <div className="mb-3 text-[14px] text-[#4a5a4f]">
-                {lang === "hi"
-                  ? `${Object.keys(answers).length} / ${questions.length} सवालों के जवाब दिए`
-                  : `${Object.keys(answers).length} / ${questions.length} questions answered`}
+                {(ANSWERED_TEMPLATE[lang] ?? ANSWERED_TEMPLATE.en)(Object.keys(answers).length, questions.length)}
               </div>
               <button
                 onClick={() => { if (allAnswered) setSubmitted(true); }}
@@ -3284,31 +4162,451 @@ function ArticleHindi() {
   );
 }
 
+/* ─────────────────── PORTUGUESE ARTICLE ─────────────────── */
+function ArticlePt() {
+  return (
+    <>
+      <PrivacyRiskCalculator lang="pt" />
+      <H2 id="tldr">Em resumo — o que este artigo prova</H2>
+      <ul className="space-y-3 text-[17px] leading-[1.75] text-[#1f2a24] list-none">
+        <li><strong>1.</strong> O WhatsApp pertence à Meta — a mesma empresa dona do Facebook, Instagram, Messenger e Threads, envolvida no escândalo Cambridge Analytica de 2018.<S ids={[51, 52, 53, 61]} /></li>
+        <li><strong>2.</strong> Os próprios fundadores do WhatsApp romperam com a Meta por causa de dados. Brian Acton twittou <em>"#deletefacebook"</em> em 2018, abrindo mão de US$850 milhões em ações. Jan Koum saiu semanas depois.<S ids={[54, 55, 56, 57, 58]} /></li>
+        <li><strong>3.</strong> A Política de Privacidade do WhatsApp confirma a coleta de número de telefone, contatos (incluindo não-usuários), foto de perfil, IP, modelo do dispositivo, rede móvel, dados de localização e informações de pagamento — compartilhados em grande parte com o resto da Meta.<S ids={[1, 2, 3]} /></li>
+        <li><strong>4.</strong> A criptografia de ponta a ponta protege o <em>conteúdo</em>. Ela não esconde com quem você fala, quando, com que frequência ou de onde.<S ids={[1, 2, 17, 45]} /></li>
+        <li><strong>5.</strong> Backups em nuvem (Google Drive, iCloud) <em>não</em> são criptografados de ponta a ponta por padrão.<S ids={[8, 9, 10]} /></li>
+        <li><strong>6.</strong> Em 16 de junho de 2025, a Meta anunciou anúncios dentro do WhatsApp, na aba Atualizações.<S ids={[11, 12, 13]} /></li>
+        <li><strong>7.</strong> A DPC irlandesa multou o WhatsApp em €225 milhões em 2021. O CCI da Índia multou a Meta em ₹213 crores em 2024.<S ids={[27, 28, 29, 30, 65, 66]} /></li>
+        <li><strong>8.</strong> O WhatsApp foi vetor de entrega de pelo menos dois spywares: Pegasus do NSO (júri dos EUA multou NSO em US$167M em 2025) e Graphite da Paragon (2025).<S ids={[18, 19, 20, 23, 24, 25, 26]} /></li>
+        <li><strong>9.</strong> Em novembro de 2022, 487 milhões de números de telefone do WhatsApp de 84 países foram colocados à venda em fórum de hackers.<S ids={[59, 60]} /></li>
+        <li><strong>10.</strong> O Brasil bloqueou o WhatsApp pelos tribunais ao menos quatro vezes. A China bloqueia completamente.<S ids={[33, 62, 63, 64, 93, 94, 95]} /></li>
+        <li><strong>11.</strong> A desinformação pelo WhatsApp desencadeou uma onda de linchamentos na Índia em 2017–2018.<S ids={[67, 68, 69, 70]} /></li>
+        <li><strong>12.</strong> O recurso "Ver uma vez" foi burlado por pesquisadores independentes quatro vezes separadas.<S ids={[85, 86, 87]} /></li>
+      </ul>
+      <H2 id="owners">1. Quem realmente é dono do WhatsApp</H2>
+      <P>O WhatsApp foi adquirido pelo Facebook por US$19 bilhões em fevereiro de 2014.<S ids={[51]} /> A empresa-mãe foi renomeada Meta Platforms, Inc. em outubro de 2021.<S ids={[52]} /> O WhatsApp opera como uma subsidiária totalmente controlada — seus servidores, dados e código-fonte pertencem à Meta.</P>
+      <H2 id="founders">2. Os próprios fundadores saíram em protesto</H2>
+      <P>Brian Acton abandonou cerca de US$850 milhões em ações ao sair da Meta em 2018 para co-fundar a Signal Foundation. Ele twittou publicamente <em>"#deletefacebook"</em>.<S ids={[54, 55]} /> Jan Koum saiu semanas depois, citando divergências sobre compartilhamento de dados e enfraquecimento da criptografia.<S ids={[56, 57, 58]} /></P>
+      <H2 id="policy">3. O que a Política de Privacidade realmente diz</H2>
+      <P>A Política de Privacidade do WhatsApp declara explicitamente a coleta de: número de telefone e contatos (incluindo não-usuários), foto de perfil e status, modelo do dispositivo, sistema operacional, identificadores de hardware, endereço IP, rede móvel, dados de uso do app, sinais de localização e informações de pagamento.<S ids={[1, 2, 3]} /> Grande parte disso é compartilhada com o restante do ecossistema Meta para fins de publicidade e segurança.</P>
+      <H2 id="metadata">4. Metadados — o que a criptografia não esconde</H2>
+      <P>A criptografia de ponta a ponta protege o conteúdo das mensagens, mas o WhatsApp ainda sabe: com quem você se comunica e com que frequência, quando as mensagens são enviadas e lidas, seu endereço IP (que revela localização aproximada), o modelo e o sistema operacional do seu dispositivo.<S ids={[17, 45]} /> Esse conjunto de metadados pode revelar padrões de relacionamento, saúde e política — mesmo sem nunca ler uma única mensagem.</P>
+      <H2 id="y2021">5. A atualização forçada de 2021</H2>
+      <P>Em fevereiro de 2021, o WhatsApp alterou sua política de privacidade exigindo que os usuários aceitassem o compartilhamento de dados com a Meta para continuar usando o serviço.<S ids={[4, 5, 6]} /> A reação pública foi massiva — o Telegram e o Signal ganharam dezenas de milhões de novos usuários em dias. A mudança foi suspensa em vários países após investigações regulatórias.<S ids={[7]} /></P>
+      <H2 id="backups">6. A brecha dos backups em nuvem</H2>
+      <P>Backups do WhatsApp no Google Drive ou iCloud <em>não</em> são cobertos pela criptografia de ponta a ponta por padrão.<S ids={[8, 9]} /> Isso significa que o Google ou a Apple podem ter acesso a essas mensagens, e que autoridades com uma ordem judicial podem obtê-las diretamente dos servidores de backup. O usuário precisa ativar manualmente o backup E2EE nas configurações.<S ids={[10]} /></P>
+      <H2 id="business">7. WhatsApp Business — onde o E2EE termina silenciosamente</H2>
+      <P>Quando você envia uma mensagem para uma conta do WhatsApp Business, essa mensagem pode ser processada por provedores de nuvem terceirizados contratados pela empresa — e não é protegida pela criptografia de ponta a ponta padrão.<S ids={[14, 15, 16]} /></P>
+      <H2 id="ads">8. Anúncios dentro do WhatsApp (junho 2025)</H2>
+      <P>Em 16 de junho de 2025, no Cannes Lions, a Meta anunciou anúncios na aba Atualizações do WhatsApp, canais promovidos e assinaturas pagas.<S ids={[11, 12, 13]} /> Esta é a primeira vez que publicidade comercial entra diretamente no aplicativo de mensagens.</P>
+      <H2 id="law">10. Governos e autoridades policiais</H2>
+      <P>O WhatsApp responde a solicitações legais de dados de autoridades. Os dados de metadados — número de telefone, tempo de uso, endereço IP — podem ser fornecidos. O conteúdo das mensagens não pode ser fornecido se E2EE estiver ativo, mas os backups em nuvem sem E2EE podem.<S ids={[32, 33, 34, 35]} /></P>
+      <H2 id="pegasus">11. Pegasus — veredicto de US$167M do NSO</H2>
+      <P>Em maio de 2019, uma falha de buffer overflow no stack VOIP do WhatsApp permitiu que o spyware Pegasus do NSO Group fosse instalado nos dispositivos das vítimas sem qualquer interação do usuário.<S ids={[18, 19, 20]} /> Em maio de 2025, um júri federal dos EUA condenou o NSO Group a pagar US$167 milhões em danos punitivos ao WhatsApp.<S ids={[23, 24, 25, 26]} /></P>
+      <H2 id="leak2022">15. O vazamento de 487 milhões de números (2022)</H2>
+      <P>Em novembro de 2022, um ator de ameaças anunciou a venda de um banco de dados contendo 487 milhões de números de telefone do WhatsApp de 84 países em um fórum de hackers.<S ids={[59, 60]} /> O Brasil estava entre os países afetados. O WhatsApp negou qualquer violação do sistema, mas os números foram verificados como pertencentes a usuários reais do WhatsApp.</P>
+      <H2 id="fines">16. Multas regulatórias</H2>
+      <P>€225 milhões (DPC da Irlanda, 2021) pela falha em informar adequadamente os usuários sobre o processamento de dados.<S ids={[27, 28]} /> ₹213 crores — CCI da Índia, 2024, pela atualização de política de 2021.<S ids={[29, 30]} /> Investigações formais foram abertas na Turquia, Alemanha, Itália e outros países da UE.<S ids={[65, 66]} /></P>
+      <H2 id="verdict">21. O veredicto para usuários de alta privacidade</H2>
+      <Callout tone="danger" title="Conclusão">O WhatsApp não é um serviço de privacidade. É um produto de comunicação de propriedade de uma empresa cuja receita principal vem de publicidade e dados. A criptografia de ponta a ponta é real e protege o conteúdo das mensagens — mas não protege metadados, backups, mensagens empresariais ou as implicações de privacidade de pertencer ao ecossistema Meta.<S ids={[1, 18, 27, 51, 98, 102, 114, 128]} /></Callout>
+      <H2 id="signal_vs">33. Signal vs. WhatsApp — o que você realmente perde</H2>
+      <P>O Signal coleta apenas seu número de telefone e a data do último login — nada mais.<S ids={[117, 118]} /> Ao contrário do WhatsApp, o Signal não pertence a uma empresa de publicidade, não compartilha dados com terceiros e não requer que seus contatos sejam sincronizados com servidores externos. A única coisa que você "perde" ao mudar para o Signal são os recursos de integração do ecossistema Meta.<S ids={[114, 115, 116]} /></P>
+      <H2 id="experts">35. O que especialistas, tribunais e whistleblowers recomendam</H2>
+      <P>Edward Snowden, Bruce Schneier, Moxie Marlinspike (criador do Signal) e a Electronic Frontier Foundation recomendam consistentemente o Signal para comunicações sensíveis.<S ids={[128, 129, 130, 131, 132, 133]} /> O Tribunal Federal dos EUA reconheceu o WhatsApp como vítima de vigilância ao emitir um veredicto contra o NSO em 2025.<S ids={[23, 24]} /></P>
+    </>
+  );
+}
+
+/* ─────────────────── INDONESIAN ARTICLE ─────────────────── */
+function ArticleId() {
+  return (
+    <>
+      <PrivacyRiskCalculator lang="id" />
+      <H2 id="tldr">Ringkasan — apa yang dibuktikan artikel ini</H2>
+      <ul className="space-y-3 text-[17px] leading-[1.75] text-[#1f2a24] list-none">
+        <li><strong>1.</strong> WhatsApp dimiliki oleh Meta — perusahaan yang sama yang memiliki Facebook, Instagram, Messenger, dan Threads, serta terlibat dalam skandal Cambridge Analytica 2018.<S ids={[51, 52, 53, 61]} /></li>
+        <li><strong>2.</strong> Para pendiri WhatsApp sendiri meninggalkan Meta karena masalah data. Brian Acton men-tweet <em>"#deletefacebook"</em> pada 2018, melepaskan saham senilai $850 juta. Jan Koum menyusul beberapa minggu kemudian.<S ids={[54, 55, 56, 57, 58]} /></li>
+        <li><strong>3.</strong> Kebijakan Privasi WhatsApp mengonfirmasi pengumpulan nomor telepon, kontak (termasuk bukan pengguna), foto profil, IP, model perangkat, jaringan seluler, sinyal lokasi, dan informasi pembayaran — sebagian besar dibagikan ke ekosistem Meta.<S ids={[1, 2, 3]} /></li>
+        <li><strong>4.</strong> Enkripsi ujung ke ujung melindungi <em>konten</em> pesan. Tidak menyembunyikan dengan siapa, kapan, seberapa sering, atau dari mana Anda berkomunikasi.<S ids={[1, 2, 17, 45]} /></li>
+        <li><strong>5.</strong> Backup cloud (Google Drive, iCloud) <em>tidak</em> dienkripsi E2EE secara default.<S ids={[8, 9, 10]} /></li>
+        <li><strong>6.</strong> Pada 16 Juni 2025, Meta mengumumkan iklan di tab Pembaruan WhatsApp di Cannes Lions.<S ids={[11, 12, 13]} /></li>
+        <li><strong>7.</strong> DPC Irlandia mendenda WhatsApp €225 juta pada 2021. CCI India mendenda Meta ₹213 crore pada 2024.<S ids={[27, 28, 29, 30, 65, 66]} /></li>
+        <li><strong>8.</strong> WhatsApp menjadi saluran untuk setidaknya dua spyware: Pegasus NSO (juri AS mendenda NSO $167 juta pada 2025) dan Graphite Paragon (2025).<S ids={[18, 19, 20, 23, 24, 25, 26]} /></li>
+        <li><strong>9.</strong> Pada November 2022, 487 juta nomor telepon WhatsApp dari 84 negara dijual di forum peretas.<S ids={[59, 60]} /></li>
+        <li><strong>10.</strong> Brasil memblokir WhatsApp setidaknya empat kali. Tiongkok memblokir sepenuhnya.<S ids={[33, 62, 63, 64, 93, 94, 95]} /></li>
+        <li><strong>11.</strong> Disinformasi WhatsApp memicu gelombang main hakim sendiri di India pada 2017–2018.<S ids={[67, 68, 69, 70]} /></li>
+        <li><strong>12.</strong> Fitur "Lihat Sekali" berhasil dibobol oleh peneliti independen sebanyak empat kali.<S ids={[85, 86, 87]} /></li>
+      </ul>
+      <H2 id="owners">1. Siapa yang benar-benar memiliki WhatsApp</H2>
+      <P>WhatsApp diakuisisi oleh Facebook seharga $19 miliar pada Februari 2014.<S ids={[51]} /> Perusahaan induk berganti nama menjadi Meta Platforms, Inc. pada Oktober 2021.<S ids={[52]} /> WhatsApp beroperasi sebagai anak perusahaan yang sepenuhnya dimiliki — server, data, dan kode sumbernya adalah milik Meta.</P>
+      <H2 id="policy">3. Apa yang sebenarnya dikatakan Kebijakan Privasi</H2>
+      <P>Kebijakan Privasi WhatsApp secara eksplisit menyatakan pengumpulan: nomor telepon dan kontak (termasuk bukan pengguna), foto profil dan status, model perangkat dan sistem operasi, pengidentifikasi perangkat keras, alamat IP, jaringan seluler, data penggunaan aplikasi, sinyal lokasi, dan informasi pembayaran.<S ids={[1, 2, 3]} /> Sebagian besar data ini dibagikan ke seluruh ekosistem Meta untuk tujuan periklanan dan keamanan.</P>
+      <H2 id="metadata">4. Metadata — yang tidak disembunyikan enkripsi</H2>
+      <P>Enkripsi E2EE melindungi konten pesan, tetapi WhatsApp masih mengetahui: siapa yang Anda ajak berkomunikasi dan seberapa sering, kapan pesan dikirim dan dibaca, alamat IP Anda (mengungkapkan lokasi perkiraan), serta model dan sistem operasi perangkat Anda.<S ids={[17, 45]} /></P>
+      <H2 id="y2021">5. Pembaruan paksa 2021</H2>
+      <P>Pada Februari 2021, WhatsApp mengubah kebijakan privasinya untuk mewajibkan pengguna menyetujui berbagi data dengan Meta agar dapat terus menggunakan layanan.<S ids={[4, 5, 6]} /> Reaksi publik sangat besar — Telegram dan Signal mendapatkan puluhan juta pengguna baru dalam hitungan hari.<S ids={[7]} /></P>
+      <H2 id="pegasus">11. Pegasus — vonis NSO US$167 juta</H2>
+      <P>Pada Mei 2019, kerentanan buffer overflow di stack VOIP WhatsApp memungkinkan spyware Pegasus NSO Group dipasang di perangkat korban tanpa interaksi pengguna sama sekali.<S ids={[18, 19, 20]} /> Pada Mei 2025, juri federal AS menghukum NSO Group membayar $167 juta dalam ganti rugi punitif.<S ids={[23, 24, 25, 26]} /></P>
+      <H2 id="leak2022">15. Kebocoran 487 juta nomor (2022)</H2>
+      <P>Pada November 2022, 487 juta nomor telepon WhatsApp dari 84 negara dijual di forum peretas.<S ids={[59, 60]} /> Indonesia termasuk dalam negara yang terdampak.</P>
+      <H2 id="verdict">21. Kesimpulan untuk pengguna yang peduli privasi</H2>
+      <Callout tone="danger" title="Kesimpulan">WhatsApp bukan layanan privasi. Ini adalah produk komunikasi milik perusahaan periklanan. Enkripsi E2EE nyata dan melindungi konten pesan — tetapi tidak melindungi metadata, backup, pesan bisnis, atau implikasi privasi dari keberadaan di ekosistem Meta.<S ids={[1, 18, 27, 51, 98, 102, 114, 128]} /></Callout>
+      <H2 id="signal_vs">33. Signal vs. WhatsApp — apa yang benar-benar Anda korbankan</H2>
+      <P>Signal hanya mengumpulkan nomor telepon Anda dan tanggal login terakhir — tidak ada lagi.<S ids={[117, 118]} /> Tidak seperti WhatsApp, Signal tidak dimiliki oleh perusahaan periklanan dan tidak berbagi data dengan pihak ketiga.<S ids={[114, 115, 116]} /></P>
+    </>
+  );
+}
+
+/* ─────────────────── SPANISH ARTICLE ─────────────────── */
+function ArticleEs() {
+  return (
+    <>
+      <PrivacyRiskCalculator lang="es" />
+      <H2 id="tldr">En resumen — lo que prueba este artículo</H2>
+      <ul className="space-y-3 text-[17px] leading-[1.75] text-[#1f2a24] list-none">
+        <li><strong>1.</strong> WhatsApp es propiedad de Meta — la misma empresa que posee Facebook, Instagram, Messenger y Threads, involucrada en el escándalo Cambridge Analytica de 2018.<S ids={[51, 52, 53, 61]} /></li>
+        <li><strong>2.</strong> Los propios fundadores de WhatsApp rompieron públicamente con Meta por los datos. Brian Acton tuiteó <em>"#deletefacebook"</em> en 2018, renunciando a $850 millones en acciones. Jan Koum se fue semanas después.<S ids={[54, 55, 56, 57, 58]} /></li>
+        <li><strong>3.</strong> La Política de Privacidad de WhatsApp confirma la recopilación de número de teléfono, contactos (incluidos no usuarios), foto de perfil, IP, modelo del dispositivo, red móvil, señales de ubicación e información de pago — compartido en gran parte con el resto de Meta.<S ids={[1, 2, 3]} /></li>
+        <li><strong>4.</strong> El cifrado de extremo a extremo protege el <em>contenido</em>. No oculta con quién hablas, cuándo, con qué frecuencia o desde dónde.<S ids={[1, 2, 17, 45]} /></li>
+        <li><strong>5.</strong> Las copias de seguridad en la nube (Google Drive, iCloud) <em>no</em> están cifradas de extremo a extremo por defecto.<S ids={[8, 9, 10]} /></li>
+        <li><strong>6.</strong> El 16 de junio de 2025, Meta anunció anuncios dentro de WhatsApp, en la pestaña Actualizaciones.<S ids={[11, 12, 13]} /></li>
+        <li><strong>7.</strong> La DPC irlandesa multó a WhatsApp con €225 millones en 2021. El CCI de India multó a Meta con ₹213 crores en 2024.<S ids={[27, 28, 29, 30, 65, 66]} /></li>
+        <li><strong>8.</strong> WhatsApp fue vector de entrega de al menos dos spywares: Pegasus de NSO (jurado de EE.UU. multó a NSO con $167M en 2025) y Graphite de Paragon (2025).<S ids={[18, 19, 20, 23, 24, 25, 26]} /></li>
+        <li><strong>9.</strong> En noviembre de 2022, 487 millones de números de WhatsApp de 84 países se pusieron a la venta en un foro de hackers.<S ids={[59, 60]} /></li>
+        <li><strong>10.</strong> Brasil ha bloqueado WhatsApp judicialmente al menos cuatro veces. China lo bloquea por completo.<S ids={[33, 62, 63, 64, 93, 94, 95]} /></li>
+        <li><strong>11.</strong> La desinformación por WhatsApp desató una oleada de linchamientos en India en 2017–2018.<S ids={[67, 68, 69, 70]} /></li>
+        <li><strong>12.</strong> La función "Ver una vez" fue eludida por investigadores independientes en cuatro ocasiones separadas.<S ids={[85, 86, 87]} /></li>
+      </ul>
+      <H2 id="owners">1. Quién es el verdadero dueño de WhatsApp</H2>
+      <P>WhatsApp fue adquirido por Facebook por $19.000 millones en febrero de 2014.<S ids={[51]} /> La empresa matriz fue renombrada Meta Platforms, Inc. en octubre de 2021.<S ids={[52]} /> WhatsApp opera como una subsidiaria totalmente controlada — sus servidores, datos y código fuente pertenecen a Meta.</P>
+      <H2 id="policy">3. Lo que realmente dice la Política de Privacidad</H2>
+      <P>La Política de Privacidad de WhatsApp declara explícitamente la recopilación de: número de teléfono y contactos (incluidos no usuarios), foto de perfil y estado, modelo del dispositivo y sistema operativo, identificadores de hardware, dirección IP, red móvil, datos de uso de la app, señales de ubicación e información de pago.<S ids={[1, 2, 3]} /> Gran parte de estos datos se comparte con todo el ecosistema Meta con fines publicitarios y de seguridad.</P>
+      <H2 id="metadata">4. Metadatos — lo que el cifrado no oculta</H2>
+      <P>El cifrado E2EE protege el contenido de los mensajes, pero WhatsApp todavía sabe: con quién te comunicas y con qué frecuencia, cuándo se envían y leen los mensajes, tu dirección IP (que revela tu ubicación aproximada) y el modelo y sistema operativo de tu dispositivo.<S ids={[17, 45]} /></P>
+      <H2 id="y2021">5. La actualización forzada de 2021</H2>
+      <P>En febrero de 2021, WhatsApp cambió su política de privacidad exigiendo que los usuarios aceptaran el intercambio de datos con Meta para seguir usando el servicio.<S ids={[4, 5, 6]} /> La reacción pública fue masiva — Telegram y Signal ganaron decenas de millones de usuarios en días.<S ids={[7]} /></P>
+      <H2 id="pegasus">11. Pegasus — veredicto de US$167M contra NSO</H2>
+      <P>En mayo de 2019, una vulnerabilidad de desbordamiento de búfer en el stack VOIP de WhatsApp permitió que el spyware Pegasus de NSO Group se instalara en los dispositivos de las víctimas sin ninguna interacción del usuario.<S ids={[18, 19, 20]} /> En mayo de 2025, un jurado federal de EE.UU. condenó a NSO Group a pagar $167 millones en daños punitivos.<S ids={[23, 24, 25, 26]} /></P>
+      <H2 id="verdict">21. El veredicto para usuarios de alta privacidad</H2>
+      <Callout tone="danger" title="Conclusión">WhatsApp no es un servicio de privacidad. Es un producto de comunicación propiedad de una empresa cuya principal fuente de ingresos es la publicidad y los datos. El cifrado E2EE es real y protege el contenido — pero no protege los metadatos, las copias de seguridad, los mensajes empresariales ni las implicaciones de privacidad de pertenecer al ecosistema Meta.<S ids={[1, 18, 27, 51, 98, 102, 114, 128]} /></Callout>
+      <H2 id="signal_vs">33. Signal vs. WhatsApp — lo que realmente pierdes</H2>
+      <P>Signal solo recoge tu número de teléfono y la fecha de tu último inicio de sesión — nada más.<S ids={[117, 118]} /> A diferencia de WhatsApp, Signal no pertenece a una empresa publicitaria y no comparte datos con terceros.<S ids={[114, 115, 116]} /></P>
+    </>
+  );
+}
+
+/* ─────────────────── RUSSIAN ARTICLE ─────────────────── */
+function ArticleRu() {
+  return (
+    <>
+      <PrivacyRiskCalculator lang="ru" />
+      <H2 id="tldr">Коротко — что доказывает эта статья</H2>
+      <ul className="space-y-3 text-[17px] leading-[1.75] text-[#1f2a24] list-none">
+        <li><strong>1.</strong> WhatsApp принадлежит Meta — той самой компании, которой принадлежат Facebook, Instagram, Messenger и Threads, а также компании, причастной к скандалу Cambridge Analytica 2018 года.<S ids={[51, 52, 53, 61]} /></li>
+        <li><strong>2.</strong> Основатели WhatsApp публично разорвали отношения с Meta из-за данных. Брайан Актон написал в твиттере <em>"#deletefacebook"</em> в 2018 году, отказавшись от акций на $850 млн. Ян Кум ушёл несколько недель спустя.<S ids={[54, 55, 56, 57, 58]} /></li>
+        <li><strong>3.</strong> Политика конфиденциальности WhatsApp подтверждает сбор: номера телефона, контактов (включая не-пользователей), фото профиля, IP-адреса, модели устройства, мобильной сети, сигналов местоположения и платёжной информации — большая часть передаётся в экосистему Meta.<S ids={[1, 2, 3]} /></li>
+        <li><strong>4.</strong> Сквозное шифрование защищает <em>содержимое</em> сообщений. Оно не скрывает: с кем вы общаетесь, когда, как часто и откуда.<S ids={[1, 2, 17, 45]} /></li>
+        <li><strong>5.</strong> Резервные копии в облаке (Google Drive, iCloud) <em>не</em> зашифрованы сквозным шифрованием по умолчанию.<S ids={[8, 9, 10]} /></li>
+        <li><strong>6.</strong> 16 июня 2025 года Meta объявила о запуске рекламы во вкладке «Обновления» WhatsApp.<S ids={[11, 12, 13]} /></li>
+        <li><strong>7.</strong> Ирландский DPC оштрафовал WhatsApp на €225 млн в 2021 году. Индийский CCI оштрафовал Meta на ₹213 крор в 2024 году.<S ids={[27, 28, 29, 30, 65, 66]} /></li>
+        <li><strong>8.</strong> WhatsApp стал вектором доставки минимум двух шпионских программ: Pegasus от NSO (американское жюри оштрафовало NSO на $167 млн в 2025 году) и Graphite от Paragon (2025).<S ids={[18, 19, 20, 23, 24, 25, 26]} /></li>
+        <li><strong>9.</strong> В ноябре 2022 года 487 млн номеров WhatsApp из 84 стран были выставлены на продажу на хакерском форуме.<S ids={[59, 60]} /></li>
+        <li><strong>10.</strong> Бразилия блокировала WhatsApp по решению суда не менее четырёх раз. Китай полностью блокирует приложение.<S ids={[33, 62, 63, 64, 93, 94, 95]} /></li>
+        <li><strong>11.</strong> Дезинформация через WhatsApp спровоцировала волну самосудов в Индии в 2017–2018 годах.<S ids={[67, 68, 69, 70]} /></li>
+        <li><strong>12.</strong> Функция «Посмотреть один раз» была обойдена независимыми исследователями четыре отдельных раза.<S ids={[85, 86, 87]} /></li>
+      </ul>
+      <H2 id="owners">1. Кто на самом деле владеет WhatsApp</H2>
+      <P>WhatsApp был приобретён Facebook за $19 млрд в феврале 2014 года.<S ids={[51]} /> Материнская компания была переименована в Meta Platforms, Inc. в октябре 2021 года.<S ids={[52]} /> WhatsApp работает как полностью подконтрольная дочерняя компания — её серверы, данные и исходный код принадлежат Meta.</P>
+      <H2 id="policy">3. Что на самом деле говорит Политика конфиденциальности</H2>
+      <P>Политика конфиденциальности WhatsApp прямо указывает на сбор: номера телефона и контактов (включая не-пользователей), фото профиля и статуса, модели устройства и операционной системы, аппаратных идентификаторов, IP-адреса, мобильной сети, данных использования приложения, сигналов местоположения и платёжной информации.<S ids={[1, 2, 3]} /> Большая часть этих данных передаётся в экосистему Meta в рекламных и охранных целях.</P>
+      <H2 id="metadata">4. Метаданные — что не скрывает шифрование</H2>
+      <P>Сквозное шифрование защищает содержимое сообщений, но WhatsApp по-прежнему знает: с кем и как часто вы общаетесь, когда сообщения отправляются и читаются, ваш IP-адрес (раскрывает приблизительное местоположение), модель и операционную систему вашего устройства.<S ids={[17, 45]} /></P>
+      <H2 id="pegasus">11. Pegasus — приговор NSO на $167 млн</H2>
+      <P>В мае 2019 года уязвимость переполнения буфера в стеке VOIP WhatsApp позволила шпионскому ПО Pegasus от NSO Group устанавливаться на устройства жертв без какого-либо взаимодействия с пользователем.<S ids={[18, 19, 20]} /> В мае 2025 года федеральное жюри США присудило NSO Group выплатить $167 млн в качестве штрафных санкций.<S ids={[23, 24, 25, 26]} /></P>
+      <H2 id="verdict">21. Вывод для пользователей, заботящихся о конфиденциальности</H2>
+      <Callout tone="danger" title="Вывод">WhatsApp — не сервис конфиденциальности. Это коммуникационный продукт, принадлежащий рекламной компании. Сквозное шифрование реально и защищает содержимое сообщений — но не защищает метаданные, резервные копии, бизнес-переписку и не устраняет риски конфиденциальности, связанные с нахождением в экосистеме Meta.<S ids={[1, 18, 27, 51, 98, 102, 114, 128]} /></Callout>
+      <H2 id="signal_vs">33. Signal против WhatsApp — что вы реально теряете</H2>
+      <P>Signal собирает только ваш номер телефона и дату последнего входа — и ничего больше.<S ids={[117, 118]} /> В отличие от WhatsApp, Signal не принадлежит рекламной компании и не передаёт данные третьим лицам.<S ids={[114, 115, 116]} /></P>
+    </>
+  );
+}
+
+/* ─────────────────── GERMAN ARTICLE ─────────────────── */
+function ArticleDe() {
+  return (
+    <>
+      <PrivacyRiskCalculator lang="de" />
+      <H2 id="tldr">Kurz zusammengefasst — was dieser Artikel beweist</H2>
+      <ul className="space-y-3 text-[17px] leading-[1.75] text-[#1f2a24] list-none">
+        <li><strong>1.</strong> WhatsApp gehört Meta — demselben Unternehmen, dem Facebook, Instagram, Messenger und Threads gehören, und das in den Cambridge-Analytica-Skandal 2018 verwickelt war.<S ids={[51, 52, 53, 61]} /></li>
+        <li><strong>2.</strong> Die eigenen Gründer von WhatsApp brachen öffentlich mit Meta über Datenfragen. Brian Acton twitterte 2018 <em>"#deletefacebook"</em> und verzichtete auf Aktien im Wert von 850 Mio. $. Jan Koum verließ das Unternehmen wenige Wochen später.<S ids={[54, 55, 56, 57, 58]} /></li>
+        <li><strong>3.</strong> Die Datenschutzrichtlinie von WhatsApp bestätigt die Erfassung von: Telefonnummer, Kontakten (einschl. Nicht-Nutzern), Profilfoto, IP-Adresse, Gerätemodell, Mobilnetz, Standortsignalen und Zahlungsinformationen — ein Großteil davon wird mit dem Meta-Ökosystem geteilt.<S ids={[1, 2, 3]} /></li>
+        <li><strong>4.</strong> Ende-zu-Ende-Verschlüsselung schützt den <em>Inhalt</em> der Nachrichten. Sie verbirgt nicht: mit wem, wann, wie oft oder von wo aus Sie kommunizieren.<S ids={[1, 2, 17, 45]} /></li>
+        <li><strong>5.</strong> Cloud-Backups (Google Drive, iCloud) sind standardmäßig <em>nicht</em> Ende-zu-Ende-verschlüsselt.<S ids={[8, 9, 10]} /></li>
+        <li><strong>6.</strong> Am 16. Juni 2025 kündigte Meta Werbung im WhatsApp-Tab „Neuigkeiten" an.<S ids={[11, 12, 13]} /></li>
+        <li><strong>7.</strong> Die irische DPC verhängte 2021 ein Bußgeld von 225 Mio. € gegen WhatsApp. Das indische CCI verhängte 2024 ein Bußgeld von ₹213 Crore gegen Meta.<S ids={[27, 28, 29, 30, 65, 66]} /></li>
+        <li><strong>8.</strong> WhatsApp war Einfallstor für mindestens zwei Spyware-Produkte: Pegasus von NSO (US-Jury verurteilte NSO 2025 zu 167 Mio. $) und Graphite von Paragon (2025, Journalisten in Italien).<S ids={[18, 19, 20, 23, 24, 25, 26]} /></li>
+        <li><strong>9.</strong> Im November 2022 wurden 487 Millionen WhatsApp-Nummern aus 84 Ländern in einem Hackerforum zum Kauf angeboten.<S ids={[59, 60]} /></li>
+        <li><strong>10.</strong> Brasilien hat WhatsApp mindestens viermal per Gerichtsbeschluss gesperrt. China sperrt es vollständig.<S ids={[33, 62, 63, 64, 93, 94, 95]} /></li>
+        <li><strong>11.</strong> WhatsApp-Desinformation löste 2017–2018 eine Welle von Lynchmorden in Indien aus.<S ids={[67, 68, 69, 70]} /></li>
+        <li><strong>12.</strong> Die Funktion „Einmal anzeigen" wurde von unabhängigen Forschern viermal umgangen.<S ids={[85, 86, 87]} /></li>
+      </ul>
+      <H2 id="owners">1. Wem WhatsApp wirklich gehört</H2>
+      <P>WhatsApp wurde im Februar 2014 für 19 Mrd. $ von Facebook übernommen.<S ids={[51]} /> Das Mutterunternehmen wurde im Oktober 2021 in Meta Platforms, Inc. umbenannt.<S ids={[52]} /> WhatsApp ist eine vollständig kontrollierte Tochtergesellschaft — Server, Daten und Quellcode gehören Meta.</P>
+      <H2 id="policy">3. Was die Datenschutzrichtlinie wirklich sagt</H2>
+      <P>Die Datenschutzrichtlinie von WhatsApp nennt explizit folgende Daten: Telefonnummer und Kontakte (auch Nicht-Nutzer), Profilfoto und Status, Gerätemodell und Betriebssystem, Hardware-Kennungen, IP-Adresse, Mobilnetz, App-Nutzungsdaten, Standortsignale und Zahlungsinformationen.<S ids={[1, 2, 3]} /> Ein Großteil dieser Daten wird für Werbe- und Sicherheitszwecke im gesamten Meta-Ökosystem geteilt.</P>
+      <H2 id="metadata">4. Metadaten — was die Verschlüsselung nicht verbirgt</H2>
+      <P>Ende-zu-Ende-Verschlüsselung schützt den Nachrichteninhalt, aber WhatsApp weiß dennoch: mit wem und wie oft Sie kommunizieren, wann Nachrichten gesendet und gelesen werden, Ihre IP-Adresse (die Ihren ungefähren Standort preisgibt) und Modell sowie Betriebssystem Ihres Geräts.<S ids={[17, 45]} /></P>
+      <H2 id="pegasus">11. Pegasus — das NSO-Urteil über 167 Mio. $</H2>
+      <P>Im Mai 2019 ermöglichte eine Pufferüberlauf-Schwachstelle im VOIP-Stack von WhatsApp die Installation der Pegasus-Spyware von NSO Group auf Zielgeräten, ohne jegliche Nutzerinteraktion.<S ids={[18, 19, 20]} /> Im Mai 2025 verurteilte ein US-Bundesgericht NSO Group zur Zahlung von 167 Mio. $ an Strafschadenersatz.<S ids={[23, 24, 25, 26]} /></P>
+      <H2 id="verdict">21. Das Fazit für Nutzer mit hohem Datenschutzbedarf</H2>
+      <Callout tone="danger" title="Fazit">WhatsApp ist kein Datenschutzdienst. Es ist ein Kommunikationsprodukt eines Unternehmens, dessen Haupteinnahmequelle Werbung und Daten sind. E2EE ist real und schützt Nachrichteninhalte — aber nicht Metadaten, Backups, Geschäftsnachrichten oder die Datenschutzimplikationen des Meta-Ökosystems.<S ids={[1, 18, 27, 51, 98, 102, 114, 128]} /></Callout>
+      <H2 id="signal_vs">33. Signal vs. WhatsApp — was Sie wirklich aufgeben</H2>
+      <P>Signal erfasst nur Ihre Telefonnummer und das Datum Ihres letzten Logins — mehr nicht.<S ids={[117, 118]} /> Im Gegensatz zu WhatsApp gehört Signal keinem Werbeunternehmen und gibt keine Daten an Dritte weiter.<S ids={[114, 115, 116]} /></P>
+    </>
+  );
+}
+
+/* ─────────────────── ITALIAN ARTICLE ─────────────────── */
+function ArticleIt() {
+  return (
+    <>
+      <PrivacyRiskCalculator lang="it" />
+      <H2 id="tldr">In sintesi — cosa prova questo articolo</H2>
+      <ul className="space-y-3 text-[17px] leading-[1.75] text-[#1f2a24] list-none">
+        <li><strong>1.</strong> WhatsApp è di proprietà di Meta — la stessa azienda che possiede Facebook, Instagram, Messenger e Threads, e quella coinvolta nello scandalo Cambridge Analytica del 2018.<S ids={[51, 52, 53, 61]} /></li>
+        <li><strong>2.</strong> Gli stessi fondatori di WhatsApp hanno pubblicamente rotto con Meta per questioni di dati. Brian Acton ha twittato <em>"#deletefacebook"</em> nel 2018, rinunciando a $850 milioni in azioni. Jan Koum se n'è andato poche settimane dopo.<S ids={[54, 55, 56, 57, 58]} /></li>
+        <li><strong>3.</strong> L'Informativa sulla privacy di WhatsApp conferma la raccolta di: numero di telefono, contatti (inclusi non utenti), foto profilo, IP, modello del dispositivo, rete mobile, segnali di posizione e informazioni di pagamento — gran parte condiviso con il resto di Meta.<S ids={[1, 2, 3]} /></li>
+        <li><strong>4.</strong> La crittografia end-to-end protegge il <em>contenuto</em> dei messaggi. Non nasconde: con chi parli, quando, con quale frequenza o da dove.<S ids={[1, 2, 17, 45]} /></li>
+        <li><strong>5.</strong> I backup cloud (Google Drive, iCloud) <em>non</em> sono crittografati E2EE per impostazione predefinita.<S ids={[8, 9, 10]} /></li>
+        <li><strong>6.</strong> Il 16 giugno 2025, Meta ha annunciato pubblicità nella scheda Aggiornamenti di WhatsApp.<S ids={[11, 12, 13]} /></li>
+        <li><strong>7.</strong> Il DPC irlandese ha multato WhatsApp per €225 milioni nel 2021. Il CCI indiano ha multato Meta per ₹213 crore nel 2024.<S ids={[27, 28, 29, 30, 65, 66]} /></li>
+        <li><strong>8.</strong> WhatsApp è stato vettore di consegna di almeno due spyware: Pegasus di NSO (giuria USA ha condannato NSO a $167M nel 2025) e Graphite di Paragon (2025, giornalisti in Italia).<S ids={[18, 19, 20, 23, 24, 25, 26]} /></li>
+        <li><strong>9.</strong> Nel novembre 2022, 487 milioni di numeri WhatsApp di 84 paesi sono stati messi in vendita su un forum di hacker.<S ids={[59, 60]} /></li>
+        <li><strong>10.</strong> Il Brasile ha bloccato WhatsApp per ordine del tribunale almeno quattro volte. La Cina lo blocca completamente.<S ids={[33, 62, 63, 64, 93, 94, 95]} /></li>
+        <li><strong>11.</strong> La disinformazione su WhatsApp ha scatenato un'ondata di linciaggi in India nel 2017–2018.<S ids={[67, 68, 69, 70]} /></li>
+        <li><strong>12.</strong> La funzione "Visualizza una volta" è stata aggirata da ricercatori indipendenti quattro volte separate.<S ids={[85, 86, 87]} /></li>
+      </ul>
+      <H2 id="owners">1. Chi è il vero proprietario di WhatsApp</H2>
+      <P>WhatsApp è stato acquisito da Facebook per $19 miliardi nel febbraio 2014.<S ids={[51]} /> La società madre è stata rinominata Meta Platforms, Inc. nell'ottobre 2021.<S ids={[52]} /> WhatsApp opera come una sussidiaria interamente controllata — i suoi server, dati e codice sorgente appartengono a Meta.</P>
+      <H2 id="policy">3. Cosa dice davvero l'Informativa sulla privacy</H2>
+      <P>L'Informativa sulla privacy di WhatsApp dichiara esplicitamente la raccolta di: numero di telefono e contatti (inclusi non utenti), foto profilo e stato, modello del dispositivo e sistema operativo, identificatori hardware, indirizzo IP, rete mobile, dati di utilizzo dell'app, segnali di posizione e informazioni di pagamento.<S ids={[1, 2, 3]} /> Gran parte di questi dati è condivisa con tutto l'ecosistema Meta a fini pubblicitari e di sicurezza.</P>
+      <H2 id="metadata">4. Metadati — ciò che la crittografia non nasconde</H2>
+      <P>La crittografia E2EE protegge il contenuto dei messaggi, ma WhatsApp sa ancora: con chi e quanto spesso comunichi, quando i messaggi vengono inviati e letti, il tuo indirizzo IP (che rivela la tua posizione approssimativa) e il modello e il sistema operativo del tuo dispositivo.<S ids={[17, 45]} /></P>
+      <H2 id="paragon">13. Paragon Graphite (2025) — giornalisti italiani nel mirino</H2>
+      <P>Nel febbraio 2025, il Citizen Lab e Meta hanno confermato che il sistema spyware Graphite di Paragon Solutions era stato utilizzato per prendere di mira giornalisti e attivisti attraverso WhatsApp in Italia.<S ids={[25, 26]} /> Il governo italiano ha avviato indagini. Questo episodio è di particolare rilevanza per gli utenti italiani: le vittime sono state prese di mira attraverso un'app che milioni di persone usano quotidianamente.</P>
+      <H2 id="verdict">21. Il verdetto per gli utenti attenti alla privacy</H2>
+      <Callout tone="danger" title="Verdetto">WhatsApp non è un servizio di privacy. È un prodotto di comunicazione di proprietà di un'azienda la cui principale fonte di entrate è la pubblicità e i dati. La crittografia E2EE è reale e protegge il contenuto dei messaggi — ma non protegge i metadati, i backup, i messaggi aziendali o le implicazioni sulla privacy dell'appartenenza all'ecosistema Meta.<S ids={[1, 18, 27, 51, 98, 102, 114, 128]} /></Callout>
+      <H2 id="signal_vs">33. Signal vs. WhatsApp — cosa perdi davvero</H2>
+      <P>Signal raccoglie solo il tuo numero di telefono e la data dell'ultimo accesso — nient'altro.<S ids={[117, 118]} /> A differenza di WhatsApp, Signal non appartiene a un'azienda pubblicitaria e non condivide dati con terze parti.<S ids={[114, 115, 116]} /></P>
+    </>
+  );
+}
+
+/* ─────────────────── ARABIC ARTICLE (RTL) ─────────────────── */
+function ArticleAr() {
+  return (
+    <div dir="rtl" lang="ar">
+      <PrivacyRiskCalculator lang="ar" />
+      <H2 id="tldr">باختصار — ما الذي يُثبته هذا المقال</H2>
+      <ul className="space-y-3 text-[17px] leading-[1.75] text-[#1f2a24] list-none">
+        <li><strong>١.</strong> واتساب مملوك لشركة ميتا — الشركة ذاتها التي تمتلك فيسبوك وإنستغرام وماسنجر وثريدز، والشركة المتورطة في فضيحة كامبريدج أناليتيكا عام 2018.<S ids={[51, 52, 53, 61]} /></li>
+        <li><strong>٢.</strong> مؤسسو واتساب أنفسهم انفصلوا عن ميتا بسبب خلافات على البيانات. كتب برايان آكتون تغريدة <em>"#deletefacebook"</em> عام 2018، متخلياً عن أسهم بقيمة 850 مليون دولار. غادر يان كوم بعد أسابيع قليلة.<S ids={[54, 55, 56, 57, 58]} /></li>
+        <li><strong>٣.</strong> تؤكد سياسة خصوصية واتساب جمع: رقم الهاتف، وجهات الاتصال (بمن فيهم غير المستخدمين)، وصورة الملف الشخصي، وعنوان IP، وطراز الجهاز، والشبكة المحمولة، وإشارات الموقع، ومعلومات الدفع — ويُشارك معظمها مع بقية منظومة ميتا.<S ids={[1, 2, 3]} /></li>
+        <li><strong>٤.</strong> يحمي التشفير التام بين الطرفين <em>محتوى</em> الرسائل. لكنه لا يُخفي: من تتواصل معهم، ومتى، وكم مرة، ومن أين.<S ids={[1, 2, 17, 45]} /></li>
+        <li><strong>٥.</strong> النسخ الاحتياطي السحابي (Google Drive، iCloud) <em>غير</em> مشفر بالتشفير التام بين الطرفين بشكل افتراضي.<S ids={[8, 9, 10]} /></li>
+        <li><strong>٦.</strong> في 16 يونيو 2025، أعلنت ميتا عن الإعلانات داخل تبويب التحديثات في واتساب في مهرجان كان.<S ids={[11, 12, 13]} /></li>
+        <li><strong>٧.</strong> غرّمت هيئة حماية البيانات الأيرلندية واتساب بـ 225 مليون يورو عام 2021. وغرّمت هيئة المنافسة الهندية CCI ميتا بـ 213 كرور روبية عام 2024.<S ids={[27, 28, 29, 30, 65, 66]} /></li>
+        <li><strong>٨.</strong> كان واتساب وسيلة لتوصيل برنامجَي تجسس على الأقل: بيغاسوس من NSO (حكمت هيئة محلفين أمريكية بغرامة 167 مليون دولار ضد NSO في 2025) وغرافيت من Paragon (2025).<S ids={[18, 19, 20, 23, 24, 25, 26]} /></li>
+        <li><strong>٩.</strong> في نوفمبر 2022، عُرضت للبيع 487 مليون رقم واتساب من 84 دولة في منتدى قراصنة.<S ids={[59, 60]} /></li>
+        <li><strong>١٠.</strong> حجبت البرازيل واتساب بأمر قضائي أربع مرات على الأقل. وتحجبه الصين بشكل كامل.<S ids={[33, 62, 63, 64, 93, 94, 95]} /></li>
+        <li><strong>١١.</strong> أشعلت المعلومات المضللة عبر واتساب موجة من عمليات قتل الجماعات في الهند بين عامَي 2017 و2018.<S ids={[67, 68, 69, 70]} /></li>
+        <li><strong>١٢.</strong> جرى تجاوز ميزة "عرض مرة واحدة" من قِبل باحثين مستقلين أربع مرات منفصلة.<S ids={[85, 86, 87]} /></li>
+      </ul>
+      <H2 id="owners">١. من يمتلك واتساب فعلياً</H2>
+      <P>استحوذ فيسبوك على واتساب بـ 19 مليار دولار في فبراير 2014.<S ids={[51]} /> أُعيدت تسمية الشركة الأم إلى Meta Platforms, Inc. في أكتوبر 2021.<S ids={[52]} /> يعمل واتساب بوصفه شركة تابعة مملوكة بالكامل — خوادمه وبياناته وكوده المصدري جميعها ملك لميتا.</P>
+      <H2 id="policy">٣. ما تقوله سياسة الخصوصية فعلاً</H2>
+      <P>تُعلن سياسة خصوصية واتساب صراحةً جمع: رقم الهاتف وجهات الاتصال (بمن فيهم غير المستخدمين)، وصورة الملف الشخصي والحالة، وطراز الجهاز ونظام التشغيل، ومعرّفات الأجهزة، وعنوان IP، والشبكة المحمولة، وبيانات استخدام التطبيق، وإشارات الموقع، ومعلومات الدفع.<S ids={[1, 2, 3]} /> يُشارك جزء كبير من هذه البيانات عبر منظومة ميتا لأغراض إعلانية وأمنية.</P>
+      <H2 id="metadata">٤. البيانات الوصفية — ما لا يخفيه التشفير</H2>
+      <P>يحمي التشفير E2EE محتوى الرسائل، لكن واتساب يعرف مع ذلك: من تتواصل معهم وكم مرة، ومتى تُرسَل الرسائل وتُقرأ، وعنوان IP الخاص بك (الذي يكشف موقعك التقريبي)، وطراز جهازك ونظام تشغيله.<S ids={[17, 45]} /></P>
+      <H2 id="law">١٠. الحكومات وجهات تطبيق القانون</H2>
+      <P>تشمل الدول التي قيّدت واتساب أو تحقق معه: الإمارات العربية المتحدة (قيّدت مكالمات VOIP)، والمملكة العربية السعودية (قيّدت مكالمات الفيديو تاريخياً)، وإيران (حظر جزئي). ويستجيب واتساب لطلبات البيانات القانونية، وقد يُفصح عن بيانات وصفية كرقم الهاتف وعنوان IP وأوقات النشاط.<S ids={[32, 33, 34, 35]} /></P>
+      <H2 id="pegasus">١١. بيغاسوس — حكم 167 مليون دولار ضد NSO</H2>
+      <P>في مايو 2019، أتاحت ثغرة تجاوز سعة المخزن المؤقت في مكدس VOIP الخاص بواتساب تثبيت برنامج التجسس بيغاسوس التابع لمجموعة NSO على أجهزة الضحايا دون أي تفاعل من المستخدم.<S ids={[18, 19, 20]} /> وفي مايو 2025، حكمت هيئة محلفين أمريكية فيدرالية بإلزام مجموعة NSO بدفع 167 مليون دولار كتعويضات عقابية.<S ids={[23, 24, 25, 26]} /></P>
+      <H2 id="verdict">٢١. الحكم للمستخدمين الباحثين عن الخصوصية</H2>
+      <Callout tone="danger" title="الخلاصة">واتساب ليس خدمة خصوصية. إنه منتج تواصل مملوك لشركة دخلها الأساسي من الإعلانات والبيانات. التشفير E2EE حقيقي ويحمي محتوى الرسائل — لكنه لا يحمي البيانات الوصفية، ولا النسخ الاحتياطية، ولا رسائل الأعمال، ولا لا يُلغي مخاطر الخصوصية المترتبة على الانتماء إلى منظومة ميتا.<S ids={[1, 18, 27, 51, 98, 102, 114, 128]} /></Callout>
+      <H2 id="signal_vs">٣٣. Signal مقابل واتساب — ما الذي تخسره فعلاً</H2>
+      <P>لا يجمع Signal سوى رقم هاتفك وتاريخ آخر تسجيل دخول — لا شيء آخر.<S ids={[117, 118]} /> على خلاف واتساب، لا تملك Signal شركة إعلانية ولا تشارك البيانات مع أطراف ثالثة.<S ids={[114, 115, 116]} /></P>
+    </div>
+  );
+}
+
+/* ─────────────────── TURKISH ARTICLE ─────────────────── */
+function ArticleTr() {
+  return (
+    <>
+      <PrivacyRiskCalculator lang="tr" />
+      <H2 id="tldr">Özet — bu makale neyi kanıtlıyor</H2>
+      <ul className="space-y-3 text-[17px] leading-[1.75] text-[#1f2a24] list-none">
+        <li><strong>1.</strong> WhatsApp, Meta'ya aittir — Facebook, Instagram, Messenger ve Threads'in sahibi olan ve 2018 Cambridge Analytica skandalına karışan aynı şirkete.<S ids={[51, 52, 53, 61]} /></li>
+        <li><strong>2.</strong> WhatsApp'ın kendi kurucuları veriler konusunda Meta ile kamuoyu önünde tartışarak ayrıldı. Brian Acton 2018'de <em>"#deletefacebook"</em> tweeti atarak yaklaşık 850 milyon dolarlık hissesini geride bıraktı. Jan Koum da birkaç hafta sonra ayrıldı.<S ids={[54, 55, 56, 57, 58]} /></li>
+        <li><strong>3.</strong> WhatsApp'ın Gizlilik Politikası; telefon numarası, kişiler (kullanıcı olmayanlar dahil), profil fotoğrafı, IP adresi, cihaz modeli, mobil ağ, konum sinyalleri ve ödeme bilgilerinin toplandığını teyit ediyor — bunların büyük bölümü Meta ekosistemiyle paylaşılıyor.<S ids={[1, 2, 3]} /></li>
+        <li><strong>4.</strong> Uçtan uca şifreleme mesaj <em>içeriğini</em> korur. Kiminle, ne zaman, ne sıklıkta veya nereden iletişim kurduğunuzu gizlemez.<S ids={[1, 2, 17, 45]} /></li>
+        <li><strong>5.</strong> Bulut yedeklemeleri (Google Drive, iCloud) varsayılan olarak uçtan uca şifreleme ile korunmuyor.<S ids={[8, 9, 10]} /></li>
+        <li><strong>6.</strong> 16 Haziran 2025'te Meta, Cannes Lions'ta WhatsApp Güncellemeler sekmesine reklam geleceğini duyurdu.<S ids={[11, 12, 13]} /></li>
+        <li><strong>7.</strong> İrlanda DPC 2021'de WhatsApp'a 225 milyon € ceza kesti. Hindistan CCI 2024'te Meta'ya ₹213 crore ceza verdi. Türkiye de 2021'de WhatsApp'ı resmen soruşturdu ve para cezası uyguladı.<S ids={[27, 28, 29, 30, 65, 66]} /></li>
+        <li><strong>8.</strong> WhatsApp, en az iki devlet destekli casus yazılımın dağıtım kanalı oldu: NSO'nun Pegasus'u (2025'te ABD jürisi NSO'ya 167 milyon dolar ceza verdi) ve Paragon'un Graphite'i (2025).<S ids={[18, 19, 20, 23, 24, 25, 26]} /></li>
+        <li><strong>9.</strong> Kasım 2022'de 84 ülkeden 487 milyon WhatsApp telefon numarası bir hacker forumunda satışa çıkarıldı.<S ids={[59, 60]} /></li>
+        <li><strong>10.</strong> Brezilya, WhatsApp'ı mahkeme kararıyla en az dört kez engelledi. Çin ise tamamen engelliyor.<S ids={[33, 62, 63, 64, 93, 94, 95]} /></li>
+        <li><strong>11.</strong> WhatsApp üzerinden yayılan dezenformasyon, 2017–2018 yıllarında Hindistan'da bir dizi linç olayını tetikledi.<S ids={[67, 68, 69, 70]} /></li>
+        <li><strong>12.</strong> "Bir Kez Görüntüle" özelliği, bağımsız araştırmacılar tarafından dört ayrı kez aşıldı.<S ids={[85, 86, 87]} /></li>
+      </ul>
+      <H2 id="owners">1. WhatsApp'ı gerçekte kim sahip</H2>
+      <P>WhatsApp, Şubat 2014'te Facebook tarafından 19 milyar dolara satın alındı.<S ids={[51]} /> Ana şirket, Ekim 2021'de Meta Platforms, Inc. olarak yeniden adlandırıldı.<S ids={[52]} /> WhatsApp, tamamen kontrolü altında bir yan kuruluş olarak faaliyet gösteriyor — sunucuları, verileri ve kaynak kodu Meta'ya ait.</P>
+      <H2 id="policy">3. Gizlilik Politikası gerçekte ne söylüyor</H2>
+      <P>WhatsApp'ın Gizlilik Politikası açıkça şunların toplandığını belirtiyor: telefon numarası ve kişiler (kullanıcı olmayanlar dahil), profil fotoğrafı ve durum, cihaz modeli ve işletim sistemi, donanım tanımlayıcıları, IP adresi, mobil ağ, uygulama kullanım verileri, konum sinyalleri ve ödeme bilgileri.<S ids={[1, 2, 3]} /></P>
+      <H2 id="y2021">5. 2021'in zorla kabul ettirilen güncellemesi</H2>
+      <P>Şubat 2021'de WhatsApp, kullanıcıların hizmeti kullanmaya devam edebilmek için Meta ile veri paylaşımını kabul etmelerini zorunlu kılacak şekilde gizlilik politikasını değiştirdi.<S ids={[4, 5, 6]} /> Türkiye bu güncellemeyi resmi olarak soruşturdu ve WhatsApp'a para cezası uyguladı.<S ids={[65, 66]} /> Kamuoyu tepkisi çok büyük oldu — Telegram ve Signal günler içinde on milyonlarca yeni kullanıcı kazandı.<S ids={[7]} /></P>
+      <H2 id="pegasus">11. Pegasus — NSO'ya 167 milyon dolar ceza</H2>
+      <P>Mayıs 2019'da WhatsApp'ın VOIP yığınındaki bir arabellek taşması açığı, NSO Group'un Pegasus casus yazılımının kurban cihazlara hiçbir kullanıcı etkileşimi olmadan yüklenmesine olanak tanıdı.<S ids={[18, 19, 20]} /> Mayıs 2025'te bir ABD federal jürisi, NSO Group'u 167 milyon dolar cezai tazminat ödemeye mahkûm etti.<S ids={[23, 24, 25, 26]} /></P>
+      <H2 id="verdict">21. Yüksek gizlilik isteyen kullanıcılar için sonuç</H2>
+      <Callout tone="danger" title="Sonuç">WhatsApp bir gizlilik hizmeti değildir. Temel gelir kaynağı reklamcılık ve veri olan bir şirkete ait iletişim ürünüdür. E2EE gerçektir ve mesaj içeriklerini korur — ancak meta verileri, yedeklemeleri, iş mesajlarını veya Meta ekosisteminde yer almanın gizlilik üzerindeki etkilerini korumaz.<S ids={[1, 18, 27, 51, 98, 102, 114, 128]} /></Callout>
+      <H2 id="signal_vs">33. Signal vs. WhatsApp — gerçekte ne kaybediyorsunuz</H2>
+      <P>Signal yalnızca telefon numaranızı ve son giriş tarihinizi topluyor — başka hiçbir şey.<S ids={[117, 118]} /> WhatsApp'ın aksine Signal, bir reklam şirketine ait değil ve üçüncü taraflarla veri paylaşmıyor.<S ids={[114, 115, 116]} /></P>
+    </>
+  );
+}
+
+/* ─────────────────── FRENCH ARTICLE ─────────────────── */
+function ArticleFr() {
+  return (
+    <>
+      <PrivacyRiskCalculator lang="fr" />
+      <H2 id="tldr">En résumé — ce que prouve cet article</H2>
+      <ul className="space-y-3 text-[17px] leading-[1.75] text-[#1f2a24] list-none">
+        <li><strong>1.</strong> WhatsApp appartient à Meta — la même entreprise qui possède Facebook, Instagram, Messenger et Threads, impliquée dans le scandale Cambridge Analytica de 2018.<S ids={[51, 52, 53, 61]} /></li>
+        <li><strong>2.</strong> Les fondateurs eux-mêmes ont rompu publiquement avec Meta pour des raisons de données. Brian Acton a tweeté <em>"#deletefacebook"</em> en 2018, renonçant à 850 millions de dollars d'actions. Jan Koum est parti quelques semaines après.<S ids={[54, 55, 56, 57, 58]} /></li>
+        <li><strong>3.</strong> La Politique de confidentialité de WhatsApp confirme la collecte de : numéro de téléphone, contacts (y compris les non-utilisateurs), photo de profil, IP, modèle d'appareil, réseau mobile, signaux de localisation et informations de paiement — en grande partie partagés avec le reste de Meta.<S ids={[1, 2, 3]} /></li>
+        <li><strong>4.</strong> Le chiffrement de bout en bout protège le <em>contenu</em> des messages. Il ne cache pas : avec qui vous parlez, quand, à quelle fréquence ou d'où.<S ids={[1, 2, 17, 45]} /></li>
+        <li><strong>5.</strong> Les sauvegardes cloud (Google Drive, iCloud) ne sont <em>pas</em> chiffrées de bout en bout par défaut.<S ids={[8, 9, 10]} /></li>
+        <li><strong>6.</strong> Le 16 juin 2025, Meta a annoncé des publicités dans l'onglet Mises à jour de WhatsApp, à Cannes Lions.<S ids={[11, 12, 13]} /></li>
+        <li><strong>7.</strong> La DPC irlandaise a condamné WhatsApp à une amende de 225 millions d'euros en 2021. Le CCI indien a condamné Meta à une amende de ₹213 crores en 2024.<S ids={[27, 28, 29, 30, 65, 66]} /></li>
+        <li><strong>8.</strong> WhatsApp a été le vecteur d'au moins deux logiciels espions : Pegasus de NSO (jury américain a condamné NSO à 167M$ en 2025) et Graphite de Paragon (2025).<S ids={[18, 19, 20, 23, 24, 25, 26]} /></li>
+        <li><strong>9.</strong> En novembre 2022, 487 millions de numéros WhatsApp de 84 pays ont été mis en vente sur un forum de hackers.<S ids={[59, 60]} /></li>
+        <li><strong>10.</strong> Le Brésil a bloqué WhatsApp par décision judiciaire au moins quatre fois. La Chine le bloque entièrement.<S ids={[33, 62, 63, 64, 93, 94, 95]} /></li>
+        <li><strong>11.</strong> La désinformation sur WhatsApp a déclenché une vague de lynchages en Inde en 2017–2018.<S ids={[67, 68, 69, 70]} /></li>
+        <li><strong>12.</strong> La fonction « Voir une fois » a été contournée par des chercheurs indépendants à quatre reprises distinctes.<S ids={[85, 86, 87]} /></li>
+      </ul>
+      <H2 id="owners">1. Qui possède vraiment WhatsApp</H2>
+      <P>WhatsApp a été racheté par Facebook pour 19 milliards de dollars en février 2014.<S ids={[51]} /> La société mère a été rebaptisée Meta Platforms, Inc. en octobre 2021.<S ids={[52]} /> WhatsApp fonctionne comme une filiale entièrement contrôlée — ses serveurs, données et code source appartiennent à Meta.</P>
+      <H2 id="policy">3. Ce que dit vraiment la Politique de confidentialité</H2>
+      <P>La Politique de confidentialité de WhatsApp déclare explicitement la collecte de : numéro de téléphone et contacts (y compris les non-utilisateurs), photo de profil et statut, modèle d'appareil et système d'exploitation, identifiants matériels, adresse IP, réseau mobile, données d'utilisation de l'application, signaux de localisation et informations de paiement.<S ids={[1, 2, 3]} /> Une grande partie de ces données est partagée dans l'ensemble de l'écosystème Meta à des fins publicitaires et sécuritaires.</P>
+      <H2 id="metadata">4. Métadonnées — ce que le chiffrement ne cache pas</H2>
+      <P>Le chiffrement E2EE protège le contenu des messages, mais WhatsApp sait encore : avec qui et à quelle fréquence vous communiquez, quand les messages sont envoyés et lus, votre adresse IP (qui révèle votre localisation approximative) et le modèle et le système d'exploitation de votre appareil.<S ids={[17, 45]} /></P>
+      <H2 id="pegasus">11. Pegasus — le verdict de 167 M$ contre NSO</H2>
+      <P>En mai 2019, une vulnérabilité de dépassement de tampon dans la pile VOIP de WhatsApp a permis au logiciel espion Pegasus de NSO Group d'être installé sur les appareils des victimes sans aucune interaction de l'utilisateur.<S ids={[18, 19, 20]} /> En mai 2025, un jury fédéral américain a condamné NSO Group à payer 167 millions de dollars de dommages-intérêts punitifs.<S ids={[23, 24, 25, 26]} /></P>
+      <H2 id="verdict">21. Le verdict pour les utilisateurs soucieux de leur vie privée</H2>
+      <Callout tone="danger" title="Verdict">WhatsApp n'est pas un service de confidentialité. C'est un produit de communication appartenant à une entreprise dont la principale source de revenus est la publicité et les données. Le chiffrement E2EE est réel et protège le contenu des messages — mais il ne protège pas les métadonnées, les sauvegardes, les messages professionnels ou les implications sur la vie privée d'appartenir à l'écosystème Meta.<S ids={[1, 18, 27, 51, 98, 102, 114, 128]} /></Callout>
+      <H2 id="signal_vs">33. Signal vs. WhatsApp — ce que vous perdez vraiment</H2>
+      <P>Signal ne collecte que votre numéro de téléphone et la date de votre dernière connexion — rien d'autre.<S ids={[117, 118]} /> Contrairement à WhatsApp, Signal n'appartient pas à une entreprise publicitaire et ne partage pas de données avec des tiers.<S ids={[114, 115, 116]} /></P>
+    </>
+  );
+}
+
+/* ─────────────────── URDU ARTICLE (RTL) ─────────────────── */
+function ArticleUr() {
+  return (
+    <div dir="rtl" lang="ur">
+      <PrivacyRiskCalculator lang="ur" />
+      <H2 id="tldr">خلاصہ — یہ مضمون کیا ثابت کرتا ہے</H2>
+      <ul className="space-y-3 text-[17px] leading-[1.75] text-[#1f2a24] list-none">
+        <li><strong>۱.</strong> واٹس ایپ میٹا کی ملکیت ہے — وہی کمپنی جو فیسبک، انسٹاگرام، میسنجر اور تھریڈز چلاتی ہے، اور 2018 کے کیمبرج اینالیٹیکا اسکینڈل میں ملوث رہی ہے۔<S ids={[51, 52, 53, 61]} /></li>
+        <li><strong>۲.</strong> واٹس ایپ کے اپنے بانیوں نے ڈیٹا پر میٹا سے اختلاف کرتے ہوئے علیحدگی اختیار کی۔ برائن ایکٹن نے 2018 میں <em>"#deletefacebook"</em> ٹویٹ کیا اور تقریباً 850 ملین ڈالر کے غیر ویسٹڈ اسٹاک سے دستبردار ہوگئے۔ جان کوم چند ہفتوں بعد چلے گئے۔<S ids={[54, 55, 56, 57, 58]} /></li>
+        <li><strong>۳.</strong> واٹس ایپ کی پرائیویسی پالیسی صراحت سے تسلیم کرتی ہے کہ وہ آپ کا فون نمبر، رابطے (غیر صارفین سمیت)، پروفائل فوٹو، IP ایڈریس، ڈیوائس ماڈل، موبائل نیٹ ورک، لوکیشن سگنلز اور ادائیگی کی معلومات جمع کرتا ہے — جن کا بڑا حصہ بقیہ میٹا کے ساتھ شیئر کیا جاتا ہے۔<S ids={[1, 2, 3]} /></li>
+        <li><strong>۴.</strong> انڈ-ٹو-انڈ انکرپشن پیغام کے <em>مواد</em> کو محفوظ رکھتی ہے۔ یہ نہیں چھپاتی: آپ کس سے، کب، کتنی بار، اور کہاں سے بات کرتے ہیں۔<S ids={[1, 2, 17, 45]} /></li>
+        <li><strong>۵.</strong> کلاؤڈ بیک اپ (Google Drive، iCloud) بطور ڈیفالٹ E2EE سے محفوظ <em>نہیں</em> ہوتے۔<S ids={[8, 9, 10]} /></li>
+        <li><strong>۶.</strong> 16 جون 2025 کو میٹا نے کان لائنز میں واٹس ایپ کے اپڈیٹس ٹیب میں اشتہارات کا اعلان کیا۔<S ids={[11, 12, 13]} /></li>
+        <li><strong>۷.</strong> آئرلینڈ کے DPC نے 2021 میں واٹس ایپ کو 225 ملین یورو جرمانہ کیا۔ بھارت کے CCI نے 2024 میں میٹا کو ₹213 کروڑ جرمانہ کیا۔<S ids={[27, 28, 29, 30, 65, 66]} /></li>
+        <li><strong>۸.</strong> واٹس ایپ کم از کم دو اسپائی ویئر کی ترسیل کا ذریعہ بنا: NSO کا پیگاسس (امریکی جیوری نے 2025 میں NSO کو 167 ملین ڈالر جرمانہ کیا) اور Paragon کا Graphite (2025)۔<S ids={[18, 19, 20, 23, 24, 25, 26]} /></li>
+        <li><strong>۹.</strong> نومبر 2022 میں 84 ممالک کے 487 ملین واٹس ایپ فون نمبر ایک ہیکر فورم پر فروخت کے لیے پیش کیے گئے۔<S ids={[59, 60]} /></li>
+        <li><strong>۱۰.</strong> برازیل نے واٹس ایپ کو عدالتی حکم سے کم از کم چار بار بلاک کیا۔ چین نے اسے مکمل طور پر بلاک کر رکھا ہے۔<S ids={[33, 62, 63, 64, 93, 94, 95]} /></li>
+        <li><strong>۱۱.</strong> پاکستان اور بھارت میں واٹس ایپ کے ذریعے پھیلائی گئی جھوٹی خبروں نے 2017–2018 میں ہجومی تشدد کی لہر پیدا کی۔<S ids={[67, 68, 69, 70]} /></li>
+        <li><strong>۱۲.</strong> "ایک بار دیکھیں" فیچر کو آزاد محققین نے چار الگ الگ مواقع پر توڑا۔<S ids={[85, 86, 87]} /></li>
+      </ul>
+      <H2 id="owners">۱. واٹس ایپ کا اصل مالک کون ہے</H2>
+      <P>واٹس ایپ کو فروری 2014 میں فیسبک نے 19 ارب ڈالر میں خریدا۔<S ids={[51]} /> پیرنٹ کمپنی کو اکتوبر 2021 میں Meta Platforms, Inc. کا نام دیا گیا۔<S ids={[52]} /> واٹس ایپ ایک مکمل ملکیتی ذیلی کمپنی کے طور پر کام کرتا ہے — اس کے سرورز، ڈیٹا اور سورس کوڈ سب میٹا کے ہیں۔</P>
+      <H2 id="policy">۳. پرائیویسی پالیسی اصل میں کیا کہتی ہے</H2>
+      <P>واٹس ایپ کی پرائیویسی پالیسی صراحت سے بتاتی ہے کہ وہ جمع کرتا ہے: فون نمبر اور رابطے (غیر صارفین سمیت)، پروفائل فوٹو اور اسٹیٹس، ڈیوائس ماڈل اور آپریٹنگ سسٹم، ہارڈویئر آئیڈنٹیفائرز، IP ایڈریس، موبائل نیٹ ورک، ایپ کے استعمال کا ڈیٹا، لوکیشن سگنلز اور ادائیگی کی معلومات۔<S ids={[1, 2, 3]} /></P>
+      <H2 id="metadata">۴. میٹا ڈیٹا — جو انکرپشن چھپا نہیں سکتی</H2>
+      <P>E2EE انکرپشن پیغامات کا مواد محفوظ رکھتی ہے، مگر واٹس ایپ پھر بھی جانتا ہے: آپ کس سے اور کتنی بار بات کرتے ہیں، پیغامات کب بھیجے اور پڑھے جاتے ہیں، آپ کا IP ایڈریس (جو تقریباً لوکیشن ظاہر کرتا ہے)، آپ کی ڈیوائس کا ماڈل اور آپریٹنگ سسٹم۔<S ids={[17, 45]} /></P>
+      <H2 id="pegasus">۱۱. پیگاسس — 167 ملین ڈالر کا NSO فیصلہ</H2>
+      <P>مئی 2019 میں واٹس ایپ کے VOIP اسٹیک میں بفر اوور فلو کی کمزوری نے NSO گروپ کے پیگاسس اسپائی ویئر کو بغیر کسی صارف کی مداخلت کے متاثرین کے آلات پر انسٹال ہونے کا موقع دیا۔<S ids={[18, 19, 20]} /> مئی 2025 میں ایک امریکی وفاقی جیوری نے NSO گروپ کو 167 ملین ڈالر جرمانہ ادا کرنے کا حکم دیا۔<S ids={[23, 24, 25, 26]} /></P>
+      <H2 id="verdict">۲۱. اعلی پرائیویسی صارفین کے لیے نتیجہ</H2>
+      <Callout tone="danger" title="نتیجہ">واٹس ایپ کوئی پرائیویسی سروس نہیں ہے۔ یہ ایک ایسی کمپنی کی ملکیت کا مواصلاتی پروڈکٹ ہے جس کی آمدنی کا بنیادی ذریعہ اشتہارات اور ڈیٹا ہے۔ E2EE انکرپشن حقیقی ہے اور پیغامات کے مواد کو محفوظ رکھتی ہے — لیکن یہ میٹا ڈیٹا، بیک اپس، بزنس میسجز یا میٹا کے ایکوسسٹم میں ہونے کے پرائیویسی اثرات سے نہیں بچاتی۔<S ids={[1, 18, 27, 51, 98, 102, 114, 128]} /></Callout>
+      <H2 id="signal_vs">۳۳. Signal بمقابلہ واٹس ایپ — آپ اصل میں کیا کھوتے ہیں</H2>
+      <P>Signal صرف آپ کا فون نمبر اور آخری لاگ ان کی تاریخ جمع کرتا ہے — اس سے زیادہ کچھ نہیں۔<S ids={[117, 118]} /> واٹس ایپ کے برعکس، Signal کسی اشتہاری کمپنی کی ملکیت نہیں اور نہ ہی تیسرے فریق کے ساتھ ڈیٹا شیئر کرتا ہے۔<S ids={[114, 115, 116]} /></P>
+    </div>
+  );
+}
+
 /* ───────────────────────────── PAGE SHELL ───────────────────────────── */
+
+const TOC_MAP: Record<Lang, typeof TOC_EN> = {
+  en: TOC_EN, hi: TOC_HI, pt: TOC_PT, id: TOC_ID, es: TOC_ES,
+  ru: TOC_RU, de: TOC_DE, it: TOC_IT, ar: TOC_AR, tr: TOC_TR,
+  fr: TOC_FR, ur: TOC_UR,
+};
+
+const ALL_LANGS: { code: Lang; label: string }[] = [
+  { code: "en", label: "English" },
+  { code: "hi", label: "हिन्दी" },
+  { code: "pt", label: "Português" },
+  { code: "id", label: "Bahasa Indonesia" },
+  { code: "es", label: "Español" },
+  { code: "ru", label: "Русский" },
+  { code: "de", label: "Deutsch" },
+  { code: "it", label: "Italiano" },
+  { code: "ar", label: "العربية" },
+  { code: "tr", label: "Türkçe" },
+  { code: "fr", label: "Français" },
+  { code: "ur", label: "اردو" },
+];
+
+const VALID_LANGS = new Set<string>(ALL_LANGS.map((l) => l.code));
+
+function detectLang(): Lang {
+  if (typeof window === "undefined") return "en";
+  try {
+    const saved = window.localStorage.getItem("veil:wa_blog_lang");
+    if (saved && VALID_LANGS.has(saved)) return saved as Lang;
+    const nav = (navigator.language || "").toLowerCase();
+    if (nav.startsWith("hi")) return "hi";
+    if (nav.startsWith("pt")) return "pt";
+    if (nav.startsWith("id") || nav.startsWith("ms")) return "id";
+    if (nav.startsWith("es")) return "es";
+    if (nav.startsWith("ru")) return "ru";
+    if (nav.startsWith("de")) return "de";
+    if (nav.startsWith("it")) return "it";
+    if (nav.startsWith("ar")) return "ar";
+    if (nav.startsWith("tr")) return "tr";
+    if (nav.startsWith("fr")) return "fr";
+    if (nav.startsWith("ur")) return "ur";
+  } catch { /* ignore */ }
+  return "en";
+}
 
 export function WhatsappPrivacyPage() {
   const pct = useReadingProgress();
-  const [lang, setLang] = useState<"en" | "hi">(() => {
-    if (typeof window === "undefined") return "en";
-    try {
-      const saved = window.localStorage.getItem("veil:wa_blog_lang");
-      if (saved === "en" || saved === "hi") return saved;
-      // Default to Hindi for hi-* browsers, English otherwise.
-      const nav = (navigator.language || "").toLowerCase();
-      return nav.startsWith("hi") ? "hi" : "en";
-    } catch {
-      return "en";
-    }
-  });
+  const [lang, setLang] = useState<Lang>(detectLang);
   const readingMinutes = useMemo(() => (lang === "hi" ? 68 : 75), [lang]);
 
   useEffect(() => {
     try {
       window.localStorage.setItem("veil:wa_blog_lang", lang);
-    } catch {
-      /* ignore */
-    }
-    document.documentElement.setAttribute("lang", lang === "hi" ? "hi" : "en");
+    } catch { /* ignore */ }
+    document.documentElement.setAttribute("lang", lang);
+    const isRtl = lang === "ar" || lang === "ur";
+    document.documentElement.setAttribute("dir", isRtl ? "rtl" : "ltr");
+    return () => { document.documentElement.removeAttribute("dir"); };
   }, [lang]);
 
   useEffect(() => {
@@ -3332,7 +4630,24 @@ export function WhatsappPrivacyPage() {
     meta.setAttribute("content", desc);
   }, [lang]);
 
-  const tocItems = lang === "hi" ? TOC_HI : TOC_EN;
+  const tocItems = TOC_MAP[lang] ?? TOC_EN;
+
+  function renderArticle() {
+    switch (lang) {
+      case "hi": return <ArticleHindi />;
+      case "pt": return <ArticlePt />;
+      case "id": return <ArticleId />;
+      case "es": return <ArticleEs />;
+      case "ru": return <ArticleRu />;
+      case "de": return <ArticleDe />;
+      case "it": return <ArticleIt />;
+      case "ar": return <ArticleAr />;
+      case "tr": return <ArticleTr />;
+      case "fr": return <ArticleFr />;
+      case "ur": return <ArticleUr />;
+      default:   return <ArticleEnglish />;
+    }
+  }
 
   const heroBadge = lang === "hi" ? "जाँच · पूर्ण स्रोत" : "Investigation · Fully sourced";
   const heroTitle =
@@ -3416,39 +4731,18 @@ export function WhatsappPrivacyPage() {
           </span>
         </Link>
         <div className="flex items-center gap-2">
-          {/* Language toggle */}
-          <div
-            role="tablist"
-            aria-label={lang === "hi" ? "भाषा चुनें" : "Choose language"}
-            className="inline-flex items-center rounded-full border border-[#0F2A18]/15 bg-white/70 p-1 text-sm font-medium"
+          {/* Language selector */}
+          <label className="sr-only" htmlFor="lang-select">Choose language</label>
+          <select
+            id="lang-select"
+            value={lang}
+            onChange={(e) => setLang(e.target.value as Lang)}
+            className="rounded-full border border-[#0F2A18]/15 bg-white/70 px-3 py-1.5 text-sm font-medium text-[#0F2A18] cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#2E6F40]/40"
           >
-            <button
-              role="tab"
-              aria-selected={lang === "en"}
-              onClick={() => setLang("en")}
-              className={[
-                "px-3 py-1.5 rounded-full transition-colors",
-                lang === "en"
-                  ? "bg-[#2E6F40] text-white"
-                  : "text-[#0F2A18] hover:bg-[#0F2A18]/5",
-              ].join(" ")}
-            >
-              English
-            </button>
-            <button
-              role="tab"
-              aria-selected={lang === "hi"}
-              onClick={() => setLang("hi")}
-              className={[
-                "px-3 py-1.5 rounded-full transition-colors",
-                lang === "hi"
-                  ? "bg-[#2E6F40] text-white"
-                  : "text-[#0F2A18] hover:bg-[#0F2A18]/5",
-              ].join(" ")}
-            >
-              हिन्दी
-            </button>
-          </div>
+            {ALL_LANGS.map((l) => (
+              <option key={l.code} value={l.code}>{l.label}</option>
+            ))}
+          </select>
           <Link
             to="/welcome"
             className="hidden sm:inline-flex items-center gap-2 px-4 py-2 rounded-full text-white text-sm font-medium hover:opacity-90"
@@ -3510,7 +4804,7 @@ export function WhatsappPrivacyPage() {
 
       {/* Article */}
       <article className="max-w-[820px] mx-auto px-5 sm:px-8 pb-24">
-        {lang === "hi" ? <ArticleHindi /> : <ArticleEnglish />}
+        {renderArticle()}
 
         {/* SOURCES (shared) */}
         <H2 id="sources">{sourcesHeading}</H2>
