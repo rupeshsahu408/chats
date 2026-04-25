@@ -5,7 +5,7 @@ import { AppBar, PrimaryButton } from "../components/Layout";
 /**
  * "Our promises" — the manifesto page (Principles #7 + #8).
  *
- * Veil's stance, stated plainly. Four cards, each one short enough
+ * VeilChat's stance, stated plainly. Four cards, each one short enough
  * to read in a breath. The page exists so we can link to it from
  * the welcome screen, settings, and any external surface (the
  * landing page, an invite, a press kit) without re-writing the
@@ -44,7 +44,7 @@ export function PromisesPage() {
           <PromiseCard
             number="01"
             headline="No ads. Ever."
-            body="Veil will never show you a banner, sponsored chat, promoted contact, or any other paid surface. There is no advertising stack inside this app."
+            body="VeilChat will never show you a banner, sponsored chat, promoted contact, or any other paid surface. There is no advertising stack inside this app."
             proof="Open the source — there's no ad SDK, no tracking pixel, no analytics ID."
             icon={<NoAdIcon />}
             accent
@@ -59,14 +59,14 @@ export function PromisesPage() {
           <PromiseCard
             number="03"
             headline="Your messages live on your device."
-            body="Veil is local-first. Your chat history, identity keys, and conversation state all live on this device — never on our servers in readable form."
+            body="VeilChat is local-first. Your chat history, identity keys, and conversation state all live on this device — never on our servers in readable form."
             proof="Our server only sees encrypted blobs it can't open. Lose your phone? We can't recover your chats either."
             icon={<DeviceIcon />}
           />
           <PromiseCard
             number="04"
             headline="The code is open."
-            body="Every line of Veil — client, server, cryptography — is open source under a permissive license. Anyone can audit it, fork it, or run their own."
+            body="Every line of VeilChat — client, server, cryptography — is open source under a permissive license. Anyone can audit it, fork it, or run their own."
             proof="Our promises mean nothing if you can't verify them. The source is the receipt."
             icon={<CodeIcon />}
           />
@@ -75,9 +75,9 @@ export function PromisesPage() {
         {/* ─── Closing line ─── */}
         <div className="mt-9 px-6 text-center">
           <p className="text-[13px] text-text-muted leading-relaxed max-w-sm mx-auto">
-            We don't make money from you being on Veil.{" "}
+            We don't make money from you being on VeilChat.{" "}
             <span className="text-text">
-              We make Veil because we believe private conversation is a
+              We make VeilChat because we believe private conversation is a
               human default, not a luxury feature.
             </span>
           </p>

@@ -10,7 +10,7 @@
  * the PIN-derived key in IndexedDB.
  */
 
-const RP_NAME = "Veil";
+const RP_NAME = "VeilChat";
 
 export function biometricSupported(): boolean {
   return (

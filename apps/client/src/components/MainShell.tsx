@@ -30,7 +30,7 @@ export function MainShell({
   active,
   children,
   rightActions,
-  title = "Veil",
+  title = "VeilChat",
 }: {
   active: "chats" | "people" | "settings";
   children: ReactNode;

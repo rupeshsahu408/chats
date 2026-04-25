@@ -19,7 +19,7 @@ export interface AccentSwatch {
 
 /**
  * Curated palette. Each accent picks a hue that reads well on both
- * the light and dark Veil themes — no neon, no muddy mid-tones.
+ * the light and dark VeilChat themes — no neon, no muddy mid-tones.
  * The first entry ("default") means "use the global theme color"
  * and is rendered as a neutral swatch in the picker.
  */
@@ -65,7 +65,7 @@ export const SOUND_PACKS: SoundPack[] = [
   {
     value: "default",
     label: "Default",
-    description: "Veil's soft 3-note motif",
+    description: "VeilChat's soft 3-note motif",
     notes: [783.99, 659.25, 523.25], // G5 → E5 → C5
     oscillator: "sine",
     duration: 0.07,

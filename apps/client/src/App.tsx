@@ -60,7 +60,7 @@ export function App() {
   );
   const [trpcClient] = useState(() => makeTrpcClient());
 
-  // Theme system no longer follows the OS preference — Veil always opens
+  // Theme system no longer follows the OS preference — VeilChat always opens
   // in the Light theme unless the user explicitly picked another from
   // Settings. The call is kept (as a no-op) to preserve the existing import
   // shape and avoid breaking anyone wiring against this hook.

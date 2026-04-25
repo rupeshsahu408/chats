@@ -297,7 +297,7 @@ export function ChatsPage() {
             <EmptyState
               icon={<ChatIcon className="w-12 h-12" />}
               title="No chats yet"
-              message="Veil connects you one person at a time. Send an invite to start your first conversation."
+              message="VeilChat connects you one person at a time. Send an invite to start your first conversation."
               action={
                 <PrimaryButton onClick={() => navigate("/invite")}>
                   Create an invite
@@ -318,7 +318,7 @@ export function ChatsPage() {
                 {
                   icon: <ChatIcon />,
                   title: "End-to-end encrypted by default",
-                  body: "Your messages are sealed on your device and only opened on your friend's. Veil's server is just a relay.",
+                  body: "Your messages are sealed on your device and only opened on your friend's. VeilChat's server is just a relay.",
                 },
               ]}
             />

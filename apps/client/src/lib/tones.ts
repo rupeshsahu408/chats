@@ -1,5 +1,5 @@
 /**
- * Veil tone library.
+ * VeilChat tone library.
  *
  * Two curated catalogs of synthesised motifs — ten for the moment a
  * message *leaves* your device (`SEND_TONES`) and ten for the moment a
@@ -48,7 +48,7 @@ export const SEND_TONES: ToneRecipe[] = [
   {
     value: "aurora",
     label: "Aurora",
-    description: "A confident rising arpeggio — Veil's signature send.",
+    description: "A confident rising arpeggio — VeilChat's signature send.",
     notes: [
       { freq: 659.25, duration: 0.07, gain: 0.16, startAt: 0.0 },
       { freq: 783.99, duration: 0.07, gain: 0.16, startAt: 0.06 },
@@ -149,7 +149,7 @@ export const RECEIVE_TONES: ToneRecipe[] = [
   {
     value: "drift",
     label: "Drift",
-    description: "Veil's classic descending three-note arrival.",
+    description: "VeilChat's classic descending three-note arrival.",
     notes: [
       { freq: 783.99, duration: 0.07, gain: 0.13 },
       { freq: 659.25, duration: 0.07, gain: 0.13, startAt: 0.06 },

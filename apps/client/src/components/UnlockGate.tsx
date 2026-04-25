@@ -187,7 +187,7 @@ export function UnlockGate({ children }: { children?: React.ReactNode }) {
             </h3>
             <p className="text-sm text-text-muted mt-0.5">
               You're signed in, but your end-to-end encrypted keys live in
-              the browser you originally signed up on. Open Veil on that
+              the browser you originally signed up on. Open VeilChat on that
               device, export a backup from{" "}
               <span className="text-text">Settings → Backup &amp; recovery</span>,
               then import it here.
@@ -223,7 +223,7 @@ export function UnlockGate({ children }: { children?: React.ReactNode }) {
             {isDailyPasswordEntry
               ? "Enter the daily password you set at sign-up. We'll restore your original keys on this device — your recovery phrase and chat history stay exactly as they were."
               : isFreshRecover
-                ? "Enter the 12-word recovery phrase from your sign-up to set up Veil on this device. You'll only do this once."
+                ? "Enter the 12-word recovery phrase from your sign-up to set up VeilChat on this device. You'll only do this once."
                 : isPhraseEntry
                   ? "Enter your 12-word recovery phrase to unlock your messaging keys. You'll only do this once on this device."
                   : "Enter your Backup PIN to decrypt your messaging keys. You'll only do this once on this device."}

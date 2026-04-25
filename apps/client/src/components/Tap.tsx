@@ -11,7 +11,7 @@ interface TapButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 /**
- * Drop-in `<button>` that adds the Veil tap micro-interaction:
+ * Drop-in `<button>` that adds the VeilChat tap micro-interaction:
  *  - 80 ms spring-y press scale via the shared `wa-tap` class
  *  - matched haptic + sound on every click
  *

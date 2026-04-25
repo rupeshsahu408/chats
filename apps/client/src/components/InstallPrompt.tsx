@@ -116,8 +116,8 @@ export function InstallPrompt() {
   if (bipEvent) {
     return (
       <Banner
-        title="Install Veil"
-        body="Add Veil to your home screen for a faster, app-like experience."
+        title="Install VeilChat"
+        body="Add VeilChat to your home screen for a faster, app-like experience."
         primaryLabel="Install"
         onPrimary={handleAndroidInstall}
         onDismiss={handleDismiss}
@@ -130,8 +130,8 @@ export function InstallPrompt() {
     return (
       <>
         <Banner
-          title="Add Veil to your Home Screen"
-          body="Tap the Share icon, then “Add to Home Screen” to install Veil."
+          title="Add VeilChat to your Home Screen"
+          body="Tap the Share icon, then “Add to Home Screen” to install VeilChat."
           primaryLabel="Show me how"
           onPrimary={() => setShowIosSheet(true)}
           onDismiss={handleDismiss}
@@ -206,7 +206,7 @@ function IosInstructionsSheet({ onClose }: { onClose: () => void }) {
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Add Veil to Home Screen"
+      aria-label="Add VeilChat to Home Screen"
       className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center"
     >
       <div
@@ -219,7 +219,7 @@ function IosInstructionsSheet({ onClose }: { onClose: () => void }) {
         style={{ paddingBottom: "calc(1.25rem + env(safe-area-inset-bottom))" }}
       >
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-base font-semibold">Add Veil to Home Screen</h2>
+          <h2 className="text-base font-semibold">Add VeilChat to Home Screen</h2>
           <button
             type="button"
             aria-label="Close"
@@ -230,7 +230,7 @@ function IosInstructionsSheet({ onClose }: { onClose: () => void }) {
           </button>
         </div>
         <p className="text-sm text-text-muted mb-4">
-          Veil works best installed. It's a one-time, three-step setup in
+          VeilChat works best installed. It's a one-time, three-step setup in
           Safari:
         </p>
         <ol className="space-y-3 text-sm">
@@ -248,7 +248,7 @@ function IosInstructionsSheet({ onClose }: { onClose: () => void }) {
           </Step>
           <Step n={3}>
             Tap <span className="font-medium">Add</span> in the top right.
-            Open Veil from your Home Screen for push notifications and
+            Open VeilChat from your Home Screen for push notifications and
             offline support.
           </Step>
         </ol>

@@ -11,7 +11,7 @@ import {
 
 /**
  * Daily Privacy Report — a calm, glanceable summary of the
- * encryption work Veil did for the user today, plus the
+ * encryption work VeilChat did for the user today, plus the
  * always-true architectural guarantees they should be reminded of.
  *
  * Everything is computed locally from Dexie. There is no server
@@ -71,7 +71,7 @@ export function PrivacyReportPage() {
             Your conversations stayed private today.
           </h2>
           <p className="mt-2 text-[13px] text-text-muted leading-relaxed max-w-md mx-auto">
-            A daily summary of what Veil protected — computed entirely on
+            A daily summary of what VeilChat protected — computed entirely on
             this device.
           </p>
         </div>
@@ -111,7 +111,7 @@ export function PrivacyReportPage() {
           <GuaranteeRow
             label="Cloud uploads of your messages"
             value="0"
-            note="Veil's server never sees readable text."
+            note="VeilChat's server never sees readable text."
           />
           <GuaranteeRow
             label="Server-readable plaintext"
@@ -183,7 +183,7 @@ export function PrivacyReportPage() {
 
         <p className="px-6 pt-7 text-[11px] text-text-faint text-center leading-relaxed">
           This report is generated locally on your device. No part of it
-          is sent to Veil's servers.
+          is sent to VeilChat's servers.
         </p>
       </div>
     </div>

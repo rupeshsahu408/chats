@@ -14,7 +14,7 @@ import { feedback } from "../lib/feedback";
  *   • Accent — tints outgoing bubbles + send button inside this chat.
  *   • Notification sound — pack played on inbound messages from this peer.
  *
- * Both fall back to "Default" (the global theme + Veil's standard motif)
+ * Both fall back to "Default" (the global theme + VeilChat's standard motif)
  * when set to that value, which lets the user opt out cleanly.
  */
 export function ChatPersonalitySheet({

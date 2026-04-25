@@ -60,7 +60,7 @@ export function LoginPage() {
 
       <div className="text-center text-xs text-text-muted space-y-1.5">
         <div>
-          New to Veil?{" "}
+          New to VeilChat?{" "}
           <button
             type="button"
             onClick={() => navigate("/welcome")}

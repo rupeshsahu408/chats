@@ -1,5 +1,5 @@
 /**
- * Veil sound identity.
+ * VeilChat sound identity.
  *
  * Distinctive synthesised motifs for send / receive, plus a tiny tap
  * blip and short success / error tones. Everything is generated at
@@ -171,7 +171,7 @@ function shouldPlay(): boolean {
 
 /**
  * Outgoing message: plays the tone the user picked from the
- * SEND_TONES catalog (defaults to "Aurora" — the original Veil
+ * SEND_TONES catalog (defaults to "Aurora" — the original VeilChat
  * rising arpeggio). Total ≈80–280ms depending on pick.
  */
 export function playSendTone(): void {

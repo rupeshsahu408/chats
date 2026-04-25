@@ -23,7 +23,7 @@ import { feedback } from "../lib/feedback";
 /**
  * Sound preferences (Principle #2 — sound as identity, not alarm).
  *
- * Veil's audio identity is built from a few short synthesised motifs
+ * VeilChat's audio identity is built from a few short synthesised motifs
  * — every send, receive, and confirmation has its own tonal signature
  * so the app feels alive without resorting to generic "ding" alerts.
  * This page lets the user shape that identity:
@@ -56,10 +56,10 @@ export function SoundPage() {
         {/* ─── Hero ─── */}
         <div className="px-5 pt-7 pb-5 text-center bg-gradient-to-b from-wa-green/8 to-transparent">
           <div className="inline-flex items-center gap-2 rounded-full bg-wa-green/12 text-wa-green-dark dark:text-wa-green px-3 py-1 text-[11px] font-semibold uppercase tracking-widest">
-            <Speaker /> Veil sound identity
+            <Speaker /> VeilChat sound identity
           </div>
           <h2 className="mt-3 text-[22px] font-semibold tracking-tight text-text leading-tight">
-            Sound is part of how Veil feels
+            Sound is part of how VeilChat feels
           </h2>
           <p className="mt-2 text-[13px] text-text-muted leading-relaxed max-w-md mx-auto">
             Each motif is a few notes long and synthesised on the fly.
@@ -164,8 +164,8 @@ export function SoundPage() {
           onPreview={(id) => previewReceiveTone(id)}
         />
 
-        {/* ─── Other Veil motifs (read-only previews) ─── */}
-        <SectionHeader>Other Veil motifs</SectionHeader>
+        {/* ─── Other VeilChat motifs (read-only previews) ─── */}
+        <SectionHeader>Other VeilChat motifs</SectionHeader>
         <div className="px-4 grid grid-cols-1 gap-2">
           <MotifRow
             name="Tap"
@@ -209,7 +209,7 @@ export function SoundPage() {
             <p className="text-[12.5px] text-text-muted leading-relaxed mt-1">
               Long-press a chat → Personality to pick a sound pack —
               warm chime, minimal tick, doorbell, silent, and more.
-              Veil falls back to your chosen receive tone when nothing
+              VeilChat falls back to your chosen receive tone when nothing
               is set on the chat itself.
             </p>
           </div>

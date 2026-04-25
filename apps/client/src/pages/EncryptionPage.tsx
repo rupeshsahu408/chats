@@ -6,7 +6,7 @@ import { AppBar, PrimaryButton } from "../components/Layout";
  * "End-to-end encryption" — the explainer reached from the yellow
  * banner at the top of every chat (and the small pill at the top of
  * every group). Mirrors WhatsApp's "Tap to learn more" page in spirit,
- * but written in Veil's voice.
+ * but written in VeilChat's voice.
  *
  * The copy intentionally runs long — users tapping this link have
  * opted in to a deeper read. We use plain language, short paragraphs,
@@ -37,7 +37,7 @@ export function EncryptionPage() {
             .
           </h2>
           <p className="mt-3 text-[14px] text-text-muted leading-relaxed max-w-md mx-auto">
-            Every message, photo, voice note and call you send on Veil is
+            Every message, photo, voice note and call you send on VeilChat is
             scrambled on your device and only unscrambled on the device of
             the person you sent it to. Nobody in the middle — not your
             internet provider, not the network you're on, not even our
@@ -54,7 +54,7 @@ export function EncryptionPage() {
             "End‑to‑end" means the two ends of the conversation — your
             device and your friend's device — are the only places where
             your message exists in a readable form. The instant you hit
-            send, Veil seals your message inside a digital envelope that
+            send, VeilChat seals your message inside a digital envelope that
             can only be opened by the recipient's device. Until it gets
             there, it's gibberish to everyone else.
           </p>
@@ -74,14 +74,14 @@ export function EncryptionPage() {
           accent
         >
           <p>
-            When you create your Veil account, your device generates a
+            When you create your VeilChat account, your device generates a
             pair of cryptographic keys: a <strong>public key</strong> it
             shares with the world, and a <strong>private key</strong> it
             keeps secret and never sends anywhere. Your friend's device
             does the same.
           </p>
           <p>
-            When you send a message, Veil uses your friend's public key
+            When you send a message, VeilChat uses your friend's public key
             to lock it. Once locked, it can only be unlocked by their
             matching private key — which lives on their device, and
             their device alone. Even if a copy of your message were
@@ -150,7 +150,7 @@ export function EncryptionPage() {
           accent
         >
           <p>
-            Every chat in Veil has a <strong>security code</strong> — a
+            Every chat in VeilChat has a <strong>security code</strong> — a
             short fingerprint of the keys you and your friend are
             using. You can compare it in person, over a video call, or
             by scanning a QR code from each other's device. If both
@@ -159,13 +159,13 @@ export function EncryptionPage() {
           </p>
           <p>
             If the code ever changes (for example, if your friend
-            reinstalls the app on a new phone), Veil will let you know
+            reinstalls the app on a new phone), VeilChat will let you know
             so you can verify it again. This protects you against the
             rare but real risk of someone trying to impersonate one
             side of the conversation.
           </p>
           <p>
-            And because Veil is open source, you don't have to trust
+            And because VeilChat is open source, you don't have to trust
             the description on this page — you can read the actual
             code that does the sealing and unsealing.
           </p>
@@ -196,7 +196,7 @@ export function EncryptionPage() {
             </Bullet>
           </BulletList>
           <p className="mt-4">
-            That's why Veil also gives you tools that go beyond
+            That's why VeilChat also gives you tools that go beyond
             encryption: app lock, screenshot blur when the app loses
             focus, disappearing messages, view‑once media and a stealth
             mode. Strong encryption is the floor, not the ceiling.
@@ -209,7 +209,7 @@ export function EncryptionPage() {
             Privacy shouldn't be a feature you have to find in a
             settings menu.{" "}
             <span className="text-text">
-              On Veil, it's the only mode that exists.
+              On VeilChat, it's the only mode that exists.
             </span>
           </p>
         </div>

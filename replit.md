@@ -1,4 +1,4 @@
-# Veil
+# VeilChat
 
 > Private by design. Visible to no one but you.
 

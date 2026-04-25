@@ -165,7 +165,7 @@ export function ReportDialog({
             <div className="mt-0.5 text-[13px] text-text-muted">{peerHandle}</div>
           )}
           <p className="mt-2 text-[12.5px] text-text-muted leading-relaxed max-w-sm mx-auto">
-            Veil never sees your messages. We only receive the category
+            VeilChat never sees your messages. We only receive the category
             you pick and any note you choose to add.
           </p>
         </div>

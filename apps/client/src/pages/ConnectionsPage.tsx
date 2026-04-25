@@ -199,7 +199,7 @@ export function ConnectionsPage() {
               <EmptyState
                 icon={<PeopleIcon className="w-12 h-12" />}
                 title="No connections yet"
-                message="On Veil, you choose every person who can write to you. Send an invite to add your first."
+                message="On VeilChat, you choose every person who can write to you. Send an invite to add your first."
                 action={
                   <PrimaryButton onClick={() => navigate("/invite")}>
                     Create an invite
@@ -564,11 +564,11 @@ function FindFriendsPanel() {
       setMatches(found);
       if (found.length === 0) {
         setInfo(
-          `No matches found among ${numbers.length} number${numbers.length === 1 ? "" : "s"}. Your contacts aren't on Veil yet.`,
+          `No matches found among ${numbers.length} number${numbers.length === 1 ? "" : "s"}. Your contacts aren't on VeilChat yet.`,
         );
       } else {
         setInfo(
-          `Found ${found.length} contact${found.length === 1 ? "" : "s"} on Veil out of ${numbers.length}.`,
+          `Found ${found.length} contact${found.length === 1 ? "" : "s"} on VeilChat out of ${numbers.length}.`,
         );
       }
     } catch (e: unknown) {
@@ -600,7 +600,7 @@ function FindFriendsPanel() {
       <p className="text-xs text-text-muted">
         We hash each number on this device with a server salt that rotates every
         5 minutes. The server only learns which hashed contacts already use
-        Veil — never your full address book.
+        VeilChat — never your full address book.
       </p>
       <div>
         <FieldLabel>Phone numbers (one per line, with country code)</FieldLabel>
@@ -630,7 +630,7 @@ function FindFriendsPanel() {
                   {m.rawNumber}
                 </div>
                 <div className="text-[10px] text-text-faint truncate">
-                  Veil id {m.peerId}
+                  VeilChat id {m.peerId}
                 </div>
               </div>
               {sent.has(m.peerId) ? (

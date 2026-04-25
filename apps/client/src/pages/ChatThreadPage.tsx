@@ -3155,7 +3155,7 @@ function SafetyNumberDialog({
             </div>
 
             <p className="text-[11px] text-text-faint text-center max-w-xs leading-relaxed">
-              Marking is just a personal note on this device — Veil never
+              Marking is just a personal note on this device — VeilChat never
               uploads it. Compare in person or over a video call you trust.
             </p>
           </div>
@@ -3353,7 +3353,7 @@ function Composer({
   // we have no `cancel` event, so we rely on focus returning + a timeout.
   const photoActivityTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // ─── Veil keyboard ───────────────────────────────────────────────
+  // ─── VeilChat keyboard ───────────────────────────────────────────────
   // The user's stored preference (off by default). Available on both
   // touch devices and desktops, but with device-adapted behavior:
   //   - Touch devices: replaces the OS soft keyboard, auto-opens on
@@ -3366,7 +3366,7 @@ function Composer({
   const useVeilKbPref = useKeyboardPrefs((s) => s.useVeilKeyboard);
   const showKbSwitch = useKeyboardPrefs((s) => s.showComposerSwitch);
   const [coarsePointer] = useState(() => isCoarsePointerDevice());
-  // Per-session escape hatch: tapping the ⌨ icon flips between Veil
+  // Per-session escape hatch: tapping the ⌨ icon flips between VeilChat
   // keyboard and system keyboard for this composer until the user
   // navigates away, without changing the global pref.
   const [sessionUseSystem, setSessionUseSystem] = useState(false);
@@ -3578,7 +3578,7 @@ function Composer({
           rows={1}
           placeholder="Type a message"
           // Suppress the OS soft keyboard only on touch devices when
-          // the Veil keyboard is active. On desktop we deliberately
+          // the VeilChat keyboard is active. On desktop we deliberately
           // keep the physical keyboard usable alongside the on-screen
           // panel — the user can mix mouse-clicks and key presses.
           inputMode={veilKbActive && coarsePointer ? "none" : undefined}
@@ -3604,8 +3604,8 @@ function Composer({
               coarsePointer
                 ? "Switch to system keyboard for this chat"
                 : veilKbOpen
-                  ? "Hide Veil keyboard"
-                  : "Show Veil keyboard"
+                  ? "Hide VeilChat keyboard"
+                  : "Show VeilChat keyboard"
             }
           />
         )}
@@ -3617,7 +3617,7 @@ function Composer({
               setVeilKbOpen(true);
               requestAnimationFrame(() => textareaRef.current?.focus());
             }}
-            label="Switch back to Veil keyboard"
+            label="Switch back to VeilChat keyboard"
           />
         )}
       </div>
@@ -3709,9 +3709,9 @@ function Composer({
 }
 
 /**
- * Compact toggle that swaps the active keyboard between the Veil
+ * Compact toggle that swaps the active keyboard between the VeilChat
  * private keyboard and the system keyboard for the current chat.
- * Only rendered on touch devices when the user has the Veil keyboard
+ * Only rendered on touch devices when the user has the VeilChat keyboard
  * enabled in Settings.
  */
 function KeyboardSwitchButton({
@@ -3719,7 +3719,7 @@ function KeyboardSwitchButton({
   onClick,
   label,
 }: {
-  /** True when the Veil keyboard is currently the active keyboard. */
+  /** True when the VeilChat keyboard is currently the active keyboard. */
   active: boolean;
   onClick: () => void;
   label: string;

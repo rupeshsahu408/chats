@@ -1,5 +1,5 @@
 /**
- * Veil feedback bus.
+ * VeilChat feedback bus.
  *
  * Couples sound + haptics into a single semantic call so UI code never
  * has to reach into either module directly. Each "moment" plays the
@@ -43,7 +43,7 @@ export const feedback = {
   /**
    * Incoming message landed (only fired if it actually appended).
    * `packKey` lets the caller pick a per-contact sound pack — see
-   * `chatPersonality.SOUND_PACKS`. Falls back to the global Veil
+   * `chatPersonality.SOUND_PACKS`. Falls back to the global VeilChat
    * receive motif when omitted.
    *
    * Focus Mode (Principle #4) silences this entire path — the

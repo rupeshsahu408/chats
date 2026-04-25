@@ -1,5 +1,5 @@
 /**
- * Veil haptics.
+ * VeilChat haptics.
  *
  * Thin, lazy wrapper around `navigator.vibrate`. On platforms without
  * vibration support (most desktops, iOS Safari) every call becomes a

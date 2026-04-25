@@ -217,7 +217,7 @@
 }
 
 @layer utilities {
-  /* Removes the default mobile blue tap flash and adds the Veil
+  /* Removes the default mobile blue tap flash and adds the VeilChat
    * spring-y "press" micro-interaction: a quick scale-down on touch
    * that snaps back with a slight overshoot. Total motion < 180ms so
    * the eye reads it as feedback, not delay. */

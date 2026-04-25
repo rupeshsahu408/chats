@@ -29,7 +29,7 @@ self.addEventListener("push", (event) => {
     /* ignore — server may send empty data */
   }
   const title = payload.title ?? "New message";
-  const body = payload.body ?? "Open Veil to read it.";
+  const body = payload.body ?? "Open VeilChat to read it.";
   const url = payload.url ?? "/chats";
   const tag = payload.tag ?? "veil-message";
 

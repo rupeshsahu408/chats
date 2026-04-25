@@ -269,7 +269,7 @@ export function RandomIdSignupPage() {
           <Logo />
           <h2 className="text-2xl font-semibold text-text">Pick a username</h2>
           <p className="text-sm text-text-muted text-center">
-            This is how friends find you on Veil. It's permanent — you can't
+            This is how friends find you on VeilChat. It's permanent — you can't
             change it later.
           </p>
         </div>
@@ -1021,7 +1021,7 @@ function WelcomeCeremony({
           (phase >= 3 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2")
         }
       >
-        <PrimaryButton onClick={onContinue}>Open Veil</PrimaryButton>
+        <PrimaryButton onClick={onContinue}>Open VeilChat</PrimaryButton>
       </div>
     </div>
   );

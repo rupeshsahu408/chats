@@ -101,7 +101,7 @@ export function ForgotPasswordPage() {
     try {
       // Pull readable text out of the file. We support:
       //   • Plain .txt / .json / .csv dumps  (FileReader → text)
-      //   • The actual Veil Recovery Kit PDF (pdfjs-dist, lazy-loaded)
+      //   • The actual VeilChat Recovery Kit PDF (pdfjs-dist, lazy-loaded)
       // Either way the result feeds into `extractPhrase`, which
       // sliding-windows over the words and validates against BIP-39.
       const text = await readPhraseSource(file);

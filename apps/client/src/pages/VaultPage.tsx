@@ -126,7 +126,7 @@ export function VaultPage() {
     try {
       const credentialId = await registerBiometricCredential(
         identity?.userId ? `vault:${identity.userId}` : "vault:self",
-        "Veil Vault",
+        "VeilChat Vault",
       );
       await db.userPrefs.put(nextPrefs({ vaultCredentialId: credentialId }));
       setUnlocked();
@@ -594,7 +594,7 @@ function PinSetupForm({
         />
       </div>
       <p className="text-[11.5px] text-text-faint leading-relaxed">
-        {PIN_MIN}–{PIN_MAX} digits. Stored only on this device — Veil can't
+        {PIN_MIN}–{PIN_MAX} digits. Stored only on this device — VeilChat can't
         recover it for you, so pick something you'll remember.
       </p>
       {(localErr || error) && (

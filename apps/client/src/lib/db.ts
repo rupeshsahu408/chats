@@ -242,7 +242,7 @@ export interface ChatPrefRecord {
    * Per-contact notification sound pack key. One of the keys
    * from `SOUND_PACKS` in `lib/chatPersonality.ts`. When set,
    * an inbound message in this chat plays the override pack
-   * instead of the global Veil receive motif.
+   * instead of the global VeilChat receive motif.
    */
   notificationSound?: string;
   /**
@@ -272,7 +272,7 @@ export interface UserPrefRecord {
   screenshotBlurEnabled: boolean;
   /** Require biometric/passkey on app launch. Default false. */
   appLockEnabled: boolean;
-  /** Play the Veil sound motifs (send / receive / tap). Default true. */
+  /** Play the VeilChat sound motifs (send / receive / tap). Default true. */
   soundEnabled?: boolean;
   /** Fire short haptic vibrations to match (mobile only). Default true. */
   hapticsEnabled?: boolean;
@@ -307,7 +307,7 @@ export interface UserPrefRecord {
     expiresAt: string;
   };
   /**
-   * Master volume (0..1) applied to the Veil sound bus. Persisted so
+   * Master volume (0..1) applied to the VeilChat sound bus. Persisted so
    * the user's choice survives reloads. Defaults to ~0.6 inside
    * `lib/sound.ts` when omitted.
    */
@@ -329,7 +329,7 @@ export interface UserPrefRecord {
   /**
    * Master "Focus Mode" toggle. When on we drop notification sounds,
    * haptics, and best-effort suppress system push notifications.
-   * Messages still arrive normally — Veil just refuses to interrupt.
+   * Messages still arrive normally — VeilChat just refuses to interrupt.
    */
   focusModeEnabled?: boolean;
   /** When true, focus is automatically active during the daily quiet-hours window. */

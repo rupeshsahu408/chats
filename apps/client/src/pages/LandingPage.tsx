@@ -97,7 +97,7 @@ function FloatingInstallChip() {
           <span className="text-[11px] font-medium text-[#CFFFDC] tracking-wide">
             Free · 30 seconds
           </span>
-          <span className="text-[14px] font-semibold">Install Veil</span>
+          <span className="text-[14px] font-semibold">Install VeilChat</span>
         </span>
         <button
           type="button"
@@ -140,7 +140,7 @@ function NavBar() {
         <a href="#top" className="flex items-center gap-2.5">
           <BrandMark />
           <span className="text-[18px] font-bold tracking-tight text-[#253D2C]">
-            Veil
+            VeilChat
           </span>
         </a>
 
@@ -162,7 +162,7 @@ function NavBar() {
             to="/welcome"
             className="text-[15px] font-semibold text-white bg-[#2E6F40] hover:bg-[#253D2C] px-5 py-2.5 rounded-full transition-colors"
           >
-            Get Veil
+            Get VeilChat
           </Link>
         </div>
 
@@ -202,7 +202,7 @@ function NavBar() {
               to="/welcome"
               className="mt-1 text-center text-white font-semibold bg-[#2E6F40] px-4 py-3 rounded-full"
             >
-              Get Veil
+              Get VeilChat
             </Link>
           </div>
         </div>
@@ -251,7 +251,7 @@ function Hero() {
             </h1>
 
             <p className="mt-7 text-[18px] sm:text-[20px] text-[#3C5A47] max-w-xl leading-[1.55]">
-              Veil is a calm, beautifully simple messenger. Every message,
+              VeilChat is a calm, beautifully simple messenger. Every message,
               call, and photo is end-to-end encrypted by default — so your
               conversations stay between you and the people you talk to.
             </p>
@@ -261,7 +261,7 @@ function Hero() {
                 to="/welcome"
                 className="group inline-flex items-center justify-center gap-2 bg-[#2E6F40] hover:bg-[#253D2C] text-white font-semibold text-[16px] px-7 py-4 rounded-full shadow-[0_18px_36px_-14px_rgba(46,111,64,0.55)] transition-colors"
               >
-                Get Veil — it's free
+                Get VeilChat — it's free
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M5 12h14" />
                   <path d="M13 5l7 7-7 7" />
@@ -547,7 +547,7 @@ function Features() {
     },
     {
       title: "Works everywhere",
-      body: "Install Veil on iOS, Android, Mac, Windows, or Linux. One private account, every device you own.",
+      body: "Install VeilChat on iOS, Android, Mac, Windows, or Linux. One private account, every device you own.",
       icon: <IconDevices />,
     },
     {
@@ -637,7 +637,7 @@ function Lifestyle() {
             </h2>
             <p className="mt-6 text-[18px] text-[#3C5A47] leading-[1.6]">
               From quick check-ins with your best friend to family group chats
-              that span continents — Veil keeps the conversations that matter
+              that span continents — VeilChat keeps the conversations that matter
               warm, fast, and yours alone.
             </p>
             <ul className="mt-8 space-y-4">
@@ -651,7 +651,7 @@ function Lifestyle() {
               />
               <ValuePoint
                 title="Zero ads, forever"
-                body="No tracking, no profiling, no monetizing your relationships. Veil is funded by people who care, not advertisers."
+                body="No tracking, no profiling, no monetizing your relationships. VeilChat is funded by people who care, not advertisers."
               />
             </ul>
           </div>
@@ -772,7 +772,7 @@ function Testimonials() {
   }> = [
     {
       quote:
-        "I switched from three other apps. Veil is the first one that actually feels calm to use — and the only one I trust with the people I love.",
+        "I switched from three other apps. VeilChat is the first one that actually feels calm to use — and the only one I trust with the people I love.",
       name: "Maya Okafor",
       role: "Designer · Lisbon",
       initials: "MO",
@@ -804,7 +804,7 @@ function Testimonials() {
         <SectionLabel>Loved by quiet people everywhere</SectionLabel>
         <SectionHeading
           title="What people say after they switch."
-          subtitle="A few notes from the early Veil community."
+          subtitle="A few notes from the early VeilChat community."
         />
         <div className="mt-14 grid md:grid-cols-3 gap-5">
           {reviews.map((r) => (
@@ -943,7 +943,7 @@ function Security() {
               </span>
             </h2>
             <p className="mt-6 text-[18px] text-[#FCF5EB]/75 leading-[1.6] max-w-xl">
-              Veil is built on cryptographic foundations that secure billions
+              VeilChat is built on cryptographic foundations that secure billions
               of messages every day. We didn't roll our own — we stand on the
               shoulders of giants, and we make every piece auditable.
             </p>
@@ -1044,7 +1044,7 @@ function Comparison() {
       <div className="mx-auto max-w-5xl px-5 sm:px-8">
         <SectionLabel>The honest comparison</SectionLabel>
         <SectionHeading
-          title="Why people quietly switch to Veil."
+          title="Why people quietly switch to VeilChat."
           subtitle="The features other messengers gate, charge for, or quietly skip."
         />
         <div className="mt-12 rounded-3xl border border-[#253D2C]/10 overflow-hidden bg-white">
@@ -1053,7 +1053,7 @@ function Comparison() {
             style={{ backgroundColor: "#FCF5EB" }}
           >
             <div className="px-5 py-4 text-[#3C5A47]">Feature</div>
-            <div className="px-5 py-4 text-center text-[#2E6F40]">Veil</div>
+            <div className="px-5 py-4 text-center text-[#2E6F40]">VeilChat</div>
             <div className="px-5 py-4 text-center text-[#3C5A47]">Typical messenger</div>
           </div>
           {rows.map((r, i) => (
@@ -1183,7 +1183,7 @@ function GetTheApp() {
                   {qrDataUrl ? (
                     <img
                       src={qrDataUrl}
-                      alt="Scan to open Veil on your phone"
+                      alt="Scan to open VeilChat on your phone"
                       width={200}
                       height={200}
                       className="block w-[200px] h-[200px] rounded-lg"
@@ -1202,7 +1202,7 @@ function GetTheApp() {
                 Open your camera. Tap the link.
               </p>
               <p className="mt-1 text-[13.5px] text-[#3C5A47] max-w-xs">
-                Veil installs in seconds — no app store, no account required to
+                VeilChat installs in seconds — no app store, no account required to
                 start.
               </p>
             </div>
@@ -1214,13 +1214,13 @@ function GetTheApp() {
                 className="mt-3 text-[28px] sm:text-[36px] md:text-[42px] font-semibold tracking-[-0.02em] leading-[1.1] text-[#253D2C]"
                 style={{ fontFamily: "'Fraunces', serif" }}
               >
-                One Veil account.{" "}
+                One VeilChat account.{" "}
                 <span className="italic" style={{ color: "#2E6F40" }}>
                   Every device.
                 </span>
               </h2>
               <p className="mt-4 text-[15.5px] text-[#3C5A47] leading-relaxed max-w-md">
-                Veil is a Progressive Web App — install it straight from your
+                VeilChat is a Progressive Web App — install it straight from your
                 browser. No app store reviews, no waiting, always the latest
                 version.
               </p>
@@ -1315,15 +1315,15 @@ function IconDesktop() {
 function FAQ() {
   const items = [
     {
-      q: "Is Veil really free?",
-      a: "Yes — and it always will be. Veil is open source and run as a community project. There are no ads, no premium tiers, and no data sales because we don't have your data to sell.",
+      q: "Is VeilChat really free?",
+      a: "Yes — and it always will be. VeilChat is open source and run as a community project. There are no ads, no premium tiers, and no data sales because we don't have your data to sell.",
     },
     {
       q: "Do I need to give my phone number?",
       a: "No. You can sign up with a private ID and a recovery phrase that exists only on your device. Phone and email signup are also available if you prefer that.",
     },
     {
-      q: "Can the Veil team read my messages?",
+      q: "Can the VeilChat team read my messages?",
       a: "No. Encryption keys are generated on your device and never leave it. Our servers only see opaque ciphertext — bytes that look like random noise. Even if someone hacked us, they'd find nothing readable.",
     },
     {
@@ -1331,8 +1331,8 @@ function FAQ() {
       a: "If you signed up with a recovery phrase, you can restore access on a new device. Your encrypted message history isn't recoverable by design — that's the privacy trade-off we believe is worth making.",
     },
     {
-      q: "Does Veil work on iPhone?",
-      a: "Yes. Veil works as a Progressive Web App — open it in Safari, tap Share → Add to Home Screen, and it behaves like a native app, including push notifications on iOS 16.4+.",
+      q: "Does VeilChat work on iPhone?",
+      a: "Yes. VeilChat works as a Progressive Web App — open it in Safari, tap Share → Add to Home Screen, and it behaves like a native app, including push notifications on iOS 16.4+.",
     },
     {
       q: "Is the source code really open?",
@@ -1429,7 +1429,7 @@ function FinalCTA() {
               </span>
             </h2>
             <p className="mt-5 text-[17px] sm:text-[19px] text-[#E6FFDA] max-w-xl mx-auto leading-relaxed">
-              Join Veil today. It takes thirty seconds, costs nothing, and your
+              Join VeilChat today. It takes thirty seconds, costs nothing, and your
               messages stay between you and the people you actually trust.
             </p>
             <div className="mt-9 flex flex-col sm:flex-row gap-3 justify-center">
@@ -1437,7 +1437,7 @@ function FinalCTA() {
                 to="/welcome"
                 className="inline-flex items-center justify-center gap-2 bg-white hover:bg-[#FCF5EB] text-[#2E6F40] font-semibold text-[16px] px-8 py-4 rounded-full shadow-[0_18px_36px_-14px_rgba(0,0,0,0.35)] transition-colors"
               >
-                Get Veil — free forever
+                Get VeilChat — free forever
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M5 12h14" />
                   <path d="M13 5l7 7-7 7" />
@@ -1468,7 +1468,7 @@ function Footer() {
             <a href="#top" className="flex items-center gap-2.5">
               <BrandMark />
               <span className="text-[18px] font-bold tracking-tight text-white">
-                Veil
+                VeilChat
               </span>
             </a>
             <p className="mt-4 text-[14.5px] text-[#FCF5EB]/65 max-w-sm leading-relaxed">
@@ -1520,7 +1520,7 @@ function Footer() {
 
         <div className="mt-14 pt-8 border-t border-white/8 flex flex-col sm:flex-row items-center justify-between gap-4 text-[12.5px] text-[#FCF5EB]/55">
           <div>
-            © {new Date().getFullYear()} Veil. Made with care for the people
+            © {new Date().getFullYear()} VeilChat. Made with care for the people
             who deserve privacy.
           </div>
           <div className="flex items-center gap-2">

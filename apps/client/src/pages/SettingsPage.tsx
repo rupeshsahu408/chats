@@ -124,7 +124,7 @@ export function SettingsPage() {
   const hasSpk = prekeyStatus.data?.hasSignedPreKey ?? false;
 
   async function onLogout() {
-    if (!confirm("Log out of Veil on this browser?")) return;
+    if (!confirm("Log out of VeilChat on this browser?")) return;
     try {
       await logout.mutateAsync();
     } catch {
@@ -294,7 +294,7 @@ export function SettingsPage() {
             />
             <SettingsRow
               label="Daily privacy report"
-              sub="See what Veil protected today"
+              sub="See what VeilChat protected today"
               to="/privacy-report"
             />
             <SettingsRow
@@ -420,7 +420,7 @@ export function SettingsPage() {
           )}
 
           <p className="text-[11px] text-text-faint text-center py-6 px-6 leading-relaxed">
-            Veil · End-to-end encrypted messaging.
+            VeilChat · End-to-end encrypted messaging.
             <br />
             Sessions stay signed in for 90 days. PIN once per browser.
           </p>
@@ -773,7 +773,7 @@ function PasskeyRow() {
         >
           <div className="space-y-4">
             <p className="text-xs text-text-muted leading-relaxed">
-              Passkeys let you sign in to Veil without a password. Each device
+              Passkeys let you sign in to VeilChat without a password. Each device
               gets its own passkey. Removing one only removes it from this
               account — your device will still have it locally until you
               delete it from the system passkey manager.
@@ -1499,7 +1499,7 @@ function Modal({
  * One settings row that doubles as a live status badge for Focus Mode
  * (Principle #4). When focus is active, the row turns into a calm
  * green pill that tells the user *why* it's active and *until when*,
- * so they never have to guess whether Veil is going to interrupt them.
+ * so they never have to guess whether VeilChat is going to interrupt them.
  */
 function FocusModeStatusRow() {
   const state = useFocusState();
@@ -1660,7 +1660,7 @@ function PrivacyRows() {
     {
       key: "soundEnabled",
       label: "Sounds",
-      sub: "Play the Veil 3-note send and receive motifs, plus quiet tap blips for buttons.",
+      sub: "Play the VeilChat 3-note send and receive motifs, plus quiet tap blips for buttons.",
     },
     {
       key: "hapticsEnabled",
@@ -1788,7 +1788,7 @@ function VeilKeyboardRow() {
         <div className="min-w-0">
           <div className="text-text font-medium flex items-center gap-2">
             <span aria-hidden>⌨️</span>
-            <span>Veil keyboard</span>
+            <span>VeilChat keyboard</span>
             <span className="text-[10px] uppercase tracking-wide font-semibold text-wa-green border border-wa-green/40 rounded-full px-1.5 py-0.5">
               Beta
             </span>
@@ -1855,7 +1855,7 @@ function VeilKeyboardRow() {
       {/* Helpful disclosure when there's no touch input */}
       {!isCoarse && (
         <div className="mt-2 text-[11px] text-text-faint">
-          On this device the Veil keyboard opens as a click-to-type panel
+          On this device the VeilChat keyboard opens as a click-to-type panel
           inside each chat — your physical keyboard keeps working, so you
           can mix mouse-clicks and key presses for sensitive characters.
         </div>
@@ -1887,7 +1887,7 @@ function DiscoverabilityRow() {
   return (
     <ToggleRow
       label="Show me in Discover people"
-      sub="When on, anyone on Veil can find your profile and send you a chat request. You'll still need to confirm each request."
+      sub="When on, anyone on VeilChat can find your profile and send you a chat request. You'll still need to confirm each request."
       value={value}
       onChange={(v) => m.mutate({ enabled: v })}
     />
@@ -1944,7 +1944,7 @@ function ThemeRow() {
     <div className="px-4 py-4 border-b border-line/60">
       <div className="font-medium text-text mb-1">Theme</div>
       <div className="text-xs text-text-muted mb-3">
-        Veil always opens in the Light theme. Pick a different palette below if
+        VeilChat always opens in the Light theme. Pick a different palette below if
         you'd like — we'll remember your choice on this device.
       </div>
 

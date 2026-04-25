@@ -1,10 +1,10 @@
 import { create } from "zustand";
 
 /**
- * User preferences for the Veil in-app keyboard. Stored in localStorage
+ * User preferences for the VeilChat in-app keyboard. Stored in localStorage
  * so the choice survives reloads but never leaves the device.
  *
- * The Veil keyboard is opt-in: by default everyone uses the system
+ * The VeilChat keyboard is opt-in: by default everyone uses the system
  * keyboard. When enabled it replaces the system keyboard for chat
  * composers on touch devices, so keystrokes never pass through a
  * third-party IME (Gboard, SwiftKey, etc.) that might phone home.
@@ -16,7 +16,7 @@ export interface KeyboardPrefs {
    * If true, show a small ⌨ button in the composer that lets the user
    * temporarily flip back to the system keyboard for the current chat.
    * Useful escape hatch for autocomplete / dictation / language packs
-   * the Veil keyboard doesn't ship.
+   * the VeilChat keyboard doesn't ship.
    */
   showComposerSwitch: boolean;
 }

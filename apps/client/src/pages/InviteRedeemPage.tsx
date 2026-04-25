@@ -185,7 +185,7 @@ export function InviteRedeemPage() {
   const primaryName =
     inviter.displayName?.trim() ||
     (inviter.username ? `@${inviter.username}` : null) ||
-    "Veil user";
+    "VeilChat user";
   const handle = inviter.username ? `@${inviter.username}` : null;
   const showHandleLine = !!handle && handle !== primaryName;
   const initials = getInitials(inviter.displayName, inviter.username);
@@ -215,7 +215,7 @@ export function InviteRedeemPage() {
         )}
 
         <p className="text-xs text-text-faint">
-          wants to chat with you on Veil
+          wants to chat with you on VeilChat
         </p>
       </div>
 
@@ -223,7 +223,7 @@ export function InviteRedeemPage() {
 
       {!accessToken && (
         <InfoMessage>
-          You'll need a Veil account first. After you sign up or log in,
+          You'll need a VeilChat account first. After you sign up or log in,
           we'll bring you back here automatically.
         </InfoMessage>
       )}

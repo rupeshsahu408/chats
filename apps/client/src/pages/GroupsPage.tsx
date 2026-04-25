@@ -120,7 +120,7 @@ export function GroupsPage() {
                 {
                   icon: <ChatIcon />,
                   title: "Same encryption as one-to-one",
-                  body: "Each member's device holds their own keys. Veil's server can't read group messages either.",
+                  body: "Each member's device holds their own keys. VeilChat's server can't read group messages either.",
                 },
               ]}
             />

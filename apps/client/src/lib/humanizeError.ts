@@ -1,6 +1,6 @@
 /**
  * humanizeError — turn technical/raw errors into polished, user-facing
- * messages. Veil surfaces a wide variety of error sources (tRPC server
+ * messages. VeilChat surfaces a wide variety of error sources (tRPC server
  * codes, fetch/network errors, Zod validation, WebCrypto, IndexedDB,
  * Firebase, abort signals…). This module is the single place that
  * decides what the user actually sees.
@@ -43,7 +43,7 @@ const PREFER_SERVER_MESSAGE: Record<string, string> = {
 /**
  * Map known tRPC / HTTP-ish error codes to friendly copy. Anything not
  * in this map falls through to the cleaned-up server message (which is
- * usually already a polite English sentence on Veil's backend).
+ * usually already a polite English sentence on VeilChat's backend).
  */
 const CODE_MAP: Record<string, FriendlyError> = {
   UNAUTHORIZED: {

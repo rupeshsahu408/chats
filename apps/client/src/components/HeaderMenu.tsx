@@ -79,7 +79,7 @@ export function HeaderMenu() {
           <MenuItem
             to="/discover"
             label="Discover people"
-            sub="Browse everyone on Veil"
+            sub="Browse everyone on VeilChat"
             icon={<CompassIcon />}
             onClick={() => setOpen(false)}
           />

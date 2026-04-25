@@ -7,7 +7,7 @@ import { create } from "zustand";
  * "is the vault enabled" flag both live in `userPrefs` (durable,
  * survives reload). This store only tracks whether the user has
  * authenticated *this session* — closing the tab re-locks the
- * vault, so a stolen device that's still signed into Veil can't
+ * vault, so a stolen device that's still signed into VeilChat can't
  * reveal the hidden chats without the owner's biometric.
  *
  * The actual list of vaulted chats is filtered out of the main

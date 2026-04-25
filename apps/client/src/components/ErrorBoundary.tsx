@@ -26,7 +26,7 @@ export class AppErrorBoundary extends Component<Props, State> {
   componentDidCatch(error: Error, info: ErrorInfo) {
     // Best-effort console — useful for the user's devtools.
     // eslint-disable-next-line no-console
-    console.error("[Veil] Render error caught by boundary:", error, info);
+    console.error("[VeilChat] Render error caught by boundary:", error, info);
     this.setState({ details: info.componentStack ?? undefined });
     try {
       const friendly = humanizeError(error);

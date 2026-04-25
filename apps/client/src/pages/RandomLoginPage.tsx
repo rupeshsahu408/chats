@@ -659,7 +659,7 @@ export function RandomLoginPage() {
                 </span>
               </>
             ) : null}
-            . Veil only allows one device at a time.
+            . VeilChat only allows one device at a time.
           </p>
           <p className="text-sm text-text text-center max-w-sm">
             Was that you?
@@ -782,7 +782,7 @@ export function RandomLoginPage() {
             </p>
           ) : (
             <p className="text-sm text-text-muted text-center">
-              Welcome to Veil — your messages stay between you.
+              Welcome to VeilChat — your messages stay between you.
             </p>
           )}
         </div>
@@ -792,7 +792,7 @@ export function RandomLoginPage() {
             shouldOfferPasskey ? setStep("passkey") : continueIntoApp()
           }
         >
-          {shouldOfferPasskey ? "Continue" : "Continue to Veil"}
+          {shouldOfferPasskey ? "Continue" : "Continue to VeilChat"}
         </PrimaryButton>
       </ScreenShell>
     );

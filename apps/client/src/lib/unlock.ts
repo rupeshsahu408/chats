@@ -53,7 +53,7 @@ import type { UnlockedIdentity } from "./signal/session";
  *     3. Server's SPK signature verifies against server's identity.
  *        - If not, upload a fresh bundle. This is the common heal
  *          path that unblocks affected accounts the moment they open
- *          Veil.
+ *          VeilChat.
  *
  *   Runs in the background (fire-and-forget) so it never blocks the
  *   unlock UX. On a healthy account it's a single round-trip and a

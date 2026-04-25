@@ -267,8 +267,8 @@ function InviteCreatedCard({
     }
     try {
       await navigator.share({
-        title: `${niceName} invited you to Veil`,
-        text: `${niceName} (${handle}) invited you to a private, end-to-end encrypted chat on Veil.`,
+        title: `${niceName} invited you to VeilChat`,
+        text: `${niceName} (${handle}) invited you to a private, end-to-end encrypted chat on VeilChat.`,
         url: fullUrl,
       });
     } catch {
@@ -287,7 +287,7 @@ function InviteCreatedCard({
         <div className="bg-wa-green/15 border-b border-wa-green/25 px-4 py-2 flex items-center justify-between">
           <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.22em] font-semibold text-wa-green-dark dark:text-wa-green">
             <span className="size-1.5 rounded-full bg-wa-green animate-pulse" />
-            Veil · Invite Pass
+            VeilChat · Invite Pass
           </div>
           <div className="text-[10px] uppercase tracking-[0.16em] font-semibold text-wa-green-dark/70 dark:text-wa-green/80">
             {invite.maxUses === 1 ? "Single-use" : `${invite.maxUses}-use`}
@@ -353,7 +353,7 @@ function InviteCreatedCard({
             End-to-end encrypted from your first hello.
           </TrustBullet>
           <TrustBullet>
-            Veil never sees your contacts — only this one-time pass.
+            VeilChat never sees your contacts — only this one-time pass.
           </TrustBullet>
           <TrustBullet>
             You approve the connection before anything links.

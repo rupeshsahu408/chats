@@ -4,7 +4,7 @@ import { create } from "zustand";
 /**
  * Per-device chat wallpaper preference. Stored in localStorage so it
  * follows the user across sessions on the same device but never leaves
- * it (consistent with the Veil "private by design" stance — wallpapers
+ * it (consistent with the VeilChat "private by design" stance — wallpapers
  * are aesthetic, not part of identity, and shouldn't be synced).
  *
  * - "default" — plain `--wa-bg` (no pattern) — calm, WhatsApp-Web-style.
@@ -46,7 +46,7 @@ export const SOLID_PALETTE: { value: string; label: string }[] = [
 
 /** Dot-colour swatches used when kind === "dots". */
 export const DOT_PALETTE: { value: string; label: string }[] = [
-  { value: "#00A884", label: "Veil green" },
+  { value: "#00A884", label: "VeilChat green" },
   { value: "#38BDF8", label: "Sky" },
   { value: "#E11D48", label: "Rose" },
   { value: "#8B6F47", label: "Sepia" },

@@ -3,7 +3,7 @@ import { feedback } from "../lib/feedback";
 import { hapticTap } from "../lib/haptics";
 
 /**
- * Veil's in-app on-screen keyboard.
+ * VeilChat's in-app on-screen keyboard.
  *
  * A self-contained QWERTY keyboard panel that the chat composer can
  * render in place of the OS soft keyboard. Every keystroke is
@@ -134,7 +134,7 @@ export function VeilKeyboard({
         "shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
       }
       role="group"
-      aria-label="Veil private keyboard"
+      aria-label="VeilChat private keyboard"
     >
       {/* Privacy badge — always visible so the user *sees* the guarantee */}
       <div className="flex items-center justify-between px-3.5 pt-2 pb-1.5 text-[10.5px] text-text-muted">

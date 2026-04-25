@@ -619,7 +619,7 @@ export type VerifyFirebasePhoneInput = z.infer<typeof VerifyFirebasePhoneInput>;
 /** veil_ prefix + 8 random lowercase hex chars. */
 export const RandomIdSchema = z
   .string()
-  .regex(/^veil_[0-9a-f]{8}$/, "Must be a valid Veil random ID");
+  .regex(/^veil_[0-9a-f]{8}$/, "Must be a valid VeilChat random ID");
 export type RandomId = z.infer<typeof RandomIdSchema>;
 
 export const SignupRandomInput = z.object({

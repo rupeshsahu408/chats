@@ -79,7 +79,7 @@ export function DiscoverProfilePage() {
   }
 
   const { user, relationship } = profile.data;
-  const name = user.displayName ?? user.username ?? "Veil user";
+  const name = user.displayName ?? user.username ?? "VeilChat user";
 
   return (
     <main className="min-h-full flex flex-col bg-bg text-text">
@@ -145,7 +145,7 @@ export function DiscoverProfilePage() {
           {relationship === "pending_in" &&
             "They sent you a request — confirm it to start chatting."}
           {relationship === "connected" &&
-            "You're already connected on Veil."}
+            "You're already connected on VeilChat."}
         </p>
       </div>
       </div>

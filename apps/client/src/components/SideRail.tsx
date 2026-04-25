@@ -62,7 +62,7 @@ export function SideRail({
         <Logo size={32} />
         <div className="leading-tight">
           <div className="text-[15px] font-semibold tracking-tight text-text">
-            Veil
+            VeilChat
           </div>
           <div className="text-[11px] text-text-muted">
             End-to-end encrypted

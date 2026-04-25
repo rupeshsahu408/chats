@@ -5,7 +5,7 @@ import { AppBar } from "../components/Layout";
 
 /**
  * What we store — radical transparency about exactly what fields exist
- * in Veil's server database, what is encrypted, and what is plaintext.
+ * in VeilChat's server database, what is encrypted, and what is plaintext.
  *
  * This page is intentionally honest about metadata: the server *does*
  * see who you talk to and when, even though it never sees what you
@@ -37,7 +37,7 @@ export function WhatWeStorePage() {
             Every field, on the record
           </h2>
           <p className="mt-2 text-[13px] text-text-muted leading-relaxed max-w-md mx-auto">
-            This is exactly what lives in Veil's database. We separate
+            This is exactly what lives in VeilChat's database. We separate
             ciphertext (we can't read it) from plaintext metadata (we
             can). Knowing the difference is the whole point.
           </p>

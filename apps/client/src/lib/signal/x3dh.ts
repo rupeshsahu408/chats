@@ -72,7 +72,7 @@ export async function x3dhInitiate(
   );
   if (!sigOk) {
     throw new Error(
-      "This person's encryption keys are out of sync on the server. Ask them to open Veil once — it auto-repairs on unlock — then try sending again.",
+      "This person's encryption keys are out of sync on the server. Ask them to open VeilChat once — it auto-repairs on unlock — then try sending again.",
     );
   }
 

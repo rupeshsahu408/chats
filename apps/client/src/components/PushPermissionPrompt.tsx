@@ -94,7 +94,7 @@ export function PushPermissionPrompt() {
           Get notified of new messages
         </p>
         <p className="text-xs text-text-muted mt-0.5 leading-snug">
-          Veil only ever shows "New message" — the actual content is decrypted
+          VeilChat only ever shows "New message" — the actual content is decrypted
           on this device when you open the app.
         </p>
         <div className="flex gap-2 mt-2">

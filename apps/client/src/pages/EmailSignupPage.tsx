@@ -285,7 +285,7 @@ export function EmailSignupPage() {
     <ScreenShell phase="Phase 1 · Done">
       <div className="flex flex-col items-center gap-4 text-center">
         <Logo size={72} />
-        <h2 className="text-2xl font-semibold">Welcome to Veil</h2>
+        <h2 className="text-2xl font-semibold">Welcome to VeilChat</h2>
         <p className="text-sm text-text-muted">
           Your account is ready. Connections and messaging arrive in the next
           phases.

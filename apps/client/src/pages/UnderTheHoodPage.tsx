@@ -208,7 +208,7 @@ export function UnderTheHoodPage() {
           <KVRow
             label="App"
             value={
-              <span className="font-mono text-[12px] text-text">Veil web</span>
+              <span className="font-mono text-[12px] text-text">VeilChat web</span>
             }
             sub="React · Vite · tRPC client · Dexie · libsodium"
           />
@@ -243,7 +243,7 @@ export function UnderTheHoodPage() {
 
         <p className="px-6 pt-7 text-[11px] text-text-faint text-center leading-relaxed">
           This page is generated locally on your device. No part of it
-          is sent to Veil's servers.
+          is sent to VeilChat's servers.
         </p>
       </div>
     </div>

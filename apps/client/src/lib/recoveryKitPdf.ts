@@ -1,9 +1,9 @@
 /**
- * Veil Recovery Kit — visual PDF generator.
+ * VeilChat Recovery Kit — visual PDF generator.
  *
  * Builds a single-page A4 PDF that contains a user's BIP-39 recovery
  * phrase laid out as numbered word cards plus a scannable QR code,
- * branded with Veil's identity. Each user gets a unique kit (their
+ * branded with VeilChat's identity. Each user gets a unique kit (their
  * handle, their words, their generation timestamp).
  *
  * Heavy dependencies (jspdf, qrcode) are lazy-loaded so the recovery
@@ -21,7 +21,7 @@ export interface RecoveryKitInput {
 export interface RecoveryKit {
   /** The generated PDF as a Blob, ready to be downloaded or previewed. */
   blob: Blob;
-  /** Suggested filename, e.g. "veil-recovery-kit-alice.pdf". */
+  /** Suggested filename, e.g. "veilchat-recovery-kit-alice.pdf". */
   filename: string;
   /** Byte size of the blob, exposed so the UI can show "276 KB" etc. */
   bytes: number;
@@ -37,7 +37,7 @@ const SAFE_BG: [number, number, number] = [240, 250, 247];
 const SAFE_BORDER: [number, number, number] = [180, 220, 207];
 
 /**
- * Render a Veil Recovery Kit PDF for the given user. Returns a Blob
+ * Render a VeilChat Recovery Kit PDF for the given user. Returns a Blob
  * the caller can save with a temporary anchor download.
  */
 export async function generateRecoveryKitPdf(
@@ -62,11 +62,11 @@ export async function generateRecoveryKitPdf(
   pdf.setFillColor(...VEIL_GREEN);
   pdf.rect(0, 0, pageW, 96, "F");
 
-  // Veil wordmark (typeset, no external font needed).
+  // VeilChat wordmark (typeset, no external font needed).
   pdf.setTextColor(255, 255, 255);
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(24);
-  pdf.text("Veil", margin, 50);
+  pdf.text("VeilChat", margin, 50);
 
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(10.5);
@@ -89,7 +89,7 @@ export async function generateRecoveryKitPdf(
   pdf.setTextColor(...INK);
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(22);
-  pdf.text("Your Veil recovery kit", margin, y);
+  pdf.text("Your VeilChat recovery kit", margin, y);
 
   y += 22;
   pdf.setFont("helvetica", "normal");
@@ -157,7 +157,7 @@ export async function generateRecoveryKitPdf(
   pdf.setFontSize(10.5);
   pdf.setTextColor(...MUTED);
   const lines = pdf.splitTextToSize(
-    "On a new device, open Veil, choose Log in with Random ID, " +
+    "On a new device, open VeilChat, choose Log in with Random ID, " +
       "then point your camera at this code (or type the 12 words above) " +
       "to recover your encrypted history.",
     pageW - margin - capX,
@@ -181,7 +181,7 @@ export async function generateRecoveryKitPdf(
   pdf.setFontSize(10);
   pdf.setTextColor(...INK);
   const safeLines = pdf.splitTextToSize(
-    "Anyone with these 12 words can read your messages. Veil cannot " +
+    "Anyone with these 12 words can read your messages. VeilChat cannot " +
       "reset or recover them — they exist only here. Print this page or " +
       "store it in an encrypted password manager.",
     pageW - margin * 2 - 32,
@@ -193,7 +193,7 @@ export async function generateRecoveryKitPdf(
   pdf.setFontSize(9);
   pdf.setTextColor(...MUTED);
   pdf.text(
-    "Veil — end-to-end encrypted messaging.",
+    "VeilChat — end-to-end encrypted messaging.",
     margin,
     pageH - 32,
   );
@@ -207,7 +207,7 @@ export async function generateRecoveryKitPdf(
   const blob = pdf.output("blob");
   return {
     blob,
-    filename: `veil-recovery-kit-${sanitize(input.username)}.pdf`,
+    filename: `veilchat-recovery-kit-${sanitize(input.username)}.pdf`,
     bytes: blob.size,
   };
 }

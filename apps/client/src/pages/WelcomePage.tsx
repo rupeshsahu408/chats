@@ -55,7 +55,7 @@ export function WelcomePage() {
             <Logo size={88} />
             <div>
               <h1 className="text-[28px] font-semibold tracking-tight leading-tight">
-                Welcome to Veil
+                Welcome to VeilChat
               </h1>
               <p className="mt-2 text-[14px] text-text-muted leading-relaxed">
                 Private by design.

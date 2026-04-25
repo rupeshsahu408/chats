@@ -9,7 +9,7 @@ import { feedback } from "../lib/feedback";
 import { humanizeError } from "../lib/humanizeError";
 
 /**
- * Visual recovery-kit download card — Veil's answer to ProtonMail's
+ * Visual recovery-kit download card — VeilChat's answer to ProtonMail's
  * "Download recovery kit" widget.
  *
  *   • Renders a small PDF "thumbnail" on the left so the user sees
@@ -79,7 +79,7 @@ export function RecoveryKitDownloadCard({
     }
   }
 
-  const filename = kit?.filename ?? `veil-recovery-kit-${username}.pdf`;
+  const filename = kit?.filename ?? `veilchat-recovery-kit-${username}.pdf`;
   const sizeLabel = kit ? formatBytes(kit.bytes) : "Preparing…";
 
   return (

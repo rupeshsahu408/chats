@@ -1,5 +1,5 @@
 /**
- * Veil toast notifications.
+ * VeilChat toast notifications.
  *
  * A tiny, dependency-free pub/sub toast system. Rendered through a
  * single `<ToastViewport />` mounted near the root of the tree. Other

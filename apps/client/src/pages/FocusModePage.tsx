@@ -12,7 +12,7 @@ import { feedback } from "../lib/feedback";
 /**
  * Focus Mode (Principle #4 — calm by default).
  *
- * The single screen that lets the user tell Veil "don't interrupt me".
+ * The single screen that lets the user tell VeilChat "don't interrupt me".
  * Three independent levers, evaluated in this order of explicitness:
  *
  *   1. Snooze for N hours        (most explicit — overrides everything)
@@ -20,7 +20,7 @@ import { feedback } from "../lib/feedback";
  *   3. Quiet hours window        (recurring, time-of-day aware)
  *
  * Whichever is currently active is reflected in the live status pill at
- * the top so the user always knows whether Veil is going to keep quiet,
+ * the top so the user always knows whether VeilChat is going to keep quiet,
  * and until when. Everything writes through `useStealthPrefs.set` so
  * the change is persisted to Dexie + propagated to the sound bus
  * immediately.
@@ -90,7 +90,7 @@ export function FocusModePage() {
           </div>
           <h2 className="mt-3 text-[22px] font-semibold tracking-tight text-text leading-tight">
             {state.active
-              ? "Veil won't interrupt you"
+              ? "VeilChat won't interrupt you"
               : "Decide when you want to be reachable"}
           </h2>
           {state.active && (
@@ -162,7 +162,7 @@ export function FocusModePage() {
           sub={
             quietOn
               ? `From ${formatHHMM(quietStart)} to ${formatHHMM(quietEnd)} · automatic`
-              : "Pick a window and Veil will go silent every day."
+              : "Pick a window and VeilChat will go silent every day."
           }
           checked={quietOn}
           onChange={async (v) => {
@@ -190,7 +190,7 @@ export function FocusModePage() {
         )}
 
         {/* ─── What this changes ─── */}
-        <SectionHeader>While Veil is quiet</SectionHeader>
+        <SectionHeader>While VeilChat is quiet</SectionHeader>
         <div className="px-4">
           <ul className="rounded-2xl bg-surface border border-line/60 divide-y divide-line/40 text-[13px]">
             <FactRow ok>Messages still arrive in your inbox.</FactRow>

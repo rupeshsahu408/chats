@@ -1,7 +1,7 @@
 /**
- * Veil Focus Mode (design Principle #4 — calm by default).
+ * VeilChat Focus Mode (design Principle #4 — calm by default).
  *
- * One source of truth for "should Veil interrupt the user right now?".
+ * One source of truth for "should VeilChat interrupt the user right now?".
  * Combines three signals:
  *   1. The master Focus toggle (`focusModeEnabled`)
  *   2. Quiet-hours window (e.g. 22:00 → 07:00, with overnight wrap)
