@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
+import QRCode from "qrcode";
 import peopleUsingPhones from "../assets/landing/people-using-phones.jpg";
 import smilingWithPhone from "../assets/landing/smiling-with-phone.jpg";
 
@@ -28,6 +29,7 @@ export function LandingPage() {
       <HowItWorks />
       <Security />
       <Comparison />
+      <GetTheApp />
       <FAQ />
       <FinalCTA />
       <Footer />
@@ -854,6 +856,208 @@ function Cell({ value, positive }: { value: boolean | string; positive?: boolean
   return <span className="text-[12.5px] text-[#3C5A47]/70">{value}</span>;
 }
 
+/* ───────────────────────── Get the app ───────────────────────── */
+
+function GetTheApp() {
+  const [qrDataUrl, setQrDataUrl] = useState<string>("");
+  const [installUrl, setInstallUrl] = useState<string>("");
+
+  useEffect(() => {
+    const url =
+      typeof window !== "undefined"
+        ? window.location.origin + "/welcome"
+        : "https://veil.app/welcome";
+    setInstallUrl(url);
+    QRCode.toDataURL(url, {
+      errorCorrectionLevel: "M",
+      margin: 1,
+      width: 320,
+      color: { dark: "#253D2C", light: "#FCF5EB" },
+    })
+      .then(setQrDataUrl)
+      .catch(() => setQrDataUrl(""));
+  }, []);
+
+  const platforms: Array<{
+    label: string;
+    sub: string;
+    hint: string;
+    icon: React.ReactNode;
+  }> = [
+    {
+      label: "iPhone & iPad",
+      sub: "Install on iOS",
+      hint: "Open in Safari → tap Share → Add to Home Screen.",
+      icon: <IconApple />,
+    },
+    {
+      label: "Android",
+      sub: "Install on Android",
+      hint: "Open in Chrome → tap menu → Install app.",
+      icon: <IconAndroid />,
+    },
+    {
+      label: "Mac, Windows & Linux",
+      sub: "Install on desktop",
+      hint: "Click the install icon in your browser's address bar.",
+      icon: <IconDesktop />,
+    },
+  ];
+
+  return (
+    <section
+      id="install"
+      className="py-24 sm:py-32"
+      style={{ backgroundColor: "#FCF5EB" }}
+    >
+      <div className="mx-auto max-w-6xl px-5 sm:px-8">
+        <div className="rounded-[2.5rem] bg-white border border-[#253D2C]/10 overflow-hidden shadow-[0_30px_60px_-30px_rgba(17,27,33,0.18)]">
+          <div className="grid lg:grid-cols-12 gap-0">
+            {/* Left: QR card */}
+            <div
+              className="lg:col-span-5 p-10 sm:p-12 flex flex-col items-center justify-center text-center"
+              style={{ backgroundColor: "#E6FFDA" }}
+            >
+              <div className="inline-flex items-center gap-2 text-[12px] font-bold tracking-[0.2em] uppercase text-[#2E6F40]">
+                <span className="w-6 h-px bg-[#68BA7F]" />
+                Scan to install
+              </div>
+              <div className="mt-6 relative">
+                <div
+                  className="absolute -inset-3 rounded-[1.6rem]"
+                  style={{ backgroundColor: "#CFFFDC" }}
+                />
+                <div className="relative bg-white p-4 rounded-[1.4rem] border border-[#253D2C]/10 shadow-[0_18px_40px_-18px_rgba(17,27,33,0.25)]">
+                  {qrDataUrl ? (
+                    <img
+                      src={qrDataUrl}
+                      alt="Scan to open Veil on your phone"
+                      width={200}
+                      height={200}
+                      className="block w-[200px] h-[200px] rounded-lg"
+                    />
+                  ) : (
+                    <div className="w-[200px] h-[200px] rounded-lg bg-[#FCF5EB]" />
+                  )}
+                  <div className="absolute inset-0 grid place-items-center pointer-events-none">
+                    <span className="grid place-items-center w-12 h-12 rounded-2xl bg-white shadow-[0_8px_18px_-6px_rgba(17,27,33,0.25)] border border-[#253D2C]/10">
+                      <BrandMark />
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <p className="mt-6 text-[15px] text-[#253D2C] font-medium">
+                Open your camera. Tap the link.
+              </p>
+              <p className="mt-1 text-[13.5px] text-[#3C5A47] max-w-xs">
+                Veil installs in seconds — no app store, no account required to
+                start.
+              </p>
+            </div>
+
+            {/* Right: install buttons */}
+            <div className="lg:col-span-7 p-10 sm:p-12">
+              <SectionLabel>Get the app</SectionLabel>
+              <h2
+                className="mt-3 text-[28px] sm:text-[36px] md:text-[42px] font-semibold tracking-[-0.02em] leading-[1.1] text-[#253D2C]"
+                style={{ fontFamily: "'Fraunces', serif" }}
+              >
+                One Veil account.{" "}
+                <span className="italic" style={{ color: "#2E6F40" }}>
+                  Every device.
+                </span>
+              </h2>
+              <p className="mt-4 text-[15.5px] text-[#3C5A47] leading-relaxed max-w-md">
+                Veil is a Progressive Web App — install it straight from your
+                browser. No app store reviews, no waiting, always the latest
+                version.
+              </p>
+
+              <div className="mt-7 space-y-3">
+                {platforms.map((p) => (
+                  <Link
+                    key={p.label}
+                    to="/welcome"
+                    className="group flex items-center gap-4 rounded-2xl border border-[#253D2C]/10 hover:border-[#2E6F40]/40 hover:bg-[#FCF5EB] px-5 py-4 transition-colors"
+                  >
+                    <span
+                      className="grid place-items-center w-12 h-12 rounded-xl shrink-0 text-white"
+                      style={{ backgroundColor: "#253D2C" }}
+                    >
+                      {p.icon}
+                    </span>
+                    <span className="flex-1 min-w-0">
+                      <span className="block text-[12px] font-medium text-[#3C5A47]/80 leading-none">
+                        {p.sub}
+                      </span>
+                      <span className="block mt-1 text-[16px] font-semibold text-[#253D2C] leading-tight">
+                        {p.label}
+                      </span>
+                      <span className="block mt-1 text-[12.5px] text-[#3C5A47]/80 leading-snug">
+                        {p.hint}
+                      </span>
+                    </span>
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="text-[#2E6F40] shrink-0"
+                    >
+                      <path d="M5 12h14" />
+                      <path d="M13 5l7 7-7 7" />
+                    </svg>
+                  </Link>
+                ))}
+              </div>
+
+              {installUrl && (
+                <div className="mt-6 flex items-center gap-2 text-[12.5px] text-[#3C5A47]/80">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                    <path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 1 0-7.07-7.07L11 5" />
+                    <path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 1 0 7.07 7.07L13 19" />
+                  </svg>
+                  <span className="truncate">{installUrl}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function IconApple() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M16.365 1.43c0 1.14-.43 2.13-1.16 2.86-.74.79-1.97 1.39-3.04 1.31-.13-1.1.42-2.23 1.13-2.95.79-.81 2.12-1.41 3.07-1.22zM20.5 17.17c-.5 1.16-.74 1.68-1.39 2.71-.9 1.43-2.18 3.21-3.76 3.22-1.4.01-1.76-.91-3.66-.9-1.9.01-2.3.92-3.7.91-1.58-.01-2.79-1.62-3.69-3.05C2.06 16.42.95 11.34 3.32 8.21 4.45 6.69 6.16 5.74 7.86 5.74c1.74 0 2.83.95 4.27.95 1.39 0 2.24-.95 4.25-.95 1.5 0 3.09.82 4.22 2.23-3.71 2.03-3.1 7.34-.1 9.2z" />
+    </svg>
+  );
+}
+
+function IconAndroid() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M17.6 9.48l1.84-3.18a.4.4 0 0 0-.69-.4l-1.86 3.22A11.95 11.95 0 0 0 12 8c-1.78 0-3.46.39-4.89 1.12L5.25 5.9a.4.4 0 0 0-.69.4l1.84 3.18A8.93 8.93 0 0 0 2 16h20a8.93 8.93 0 0 0-4.4-6.52zM7.5 13.5a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm9 0a1 1 0 1 1 0-2 1 1 0 0 1 0 2z" />
+    </svg>
+  );
+}
+
+function IconDesktop() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="4" width="18" height="12" rx="2" />
+      <path d="M8 20h8" />
+      <path d="M12 16v4" />
+    </svg>
+  );
+}
+
 /* ───────────────────────── FAQ ───────────────────────── */
 
 function FAQ() {
@@ -1048,7 +1252,7 @@ function Footer() {
             links={[
               { label: "Sign up", to: "/welcome" },
               { label: "Sign in", to: "/login" },
-              { label: "Install as PWA", href: "#how" },
+              { label: "Install as PWA", href: "#install" },
             ]}
           />
           <FooterCol
