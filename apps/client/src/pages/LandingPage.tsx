@@ -2054,9 +2054,10 @@ function Footer() {
           />
           <FooterCol
             title="Resources"
+            internal
             links={[
               { label: "GitHub", href: "https://github.com" },
-              { label: "Privacy", href: "#" },
+              { label: "Privacy Policy", to: "/privacy-policy" },
               { label: "Terms", href: "#" },
               { label: "Contact", href: "mailto:hello@veil.app" },
             ]}
