@@ -35,6 +35,82 @@ export function LandingPage() {
       <FAQ />
       <FinalCTA />
       <Footer />
+      <FloatingInstallChip />
+    </div>
+  );
+}
+
+/* ───────────────────────── Floating install chip ───────────────────────── */
+
+const INSTALL_CHIP_DISMISS_KEY = "veil:landing_install_chip_dismissed";
+
+function FloatingInstallChip() {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (sessionStorage.getItem(INSTALL_CHIP_DISMISS_KEY) === "1") return;
+
+    const heroThreshold = () =>
+      Math.max(window.innerHeight * 0.85, 600);
+
+    const onScroll = () => {
+      const past = window.scrollY > heroThreshold();
+      setVisible(past);
+    };
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  const dismiss = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      sessionStorage.setItem(INSTALL_CHIP_DISMISS_KEY, "1");
+    } catch {
+      /* ignore */
+    }
+    setVisible(false);
+  };
+
+  return (
+    <div
+      aria-hidden={!visible}
+      className={[
+        "fixed z-50 bottom-5 left-1/2 -translate-x-1/2 sm:left-auto sm:translate-x-0 sm:right-6 sm:bottom-6",
+        "transition-all duration-200",
+        visible
+          ? "opacity-100 translate-y-0 pointer-events-auto"
+          : "opacity-0 translate-y-3 pointer-events-none",
+      ].join(" ")}
+    >
+      <Link
+        to="/welcome"
+        className="group flex items-center gap-2.5 pl-4 pr-2 py-2 rounded-full text-white shadow-[0_18px_40px_-12px_rgba(17,27,33,0.45)] border border-white/10 hover:bg-[#253D2C] transition-colors"
+        style={{ backgroundColor: "#2E6F40" }}
+      >
+        <span className="grid place-items-center w-7 h-7 rounded-full bg-white/15">
+          <LockMini />
+        </span>
+        <span className="flex flex-col leading-tight pr-1">
+          <span className="text-[11px] font-medium text-[#CFFFDC] tracking-wide">
+            Free · 30 seconds
+          </span>
+          <span className="text-[14px] font-semibold">Install Veil</span>
+        </span>
+        <button
+          type="button"
+          onClick={dismiss}
+          aria-label="Dismiss install prompt"
+          className="ml-1 grid place-items-center w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 text-white/80 hover:text-white transition-colors"
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round">
+            <path d="M6 6l12 12" />
+            <path d="M18 6L6 18" />
+          </svg>
+        </button>
+      </Link>
     </div>
   );
 }
