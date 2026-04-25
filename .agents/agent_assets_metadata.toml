@@ -1,5 +1,10 @@
 uploads = []
-generated = []
+
+[[generated]]
+id = "4QD_E2flV19QLEvbmeepn"
+uri = "file://apps/client/public/og-image.png"
+type = "image"
+title = "veil og social card"
 
 [[outputs]]
 id = "z1caNzbDL_yn5I72ECE_c"

@@ -280,7 +280,9 @@ The always-on poll exposed a pre-existing race: the WS push and a poll drain (or
 - `people-using-phones.jpg` — Pexels lifestyle shot, used in the new "Made for everyone" section.
 - `smiling-with-phone.jpg` — Unsplash portrait, used as the right-side image in the dark Security section with a quote overlay.
 
-**Sections:** Nav (transparent → cream blur on scroll, pill CTAs) · Hero (Fraunces headline + WhatsApp-style phone mockup with doodle background, mint outgoing bubbles, double-check ticks, encrypted-banner) · Trust bar · 9-card Features grid (rounded-3xl white cards with mint icon tiles) · **Lifestyle** photo section with floating "encrypted from the very first hello" badge · How-it-works (3 numbered cream cards + arrow connectors) · **Dark Security** section with X3DH/Double-Ratchet list + portrait photo + quote · Comparison table · Accordion FAQ on white card · Forest-green Final CTA with doodle backdrop · Dark slate footer.
+**Sections (in order):** Nav · Hero · Trust bar · 9-card Features grid · **Lifestyle** photo section · **PressStrip** ("AS SEEN IN" with five fictional wordmarks) · **Testimonials** (3 cards: Maya/Jonas/Priya, brand-colored initial avatars) · How-it-works · **Dark Security** section with portrait photo + quote · Comparison table · **GetTheApp** section with QR code (encodes `origin + /welcome`) and 3 install rows · Accordion FAQ · Forest-green Final CTA · Dark slate footer · **FloatingInstallChip** (fixed pill, appears after scrolling past hero, sessionStorage-dismissable).
+
+**Social share preview:** `apps/client/public/og-image.png` (1200×630, branded card rendered from SVG via `apps/client/scripts/build-og.mjs` using `sharp`). Open Graph + Twitter Card meta tags wired in `index.html`. Re-run `node apps/client/scripts/build-og.mjs` after editing the SVG to regenerate the PNG.
 
 `SessionBootstrap` is unchanged — a signed-in user landing on `/` or `/welcome` is still bounced to `/chats`.
 
