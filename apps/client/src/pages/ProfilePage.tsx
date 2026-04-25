@@ -6,6 +6,7 @@ import { useAuthStore } from "../lib/store";
 import { AppBar, Avatar, Spinner } from "../components/Layout";
 import { peerLabel } from "../lib/peerLabel";
 import { db } from "../lib/db";
+import { ChatContactSettings } from "../components/ChatContactSettings";
 
 export function ProfilePage() {
   const { peerId = "" } = useParams<{ peerId: string }>();
@@ -192,6 +193,10 @@ export function ProfilePage() {
 
           {/* Conversation memory — local-only stats, computed from Dexie */}
           <ConversationMemory peerId={peerId} displayName={peerLabel(peer)} />
+
+          {/* Per-contact settings, promoted out of the chat header
+              menu so it can stay slim on small screens. */}
+          <ChatContactSettings peerId={peerId} peerLabel={peerLabel(peer)} />
 
           {/* Identity facts */}
           <Section title="Account">

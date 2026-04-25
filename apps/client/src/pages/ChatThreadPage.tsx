@@ -36,6 +36,11 @@ import { PollComposer, PollCard } from "../components/Poll";
 import { QuickActionsSheet } from "../components/QuickActionsSheet";
 import { ReportDialog } from "../components/ReportDialog";
 import { EmojiPicker, ReactionPicker } from "../components/EmojiPicker";
+import {
+  SlideOverPanel,
+  PanelRow,
+  PanelGroupHeader,
+} from "../components/SlideOverPanel";
 import { wsClient, wsTyping } from "../lib/wsClient";
 import { usePresenceStore } from "../lib/presenceStore";
 import { formatLastSeen } from "../lib/lastSeen";
@@ -89,19 +94,11 @@ import {
 import { trpcClientProxy } from "../lib/trpcClientProxy";
 import { useStealthPrefs } from "../lib/stealthPrefs";
 import { useEffectiveWallpaper, getWallpaperStyle } from "../lib/wallpaperStore";
-import { ChatWallpaperSheet } from "../components/ChatWallpaperSheet";
-import { ChatPersonalitySheet } from "../components/ChatPersonalitySheet";
 import { getAccentSwatch } from "../lib/chatPersonality";
 import { moodCountdownLabel } from "../lib/moodSync";
 import { VeilKeyboard } from "../components/VeilKeyboard";
 import { useKeyboardPrefs, isCoarsePointerDevice } from "../lib/keyboardPrefs";
-import { safetyNumberFromB64 } from "../lib/safetyNumber";
-import { SafetyArt, formatSafetyRows } from "../lib/safetyArt";
-import {
-  biometricSupported,
-  registerBiometricCredential,
-  verifyBiometric,
-} from "../lib/biometric";
+import { verifyBiometric } from "../lib/biometric";
 import { MessageText } from "../lib/markdown";
 
 const POLL_MS = 3000;
@@ -194,7 +191,6 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
   // Default-on. Only treat as off when the user has explicitly disabled it.
   const linkPreviewsEnabled = chatPref?.linkPreviewsEnabled !== false;
   const biometricCredentialId = chatPref?.biometricCredentialId;
-  const pinnedToTop = !!chatPref?.pinnedToTop;
   const mutedUntilIso = chatPref?.mutedUntil ?? "";
   const isMuted =
     !!mutedUntilIso && new Date(mutedUntilIso).getTime() > Date.now();
@@ -228,16 +224,11 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
   const [menuOpen, setMenuOpen] = useState<
     | null
     | "main"
-    | "ttl"
-    | "seenTtl"
-    | "safety"
-    | "report"
     | "starred"
     | "scheduledList"
-    | "wallpaper"
-    | "personality"
-    | "snooze"
   >(null);
+  /** Open the report dialog for the current peer (long-press → Report). */
+  const [reportOpen, setReportOpen] = useState(false);
   /** Header search bar (in-chat search) visibility + query. */
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -359,15 +350,7 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
   );
   const blockedByMe = blockStatus.data?.blockedByMe ?? false;
   const blockedMe = blockStatus.data?.blockedMe ?? false;
-  const blockMutation = trpc.privacy.block.useMutation({
-    onSuccess: () => blockStatus.refetch(),
-  });
-  const unblockMutation = trpc.privacy.unblock.useMutation({
-    onSuccess: () => blockStatus.refetch(),
-  });
-  const reportMutation = trpc.privacy.report.useMutation({
-    onSuccess: () => blockStatus.refetch(),
-  });
+  const reportMutation = trpc.privacy.report.useMutation();
   const [pendingPreview, setPendingPreview] = useState<EnvelopeLinkPreview | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -773,29 +756,7 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
     }
   }
 
-  async function onToggleBiometric() {
-    if (biometricCredentialId) {
-      if (!confirm("Remove biometric lock from this chat?")) return;
-      await setChatPref(peerId, { biometricCredentialId: undefined });
-      return;
-    }
-    if (!biometricSupported()) {
-      toast.warning("Biometric unlock isn't supported on this device.", {
-        title: "Not supported",
-      });
-      return;
-    }
-    try {
-      const credId = await registerBiometricCredential(`veil:${peerId}`, displayName);
-      await setChatPref(peerId, { biometricCredentialId: credId });
-      toast.success("Biometric lock enabled for this chat.");
-    } catch (e) {
-      toast.error(e, { title: "Couldn't enable biometric lock" });
-    }
-  }
-
   const ttlLabel = TTL_OPTIONS.find((o) => o.seconds === ttlSeconds)?.label ?? "Off";
-  const seenTtlLabel = seenTtlSeconds > 0 ? formatSeenTtl(seenTtlSeconds) : "Off";
 
   if (!unlocked) {
     return (
@@ -1300,7 +1261,7 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
           }}
           onReport={() => {
             setActionFor(null);
-            setMenuOpen("report");
+            setReportOpen(true);
           }}
           onQuickActions={() => {
             const text = (actionFor.plaintext ?? "").trim();
@@ -1414,150 +1375,59 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
         />
       )}
 
-      {menuOpen === "main" && (
-        <ChatMenu
-          onClose={() => setMenuOpen(null)}
-          ttlLabel={ttlLabel}
-          onTTL={() => setMenuOpen("ttl")}
-          seenTtlLabel={seenTtlLabel}
-          onSeenTtl={() => setMenuOpen("seenTtl")}
-          onSafety={() => setMenuOpen("safety")}
-          onToggleBiometric={onToggleBiometric}
-          biometricEnabled={!!biometricCredentialId}
-          viewOnceDefault={viewOnceDefault}
-          onToggleViewOnce={() =>
-            void setChatPref(peerId, { viewOnceDefault: !viewOnceDefault })
+      <ChatMenu
+        open={menuOpen === "main"}
+        onClose={() => setMenuOpen(null)}
+        peerLabel={displayName}
+        peerSubLabel={subDisplay && subDisplay !== displayName ? subDisplay : undefined}
+        avatar={
+          <Avatar
+            seed={peer?.peer.username || peerId}
+            src={peer?.peer.avatarDataUrl ?? null}
+            label={displayName.slice(0, 2)}
+            size={36}
+          />
+        }
+        onViewProfile={() => {
+          setMenuOpen(null);
+          navigate(`/profile/${peerId}`);
+        }}
+        onSearch={() => {
+          setSearchOpen(true);
+          setMenuOpen(null);
+        }}
+        onSelectMessages={() => {
+          setSelectMode(true);
+          setSelectedIds(new Set());
+          setMenuOpen(null);
+        }}
+        onShowStarred={() => setMenuOpen("starred")}
+        onShowScheduled={() => setMenuOpen("scheduledList")}
+        onClearChat={() => {
+          if (
+            confirm(
+              `Clear all messages with ${displayName}? This only affects this device.`,
+            )
+          ) {
+            void clearChatHistory(peerId);
           }
-          linkPreviewsEnabled={linkPreviewsEnabled}
-          onToggleLinkPreviews={() =>
-            void setChatPref(peerId, {
-              linkPreviewsEnabled: !linkPreviewsEnabled,
-            })
-          }
-          blockedByMe={blockedByMe}
-          onToggleBlock={() => {
-            setMenuOpen(null);
-            if (blockedByMe) {
-              if (!confirm(`Unblock ${displayName}?`)) return;
-              unblockMutation.mutate({ peerId });
-            } else {
-              if (
-                !confirm(
-                  `Block ${displayName}? They won't be able to send you messages and you won't be able to send them messages.`,
-                )
-              )
-                return;
-              blockMutation.mutate({ peerId });
-            }
-          }}
-          onReport={() => setMenuOpen("report")}
-          pinnedToTop={pinnedToTop}
-          onTogglePinChat={() =>
-            void setChatPref(peerId, { pinnedToTop: !pinnedToTop })
-          }
-          isMuted={isMuted}
-          onToggleMute={() => {
-            if (isMuted) {
-              // Already muted → unmute is a one-tap action, no sheet.
-              void setChatPref(peerId, { mutedUntil: "" });
-            } else {
-              // Surface the surgical-snooze options: 1h / 8h / until
-              // tomorrow morning / 1 week / always. Closing the main
-              // menu first prevents the two sheets from stacking.
-              setMenuOpen("snooze");
-            }
-          }}
-          onSearch={() => setSearchOpen(true)}
-          onClearChat={() => {
-            if (
-              confirm(
-                `Clear all messages with ${displayName}? This only affects this device.`,
-              )
-            ) {
-              void clearChatHistory(peerId);
-            }
-            setMenuOpen(null);
-          }}
-          onShowStarred={() => setMenuOpen("starred")}
-          onSelectMessages={() => {
-            setSelectMode(true);
-            setSelectedIds(new Set());
-          }}
-          onShowScheduled={() => setMenuOpen("scheduledList")}
-          onWallpaper={() => setMenuOpen("wallpaper")}
-          onCustomize={() => setMenuOpen("personality")}
-        />
-      )}
-      {menuOpen === "wallpaper" && (
-        <ChatWallpaperSheet
-          scope={{ type: "dm", peerId }}
-          chatLabel={displayName}
-          onClose={() => setMenuOpen(null)}
-        />
-      )}
-      {menuOpen === "personality" && (
-        <ChatPersonalitySheet
-          peerId={peerId}
-          chatLabel={displayName}
-          onClose={() => setMenuOpen(null)}
-        />
-      )}
-      {menuOpen === "snooze" && (
-        <SnoozeSheet
-          peerLabel={displayName}
-          onClose={() => setMenuOpen(null)}
-          onPick={(untilIso) => {
-            void setChatPref(peerId, { mutedUntil: untilIso });
-            setMenuOpen(null);
-          }}
-        />
-      )}
-      {menuOpen === "ttl" && (
-        <TTLPicker
-          current={ttlSeconds}
-          onClose={() => setMenuOpen(null)}
-          onPick={(secs) => {
-            void setChatPref(peerId, { ttlSeconds: secs });
-            setMenuOpen(null);
-          }}
-        />
-      )}
-      {menuOpen === "seenTtl" && (
-        <SeenTTLPicker
-          current={seenTtlSeconds}
-          onClose={() => setMenuOpen(null)}
-          onPick={(secs) => {
-            void setChatPref(peerId, { seenTtlSeconds: secs });
-            setMenuOpen(null);
-          }}
-        />
-      )}
-      {menuOpen === "safety" && peer && (
-        <SafetyNumberDialog
-          myId={myId}
-          peerId={peerId}
-          peerLabel={displayName}
-          onClose={() => setMenuOpen(null)}
-        />
-      )}
-      {menuOpen === "report" && (
+          setMenuOpen(null);
+        }}
+      />
+
+      {reportOpen && (
         <ReportDialog
           peerLabel={displayName}
-          onClose={() => setMenuOpen(null)}
+          peerHandle={peer?.peer.username ? `@${peer.peer.username}` : null}
+          onClose={() => setReportOpen(false)}
           onSubmit={async (reason, note, alsoBlock) => {
-            await reportMutation.mutateAsync({
-              peerId,
-              reason,
-              note: note || undefined,
-              alsoBlock,
-            });
-            setMenuOpen(null);
-            toast.success("Report submitted. Thank you.", {
-              title: "Got it",
-            });
+            await reportMutation.mutateAsync({ peerId, reason, note, alsoBlock });
+            toast.success("Thanks — your report was submitted.");
+            setReportOpen(false);
           }}
         />
       )}
+
       {(blockedByMe || blockedMe) && (
         <div className="px-4 py-2 bg-yellow-500/10 border-t border-yellow-500/30 text-xs text-yellow-200 text-center">
           {blockedByMe
@@ -1643,18 +1513,6 @@ function formatSeenAgo(iso: string): string {
   });
 }
 
-/** Format a seenTtlSeconds value as a human-readable string, e.g. "2h 30m 10s". */
-function formatSeenTtl(secs: number): string {
-  if (secs <= 0) return "Off";
-  const h = Math.floor(secs / 3600);
-  const m = Math.floor((secs % 3600) / 60);
-  const s = secs % 60;
-  const parts: string[] = [];
-  if (h > 0) parts.push(`${h}h`);
-  if (m > 0) parts.push(`${m}m`);
-  if (s > 0) parts.push(`${s}s`);
-  return parts.join(" ");
-}
 
 /* ────────────────────────── Bubble row ────────────────────────── */
 
@@ -2688,547 +2546,164 @@ export function LinkPreviewCard({
 
 /* ────────────────────────── Menus ────────────────────────── */
 
+/**
+ * App-bar 3-dot menu for a chat thread, rendered as a swipeable
+ * slide-over panel anchored to the right edge.
+ *
+ * Intentionally minimal: only the action-oriented items live here
+ * (search, select messages, starred, scheduled, clear chat). Per-
+ * contact preferences (mute, pin, disappearing messages, wallpaper,
+ * personality, safety number, biometric lock, block, report, etc.)
+ * have been promoted to the contact's profile page so this menu
+ * stays light and easy to scan, especially on small screens.
+ */
 function ChatMenu({
+  open,
   onClose,
-  ttlLabel,
-  onTTL,
-  seenTtlLabel,
-  onSeenTtl,
-  onSafety,
-  onToggleBiometric,
-  biometricEnabled,
-  viewOnceDefault,
-  onToggleViewOnce,
-  linkPreviewsEnabled,
-  onToggleLinkPreviews,
-  blockedByMe,
-  onToggleBlock,
-  onReport,
-  pinnedToTop,
-  onTogglePinChat,
-  isMuted,
-  onToggleMute,
+  peerLabel,
+  peerSubLabel,
+  avatar,
+  onViewProfile,
   onSearch,
-  onClearChat,
-  onShowStarred,
   onSelectMessages,
+  onShowStarred,
   onShowScheduled,
-  onWallpaper,
-  onCustomize,
+  onClearChat,
 }: {
+  open: boolean;
   onClose: () => void;
-  ttlLabel: string;
-  onTTL: () => void;
-  seenTtlLabel: string;
-  onSeenTtl: () => void;
-  onSafety: () => void;
-  onToggleBiometric: () => void;
-  biometricEnabled: boolean;
-  viewOnceDefault: boolean;
-  onToggleViewOnce: () => void;
-  linkPreviewsEnabled: boolean;
-  onToggleLinkPreviews: () => void;
-  blockedByMe: boolean;
-  onToggleBlock: () => void;
-  onReport: () => void;
-  pinnedToTop: boolean;
-  onTogglePinChat: () => void;
-  isMuted: boolean;
-  onToggleMute: () => void;
+  peerLabel: string;
+  peerSubLabel?: string;
+  avatar: ReactNode;
+  onViewProfile: () => void;
   onSearch: () => void;
-  onClearChat: () => void;
-  onShowStarred: () => void;
   onSelectMessages: () => void;
+  onShowStarred: () => void;
   onShowScheduled: () => void;
-  onWallpaper: () => void;
-  onCustomize: () => void;
+  onClearChat: () => void;
 }) {
   return (
-    <Sheet onClose={onClose}>
-      <MenuItem
-        label="Select messages"
-        onClick={() => {
-          onSelectMessages();
-          onClose();
-        }}
-      />
-      <MenuItem
-        label={pinnedToTop ? "Unpin chat" : "Pin chat to top"}
-        onClick={() => {
-          onTogglePinChat();
-          onClose();
-        }}
-      />
-      <MenuItem
-        label={isMuted ? "Unmute notifications" : "Mute notifications"}
-        onClick={() => {
-          onToggleMute();
-          onClose();
-        }}
-      />
-      <MenuItem
-        label="Search in chat"
-        onClick={() => {
-          onSearch();
-          onClose();
-        }}
-      />
-      <MenuItem
-        label="Starred messages"
-        onClick={() => {
-          onShowStarred();
-        }}
-      />
-      <MenuItem
-        label="Scheduled messages"
-        onClick={() => {
-          onShowScheduled();
-        }}
-      />
-      <MenuItem label="Chat wallpaper" onClick={onWallpaper} />
-      <MenuItem label="Customize chat" onClick={onCustomize} />
-      <MenuItem label={`Disappearing messages · ${ttlLabel}`} onClick={onTTL} />
-      <MenuItem label={`Seen settings · ${seenTtlLabel}`} onClick={onSeenTtl} />
-      <MenuItem
-        label={`View-once images: ${viewOnceDefault ? "On" : "Off"}`}
-        onClick={() => {
-          onToggleViewOnce();
-          onClose();
-        }}
-      />
-      <MenuItem
-        label={`Link previews: ${linkPreviewsEnabled ? "On" : "Off"}`}
-        onClick={() => {
-          onToggleLinkPreviews();
-          onClose();
-        }}
-      />
-      <MenuItem label="Verify safety number" onClick={onSafety} />
-      <MenuItem
-        label={biometricEnabled ? "Remove biometric lock" : "Lock chat with biometrics"}
-        onClick={() => {
-          onClose();
-          onToggleBiometric();
-        }}
-        danger={biometricEnabled}
-      />
-      <MenuItem label="Clear chat" onClick={onClearChat} danger />
-      <MenuItem
-        label={blockedByMe ? "Unblock contact" : "Block contact"}
-        onClick={onToggleBlock}
-        danger={!blockedByMe}
-      />
-      <MenuItem label="Report contact" onClick={onReport} danger />
-    </Sheet>
-  );
-}
-
-function TTLPicker({
-  current,
-  onClose,
-  onPick,
-}: {
-  current: number;
-  onClose: () => void;
-  onPick: (secs: number) => void;
-}) {
-  return (
-    <Sheet onClose={onClose} title="Disappearing messages">
-      <div className="text-xs text-text-muted px-4 pb-2">
-        New messages you send will be deleted from both devices and the server
-        after the chosen time.
-      </div>
-      {TTL_OPTIONS.map((o) => (
-        <MenuItem
-          key={o.seconds}
-          label={o.label}
-          checked={o.seconds === current}
-          onClick={() => onPick(o.seconds)}
-        />
-      ))}
-    </Sheet>
-  );
-}
-
-/**
- * Snooze / mute-until sheet — offers WhatsApp-style fixed durations
- * (1 hour, 8 hours, until tomorrow morning, 1 week) plus an "Always"
- * option for permanent muting. Each pick yields an ISO timestamp the
- * caller writes into chatPrefs.mutedUntil; "Always" maps to a
- * far-future date so the existing isMuted check (now < mutedUntil)
- * keeps working without schema changes.
- */
-function SnoozeSheet({
-  peerLabel,
-  onClose,
-  onPick,
-}: {
-  peerLabel: string;
-  onClose: () => void;
-  onPick: (untilIso: string) => void;
-}) {
-  // "Tomorrow at 8 AM" reuses the device's current locale clock so the
-  // user always wakes up to a freshly un-muted chat regardless of TZ.
-  const tomorrowMorning = (() => {
-    const d = new Date();
-    d.setDate(d.getDate() + 1);
-    d.setHours(8, 0, 0, 0);
-    return d;
-  })();
-  const tomorrowClock = tomorrowMorning.toLocaleTimeString([], {
-    hour: "numeric",
-    minute: "2-digit",
-  });
-  const options: { label: string; until: Date }[] = [
-    {
-      label: "1 hour",
-      until: new Date(Date.now() + 60 * 60 * 1000),
-    },
-    {
-      label: "8 hours",
-      until: new Date(Date.now() + 8 * 60 * 60 * 1000),
-    },
-    {
-      label: `Until tomorrow (${tomorrowClock})`,
-      until: tomorrowMorning,
-    },
-    {
-      label: "1 week",
-      until: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-    },
-    {
-      label: "Always",
-      // Year 9999 — effectively forever, but still a valid ISO date.
-      until: new Date("9999-12-31T23:59:59.000Z"),
-    },
-  ];
-  return (
-    <Sheet onClose={onClose} title={`Mute ${peerLabel}`}>
-      <div className="text-xs text-text-muted px-4 pb-2">
-        You won't be notified about new messages from this chat.
-      </div>
-      {options.map((o) => (
-        <MenuItem
-          key={o.label}
-          label={o.label}
-          onClick={() => onPick(o.until.toISOString())}
-        />
-      ))}
-    </Sheet>
-  );
-}
-
-/**
- * Seen Settings picker — lets the user choose how long after a message is
- * read before it auto-deletes from their device. Uses H / M / S drum columns.
- */
-function SeenTTLPicker({
-  current,
-  onClose,
-  onPick,
-}: {
-  current: number;
-  onClose: () => void;
-  onPick: (secs: number) => void;
-}) {
-  const [hours, setHours] = useState(Math.floor(current / 3600));
-  const [minutes, setMinutes] = useState(Math.floor((current % 3600) / 60));
-  const [seconds, setSeconds] = useState(current % 60);
-
-  const total = hours * 3600 + minutes * 60 + seconds;
-  const preview = total > 0 ? formatSeenTtl(total) : "Off (disabled)";
-
-  function DrumColumn({
-    value,
-    max,
-    label,
-    onChange,
-  }: {
-    value: number;
-    max: number;
-    label: string;
-    onChange: (v: number) => void;
-  }) {
-    return (
-      <div className="flex flex-col items-center gap-1 flex-1">
-        <span className="text-[10px] text-text-muted uppercase tracking-wider mb-1">
-          {label}
-        </span>
-        <button
-          type="button"
-          onClick={() => onChange(value === max ? 0 : value + 1)}
-          className="size-8 flex items-center justify-center rounded-md text-text-muted hover:text-text hover:bg-white/10 text-lg select-none"
-          aria-label={`Increase ${label}`}
-        >
-          ▲
-        </button>
-        <div className="w-14 h-10 flex items-center justify-center bg-bg rounded-lg border border-line text-text text-xl font-mono font-semibold select-none tabular-nums">
-          {String(value).padStart(2, "0")}
-        </div>
-        <button
-          type="button"
-          onClick={() => onChange(value === 0 ? max : value - 1)}
-          className="size-8 flex items-center justify-center rounded-md text-text-muted hover:text-text hover:bg-white/10 text-lg select-none"
-          aria-label={`Decrease ${label}`}
-        >
-          ▼
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <Sheet onClose={onClose} title="Seen settings">
-      <div className="px-4 pt-1 pb-4 space-y-4">
-        <p className="text-xs text-text-muted leading-relaxed">
-          Messages you <span className="text-text font-medium">receive</span> will
-          automatically be deleted from this device after you see them, once the
-          chosen time has passed. Set all to zero to disable.
-        </p>
-
-        {/* H / M / S drum columns */}
-        <div className="flex items-center justify-center gap-3 py-2">
-          <DrumColumn value={hours} max={23} label="Hours" onChange={setHours} />
-          <span className="text-2xl text-text-muted font-bold mt-4">:</span>
-          <DrumColumn value={minutes} max={59} label="Min" onChange={setMinutes} />
-          <span className="text-2xl text-text-muted font-bold mt-4">:</span>
-          <DrumColumn value={seconds} max={59} label="Sec" onChange={setSeconds} />
-        </div>
-
-        {/* Quick presets */}
-        <div className="space-y-1">
-          <div className="text-[10px] text-text-muted uppercase tracking-wider px-1">Quick presets</div>
-          <div className="grid grid-cols-3 gap-1.5">
-            {[
-              { label: "Off", secs: 0 },
-              { label: "30 sec", secs: 30 },
-              { label: "1 min", secs: 60 },
-              { label: "5 min", secs: 300 },
-              { label: "30 min", secs: 1800 },
-              { label: "1 hour", secs: 3600 },
-              { label: "6 hours", secs: 21600 },
-              { label: "12 hours", secs: 43200 },
-              { label: "1 day", secs: 86400 },
-            ].map((p) => (
-              <button
-                key={p.secs}
-                type="button"
-                onClick={() => {
-                  setHours(Math.floor(p.secs / 3600));
-                  setMinutes(Math.floor((p.secs % 3600) / 60));
-                  setSeconds(p.secs % 60);
-                }}
-                className={
-                  "px-2 py-1.5 rounded-md text-xs font-medium border transition-colors " +
-                  (total === p.secs
-                    ? "bg-wa-green text-text-oncolor border-transparent"
-                    : "bg-surface border-line text-text hover:bg-white/10")
-                }
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Preview + confirm */}
-        <div className="flex items-center justify-between gap-3 pt-1">
-          <div className="text-sm text-text-muted">
-            Delete after:{" "}
-            <span className={total > 0 ? "text-wa-green font-semibold" : "text-text"}>
-              {preview}
-            </span>
-          </div>
-          <button
-            type="button"
-            onClick={() => onPick(total)}
-            className="px-4 py-2 rounded-xl bg-wa-green text-text-oncolor text-sm font-medium hover:bg-wa-green-dark transition"
-          >
-            Save
-          </button>
-        </div>
-      </div>
-    </Sheet>
-  );
-}
-
-function SafetyNumberDialog({
-  myId,
-  peerId,
-  peerLabel,
-  onClose,
-}: {
-  myId: string;
-  peerId: string;
-  peerLabel: string;
-  onClose: () => void;
-}) {
-  const [number, setNumber] = useState<string | null>(null);
-  const [err, setErr] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
-  const [verified, setVerified] = useState(false);
-  const myKey = trpc.prekeys.identityKeyFor.useQuery({ userId: myId }, {
-    enabled: !!myId,
-    retry: false,
-  });
-  const peerKey = trpc.prekeys.identityKeyFor.useQuery({ userId: peerId }, {
-    retry: false,
-  });
-
-  useEffect(() => {
-    const myPub = myKey.data?.identityPublicKey;
-    const peerPub = peerKey.data?.identityPublicKey;
-    if (!myPub || !peerPub) return;
-    void safetyNumberFromB64(myPub, peerPub)
-      .then(setNumber)
-      .catch((e: unknown) =>
-        setErr(e instanceof Error ? e.message : "Could not derive number."),
-      );
-  }, [myKey.data, peerKey.data]);
-
-  async function copy() {
-    if (!number) return;
-    try {
-      await navigator.clipboard.writeText(number);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      /* ignore */
-    }
-  }
-
-  const rows = number ? formatSafetyRows(number) : [];
-
-  return (
-    <Sheet onClose={onClose} title="Safety number">
-      <div className="px-5 pb-5 pt-1">
-        <p className="text-xs text-text-muted text-center mb-4 max-w-xs mx-auto">
-          Two devices that show the same picture and digits below are
-          talking directly. If you and {peerLabel} match, no one is
-          listening in.
-        </p>
-
-        {err ? (
-          <ErrorMessage>{err}</ErrorMessage>
-        ) : !number ? (
-          <div className="flex flex-col items-center gap-3 py-10">
-            <Spinner />
-            <div className="text-xs text-text-muted">
-              Deriving fingerprint…
-            </div>
-          </div>
-        ) : (
-          <div className="flex flex-col items-center gap-4 animate-fade-in">
-            <div
-              className={
-                "relative rounded-2xl border border-line bg-surface p-3 shadow-sm transition-all duration-300 " +
-                (verified ? "ring-2 ring-wa-green ring-offset-2 ring-offset-panel" : "")
-              }
-            >
-              <SafetyArt safetyNumber={number} size={208} />
-              {verified && (
-                <div className="absolute -top-2 -right-2 size-9 rounded-full bg-wa-green text-text-oncolor flex items-center justify-center shadow-md animate-fade-in">
-                  <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M5 12.5l4.5 4.5L19 7" />
-                  </svg>
-                </div>
-              )}
-            </div>
-
-            <div className="w-full max-w-xs flex flex-col gap-1.5">
-              {rows.map((groups, i) => (
-                <div
-                  key={i}
-                  className="font-mono text-[15px] tracking-[0.18em] text-text text-center tabular-nums"
-                  style={{ letterSpacing: "0.18em" }}
-                >
-                  {groups.join(" ")}
-                </div>
-              ))}
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 w-full max-w-xs">
-              <button
-                type="button"
-                onClick={copy}
-                className="rounded-xl border border-line bg-surface text-text text-sm font-medium px-3 py-2 hover:bg-elevated transition wa-tap"
-              >
-                {copied ? "Copied" : "Copy digits"}
-              </button>
-              <button
-                type="button"
-                onClick={() => setVerified((v) => !v)}
-                className={
-                  "rounded-xl text-sm font-medium px-3 py-2 transition wa-tap " +
-                  (verified
-                    ? "bg-wa-green/15 text-wa-green-dark dark:text-wa-green border border-wa-green/40"
-                    : "bg-wa-green text-text-oncolor border border-wa-green hover:opacity-90")
-                }
-              >
-                {verified ? "✓ Marked verified" : "Mark as verified"}
-              </button>
-            </div>
-
-            <p className="text-[11px] text-text-faint text-center max-w-xs leading-relaxed">
-              Marking is just a personal note on this device — VeilChat never
-              uploads it. Compare in person or over a video call you trust.
-            </p>
-          </div>
-        )}
-      </div>
-    </Sheet>
-  );
-}
-
-function Sheet({
-  children,
-  onClose,
-  title,
-}: {
-  children: React.ReactNode;
-  onClose: () => void;
-  title?: string;
-}) {
-  return (
-    <div
-      className="fixed inset-0 z-40 bg-black/40 flex items-end sm:items-center justify-center"
-      onClick={onClose}
+    <SlideOverPanel
+      open={open}
+      onClose={onClose}
+      title="Chat options"
+      subtitle="Swipe right or tap outside to close"
     >
-      <div
-        className="bg-panel w-full sm:max-w-md md:max-w-lg rounded-t-2xl sm:rounded-2xl border border-line overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
+      {/* Contact card / shortcut to the full profile, where all the
+          per-contact settings now live. */}
+      <button
+        type="button"
+        onClick={onViewProfile}
+        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-elevated/60 active:bg-elevated transition-colors wa-tap border-b border-line/60"
       >
-        {title && (
-          <div className="px-4 pt-4 pb-2 font-semibold text-text">{title}</div>
-        )}
-        {children}
+        <span className="shrink-0">{avatar}</span>
+        <span className="flex-1 min-w-0">
+          <span className="block text-[14px] font-semibold text-text truncate">
+            {peerLabel}
+          </span>
+          <span className="block text-[12px] text-text-muted truncate">
+            {peerSubLabel ?? "View contact info & settings"}
+          </span>
+        </span>
+        <ChevronRightIcon className="w-4 h-4 text-text-muted shrink-0" />
+      </button>
+
+      <PanelGroupHeader label="In this chat" />
+      <PanelRow
+        icon={<SearchIcon />}
+        label="Search in chat"
+        sub="Find a message by keyword"
+        onClick={onSearch}
+      />
+      <PanelRow
+        icon={<CheckSquareIcon />}
+        label="Select messages"
+        sub="Pick multiple to delete or unsend"
+        onClick={onSelectMessages}
+      />
+      <PanelRow
+        icon={<StarIcon />}
+        label="Starred messages"
+        sub="Your saved highlights"
+        onClick={onShowStarred}
+      />
+      <PanelRow
+        icon={<ClockIcon />}
+        label="Scheduled messages"
+        sub="Messages waiting to be sent"
+        onClick={onShowScheduled}
+      />
+
+      <PanelGroupHeader label="Cleanup" />
+      <PanelRow
+        icon={<TrashIcon />}
+        label="Clear chat"
+        sub="Remove all messages from this device"
+        onClick={onClearChat}
+        danger
+      />
+
+      <div className="px-4 py-3 mt-2 text-[11px] text-text-muted leading-relaxed">
+        Looking for mute, wallpaper, disappearing messages, safety
+        number, block or report? They live in the contact's profile so
+        this menu stays light.
       </div>
-    </div>
+    </SlideOverPanel>
   );
 }
 
-function MenuItem({
-  label,
-  onClick,
-  checked,
-  danger,
-}: {
-  label: string;
-  onClick: () => void;
-  checked?: boolean;
-  danger?: boolean;
-}) {
+function ChevronRightIcon({ className }: { className?: string }) {
   return (
-    <button
-      onClick={onClick}
-      className={
-        "w-full text-left px-4 py-3 border-b border-line/40 text-sm flex items-center justify-between hover:bg-white/5 " +
-        (danger ? "text-red-400" : "text-text")
-      }
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden
     >
-      <span>{label}</span>
-      {checked && <span className="text-wa-green">✓</span>}
-    </button>
+      <path d="m9 6 6 6-6 6" />
+    </svg>
+  );
+}
+
+function CheckSquareIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={18}
+      height={18}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M9 11l3 3L22 4" />
+      <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+    </svg>
+  );
+}
+
+function ClockIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={18}
+      height={18}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </svg>
   );
 }
 
