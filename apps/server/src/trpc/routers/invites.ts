@@ -165,17 +165,26 @@ export const invitesRouter = router({
     }),
 
   /**
-   * Redeem an invite. Creates a pending connection_request from caller
-   * to the inviter. Inviter then accepts/rejects to complete the link.
+   * Redeem an invite. Creates a *pending* connection_request from the
+   * caller (the invitee) to the inviter and bumps the invite's used
+   * count. The inviter then verifies the new contact's identity and
+   * explicitly accepts the request via `connections.accept` — only at
+   * that point is the row in `connections` created and the chat
+   * unlocked. Sharing an invite link does NOT auto-accept the contact;
+   * the inviter is the one who decides who actually gets through.
    */
   redeem: protectedProcedure
     .input(RedeemInviteInput)
     .output(
       z.object({
         requestId: z.string().uuid(),
-        connectionId: z.string().uuid(),
         peerId: z.string().uuid(),
-        alreadyConnected: z.boolean(),
+        /**
+         * `pending`           — request was just created or was already pending.
+         * `already_connected` — the two users are already connected; opening
+         *                        the chat is fine.
+         */
+        status: z.enum(["pending", "already_connected"]),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -208,13 +217,13 @@ export const invitesRouter = router({
         });
       }
 
-      // The inviter already gave consent by sharing the link, so we
-      // create the connection straight away — no extra approval step.
       const [a, b] =
         ctx.userId < invite.inviterUserId
           ? [ctx.userId, invite.inviterUserId]
           : [invite.inviterUserId, ctx.userId];
 
+      // If they're already connected (e.g. invite redeemed previously
+      // and accepted, or they connected via another channel), short-circuit.
       const existingConn = await db
         .select({ id: schema.connections.id })
         .from(schema.connections)
@@ -227,7 +236,6 @@ export const invitesRouter = router({
         .limit(1);
 
       if (existingConn.length > 0) {
-        // Idempotent: tapping the link twice just returns the existing chat.
         const existingReq = await db
           .select({ id: schema.connectionRequests.id })
           .from(schema.connectionRequests)
@@ -242,9 +250,31 @@ export const invitesRouter = router({
         return {
           requestId:
             existingReq[0]?.id ?? "00000000-0000-0000-0000-000000000000",
-          connectionId: existingConn[0]!.id,
           peerId: invite.inviterUserId,
-          alreadyConnected: true,
+          status: "already_connected" as const,
+        };
+      }
+
+      // Re-use any existing pending request for this invite so tapping
+      // the link twice doesn't spam the inviter's incoming list.
+      const existingPending = await db
+        .select({ id: schema.connectionRequests.id })
+        .from(schema.connectionRequests)
+        .where(
+          and(
+            eq(schema.connectionRequests.fromUserId, ctx.userId),
+            eq(schema.connectionRequests.toUserId, invite.inviterUserId),
+            eq(schema.connectionRequests.inviteId, invite.id),
+            eq(schema.connectionRequests.status, "pending"),
+          ),
+        )
+        .limit(1);
+
+      if (existingPending.length > 0) {
+        return {
+          requestId: existingPending[0]!.id,
+          peerId: invite.inviterUserId,
+          status: "pending" as const,
         };
       }
 
@@ -256,45 +286,22 @@ export const invitesRouter = router({
             toUserId: invite.inviterUserId,
             inviteId: invite.id,
             note: input.note ?? null,
-            status: "accepted",
-            decidedAt: new Date(),
+            status: "pending",
           })
           .returning({ id: schema.connectionRequests.id });
-
-        const connInserted = await tx
-          .insert(schema.connections)
-          .values({ userAId: a, userBId: b })
-          .onConflictDoNothing()
-          .returning({ id: schema.connections.id });
-
-        let connectionId = connInserted[0]?.id;
-        if (!connectionId) {
-          const fetched = await tx
-            .select({ id: schema.connections.id })
-            .from(schema.connections)
-            .where(
-              and(
-                eq(schema.connections.userAId, a),
-                eq(schema.connections.userBId, b),
-              ),
-            )
-            .limit(1);
-          connectionId = fetched[0]!.id;
-        }
 
         await tx
           .update(schema.invites)
           .set({ usedCount: invite.usedCount + 1 })
           .where(eq(schema.invites.id, invite.id));
 
-        return { requestId: inserted[0]!.id, connectionId };
+        return { requestId: inserted[0]!.id };
       });
 
       return {
         requestId: result.requestId,
-        connectionId: result.connectionId,
         peerId: invite.inviterUserId,
-        alreadyConnected: false,
+        status: "pending" as const,
       };
     }),
 });

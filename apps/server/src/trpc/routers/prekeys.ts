@@ -260,22 +260,34 @@ export const prekeysRouter = router({
         });
       }
 
-      // Atomically claim one OTPK if available.
-      const claimed = await db.execute(sql`
-        UPDATE ${schema.oneTimePrekeys}
-        SET claimed_at = NOW(), claimed_by_user_id = ${me}
-        WHERE id = (
-          SELECT id FROM ${schema.oneTimePrekeys}
-          WHERE user_id = ${peer} AND claimed_at IS NULL
-          ORDER BY created_at ASC
-          LIMIT 1
-          FOR UPDATE SKIP LOCKED
+      // Atomically claim one OTPK if available. We previously used
+      // `db.execute(sql\`UPDATE … RETURNING …\`)` and read `.rows[0]`,
+      // but the postgres-js driver returns the rows as the result
+      // itself (an array), so `.rows` was always undefined and the
+      // claim path 500'd in production. Going through drizzle's typed
+      // update keeps the SKIP LOCKED + atomic-claim semantics while
+      // working on every supported driver.
+      const claimedRows = await db
+        .update(schema.oneTimePrekeys)
+        .set({ claimedAt: new Date(), claimedByUserId: me })
+        .where(
+          eq(
+            schema.oneTimePrekeys.id,
+            sql`(
+              SELECT ${schema.oneTimePrekeys.id} FROM ${schema.oneTimePrekeys}
+              WHERE ${schema.oneTimePrekeys.userId} = ${peer}
+                AND ${schema.oneTimePrekeys.claimedAt} IS NULL
+              ORDER BY ${schema.oneTimePrekeys.createdAt} ASC
+              LIMIT 1
+              FOR UPDATE SKIP LOCKED
+            )`,
+          ),
         )
-        RETURNING key_id, public_key
-      `);
-      const otpkRow = (claimed as unknown as {
-        rows?: Array<{ key_id: number; public_key: Buffer }>;
-      }).rows?.[0];
+        .returning({
+          keyId: schema.oneTimePrekeys.keyId,
+          publicKey: schema.oneTimePrekeys.publicKey,
+        });
+      const otpkRow = claimedRows[0];
 
       return {
         userId: pr.id,
@@ -290,8 +302,8 @@ export const prekeysRouter = router({
         },
         oneTimePreKey: otpkRow
           ? {
-              keyId: otpkRow.key_id,
-              publicKey: bufferToB64(otpkRow.public_key),
+              keyId: otpkRow.keyId,
+              publicKey: bufferToB64(otpkRow.publicKey),
             }
           : null,
       };

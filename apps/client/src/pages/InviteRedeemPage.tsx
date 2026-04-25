@@ -27,7 +27,10 @@ export function InviteRedeemPage() {
   const redeem = trpc.invites.redeem.useMutation();
 
   const [note, setNote] = useState("");
-  const [done, setDone] = useState<{ peerId: string; alreadyConnected: boolean } | null>(null);
+  const [done, setDone] = useState<{
+    peerId: string;
+    status: "pending" | "already_connected";
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Stash the invite token so signup/login can pick it up after auth.
@@ -60,11 +63,16 @@ export function InviteRedeemPage() {
       } catch {
         /* ignore */
       }
-      // Refresh the connections list so the new chat shows up immediately.
-      await utils.connections.list.invalidate();
+      // Refresh the connections list AND the outgoing requests list
+      // so the inviter sees a "pending" entry while the invitee waits
+      // on verification.
+      await Promise.all([
+        utils.connections.list.invalidate(),
+        utils.connections.listOutgoing.invalidate(),
+      ]);
       setDone({
         peerId: res.peerId,
-        alreadyConnected: res.alreadyConnected,
+        status: res.status,
       });
     } catch (e: unknown) {
       setError(messageOf(e));
@@ -120,24 +128,41 @@ export function InviteRedeemPage() {
   }
 
   if (done) {
+    const alreadyConnected = done.status === "already_connected";
     return (
-      <ScreenShell back="/chats" phase="Phase 2 · Connected">
+      <ScreenShell
+        back="/chats"
+        phase={alreadyConnected ? "Phase 2 · Connected" : "Phase 2 · Awaiting verification"}
+      >
         <div className="flex flex-col items-center gap-3 text-center">
           <Logo />
           <h2 className="text-2xl font-semibold">
-            {done.alreadyConnected ? "You're already connected" : "You're connected!"}
+            {alreadyConnected ? "You're already connected" : "Request sent"}
           </h2>
           <p className="text-sm text-text-muted max-w-sm">
-            {done.alreadyConnected
+            {alreadyConnected
               ? "Open the chat to keep the conversation going."
-              : "Your end-to-end encrypted chat is ready. Say hi!"}
+              : "We've notified the person who invited you. They'll verify your identity and accept — once they do, your end-to-end encrypted chat unlocks here automatically."}
           </p>
-          <PrimaryButton onClick={() => navigate(`/chats/${done.peerId}`)}>
-            Open chat
-          </PrimaryButton>
-          <SecondaryButton onClick={() => navigate("/chats")}>
-            All chats
-          </SecondaryButton>
+          {alreadyConnected ? (
+            <>
+              <PrimaryButton onClick={() => navigate(`/chats/${done.peerId}`)}>
+                Open chat
+              </PrimaryButton>
+              <SecondaryButton onClick={() => navigate("/chats")}>
+                All chats
+              </SecondaryButton>
+            </>
+          ) : (
+            <>
+              <PrimaryButton onClick={() => navigate("/chats")}>
+                Go to chats
+              </PrimaryButton>
+              <SecondaryButton onClick={() => navigate("/connections")}>
+                See sent requests
+              </SecondaryButton>
+            </>
+          )}
         </div>
       </ScreenShell>
     );
