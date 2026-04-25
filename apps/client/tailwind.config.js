@@ -34,6 +34,14 @@ export default {
           DEFAULT: "rgb(var(--wa-green) / <alpha-value>)",
           soft: "rgb(var(--wa-green-soft) / <alpha-value>)",
         },
+        // `brand` is the semantic alias used by primary buttons, install
+        // prompts, push prompts, etc. It maps to the active theme's
+        // accent color so it swaps with light/dark/themed modes.
+        brand: {
+          DEFAULT: "rgb(var(--wa-green) / <alpha-value>)",
+          dark: "rgb(var(--wa-green-dark) / <alpha-value>)",
+          soft: "rgb(var(--wa-green-soft) / <alpha-value>)",
+        },
         midnight: {
           DEFAULT: "rgb(var(--wa-bg) / <alpha-value>)",
           deep: "rgb(var(--wa-bg) / <alpha-value>)",
