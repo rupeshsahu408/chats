@@ -4594,6 +4594,539 @@ function detectLang(): Lang {
   return "en";
 }
 
+/* ────────────── Author credit, share & comments ────────────── */
+
+const ZYNTRA_INSTAGRAM = "https://www.instagram.com/zyntra___x/";
+
+function BlogCredit({ lang }: { lang: Lang }) {
+  const headline =
+    lang === "hi"
+      ? "Researcher + Writer = Zyntra Team"
+      : "Researcher + Writer = Zyntra Team";
+  const sub =
+    lang === "hi"
+      ? "हर तथ्य की जाँच और इस लंबे लेख का लेखन Zyntra Team ने किया है।"
+      : "Every claim was researched and written by the Zyntra Team.";
+  const followLabel = lang === "hi" ? "Instagram पर फ़ॉलो करें" : "Follow on Instagram";
+
+  return (
+    <section className="mt-16 rounded-3xl border border-[#e2dfd6] bg-white/70 backdrop-blur p-6 sm:p-8">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-5">
+        <div
+          className="w-14 h-14 sm:w-16 sm:h-16 rounded-full grid place-items-center text-white font-semibold text-[18px] shrink-0"
+          style={{
+            background: "linear-gradient(135deg, #2E6F40 0%, #68BA7F 100%)",
+          }}
+          aria-hidden
+        >
+          ZT
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#2E6F40]">
+            {lang === "hi" ? "क्रेडिट" : "Credit"}
+          </div>
+          <h3 className="mt-1.5 text-[20px] sm:text-[22px] font-semibold text-[#0F2A18] leading-tight">
+            {headline}
+          </h3>
+          <p className="mt-2 text-[14.5px] text-[#4a5a4f] leading-relaxed">
+            {sub}
+          </p>
+        </div>
+        <a
+          href={ZYNTRA_INSTAGRAM}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={`${followLabel} (@zyntra___x)`}
+          className="inline-flex items-center gap-2.5 px-4 py-2.5 rounded-full text-[13.5px] font-semibold text-white transition-transform hover:scale-[1.02] active:scale-[0.98] shrink-0 self-start sm:self-auto"
+          style={{
+            background:
+              "linear-gradient(45deg, #F58529 0%, #DD2A7B 30%, #8134AF 60%, #515BD4 100%)",
+          }}
+        >
+          <InstagramGlyph />
+          <span>@zyntra___x</span>
+        </a>
+      </div>
+    </section>
+  );
+}
+
+function InstagramGlyph() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
+      <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+      <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" />
+    </svg>
+  );
+}
+
+function BlogShare({ lang }: { lang: Lang }) {
+  const [copied, setCopied] = useState(false);
+  const [pageUrl, setPageUrl] = useState("");
+  const [pageTitle, setPageTitle] = useState("");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setPageUrl(window.location.href);
+      setPageTitle(document.title);
+    }
+  }, []);
+
+  const heading = lang === "hi" ? "इस लेख को शेयर करें" : "Share this article";
+  const sub =
+    lang === "hi"
+      ? "अगर आपको यह जाँच उपयोगी लगी, तो इसे आगे बढ़ाइए — एक और इंसान को असल सच्चाई पता चलेगी।"
+      : "If this investigation was useful to you, pass it on — one more person will see the real picture.";
+
+  const shareText =
+    lang === "hi"
+      ? "WhatsApp और आपकी प्राइवेसी पर एक डॉक्युमेंट्री-स्तर की जाँच — VeilChat ब्लॉग पर पढ़ें:"
+      : "A documentary-style investigation into WhatsApp & your privacy — read on the VeilChat blog:";
+
+  const enc = encodeURIComponent;
+  const targets = [
+    {
+      key: "x",
+      label: "X",
+      url: `https://twitter.com/intent/tweet?text=${enc(shareText)}&url=${enc(pageUrl)}`,
+      icon: (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+          <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+        </svg>
+      ),
+      bg: "#0F0F0F",
+      fg: "#FFFFFF",
+    },
+    {
+      key: "whatsapp",
+      label: "WhatsApp",
+      url: `https://wa.me/?text=${enc(`${shareText} ${pageUrl}`)}`,
+      icon: (
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.198-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51l-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.71.306 1.262.489 1.694.625.712.226 1.36.194 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347zM12.05 21.785h-.004a9.87 9.87 0 0 1-5.031-1.378l-.36-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.886 9.884zm8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z" />
+        </svg>
+      ),
+      bg: "#25D366",
+      fg: "#FFFFFF",
+    },
+    {
+      key: "telegram",
+      label: "Telegram",
+      url: `https://t.me/share/url?url=${enc(pageUrl)}&text=${enc(shareText)}`,
+      icon: (
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+          <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.446 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.022c.242-.213-.054-.334-.373-.121l-6.869 4.326-2.96-.924c-.643-.204-.658-.643.136-.953l11.566-4.458c.538-.196 1.006.128.832.939z" />
+        </svg>
+      ),
+      bg: "#229ED9",
+      fg: "#FFFFFF",
+    },
+    {
+      key: "facebook",
+      label: "Facebook",
+      url: `https://www.facebook.com/sharer/sharer.php?u=${enc(pageUrl)}`,
+      icon: (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+          <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+        </svg>
+      ),
+      bg: "#1877F2",
+      fg: "#FFFFFF",
+    },
+    {
+      key: "linkedin",
+      label: "LinkedIn",
+      url: `https://www.linkedin.com/sharing/share-offsite/?url=${enc(pageUrl)}`,
+      icon: (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+          <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 0 1-2.063-2.065 2.063 2.063 0 1 1 2.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
+        </svg>
+      ),
+      bg: "#0A66C2",
+      fg: "#FFFFFF",
+    },
+  ];
+
+  async function handleNativeShare() {
+    if (typeof navigator !== "undefined" && (navigator as Navigator & { share?: (data: ShareData) => Promise<void> }).share) {
+      try {
+        await (navigator as Navigator & { share: (data: ShareData) => Promise<void> }).share({
+          title: pageTitle,
+          text: shareText,
+          url: pageUrl,
+        });
+      } catch {
+        /* user cancelled */
+      }
+    }
+  }
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(pageUrl);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch {
+      /* clipboard blocked — silently ignore */
+    }
+  }
+
+  const hasNativeShare =
+    typeof navigator !== "undefined" &&
+    typeof (navigator as Navigator & { share?: unknown }).share === "function";
+
+  return (
+    <section className="mt-10 rounded-3xl border border-[#e2dfd6] bg-white/70 backdrop-blur p-6 sm:p-8">
+      <div className="flex items-start gap-3">
+        <div className="w-10 h-10 rounded-xl bg-[#E8F3E5] grid place-items-center text-[#2E6F40] shrink-0">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <circle cx="18" cy="5" r="3" />
+            <circle cx="6" cy="12" r="3" />
+            <circle cx="18" cy="19" r="3" />
+            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+          </svg>
+        </div>
+        <div className="flex-1 min-w-0">
+          <h3 className="text-[20px] sm:text-[22px] font-semibold text-[#0F2A18] leading-tight">
+            {heading}
+          </h3>
+          <p className="mt-1.5 text-[14.5px] text-[#4a5a4f] leading-relaxed">
+            {sub}
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-5 flex flex-wrap gap-2">
+        {targets.map((t) => (
+          <a
+            key={t.key}
+            href={t.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={`${lang === "hi" ? "शेयर:" : "Share to"} ${t.label}`}
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full text-[13px] font-semibold transition-transform hover:scale-[1.03] active:scale-[0.97]"
+            style={{ backgroundColor: t.bg, color: t.fg }}
+          >
+            {t.icon}
+            <span>{t.label}</span>
+          </a>
+        ))}
+
+        <button
+          type="button"
+          onClick={handleCopy}
+          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full text-[13px] font-semibold border border-[#0F2A18]/15 bg-white text-[#0F2A18] hover:bg-[#0F2A18]/5 transition-colors"
+          aria-live="polite"
+        >
+          {copied ? (
+            <>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+              <span>{lang === "hi" ? "कॉपी हो गया" : "Copied!"}</span>
+            </>
+          ) : (
+            <>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+              </svg>
+              <span>{lang === "hi" ? "लिंक कॉपी करें" : "Copy link"}</span>
+            </>
+          )}
+        </button>
+
+        {hasNativeShare && (
+          <button
+            type="button"
+            onClick={handleNativeShare}
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full text-[13px] font-semibold text-white hover:opacity-90 transition-opacity"
+            style={{ backgroundColor: "#2E6F40" }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+              <polyline points="16 6 12 2 8 6" />
+              <line x1="12" y1="2" x2="12" y2="15" />
+            </svg>
+            <span>{lang === "hi" ? "अधिक शेयर विकल्प" : "More…"}</span>
+          </button>
+        )}
+      </div>
+    </section>
+  );
+}
+
+type LocalComment = {
+  id: string;
+  name: string;
+  body: string;
+  createdAt: number;
+};
+
+const COMMENTS_STORAGE_KEY = "veil:blog:whatsapp-privacy:comments:v1";
+const COMMENTS_MAX = 200;
+
+function loadComments(): LocalComment[] {
+  try {
+    const raw = window.localStorage.getItem(COMMENTS_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter(
+        (c): c is LocalComment =>
+          !!c &&
+          typeof c === "object" &&
+          typeof (c as LocalComment).id === "string" &&
+          typeof (c as LocalComment).name === "string" &&
+          typeof (c as LocalComment).body === "string" &&
+          typeof (c as LocalComment).createdAt === "number",
+      )
+      .slice(0, COMMENTS_MAX);
+  } catch {
+    return [];
+  }
+}
+
+function saveComments(list: LocalComment[]) {
+  try {
+    window.localStorage.setItem(
+      COMMENTS_STORAGE_KEY,
+      JSON.stringify(list.slice(0, COMMENTS_MAX)),
+    );
+  } catch {
+    /* quota / privacy mode — silently ignore */
+  }
+}
+
+function initialsOf(name: string): string {
+  const trimmed = name.trim();
+  if (!trimmed) return "?";
+  const parts = trimmed.split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) {
+    const first = parts[0] ?? "";
+    return first.slice(0, 2).toUpperCase() || "?";
+  }
+  const first = parts[0] ?? "";
+  const last = parts[parts.length - 1] ?? "";
+  return ((first[0] ?? "") + (last[0] ?? "")).toUpperCase() || "?";
+}
+
+function formatRelative(ts: number, lang: Lang): string {
+  const diffSec = Math.max(1, Math.floor((Date.now() - ts) / 1000));
+  if (diffSec < 60) return lang === "hi" ? "अभी-अभी" : "just now";
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return lang === "hi" ? `${diffMin} मिनट पहले` : `${diffMin} min ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return lang === "hi" ? `${diffHr} घंटे पहले` : `${diffHr} h ago`;
+  const diffDay = Math.floor(diffHr / 24);
+  if (diffDay < 30) return lang === "hi" ? `${diffDay} दिन पहले` : `${diffDay} d ago`;
+  return new Date(ts).toLocaleDateString();
+}
+
+function BlogComments({ lang }: { lang: Lang }) {
+  const [comments, setComments] = useState<LocalComment[]>([]);
+  const [name, setName] = useState("");
+  const [body, setBody] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setComments(loadComments());
+    try {
+      const savedName = window.localStorage.getItem("veil:blog:commenter-name");
+      if (savedName) setName(savedName);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const trimmedName = name.trim().slice(0, 60);
+    const trimmedBody = body.trim().slice(0, 1200);
+    if (!trimmedName) {
+      setError(lang === "hi" ? "कृपया अपना नाम लिखें।" : "Please enter your name.");
+      return;
+    }
+    if (trimmedBody.length < 2) {
+      setError(
+        lang === "hi"
+          ? "टिप्पणी थोड़ी और लिखिए।"
+          : "Your comment is a bit short.",
+      );
+      return;
+    }
+    setError(null);
+    const next: LocalComment[] = [
+      {
+        id:
+          (typeof crypto !== "undefined" && "randomUUID" in crypto
+            ? crypto.randomUUID()
+            : `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`),
+        name: trimmedName,
+        body: trimmedBody,
+        createdAt: Date.now(),
+      },
+      ...comments,
+    ];
+    setComments(next);
+    saveComments(next);
+    try {
+      window.localStorage.setItem("veil:blog:commenter-name", trimmedName);
+    } catch {
+      /* ignore */
+    }
+    setBody("");
+  }
+
+  function handleDelete(id: string) {
+    const next = comments.filter((c) => c.id !== id);
+    setComments(next);
+    saveComments(next);
+  }
+
+  const heading =
+    lang === "hi" ? "टिप्पणियाँ और प्रतिक्रियाएँ" : "Comments & reactions";
+  const privacyNote =
+    lang === "hi"
+      ? "गोपनीयता: टिप्पणियाँ केवल आपके अपने ब्राउज़र में सुरक्षित होती हैं। यह कोई सार्वजनिक comment-थ्रेड नहीं है — आपकी टिप्पणी हमारे server पर नहीं भेजी जाती और दूसरे visitors को दिखाई नहीं देगी। यह जानबूझकर ऐसा है — privacy-first।"
+      : "Privacy note: comments are saved on your own device only. This isn't a public comment thread — your note is never sent to our servers and won't be visible to other visitors. That's intentional — privacy first.";
+  const namePlaceholder = lang === "hi" ? "आपका नाम" : "Your name";
+  const bodyPlaceholder =
+    lang === "hi"
+      ? "इस लेख के बारे में आप क्या सोचते हैं?"
+      : "What did you think of this piece?";
+  const submitLabel = lang === "hi" ? "टिप्पणी सहेजें" : "Save comment";
+  const emptyLabel =
+    lang === "hi"
+      ? "अभी तक कोई टिप्पणी नहीं — पहले बनिए।"
+      : "No notes yet — be the first.";
+  const deleteLabel = lang === "hi" ? "हटाएँ" : "Delete";
+
+  return (
+    <section className="mt-10 rounded-3xl border border-[#e2dfd6] bg-white/70 backdrop-blur p-6 sm:p-8">
+      <div className="flex items-start gap-3">
+        <div className="w-10 h-10 rounded-xl bg-[#E8F3E5] grid place-items-center text-[#2E6F40] shrink-0">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+          </svg>
+        </div>
+        <div className="flex-1 min-w-0">
+          <h3 className="text-[20px] sm:text-[22px] font-semibold text-[#0F2A18] leading-tight">
+            {heading}
+          </h3>
+          <p className="mt-1.5 text-[13px] text-[#4a5a4f] leading-relaxed italic">
+            {privacyNote}
+          </p>
+        </div>
+      </div>
+
+      <form onSubmit={handleSubmit} className="mt-5 space-y-3">
+        <input
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder={namePlaceholder}
+          maxLength={60}
+          className="w-full rounded-xl border border-[#0F2A18]/15 bg-white px-4 py-2.5 text-[14.5px] text-[#0F2A18] placeholder:text-[#0F2A18]/40 focus:outline-none focus:ring-2 focus:ring-[#2E6F40]/40 focus:border-[#2E6F40]"
+          aria-label={namePlaceholder}
+        />
+        <textarea
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+          placeholder={bodyPlaceholder}
+          maxLength={1200}
+          rows={4}
+          className="w-full rounded-xl border border-[#0F2A18]/15 bg-white px-4 py-3 text-[14.5px] text-[#0F2A18] placeholder:text-[#0F2A18]/40 focus:outline-none focus:ring-2 focus:ring-[#2E6F40]/40 focus:border-[#2E6F40] resize-y min-h-[100px]"
+          aria-label={bodyPlaceholder}
+        />
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-[12px] text-[#4a5a4f]">
+            {body.length}/1200
+          </span>
+          <button
+            type="submit"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-white text-[13.5px] font-semibold hover:opacity-90 transition-opacity"
+            style={{ backgroundColor: "#2E6F40" }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <line x1="22" y1="2" x2="11" y2="13" />
+              <polygon points="22 2 15 22 11 13 2 9 22 2" />
+            </svg>
+            <span>{submitLabel}</span>
+          </button>
+        </div>
+        {error && (
+          <div className="text-[13px] text-[#B0341A] bg-[#FBE8E2] border border-[#B0341A]/20 rounded-lg px-3 py-2">
+            {error}
+          </div>
+        )}
+      </form>
+
+      <div className="mt-6 space-y-3">
+        {comments.length === 0 ? (
+          <div className="text-center text-[13.5px] text-[#4a5a4f] italic py-6 border border-dashed border-[#0F2A18]/15 rounded-xl">
+            {emptyLabel}
+          </div>
+        ) : (
+          comments.map((c) => (
+            <article
+              key={c.id}
+              className="rounded-xl border border-[#e2dfd6] bg-white p-4 flex gap-3"
+            >
+              <div
+                className="w-9 h-9 rounded-full grid place-items-center text-white text-[12px] font-semibold shrink-0"
+                style={{
+                  background: "linear-gradient(135deg, #2E6F40 0%, #68BA7F 100%)",
+                }}
+                aria-hidden
+              >
+                {initialsOf(c.name)}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-baseline gap-2 min-w-0">
+                    <span className="text-[14px] font-semibold text-[#0F2A18] truncate">
+                      {c.name}
+                    </span>
+                    <span className="text-[11.5px] text-[#4a5a4f]">
+                      · {formatRelative(c.createdAt, lang)}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(c.id)}
+                    className="text-[11.5px] text-[#4a5a4f] hover:text-[#B0341A] transition-colors"
+                    aria-label={deleteLabel}
+                  >
+                    {deleteLabel}
+                  </button>
+                </div>
+                <p className="mt-1 text-[14px] text-[#1f2a24] leading-[1.6] whitespace-pre-wrap break-words">
+                  {c.body}
+                </p>
+              </div>
+            </article>
+          ))
+        )}
+      </div>
+    </section>
+  );
+}
+
 export function WhatsappPrivacyPage() {
   const pct = useReadingProgress();
   const [lang, setLang] = useState<Lang>(detectLang);
@@ -4844,6 +5377,10 @@ export function WhatsappPrivacyPage() {
         <Callout tone="info" title={correctionsTitle}>
           {corrections}
         </Callout>
+
+        <BlogCredit lang={lang} />
+        <BlogShare lang={lang} />
+        <BlogComments lang={lang} />
 
         <div className="mt-14 flex flex-wrap items-center gap-3">
           <Link
