@@ -56,6 +56,24 @@ function originMatches(origin: string, pattern: string): boolean {
   return new RegExp(`^${escaped}$`).test(origin);
 }
 
+/**
+ * Built-in trusted client-hosting hostname patterns. These are always allowed
+ * (in addition to anything in CORS_ORIGIN) so the API "just works" when the
+ * client is deployed to a common static host without requiring per-deploy env
+ * configuration. Set CORS_STRICT=true to disable these defaults.
+ */
+const TRUSTED_CLIENT_HOST_PATTERNS = [
+  /\.vercel\.app$/,        // Vercel production + previews
+  /\.netlify\.app$/,       // Netlify production + previews
+  /\.pages\.dev$/,         // Cloudflare Pages
+  /\.onrender\.com$/,      // Render static sites
+  /\.replit\.app$/,        // Replit deployments
+  /\.replit\.dev$/,        // Replit dev
+  /\.repl\.co$/,           // Replit (legacy)
+];
+
+const corsStrict = process.env.CORS_STRICT === "true";
+
 await app.register(cors, {
   origin: (origin, cb) => {
     if (!origin) return cb(null, true);
@@ -65,22 +83,21 @@ await app.register(cors, {
     if (allowList.some((pattern) => originMatches(origin, pattern))) {
       return cb(null, true);
     }
-    if (isDev) {
-      try {
-        const host = new URL(origin).hostname;
-        if (
-          /\.replit\.dev$/.test(host) ||
-          /\.repl\.co$/.test(host) ||
-          host === "localhost" ||
-          host === "127.0.0.1"
-        ) {
-          return cb(null, true);
-        }
-      } catch {
-        // fall through
+    let host = "";
+    try {
+      host = new URL(origin).hostname;
+    } catch {
+      // origin wasn't a valid URL — fall through to rejection
+    }
+    if (host) {
+      if (isDev && (host === "localhost" || host === "127.0.0.1")) {
+        return cb(null, true);
+      }
+      if (!corsStrict && TRUSTED_CLIENT_HOST_PATTERNS.some((re) => re.test(host))) {
+        return cb(null, true);
       }
     }
-    app.log.warn({ origin, allowList }, "CORS origin rejected");
+    app.log.warn({ origin, allowList, corsStrict }, "CORS origin rejected");
     cb(new Error(`Origin not allowed: ${origin}`), false);
   },
   credentials: true,
