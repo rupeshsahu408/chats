@@ -1,7 +1,6 @@
 import { create } from "zustand";
 
 export const THEMES = [
-  "system",
   "light",
   "dark",
   "reading",
@@ -12,9 +11,17 @@ export const THEMES = [
 ] as const;
 
 export type ThemeMode = (typeof THEMES)[number];
-export type ResolvedTheme = Exclude<ThemeMode, "system">;
+/**
+ * `ResolvedTheme` used to differ from `ThemeMode` when "system" was a valid
+ * mode. The system-following behaviour has been removed — the app now always
+ * defaults to the light theme regardless of the OS preference, and the user
+ * picks any other theme explicitly from Settings. The two types are kept as
+ * an alias to minimise churn at call sites.
+ */
+export type ResolvedTheme = ThemeMode;
 
 const STORAGE_KEY = "veil:theme";
+const DEFAULT_MODE: ThemeMode = "light";
 
 function isThemeMode(v: unknown): v is ThemeMode {
   return typeof v === "string" && (THEMES as readonly string[]).includes(v);
@@ -22,12 +29,23 @@ function isThemeMode(v: unknown): v is ThemeMode {
 
 function readStored(): ThemeMode {
   try {
-    const v = localStorage.getItem(STORAGE_KEY);
-    if (isThemeMode(v)) return v;
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw === null) return DEFAULT_MODE;
+    if (isThemeMode(raw)) return raw;
+    // Migration: legacy "system" preference now resolves to the default
+    // light theme. Persist the migration so we don't keep reading "system".
+    if (raw === "system") {
+      try {
+        localStorage.setItem(STORAGE_KEY, DEFAULT_MODE);
+      } catch {
+        /* ignore */
+      }
+      return DEFAULT_MODE;
+    }
   } catch {
     /* ignore */
   }
-  return "system";
+  return DEFAULT_MODE;
 }
 
 function writeStored(mode: ThemeMode): void {
@@ -36,16 +54,6 @@ function writeStored(mode: ThemeMode): void {
   } catch {
     /* ignore */
   }
-}
-
-function systemPrefersDark(): boolean {
-  if (typeof window === "undefined" || !window.matchMedia) return false;
-  return window.matchMedia("(prefers-color-scheme: dark)").matches;
-}
-
-function resolve(mode: ThemeMode): ResolvedTheme {
-  if (mode === "system") return systemPrefersDark() ? "dark" : "light";
-  return mode;
 }
 
 function apply(resolved: ResolvedTheme): void {
@@ -58,38 +66,28 @@ interface ThemeState {
   mode: ThemeMode;
   resolved: ResolvedTheme;
   setMode: (mode: ThemeMode) => void;
-  /** Re-resolve when system preference changes. */
-  syncFromSystem: () => void;
 }
 
-const initialMode = typeof window !== "undefined" ? readStored() : "system";
-const initialResolved = resolve(initialMode);
-if (typeof document !== "undefined") apply(initialResolved);
+const initialMode = typeof window !== "undefined" ? readStored() : DEFAULT_MODE;
+if (typeof document !== "undefined") apply(initialMode);
 
-export const useThemeStore = create<ThemeState>((set, get) => ({
+export const useThemeStore = create<ThemeState>((set) => ({
   mode: initialMode,
-  resolved: initialResolved,
+  resolved: initialMode,
   setMode: (mode) => {
     writeStored(mode);
-    const resolved = resolve(mode);
-    apply(resolved);
-    set({ mode, resolved });
-  },
-  syncFromSystem: () => {
-    if (get().mode !== "system") return;
-    const resolved = resolve("system");
-    apply(resolved);
-    set({ resolved });
+    apply(mode);
+    set({ mode, resolved: mode });
   },
 }));
 
-/** Mounts a listener that re-resolves when the OS theme flips. */
+/**
+ * No-op kept for backwards compatibility with call sites that previously
+ * mounted a `prefers-color-scheme` listener. The app no longer follows the
+ * OS theme — users explicitly pick a theme from Settings.
+ */
 export function installSystemThemeListener(): () => void {
-  if (typeof window === "undefined" || !window.matchMedia) return () => {};
-  const mq = window.matchMedia("(prefers-color-scheme: dark)");
-  const handler = () => useThemeStore.getState().syncFromSystem();
-  mq.addEventListener("change", handler);
-  return () => mq.removeEventListener("change", handler);
+  return () => {};
 }
 
 /** Static metadata for the theme picker UI. Swatches are CSS color literals

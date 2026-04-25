@@ -286,6 +286,10 @@ The always-on poll exposed a pre-existing race: the WS push and a poll drain (or
 
 `SessionBootstrap` is unchanged — a signed-in user landing on `/` or `/welcome` is still bounced to `/chats`.
 
+## Theme defaults
+
+Veil always opens in the **light** theme. The previous "Match system" mode and `prefers-color-scheme` listener were removed — `apps/client/src/lib/themeStore.ts` now defaults to `light`, migrates any legacy stored `"system"` value to `"light"` on first read, and writes only the chosen theme key to `localStorage` under `veil:theme`. Users can still pick any of `light · dark · reading · rose · green · garden · ocean` from Settings → Appearance; the choice persists per device. `installSystemThemeListener()` is kept as a no-op export for backwards compatibility with existing imports.
+
 ## Phase 7.5 — Power features (implemented)
 
 ### Message Scheduling (1:1 chats)

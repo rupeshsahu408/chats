@@ -57,7 +57,10 @@ export function App() {
   );
   const [trpcClient] = useState(() => makeTrpcClient());
 
-  // System theme listener — keeps "system" mode in sync with OS toggle.
+  // Theme system no longer follows the OS preference — Veil always opens
+  // in the Light theme unless the user explicitly picked another from
+  // Settings. The call is kept (as a no-op) to preserve the existing import
+  // shape and avoid breaking anyone wiring against this hook.
   useEffect(() => installSystemThemeListener(), []);
 
   // Hydrate stealth/UI prefs early so sound + haptic toggles are

@@ -1608,54 +1608,19 @@ function ToggleRow({
 function ThemeRow() {
   const mode = useThemeStore((s) => s.mode);
   const setMode = useThemeStore((s) => s.setMode);
-  const isSystem = mode === "system";
 
   return (
     <div className="px-4 py-4 border-b border-line/60">
       <div className="font-medium text-text mb-1">Theme</div>
       <div className="text-xs text-text-muted mb-3">
-        Pick a palette that's easy on your eyes. We'll remember your choice on this device.
+        Veil always opens in the Light theme. Pick a different palette below if
+        you'd like — we'll remember your choice on this device.
       </div>
-
-      {/* Match-system row */}
-      <button
-        onClick={() => setMode("system")}
-        className={
-          "w-full flex items-center justify-between rounded-xl px-3 py-2.5 mb-3 border wa-tap transition " +
-          (isSystem
-            ? "border-wa-green bg-wa-green-soft/40 text-text"
-            : "border-line bg-surface text-text-muted hover:text-text")
-        }
-      >
-        <span className="flex items-center gap-2.5">
-          <span className="grid place-items-center size-7 rounded-full bg-bg border border-line text-text">
-            <svg
-              className="size-3.5"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <rect x="3" y="4" width="18" height="12" rx="2" />
-              <path d="M8 20h8M12 16v4" />
-            </svg>
-          </span>
-          <span className="text-sm font-medium">Match system</span>
-        </span>
-        {isSystem && (
-          <span className="text-[10px] uppercase tracking-wide font-semibold text-wa-green">
-            Active
-          </span>
-        )}
-      </button>
 
       {/* Theme card grid */}
       <div className="grid grid-cols-2 gap-2">
         {THEME_META.map((t) => {
-          const isActive = !isSystem && mode === t.value;
+          const isActive = mode === t.value;
           return (
             <button
               key={t.value}
