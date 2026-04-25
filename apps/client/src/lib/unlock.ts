@@ -69,6 +69,89 @@ export async function unlockIdentityFromPhrase(
 }
 
 /**
+ * Recover a Random-ID account on a brand-new device.
+ *
+ * No local IndexedDB record exists yet (the user has never run the app
+ * on this device), so we:
+ *
+ *   1. Derive Ed25519 + X25519 keypairs from the 12-word phrase.
+ *   2. Verify the derived X25519 public key matches what the server
+ *      already has registered for this user (`me.setX25519Identity`
+ *      throws CONFLICT if they differ — the phrase is wrong).
+ *   3. Persist the derived identity locally so the user only enters
+ *      the phrase once per browser.
+ *   4. Re-upload prekeys (the previous device's one-time prekeys are
+ *      either consumed or unknown to us; uploading a fresh batch
+ *      ensures incoming peers can still complete X3DH with us).
+ *
+ * If step 2 fails with CONFLICT we surface a friendly "phrase doesn't
+ * match" error and DO NOT save anything locally — leaving the user
+ * free to retry with the correct phrase.
+ */
+export async function recoverIdentityFromPhraseOnNewDevice(
+  phrase: string,
+  userId: string,
+): Promise<UnlockedIdentity> {
+  const ed = deriveIdentityFromPhrase(phrase);
+  const { privateKey: x25519Priv } = deriveX25519FromPhrase(phrase);
+  const x25519Pub = x25519PublicKeyFromPrivate(x25519Priv);
+
+  // Server-side correctness check: if the user already registered an
+  // X25519 identity (the common case post-signup), this either no-ops
+  // (key matches → phrase correct) or throws CONFLICT (phrase wrong).
+  try {
+    await trpcClientProxy().me.setX25519Identity.mutate({
+      publicKey: bytesToBase64(x25519Pub),
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (/conflict|differs|already set/i.test(msg)) {
+      throw new Error(
+        "Recovery phrase doesn't match this account. Check your words.",
+      );
+    }
+    throw new Error(
+      `Couldn't verify your recovery phrase with the server: ${msg}`,
+    );
+  }
+
+  await saveIdentity({
+    id: "self",
+    userId,
+    encPrivateKey: bytesToBase64(ed.privateKey),
+    iv: "phrase-derived",
+    salt: "phrase-derived",
+    publicKey: bytesToBase64(ed.publicKey),
+    encX25519PrivateKey: bytesToBase64(x25519Priv),
+    iv2: "phrase-derived",
+    salt2: "phrase-derived",
+    x25519PublicKey: bytesToBase64(x25519Pub),
+    recoveryPhrase: phrase,
+    createdAt: new Date().toISOString(),
+  });
+
+  // Best-effort prekey re-upload. Failure here is non-fatal — the user
+  // can still send messages; only inbound first-contacts from new
+  // peers would be affected, and SessionSync re-runs on next unlock.
+  try {
+    const bundle = await buildPrekeyBundle({
+      identityPrivateKey: ed.privateKey,
+      numOneTime: 20,
+      freshStart: true,
+    });
+    await trpcClientProxy().prekeys.upload.mutate(bundle);
+  } catch (err) {
+    console.warn("Prekey re-upload failed during new-device recovery", err);
+  }
+
+  return {
+    userId,
+    ed25519: ed,
+    x25519: { privateKey: x25519Priv, publicKey: x25519Pub },
+  };
+}
+
+/**
  * Unlock the on-device identity using the user's PIN.
  *
  * Workflow:

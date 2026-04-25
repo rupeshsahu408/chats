@@ -344,6 +344,10 @@ A 10-point design philosophy is being built into Veil page-by-page. Each princip
 
 Remaining: **Principle #5 — group chat simplicity** (a focused pass on `GroupSettingsPage` + `GroupChatPage` to reduce visual complexity).
 
+## Recent fixes
+
+- **Blank Chats / Chat-thread page after login on a brand-new device (Apr 2026).** `UnlockGate` previously gated its render on `accountIsPhraseDerived !== null`, which only flipped to a boolean when `loadIdentity()` returned an existing IndexedDB record. On a fresh browser (signed in but no on-device identity yet) it stayed `null` forever and the gate rendered nothing → the chats list and chat thread bodies appeared completely blank. Rewrote the gate to take a `Mode` of `phrase | pin | recover-phrase | recover-no-backup`, deriving the recovery mode from `useAuthStore.user.accountType` when there is no local record. New helper `recoverIdentityFromPhraseOnNewDevice(phrase, userId)` in `lib/unlock.ts` derives Ed25519 + X25519 from the BIP-39 phrase, verifies via `me.setX25519Identity` (server throws CONFLICT on mismatch), persists the derived identity locally as `phrase-derived`, and re-uploads a fresh prekey bundle. PIN-account fresh devices get a clear "your encrypted keys live on the original device — import a backup" panel instead of a blank screen.
+
 ## Next phase
 
 **Native iOS (Phase 8) and Android Play Store (Phase 9) are deferred.** The product launches as an installable PWA: Android users install via Chrome's prompt, iOS users use Add-to-Home-Screen (web push works on iOS 16.4+ once installed). Phase 7 wrap-up — manual e2e group test (3 accounts) + push verification — remains the only outstanding item before launch readiness.
