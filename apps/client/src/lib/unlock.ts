@@ -18,6 +18,130 @@ import { buildPrekeyBundle } from "./prekeys";
 import type { UnlockedIdentity } from "./signal/session";
 
 /**
+ * Background self-heal for the user's signed prekey on the server.
+ *
+ * Why this exists
+ *   In production we see "Signed prekey signature did not verify against
+ *   the peer's identity key" surface for *some* users when peers try to
+ *   send them a message. That means the affected user has a SPK row on
+ *   the server whose signature no longer verifies against their
+ *   identity public key. Concretely: the SPK was signed with one
+ *   Ed25519 key, but the server's `users.identity_pubkey` is a
+ *   different one. Older client builds (and a few migration paths)
+ *   could end up in this state — the upload endpoint never verified
+ *   signatures, so corrupt rows accumulated silently.
+ *
+ *   Until *they* refresh their SPK, no peer can ever start a fresh
+ *   X3DH session with them. So peers see crypto errors. The peer can't
+ *   fix anything from their end.
+ *
+ * The fix
+ *   Every time we successfully unlock the local identity (PIN, phrase,
+ *   or new-device recovery), we ask the server for its copy of our
+ *   own SPK + identity key, then check three things:
+ *
+ *     1. Server's identity_pubkey === local Ed25519 public key.
+ *        - If they differ, this device cannot heal the account by
+ *          re-uploading (the server would reject it; even if it
+ *          accepted, peers verifying against the original
+ *          identity_pubkey would still fail). We just log loudly so
+ *          we have a breadcrumb in support.
+ *
+ *     2. Server has a SPK at all.
+ *        - If not, upload a fresh bundle.
+ *
+ *     3. Server's SPK signature verifies against server's identity.
+ *        - If not, upload a fresh bundle. This is the common heal
+ *          path that unblocks affected accounts the moment they open
+ *          Veil.
+ *
+ *   Runs in the background (fire-and-forget) so it never blocks the
+ *   unlock UX. On a healthy account it's a single round-trip and a
+ *   few hundred microseconds of crypto.
+ */
+async function verifyAndRefreshOwnPrekeys(
+  identity: UnlockedIdentity,
+): Promise<void> {
+  let info: {
+    identityPublicKey: string;
+    signedPreKey: { keyId: number; publicKey: string; signature: string } | null;
+  };
+  try {
+    info = await trpcClientProxy().prekeys.mySignedPreKey.query();
+  } catch (err) {
+    // Server may be unreachable; the next unlock retries.
+    console.warn("[veil] prekey self-heal: couldn't fetch SPK info", err);
+    return;
+  }
+
+  const serverIdPub = base64ToBytes(info.identityPublicKey);
+  const localIdPub = identity.ed25519.publicKey;
+  const idMatches =
+    serverIdPub.length === localIdPub.length &&
+    serverIdPub.every((v, i) => v === localIdPub[i]);
+
+  if (!idMatches) {
+    // Catastrophic mismatch — local Ed25519 doesn't match the server's
+    // identity_pubkey for this account. We can't auto-fix from here.
+    // Logging only; surfacing a UI banner is a separate UX decision.
+    console.warn(
+      "[veil] prekey self-heal: local Ed25519 identity differs from the server's identity_pubkey for this account. " +
+        "Peers cannot complete X3DH with you until this is reconciled (typically requires recovery-phrase sign-in on a fresh device).",
+    );
+    return;
+  }
+
+  let needsRefresh = false;
+  if (!info.signedPreKey) {
+    needsRefresh = true;
+  } else {
+    let sigOk = false;
+    try {
+      sigOk = ed25519.verify(
+        base64ToBytes(info.signedPreKey.signature),
+        base64ToBytes(info.signedPreKey.publicKey),
+        serverIdPub,
+      );
+    } catch {
+      sigOk = false;
+    }
+    if (!sigOk) needsRefresh = true;
+  }
+
+  if (!needsRefresh) return;
+
+  console.warn(
+    "[veil] prekey self-heal: server-stored SPK is missing or its signature is invalid. " +
+      "Refreshing prekeys now so peers can send you new messages.",
+  );
+  try {
+    const bundle = await buildPrekeyBundle({
+      identityPrivateKey: identity.ed25519.privateKey,
+      numOneTime: 20,
+      freshStart: true,
+    });
+    await trpcClientProxy().prekeys.upload.mutate(bundle);
+    console.info("[veil] prekey self-heal: refreshed signed prekey on server.");
+  } catch (err) {
+    console.warn("[veil] prekey self-heal: refresh failed", err);
+  }
+}
+
+/**
+ * Fire-and-forget wrapper around `verifyAndRefreshOwnPrekeys`. Called
+ * at the end of every unlock path so we never block the UI on a self-
+ * heal that the vast majority of users will never need. Errors inside
+ * are already swallowed by the helper itself; the void-then-catch is a
+ * belt-and-suspenders guard against an unhandled rejection if the
+ * tRPC proxy ever rejects synchronously.
+ */
+function scheduleSelfHeal(identity: UnlockedIdentity): void {
+  void verifyAndRefreshOwnPrekeys(identity).catch((err) => {
+    console.warn("[veil] prekey self-heal: unexpected failure", err);
+  });
+}
+
+/**
  * Encrypt the user's BIP-39 recovery phrase with their daily verification
  * password (Argon2id + AES-GCM). Returns the three base64 strings the
  * server stores as an opaque blob.
@@ -89,11 +213,13 @@ export async function unlockIdentityFromPhrase(
     }
   }
 
-  return {
+  const identity: UnlockedIdentity = {
     userId: rec.userId,
     ed25519: ed,
     x25519: { privateKey: x25519Priv, publicKey: x25519Pub },
   };
+  scheduleSelfHeal(identity);
+  return identity;
 }
 
 /**
@@ -172,11 +298,13 @@ export async function recoverIdentityFromPhraseOnNewDevice(
     console.warn("Prekey re-upload failed during new-device recovery", err);
   }
 
-  return {
+  const identity: UnlockedIdentity = {
     userId,
     ed25519: ed,
     x25519: { privateKey: x25519Priv, publicKey: x25519Pub },
   };
+  scheduleSelfHeal(identity);
+  return identity;
 }
 
 /**
@@ -297,11 +425,13 @@ export async function recoverIdentityWithDailyPassword(
     console.warn("Prekey re-upload failed during daily-password recovery", err);
   }
 
-  return {
+  const identity: UnlockedIdentity = {
     userId,
     ed25519: ed,
     x25519: { privateKey: x25519Priv, publicKey: x25519Pub },
   };
+  scheduleSelfHeal(identity);
+  return identity;
 }
 
 /**
@@ -394,9 +524,11 @@ export async function unlockIdentity(pin: string): Promise<UnlockedIdentity> {
     }
   }
 
-  return {
+  const identity: UnlockedIdentity = {
     userId: rec.userId,
     ed25519: { privateKey: edPriv, publicKey: edPub },
     x25519: { privateKey: x25519Priv, publicKey: x25519Pub },
   };
+  scheduleSelfHeal(identity);
+  return identity;
 }

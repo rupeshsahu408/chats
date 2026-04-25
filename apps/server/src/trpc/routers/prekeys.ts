@@ -1,12 +1,15 @@
 import { TRPCError } from "@trpc/server";
 import { and, eq, isNull, sql, or } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
+import { ed25519 } from "@noble/curves/ed25519.js";
 import {
   UploadPrekeysInputV2,
   PrekeyStatusSchema,
   PrekeyBundleSchemaV2,
+  MySignedPreKeyResultSchema,
   type PrekeyBundleV2,
   type PrekeyStatus,
+  type MySignedPreKeyResult,
   UserIdSchema,
 } from "@veil/shared";
 import { z } from "zod";
@@ -112,6 +115,47 @@ export const prekeysRouter = router({
         }
       }
 
+      // Verify the signed prekey signature against the *server's* copy
+      // of the user's identity public key. This is the authoritative
+      // identity peers will use to verify the SPK during X3DH, so it's
+      // the only thing that matters. Without this check, a buggy or
+      // out-of-sync client can upload a SPK signed by a different
+      // Ed25519 key — peers then hit "signature did not verify" when
+      // they try to send the user a message, which is exactly the
+      // failure mode we keep seeing in production. Failing fast at
+      // upload time means the affected client gets an immediate, clear
+      // error instead of silently poisoning every future incoming
+      // session.
+      const idRow = await db
+        .select({ identityPubkey: schema.users.identityPubkey })
+        .from(schema.users)
+        .where(eq(schema.users.id, userId))
+        .limit(1);
+      const idPub = idRow[0]?.identityPubkey;
+      if (!idPub) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "Identity key not registered for this account.",
+        });
+      }
+      let sigValid = false;
+      try {
+        sigValid = ed25519.verify(
+          Uint8Array.from(spkSig),
+          Uint8Array.from(spkPub),
+          Uint8Array.from(idPub),
+        );
+      } catch {
+        sigValid = false;
+      }
+      if (!sigValid) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message:
+            "Signed prekey signature does not verify against your account's identity key. Your device's signing key has drifted out of sync with your account — please sign in again with your recovery phrase or PIN.",
+        });
+      }
+
       // Replace the signed prekey atomically.
       await db
         .insert(schema.signedPrekeys)
@@ -177,6 +221,50 @@ export const prekeysRouter = router({
     .output(PrekeyStatusSchema)
     .query(async ({ ctx }): Promise<PrekeyStatus> => {
       return await getStatus(getDb(), ctx.userId);
+    }),
+
+  /**
+   * Return the caller's own signed prekey + identity public key as
+   * the server has them. Lets the client run a self-audit after
+   * unlock: if the signature on file no longer verifies against the
+   * identity key on file (or the identity key on file no longer
+   * matches the one in this device's local store), the client knows
+   * to either re-upload fresh prekeys or surface an account-recovery
+   * prompt. This is the runtime self-heal that complements the
+   * upload-time signature check above and unblocks accounts whose
+   * stored SPK was poisoned by older client versions.
+   */
+  mySignedPreKey: protectedProcedure
+    .output(MySignedPreKeyResultSchema)
+    .query(async ({ ctx }): Promise<MySignedPreKeyResult> => {
+      const db = getDb();
+      const u = await db
+        .select({ identityPubkey: schema.users.identityPubkey })
+        .from(schema.users)
+        .where(eq(schema.users.id, ctx.userId))
+        .limit(1);
+      const ur = u[0];
+      if (!ur) throw new TRPCError({ code: "NOT_FOUND" });
+      const spk = await db
+        .select({
+          keyId: schema.signedPrekeys.keyId,
+          publicKey: schema.signedPrekeys.publicKey,
+          signature: schema.signedPrekeys.signature,
+        })
+        .from(schema.signedPrekeys)
+        .where(eq(schema.signedPrekeys.userId, ctx.userId))
+        .limit(1);
+      const sr = spk[0];
+      return {
+        identityPublicKey: bufferToB64(ur.identityPubkey),
+        signedPreKey: sr
+          ? {
+              keyId: sr.keyId,
+              publicKey: bufferToB64(sr.publicKey),
+              signature: bufferToB64(sr.signature),
+            }
+          : null,
+      };
     }),
 
   /**

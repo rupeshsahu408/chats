@@ -577,6 +577,21 @@ export const PrekeyBundleSchemaV2 = z.object({
 });
 export type PrekeyBundleV2 = z.infer<typeof PrekeyBundleSchemaV2>;
 
+/**
+ * Returns the *caller's own* signed prekey + identity public key as
+ * the server has them stored. Lets the client verify, after unlock,
+ * that the signed prekey on file is still signed by the same identity
+ * key the client holds — and re-upload fresh prekeys if not. This
+ * auto-heals accounts whose stored SPK signature drifted out of sync
+ * with their identity (a real bug seen in early multi-device / phase-
+ * migration flows).
+ */
+export const MySignedPreKeyResultSchema = z.object({
+  identityPublicKey: IdentityPublicKeySchema,
+  signedPreKey: SignedPreKeyInput.nullable(),
+});
+export type MySignedPreKeyResult = z.infer<typeof MySignedPreKeyResultSchema>;
+
 /* ─────────── Phase 4: Phone Auth (Firebase) ─────────── */
 
 export const VerifyFirebasePhoneInput = z.object({

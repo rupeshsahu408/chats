@@ -56,6 +56,15 @@ export async function x3dhInitiate(
   input: X3DHInitiatorInput,
 ): Promise<X3DHInitiatorOutput> {
   // Verify the signed prekey signature with Bob's Ed25519 identity.
+  // If this fails the peer's server-stored prekey was signed by a key
+  // that no longer matches their identity public key — typically an
+  // older client that uploaded prekeys signed with a different key.
+  // Sending is impossible until *they* refresh their prekeys; the
+  // client now does this automatically on every unlock (see
+  // `verifyAndRefreshOwnPrekeys` in lib/unlock.ts), so most affected
+  // peers heal themselves the next time they open the app. We surface
+  // an actionable, human-readable message so the sender knows what's
+  // going on instead of staring at a stack-trace-y crypto error.
   const sigOk = ed25519.verify(
     input.peerSignedPreKey.signature,
     input.peerSignedPreKey.publicKey,
@@ -63,7 +72,7 @@ export async function x3dhInitiate(
   );
   if (!sigOk) {
     throw new Error(
-      "Signed prekey signature did not verify against the peer's identity key.",
+      "This person's encryption keys are out of sync on the server. Ask them to open Veil once — it auto-repairs on unlock — then try sending again.",
     );
   }
 
