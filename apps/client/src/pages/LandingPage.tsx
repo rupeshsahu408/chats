@@ -26,6 +26,7 @@ export function LandingPage() {
       <TrustBar />
       <Features />
       <Lifestyle />
+      <Testimonials />
       <HowItWorks />
       <Security />
       <Comparison />
@@ -599,6 +600,101 @@ function ValuePoint({ title, body }: { title: string; body: string }) {
         <p className="text-[15px] text-[#3C5A47] mt-1 leading-relaxed">{body}</p>
       </div>
     </li>
+  );
+}
+
+/* ───────────────────────── Testimonials ───────────────────────── */
+
+function Testimonials() {
+  const reviews: Array<{
+    quote: string;
+    name: string;
+    role: string;
+    initials: string;
+    bg: string;
+    fg: string;
+  }> = [
+    {
+      quote:
+        "I switched from three other apps. Veil is the first one that actually feels calm to use — and the only one I trust with the people I love.",
+      name: "Maya Okafor",
+      role: "Designer · Lisbon",
+      initials: "MO",
+      bg: "#2E6F40",
+      fg: "#FFFFFF",
+    },
+    {
+      quote:
+        "No phone number, no ads, no nonsense. The recovery phrase setup took thirty seconds and I haven't thought about my privacy since.",
+      name: "Jonas Reuter",
+      role: "Engineer · Berlin",
+      initials: "JR",
+      bg: "#CFFFDC",
+      fg: "#253D2C",
+    },
+    {
+      quote:
+        "Our family chat finally lives in one place again. Grandparents on iPhones, cousins on Android — everyone, on the same private thread.",
+      name: "Priya Shah",
+      role: "Teacher · Mumbai",
+      initials: "PS",
+      bg: "#253D2C",
+      fg: "#CFFFDC",
+    },
+  ];
+  return (
+    <section className="py-24 sm:py-32 bg-white">
+      <div className="mx-auto max-w-7xl px-5 sm:px-8">
+        <SectionLabel>Loved by quiet people everywhere</SectionLabel>
+        <SectionHeading
+          title="What people say after they switch."
+          subtitle="A few notes from the early Veil community."
+        />
+        <div className="mt-14 grid md:grid-cols-3 gap-5">
+          {reviews.map((r) => (
+            <figure
+              key={r.name}
+              className="relative rounded-3xl bg-white border border-[#253D2C]/10 p-7 flex flex-col"
+              style={{ boxShadow: "0 1px 2px rgba(17,27,33,0.04)" }}
+            >
+              <span
+                aria-hidden
+                className="absolute top-5 right-6 text-[64px] leading-none font-semibold select-none"
+                style={{ fontFamily: "'Fraunces', serif", color: "#CFFFDC" }}
+              >
+                &ldquo;
+              </span>
+              <div className="flex items-center gap-1 text-[#2E6F40]">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <svg key={i} width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2.25l2.92 6.32 6.83.78-5.13 4.7 1.45 6.7L12 17.27l-6.07 3.48 1.45-6.7-5.13-4.7 6.83-.78z" />
+                  </svg>
+                ))}
+              </div>
+              <blockquote className="mt-4 text-[15.5px] sm:text-[16px] text-[#253D2C] leading-[1.55] flex-1">
+                {r.quote}
+              </blockquote>
+              <figcaption className="mt-6 pt-5 border-t border-[#253D2C]/8 flex items-center gap-3">
+                <span
+                  className="grid place-items-center w-11 h-11 rounded-full text-[14px] font-semibold shrink-0"
+                  style={{ backgroundColor: r.bg, color: r.fg }}
+                >
+                  {r.initials}
+                </span>
+                <span>
+                  <span className="block text-[14.5px] font-semibold text-[#253D2C] leading-tight">
+                    {r.name}
+                  </span>
+                  <span className="block text-[12.5px] text-[#3C5A47]/80 mt-0.5">
+                    {r.role}
+                  </span>
+                </span>
+              </figcaption>
+            </figure>
+          ))}
+        </div>
+      </div>
+    </section>
   );
 }
 
