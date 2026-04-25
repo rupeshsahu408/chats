@@ -38,6 +38,7 @@ import { WhatWeStorePage } from "./pages/WhatWeStorePage";
 import { FocusModePage } from "./pages/FocusModePage";
 import { SoundPage } from "./pages/SoundPage";
 import { PromisesPage } from "./pages/PromisesPage";
+import { EncryptionPage } from "./pages/EncryptionPage";
 import { SessionSync } from "./lib/SessionSync";
 import { SessionGuard } from "./components/SessionGuard";
 import { useStealthPrefs } from "./lib/stealthPrefs";
@@ -117,6 +118,7 @@ export function App() {
           <Route path="/focus-mode" element={<FocusModePage />} />
           <Route path="/sound" element={<SoundPage />} />
           <Route path="/promises" element={<PromisesPage />} />
+          <Route path="/encryption" element={<EncryptionPage />} />
           <Route path="/i/:token" element={<InviteRedeemPage />} />
           <Route path="*" element={<WelcomePage />} />
         </Routes>

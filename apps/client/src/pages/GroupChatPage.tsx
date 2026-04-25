@@ -1215,9 +1215,17 @@ function GroupChatInner({ groupId }: { groupId: string }) {
           "xl:px-[max(1.5rem,calc((100%-56rem)/2))]"
         }
       >
-        <div className="self-center text-[11px] text-text-muted bg-panel border border-line rounded-full px-3 py-1 mb-2 inline-flex items-center gap-1">
-          <LockIcon className="w-3 h-3" /> End-to-end encrypted · sender keys
-        </div>
+        <button
+          type="button"
+          onClick={() => navigate("/encryption")}
+          className="self-center text-[11px] text-text-muted bg-panel border border-line rounded-full px-3 py-1 mb-2 inline-flex items-center gap-1 hover:bg-elevated/60 transition wa-tap"
+          aria-label="Learn more about end-to-end encryption"
+        >
+          <LockIcon className="w-3 h-3" /> End-to-end encrypted · sender keys ·{" "}
+          <span className="font-semibold underline underline-offset-2">
+            Know more
+          </span>
+        </button>
 
         {filteredMessages && filteredMessages.length === 0 ? (
           <EmptyState

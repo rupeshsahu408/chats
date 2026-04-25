@@ -4360,13 +4360,17 @@ function DeleteMessageDialog({
  * stays crisp at any size and reads as premium.
  */
 export function EncryptionNoticeBanner({ peerLabel }: { peerLabel: string }) {
+  const navigate = useNavigate();
   return (
     <div
       className="self-center w-full flex justify-center pt-1 pb-2 animate-fade-in"
       role="note"
       aria-label="End-to-end encryption notice"
     >
-      <div
+      <button
+        type="button"
+        onClick={() => navigate("/encryption")}
+        aria-label="Learn more about end-to-end encryption"
         className="
           max-w-[88%] sm:max-w-md
           flex items-start gap-2.5
@@ -4375,6 +4379,9 @@ export function EncryptionNoticeBanner({ peerLabel }: { peerLabel: string }) {
           shadow-card
           ring-1 ring-black/5
           text-center
+          transition
+          hover:brightness-[0.98] active:scale-[0.99]
+          wa-tap
         "
         style={{
           backgroundColor: "rgb(var(--wa-encryption-bg, 255 248 196))",
@@ -4428,10 +4435,13 @@ export function EncryptionNoticeBanner({ peerLabel }: { peerLabel: string }) {
           <div className="text-[11px] leading-snug opacity-85 mt-0.5 break-words">
             Only you and{" "}
             <span className="font-medium">{peerLabel}</span>{" "}
-            can read these messages.
+            can read these messages.{" "}
+            <span className="font-semibold underline underline-offset-2 whitespace-nowrap">
+              Know more
+            </span>
           </div>
         </div>
-      </div>
+      </button>
     </div>
   );
 }
