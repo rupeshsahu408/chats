@@ -2056,6 +2056,7 @@ function Footer() {
             title="Resources"
             internal
             links={[
+              { label: "About us", to: "/about" },
               { label: "GitHub", href: "https://github.com" },
               { label: "Privacy Policy", to: "/privacy-policy" },
               { label: "Terms & Conditions", to: "/terms" },
