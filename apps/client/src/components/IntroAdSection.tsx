@@ -13,6 +13,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
  *   3.4 – 4.2s  Phone rises into view, header settles with verified ✓
  *   4.5 – 6.3s  Alex types (slower, friendlier 3-dot bubble)
  *   6.3s        Message 1 from Alex with encrypted shimmer + receive ding
+ *   6.55s       Self-destructing photo bubble arrives, locked
+ *   7.4s        Photo unlocks (scan line reveal) — countdown begins
  *   7.0 – 8.8s  User types in the input bar (live caret)
  *   8.8s        Message 2 sent — lock-seal animation, "Encrypting…" tag
  *   8.8 – 10.0s ✓ → ✓✓ → blue ✓✓ read-receipt animation (slower)
@@ -20,7 +22,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
  *  11.8s        Message 3 arrives with disappearing-timer badge
  *  12.4 – 14.0s User records — recording UI in input bar
  *  14.0s        Voice note sent with lock-seal
- *  15.2 – 16.8s Alex types
+ *  15.2 – 16.8s Alex types final goodbye
+ *  15.8 – 16.65 Photo BURNS into pixel-dust embers (with crackle)
+ *  16.65–17.1s  Photo bubble collapses, freeing chat space
  *  16.8s        Final message arrives ("We never had this chat")
  *  17.4s        Heart reaction floats up
  *  18.0 – 20.5s Encryption highlight + "Screenshot blocked" alert banner
@@ -41,10 +45,16 @@ type MessageEvent = {
   kind: "message";
   id: string;
   side: Side;
-  variant: "text" | "voice";
+  variant: "text" | "voice" | "photo";
   text?: string;
   duration?: number;
   disappearing?: boolean;
+  /** When the photo bubble unlocks (scan line reveal). */
+  unlockAt?: number;
+  /** When the photo bubble starts burning into pixel dust. */
+  burnAt?: number;
+  /** How long the burn animation lasts. */
+  burnDuration?: number;
   at: number;
 };
 
@@ -80,6 +90,16 @@ const EVENTS: Event[] = [
     variant: "text",
     text: "I've sent you the file. Eyes only, please.",
     at: 6.3,
+  },
+  {
+    kind: "message",
+    id: "p1",
+    side: "in",
+    variant: "photo",
+    at: 6.55,
+    unlockAt: 7.4,
+    burnAt: 15.8,
+    burnDuration: 0.85,
   },
 
   { kind: "typing", side: "out", start: 7.0, end: 8.8 },
@@ -815,6 +835,9 @@ function layoutMessage(
   if (m.variant === "voice") {
     return { msg: m, lines: [], w: 260, h: 70 };
   }
+  if (m.variant === "photo") {
+    return { msg: m, lines: [], w: 240, h: 280 };
+  }
   ctx.font = `400 ${BUBBLE_FONT}px Inter, sans-serif`;
   const lines = wrapText(ctx, m.text ?? "", BUBBLE_MAX_TEXT_W);
   const textW = Math.max(...lines.map((l) => ctx.measureText(l).width));
@@ -1162,6 +1185,442 @@ function drawTextBubble(
   }
 }
 
+/* ───────────────── self-destructing photo bubble ──────────────── */
+
+const PHOTO_BURN_PARTICLES = (() => {
+  type P = {
+    x: number;
+    y: number;
+    jitterX: number;
+    speed: number;
+    delay: number;
+    size: number;
+  };
+  const list: P[] = [];
+  const cols = 24;
+  const rows = 28;
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const seed = c * 13.7 + r * 17.3;
+      list.push({
+        x: c / (cols - 1),
+        y: r / (rows - 1),
+        jitterX: (Math.sin(seed * 0.91) * 0.5 + 0.5) * 28 - 14,
+        speed: 40 + (Math.cos(seed * 1.3) * 0.5 + 0.5) * 80,
+        delay: (Math.sin(seed * 2.7) * 0.5 + 0.5) * 0.18,
+        size: 1.4 + (Math.cos(seed * 0.7) * 0.5 + 0.5) * 1.8,
+      });
+    }
+  }
+  return list;
+})();
+
+function drawPhotoContent(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+) {
+  // paper background
+  ctx.fillStyle = "#FFFFFF";
+  ctx.fillRect(x, y, w, h);
+
+  // top edge subtle shadow for paper feel
+  const topShade = ctx.createLinearGradient(x, y, x, y + 28);
+  topShade.addColorStop(0, "rgba(0,0,0,0.05)");
+  topShade.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = topShade;
+  ctx.fillRect(x, y, w, 28);
+
+  // CONFIDENTIAL header bar
+  ctx.fillStyle = "rgba(225,29,72,0.10)";
+  ctx.fillRect(x + 12, y + 12, w - 24, 24);
+  ctx.strokeStyle = "rgba(225,29,72,0.45)";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x + 12, y + 12, w - 24, 24);
+  ctx.fillStyle = "#E11D48";
+  ctx.font = "700 11px Inter, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("CONFIDENTIAL · EYES ONLY", x + w / 2, y + 24);
+
+  // document title
+  ctx.fillStyle = "#0F1A1F";
+  ctx.font = "600 12px Inter, sans-serif";
+  ctx.textAlign = "left";
+  ctx.fillText("Q2 strategy memo", x + 14, y + 52);
+
+  // author + date subtitle
+  ctx.fillStyle = "rgba(15,26,31,0.5)";
+  ctx.font = "500 10px Inter, sans-serif";
+  ctx.fillText("A. Mendoza · 25 Apr 2026", x + 14, y + 67);
+
+  // redacted bars (simulated lines of text, blacked out)
+  const barX = x + 14;
+  const barY = y + 84;
+  const widths = [0.78, 0.92, 0.55, 0.84, 0.42];
+  for (let i = 0; i < widths.length; i++) {
+    const bw = (w - 28) * (widths[i] ?? 0.7);
+    // soft shadow under bar
+    ctx.fillStyle = "rgba(0,0,0,0.05)";
+    ctx.fillRect(barX, barY + i * 13 + 1, bw, 7);
+    ctx.fillStyle = "#0F1A1F";
+    ctx.fillRect(barX, barY + i * 13, bw, 7);
+  }
+
+  // mini chart panel
+  const chartTop = barY + widths.length * 13 + 12;
+  const chartH = 56;
+  ctx.fillStyle = "rgba(46,111,64,0.07)";
+  ctx.fillRect(x + 14, chartTop, w - 28, chartH);
+
+  // grid lines
+  ctx.strokeStyle = "rgba(46,111,64,0.18)";
+  ctx.lineWidth = 0.5;
+  for (let i = 1; i < 4; i++) {
+    const ly = chartTop + (i / 4) * chartH;
+    ctx.beginPath();
+    ctx.moveTo(x + 14, ly);
+    ctx.lineTo(x + w - 14, ly);
+    ctx.stroke();
+  }
+
+  // chart bars
+  const heights = [0.4, 0.6, 0.45, 0.75, 0.55, 0.85, 0.7];
+  const cw = (w - 36) / heights.length;
+  for (let i = 0; i < heights.length; i++) {
+    const ch = (chartH - 12) * (heights[i] ?? 0.5);
+    ctx.fillStyle = "#2E6F40";
+    ctx.fillRect(
+      x + 18 + i * cw,
+      chartTop + chartH - 6 - ch,
+      Math.max(1, cw - 4),
+      ch,
+    );
+  }
+
+  // chart label
+  ctx.fillStyle = "rgba(46,111,64,0.7)";
+  ctx.font = "500 9px Inter, sans-serif";
+  ctx.textAlign = "left";
+  ctx.fillText("Projected · weekly", x + 14, chartTop + chartH + 12);
+
+  // footer redacted bar + page indicator
+  ctx.fillStyle = "#0F1A1F";
+  ctx.fillRect(x + 14, y + h - 28, (w - 28) * 0.62, 5);
+  ctx.fillStyle = "rgba(15,26,31,0.45)";
+  ctx.font = "500 9px Inter, sans-serif";
+  ctx.textAlign = "right";
+  ctx.fillText("p. 1 of 3", x + w - 14, y + h - 12);
+}
+
+function drawPhotoLocked(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  t: number,
+) {
+  // frosted gradient background
+  const grd = ctx.createLinearGradient(x, y, x + w, y + h);
+  grd.addColorStop(0, "#2E6F40");
+  grd.addColorStop(0.55, "#3C5A47");
+  grd.addColorStop(1, "#1F3327");
+  ctx.fillStyle = grd;
+  ctx.fillRect(x, y, w, h);
+
+  // diagonal noise dither
+  ctx.save();
+  ctx.globalAlpha = 0.06;
+  for (let dy = 0; dy < h; dy += 6) {
+    for (let dx = 0; dx < w; dx += 6) {
+      const v =
+        Math.sin((dx + dy) * 0.3) + Math.cos(dx * 0.13 + dy * 0.21);
+      ctx.fillStyle = v > 0 ? "#FFFFFF" : "#000000";
+      ctx.fillRect(x + dx, y + dy, 4, 4);
+    }
+  }
+  ctx.restore();
+
+  // ambient pulse glow behind padlock
+  const pulse = 0.55 + Math.sin(t * 2.5) * 0.18;
+  const radial = ctx.createRadialGradient(
+    x + w / 2,
+    y + h / 2 - 14,
+    14,
+    x + w / 2,
+    y + h / 2 - 14,
+    w * 0.65,
+  );
+  radial.addColorStop(0, `rgba(207,255,220,${0.32 * pulse})`);
+  radial.addColorStop(1, "rgba(207,255,220,0)");
+  ctx.fillStyle = radial;
+  ctx.fillRect(x, y, w, h);
+
+  // big padlock
+  ctx.save();
+  ctx.shadowColor = "rgba(0,0,0,0.45)";
+  ctx.shadowBlur = 18;
+  drawLockMini(ctx, x + w / 2, y + h / 2 - 16, 44, "#FFFFFF");
+  ctx.restore();
+
+  // labels
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = "600 14px Inter, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("Encrypted file", x + w / 2, y + h / 2 + 32);
+
+  ctx.fillStyle = "rgba(255,255,255,0.7)";
+  ctx.font = "500 11px Inter, sans-serif";
+  ctx.fillText("Verifying recipient…", x + w / 2, y + h / 2 + 50);
+}
+
+function drawPhotoBurn(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  burnProgress: number,
+) {
+  if (burnProgress <= 0) return;
+
+  // burn front rises from below the photo to above it
+  const burnY = y + h - easeOut(burnProgress) * (h + 36);
+  const segments = 26;
+  const wave = (i: number) =>
+    Math.sin(i * 1.4 + burnProgress * 12) * 6 + Math.sin(i * 0.6) * 4;
+
+  // ERASE everything below the burn front (destination-out)
+  ctx.save();
+  ctx.globalCompositeOperation = "destination-out";
+  ctx.beginPath();
+  ctx.moveTo(x - 4, y + h + 8);
+  for (let i = 0; i <= segments; i++) {
+    const px = x + (i / segments) * w;
+    ctx.lineTo(px, burnY + wave(i));
+  }
+  ctx.lineTo(x + w + 4, y + h + 8);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+
+  if (burnProgress < 0.97) {
+    // outer red-orange glow along the burn line
+    ctx.save();
+    ctx.strokeStyle = "rgba(252,127,3,0.5)";
+    ctx.shadowColor = "rgba(225,29,72,0.7)";
+    ctx.shadowBlur = 22;
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    for (let i = 0; i <= segments; i++) {
+      const px = x + (i / segments) * w;
+      const py = burnY + wave(i);
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+    ctx.restore();
+
+    // hot yellow core line
+    ctx.save();
+    ctx.strokeStyle = "rgba(252,211,77,0.95)";
+    ctx.shadowColor = "rgba(252,211,77,0.85)";
+    ctx.shadowBlur = 12;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (let i = 0; i <= segments; i++) {
+      const px = x + (i / segments) * w;
+      const py = burnY + wave(i);
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // pixel-dust embers rising from the burn line
+  for (const p of PHOTO_BURN_PARTICLES) {
+    const py0 = y + p.y * h;
+    const distBelow = py0 - burnY; // positive = still under photo, negative = ignited
+    if (distBelow < -22) continue;
+    if (distBelow > 50) continue;
+    // age: 0 = just ignited, 1 = fully faded
+    const age = clamp01((22 - distBelow) / 60);
+    if (age <= 0) continue;
+    const px0 = x + p.x * w + p.jitterX * age;
+    const py = py0 - age * 56 * (p.speed / 100);
+    const alpha = (1 - age) * 0.85;
+    const size = p.size * (1 - age * 0.45);
+
+    // hot yellow core
+    ctx.fillStyle = `rgba(252,211,77,${alpha})`;
+    ctx.beginPath();
+    ctx.arc(px0, py, size, 0, Math.PI * 2);
+    ctx.fill();
+
+    // outer red glow when fresh
+    if (age < 0.35) {
+      ctx.fillStyle = `rgba(252,127,3,${alpha * 0.55})`;
+      ctx.beginPath();
+      ctx.arc(px0, py, size * 1.9, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+}
+
+function drawPhotoBubble(
+  ctx: CanvasRenderingContext2D,
+  layout: Layout,
+  bx: number,
+  by: number,
+  t: number,
+) {
+  const { w, h } = layout;
+  const m = layout.msg;
+  const side = m.side;
+
+  const unlockAt = m.unlockAt ?? Infinity;
+  const burnAt = m.burnAt ?? Infinity;
+  const burnDuration = m.burnDuration ?? 1.0;
+
+  const unlockProgress = clamp01((t - unlockAt) / 0.5);
+  const burnProgress = t >= burnAt ? clamp01((t - burnAt) / burnDuration) : 0;
+
+  // bubble shadow
+  ctx.fillStyle = "rgba(17,27,33,0.06)";
+  roundRect(ctx, bx, by + 3, w, h, 22);
+  ctx.fill();
+
+  // bubble background
+  ctx.fillStyle = side === "in" ? "#FFFFFF" : "#CFFFDC";
+  roundRect(ctx, bx, by, w, h, 22);
+  ctx.fill();
+
+  // photo area
+  const photoPad = 6;
+  const px = bx + photoPad;
+  const py = by + photoPad;
+  const pw = w - photoPad * 2;
+  const ph = h - photoPad * 2 - 26; // leave space for caption strip
+
+  ctx.save();
+  roundRect(ctx, px, py, pw, ph, 16);
+  ctx.clip();
+
+  // unlocked photo content underneath
+  if (unlockProgress > 0) {
+    drawPhotoContent(ctx, px, py, pw, ph);
+  }
+
+  // locked overlay on top, fading as unlock progresses
+  if (unlockProgress < 1) {
+    ctx.save();
+    ctx.globalAlpha = 1 - unlockProgress;
+    drawPhotoLocked(ctx, px, py, pw, ph, t);
+    ctx.restore();
+  }
+
+  // scan line during the unlock transition
+  if (unlockProgress > 0 && unlockProgress < 1) {
+    const scanY = py + unlockProgress * ph;
+    const scanGrd = ctx.createLinearGradient(
+      px,
+      scanY - 14,
+      px,
+      scanY + 14,
+    );
+    scanGrd.addColorStop(0, "rgba(104,186,127,0)");
+    scanGrd.addColorStop(0.5, "rgba(104,186,127,0.7)");
+    scanGrd.addColorStop(1, "rgba(104,186,127,0)");
+    ctx.fillStyle = scanGrd;
+    ctx.fillRect(px, scanY - 14, pw, 28);
+    ctx.save();
+    ctx.strokeStyle = "#68BA7F";
+    ctx.lineWidth = 2;
+    ctx.shadowColor = "rgba(104,186,127,0.85)";
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    ctx.moveTo(px, scanY);
+    ctx.lineTo(px + pw, scanY);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // burn animation
+  if (burnProgress > 0) {
+    drawPhotoBurn(ctx, px, py, pw, ph, burnProgress);
+  }
+
+  ctx.restore(); // end photo clip
+
+  // file watermark inside the photo (after unlock, before burn front passes)
+  if (unlockProgress > 0.6 && burnProgress < 0.2) {
+    ctx.save();
+    ctx.globalAlpha = (unlockProgress - 0.6) / 0.4;
+    ctx.fillStyle = "rgba(15,26,31,0.35)";
+    ctx.font = "500 9px Inter, sans-serif";
+    ctx.textAlign = "right";
+    ctx.textBaseline = "top";
+    ctx.fillText("VEIL · " + m.id.toUpperCase(), bx + w - 14, by + 12);
+    ctx.restore();
+  }
+
+  // caption / countdown strip at bottom
+  const stripY = by + h - 30;
+  const stripFadeOut = Math.max(0, 1 - burnProgress * 1.4);
+  if (stripFadeOut > 0) {
+    ctx.save();
+    ctx.globalAlpha = stripFadeOut;
+
+    ctx.fillStyle = "rgba(15,26,31,0.92)";
+    roundRect(ctx, bx + 8, stripY, w - 16, 24, 12);
+    ctx.fill();
+
+    if (t < burnAt) {
+      const remaining = Math.max(0, burnAt - t);
+      const seconds = Math.ceil(remaining);
+      const isUrgent = seconds <= 3;
+
+      // pulsing red dot
+      const dotPulse = isUrgent
+        ? 0.65 + Math.sin(t * 14) * 0.35
+        : 0.85;
+      ctx.fillStyle = `rgba(225,29,72,${dotPulse})`;
+      ctx.beginPath();
+      ctx.arc(bx + 22, stripY + 12, 4, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "#FFFFFF";
+      ctx.font = "600 10px Inter, sans-serif";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      ctx.fillText("Burns in", bx + 32, stripY + 13);
+
+      ctx.fillStyle = isUrgent ? "#FCD34D" : "#FFFFFF";
+      ctx.font = "700 11px Inter, sans-serif";
+      ctx.fillText(`${seconds}s`, bx + 70, stripY + 13);
+
+      // timestamp on the right
+      ctx.fillStyle = "rgba(255,255,255,0.65)";
+      ctx.font = "500 11px Inter, sans-serif";
+      ctx.textAlign = "right";
+      ctx.fillText("9:41", bx + w - 18, stripY + 13);
+    } else if (burnProgress < 1) {
+      ctx.fillStyle = "#FCD34D";
+      ctx.font = "700 11px Inter, sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("BURNING…", bx + w / 2, stripY + 13);
+    }
+
+    ctx.restore();
+  }
+}
+
 function drawConversation(ctx: CanvasRenderingContext2D, t: number) {
   ctx.save();
   roundRect(ctx, SCREEN.x, BODY_Y, SCREEN.w, BODY_BOTTOM - BODY_Y, 0);
@@ -1230,8 +1689,19 @@ function drawConversation(ctx: CanvasRenderingContext2D, t: number) {
     const local = clamp01((t - m.at) / 0.45);
     const visible = local > 0;
 
+    // Photo bubbles collapse after burning, freeing chat space smoothly
+    let collapseFactor = 1;
+    if (m.variant === "photo" && m.burnAt !== undefined) {
+      const burnEnd = m.burnAt + (m.burnDuration ?? 1);
+      if (t > burnEnd) {
+        collapseFactor = 1 - easeOut(clamp01((t - burnEnd) / 0.45));
+      }
+    }
+    const effectiveH = layout.h * collapseFactor;
+    const effectiveGap = BUBBLE_GAP * collapseFactor;
+
     if (!visible) {
-      cursorY += layout.h + BUBBLE_GAP;
+      cursorY += effectiveH + effectiveGap;
       if (m.disappearing) cursorY += 32;
       continue;
     }
@@ -1250,24 +1720,46 @@ function drawConversation(ctx: CanvasRenderingContext2D, t: number) {
     ctx.globalAlpha = alpha;
     ctx.translate(0, slideY);
 
-    if (m.variant === "voice") {
+    if (m.variant === "photo") {
+      // Clip-mask the bubble to its collapsing height so the burn looks like
+      // it physically removes the bubble from the chat flow.
+      if (collapseFactor < 1) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(
+          bx - 8,
+          by,
+          layout.w + 16,
+          Math.max(0, layout.h * collapseFactor),
+        );
+        ctx.clip();
+        ctx.globalAlpha = alpha * collapseFactor;
+        drawPhotoBubble(ctx, layout, bx, by, t);
+        ctx.restore();
+      } else {
+        drawPhotoBubble(ctx, layout, bx, by, t);
+      }
+    } else if (m.variant === "voice") {
       drawVoiceNoteBubble(ctx, layout, bx, by, t, m.at);
     } else {
       drawTextBubble(ctx, layout, bx, by, t);
     }
 
-    // encryption shimmer sweep over the bubble for ~0.7s
-    const shimmerLocal = clamp01((t - m.at) / 0.7);
-    if (shimmerLocal > 0 && shimmerLocal < 1) {
-      drawEncryptedShimmer(
-        ctx,
-        bx,
-        by,
-        layout.w,
-        layout.h,
-        22,
-        shimmerLocal,
-      );
+    // encryption shimmer sweep over the bubble for ~0.7s (skipped for
+    // photo bubbles — they have their own scan-line reveal on unlock)
+    if (m.variant !== "photo") {
+      const shimmerLocal = clamp01((t - m.at) / 0.7);
+      if (shimmerLocal > 0 && shimmerLocal < 1) {
+        drawEncryptedShimmer(
+          ctx,
+          bx,
+          by,
+          layout.w,
+          layout.h,
+          22,
+          shimmerLocal,
+        );
+      }
     }
 
     // lock-seal animation for outgoing messages: a small padlock that
@@ -1336,7 +1828,7 @@ function drawConversation(ctx: CanvasRenderingContext2D, t: number) {
       ctx.restore();
     }
 
-    cursorY += layout.h + BUBBLE_GAP;
+    cursorY += effectiveH + effectiveGap;
     if (m.disappearing) cursorY += 32;
   }
 
@@ -1980,6 +2472,48 @@ class AudioEngine {
     );
   }
 
+  playPhotoBurn(when: number, duration: number) {
+    // Crackling fire-like sweep: low rumble down + high sparkle bursts +
+    // a final whoosh as the photo collapses.
+    this.envOsc(
+      "sawtooth",
+      (osc, t) => {
+        osc.frequency.setValueAtTime(180, t);
+        osc.frequency.exponentialRampToValueAtTime(60, t + duration);
+      },
+      when,
+      duration,
+      0.07,
+      0.05,
+    );
+    // sparkle bursts spread across the burn duration
+    const burstCount = 8;
+    for (let i = 0; i < burstCount; i++) {
+      const offset = (i / burstCount) * duration;
+      const freq = 1500 + ((i * 173) % 800);
+      this.envOsc(
+        "triangle",
+        freq,
+        when + offset,
+        0.12,
+        0.05,
+        0.005,
+      );
+    }
+    // closing whoosh as the bubble collapses
+    this.envOsc(
+      "sine",
+      (osc, t) => {
+        osc.frequency.setValueAtTime(800, t);
+        osc.frequency.exponentialRampToValueAtTime(200, t + 0.4);
+      },
+      when + duration - 0.05,
+      0.45,
+      0.1,
+      0.02,
+    );
+  }
+
   playAmbientPad(start: number, end: number) {
     const notes = [261.63, 329.63, 392.0, 196.0]; // C major + low octave
     notes.forEach((f, idx) => {
@@ -2062,12 +2596,28 @@ function scheduleTimelineAudio(engine: AudioEngine, audioStart: number) {
   for (const e of EVENTS) {
     if (e.kind !== "message") continue;
     if (e.side === "in") {
-      engine.playShimmer(audioStart + e.at - 0.05);
+      // Photo bubbles use the unlock + burn sounds rather than the
+      // generic shimmer, but still get a soft receive ding on arrival.
+      if (e.variant !== "photo") {
+        engine.playShimmer(audioStart + e.at - 0.05);
+      }
       engine.playReceive(audioStart + e.at);
     } else {
       engine.playSend(audioStart + e.at);
       engine.playShimmer(audioStart + e.at + 0.02);
       engine.playLockClick(audioStart + e.at + 0.32); // seal closes
+    }
+  }
+
+  // self-destructing photo: unlock click + scan-line shimmer, then burn sweep
+  for (const e of EVENTS) {
+    if (e.kind !== "message" || e.variant !== "photo") continue;
+    if (e.unlockAt !== undefined) {
+      engine.playLockClick(audioStart + e.unlockAt);
+      engine.playShimmer(audioStart + e.unlockAt + 0.05);
+    }
+    if (e.burnAt !== undefined) {
+      engine.playPhotoBurn(audioStart + e.burnAt, e.burnDuration ?? 1);
     }
   }
 
@@ -2357,7 +2907,8 @@ export function IntroAdSection() {
           <p className="mt-4 text-[16px] sm:text-[18px] text-[#3C5A47] max-w-2xl mx-auto leading-[1.55]">
             Watch a 25-second cinematic story of a confidential exchange
             on VeilChat — identity-scanned, vault-sealed, voice on the
-            wire, screenshots blocked, notes that burn in 24 hours.
+            wire, screenshots blocked, a self-destructing photo that
+            burns into pixel-dust, notes that vanish in 24 hours.
             Generated fresh on your device with a custom soundtrack,
             ready to download as a real video file with sound.
           </p>
@@ -2441,6 +2992,8 @@ export function IntroAdSection() {
                 "Vault sealing",
                 "Encrypted shimmer",
                 "Verified ✓",
+                "Self-destructing photo",
+                "Pixel-dust burn",
                 "Disappearing notes",
                 "Voice on the wire",
                 "Screenshot blocked",
