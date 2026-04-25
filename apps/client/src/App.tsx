@@ -39,6 +39,7 @@ import { FocusModePage } from "./pages/FocusModePage";
 import { SoundPage } from "./pages/SoundPage";
 import { PromisesPage } from "./pages/PromisesPage";
 import { EncryptionPage } from "./pages/EncryptionPage";
+import { WhatsappPrivacyPage } from "./pages/WhatsappPrivacyPage";
 import { SessionSync } from "./lib/SessionSync";
 import { SessionGuard } from "./components/SessionGuard";
 import { useStealthPrefs } from "./lib/stealthPrefs";
@@ -119,6 +120,7 @@ export function App() {
           <Route path="/sound" element={<SoundPage />} />
           <Route path="/promises" element={<PromisesPage />} />
           <Route path="/encryption" element={<EncryptionPage />} />
+          <Route path="/blog/whatsapp-privacy-truth" element={<WhatsappPrivacyPage />} />
           <Route path="/i/:token" element={<InviteRedeemPage />} />
           <Route path="*" element={<WelcomePage />} />
         </Routes>
