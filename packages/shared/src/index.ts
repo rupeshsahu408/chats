@@ -190,6 +190,17 @@ export const InvitePreviewSchema = z.object({
     /** Short hex fingerprint of the identity key (8 chars). */
     fingerprint: z.string(),
     createdAt: z.string(),
+    /**
+     * Public profile fields, used by the invitee-facing preview UI to
+     * show *who* sent the invite (instead of just an opaque user-id +
+     * fingerprint). All optional — older accounts and accounts that
+     * never set a profile leave these null, and the UI falls back to
+     * the username (or the random-id account type).
+     */
+    username: z.string().nullable(),
+    displayName: z.string().nullable(),
+    bio: z.string().nullable(),
+    avatarDataUrl: z.string().nullable(),
   }),
   /** "valid" means redeemable. */
   state: z.enum(["valid", "expired", "exhausted", "revoked", "not_found"]),

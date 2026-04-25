@@ -148,6 +148,10 @@ export const invitesRouter = router({
             accountType: "email",
             fingerprint: "—",
             createdAt: new Date(0).toISOString(),
+            username: null,
+            displayName: null,
+            bio: null,
+            avatarDataUrl: null,
           },
           state: "not_found",
         };
@@ -159,6 +163,14 @@ export const invitesRouter = router({
           accountType: row.inviter.accountType,
           fingerprint: fingerprintForPublicKey(row.inviter.identityPubkey),
           createdAt: row.inviter.createdAt.toISOString(),
+          // Public profile — safe to expose to anyone who holds the
+          // invite token. The invitee already had to receive the link
+          // out-of-band, and this is the same surface the invitee sees
+          // again the moment they accept and the chat opens.
+          username: row.inviter.username ?? null,
+          displayName: row.inviter.displayName ?? null,
+          bio: row.inviter.bio ?? null,
+          avatarDataUrl: row.inviter.avatarDataUrl ?? null,
         },
         state,
       };
