@@ -301,6 +301,7 @@ function useReadingProgress() {
 /* ───────────────────────── Table of contents ───────────────────────── */
 
 const TOC_EN: { id: string; label: string }[] = [
+  { id: "risk-calc", label: "Your personal WhatsApp risk score" },
   { id: "tldr", label: "TL;DR — what this article proves" },
   { id: "owners", label: "1. Who actually owns WhatsApp" },
   { id: "founders", label: "2. The founders walked out — over privacy" },
@@ -341,6 +342,7 @@ const TOC_EN: { id: string; label: string }[] = [
 ];
 
 const TOC_HI: { id: string; label: string }[] = [
+  { id: "risk-calc", label: "आपका व्यक्तिगत WhatsApp जोखिम स्कोर" },
   { id: "tldr", label: "संक्षेप में — यह लेख क्या साबित करता है" },
   { id: "owners", label: "1. WhatsApp का असली मालिक कौन है" },
   { id: "founders", label: "2. खुद इसके फ़ाउंडर ही प्राइवेसी पर लड़कर निकले" },
@@ -380,11 +382,418 @@ const TOC_HI: { id: string; label: string }[] = [
   { id: "sources", label: "स्रोत और सन्दर्भ" },
 ];
 
+/* ───────────────────────────── RISK CALCULATOR ───────────────────────────── */
+
+type RiskQuestion = {
+  id: string;
+  question: string;
+  options: { label: string; score: number }[];
+};
+
+const RISK_QUESTIONS_EN: RiskQuestion[] = [
+  {
+    id: "backup",
+    question: "Do you use WhatsApp's cloud backup (Google Drive or iCloud)?",
+    options: [
+      { label: "No — I never back up WhatsApp", score: 0 },
+      { label: "Yes — with end-to-end encrypted backup switched ON", score: 1 },
+      { label: "Yes — standard backup (not E2EE)", score: 3 },
+      { label: "I don't know / haven't checked", score: 2 },
+    ],
+  },
+  {
+    id: "business",
+    question: "Do you message businesses through WhatsApp (banks, airlines, delivery, government offices, etc.)?",
+    options: [
+      { label: "Never", score: 0 },
+      { label: "Rarely — once a month or less", score: 1 },
+      { label: "Regularly — a few times per week", score: 2 },
+      { label: "It's how I mainly contact companies", score: 3 },
+    ],
+  },
+  {
+    id: "web",
+    question: "Do you use WhatsApp Web or WhatsApp Desktop?",
+    options: [
+      { label: "Never", score: 0 },
+      { label: "Occasionally, and I always log out after", score: 1 },
+      { label: "Daily — but I close the session when done", score: 2 },
+      { label: "I leave sessions open permanently", score: 3 },
+    ],
+  },
+  {
+    id: "groups",
+    question: "How many large WhatsApp groups (50+ members) are you in?",
+    options: [
+      { label: "None", score: 0 },
+      { label: "1–2 groups", score: 1 },
+      { label: "3–5 groups", score: 2 },
+      { label: "6 or more groups", score: 3 },
+    ],
+  },
+  {
+    id: "pay",
+    question: "Do you use WhatsApp Pay or send money via WhatsApp?",
+    options: [
+      { label: "Never", score: 0 },
+      { label: "Rarely", score: 1 },
+      { label: "Sometimes", score: 2 },
+      { label: "Regularly — it's my main UPI/payment method", score: 3 },
+    ],
+  },
+];
+
+const RISK_QUESTIONS_HI: RiskQuestion[] = [
+  {
+    id: "backup",
+    question: "क्या आप WhatsApp का cloud backup (Google Drive या iCloud) इस्तेमाल करते हैं?",
+    options: [
+      { label: "नहीं — मैं कभी backup नहीं करता/करती", score: 0 },
+      { label: "हाँ — end-to-end encrypted backup चालू करके", score: 1 },
+      { label: "हाँ — standard backup (E2EE नहीं)", score: 3 },
+      { label: "पता नहीं / कभी check नहीं किया", score: 2 },
+    ],
+  },
+  {
+    id: "business",
+    question: "क्या आप WhatsApp पर businesses (बैंक, airline, डिलीवरी, सरकारी दफ़्तर आदि) को मैसेज करते हैं?",
+    options: [
+      { label: "कभी नहीं", score: 0 },
+      { label: "कभी-कभार — महीने में एक बार या कम", score: 1 },
+      { label: "नियमित रूप से — हफ़्ते में कई बार", score: 2 },
+      { label: "यही मुख्य तरीक़ा है — companies से ज़्यादातर WhatsApp पर बात होती है", score: 3 },
+    ],
+  },
+  {
+    id: "web",
+    question: "क्या आप WhatsApp Web या WhatsApp Desktop इस्तेमाल करते हैं?",
+    options: [
+      { label: "कभी नहीं", score: 0 },
+      { label: "कभी-कभार — और logout भी करता/करती हूँ", score: 1 },
+      { label: "रोज़ — पर काम खत्म होने पर बंद करता/करती हूँ", score: 2 },
+      { label: "Session हमेशा open रखता/रखती हूँ", score: 3 },
+    ],
+  },
+  {
+    id: "groups",
+    question: "आप कितने बड़े WhatsApp Groups (50+ members) में हैं?",
+    options: [
+      { label: "एक भी नहीं", score: 0 },
+      { label: "1–2 groups", score: 1 },
+      { label: "3–5 groups", score: 2 },
+      { label: "6 या उससे ज़्यादा", score: 3 },
+    ],
+  },
+  {
+    id: "pay",
+    question: "क्या आप WhatsApp Pay इस्तेमाल करते हैं या WhatsApp से पैसे भेजते/लेते हैं?",
+    options: [
+      { label: "कभी नहीं", score: 0 },
+      { label: "कभी-कभार", score: 1 },
+      { label: "कभी-कभी", score: 2 },
+      { label: "नियमित रूप से — यही मुख्य UPI/payment तरीक़ा है", score: 3 },
+    ],
+  },
+];
+
+type RiskLevel = "low" | "moderate" | "high" | "critical";
+
+function getRiskLevel(score: number): RiskLevel {
+  if (score <= 3) return "low";
+  if (score <= 7) return "moderate";
+  if (score <= 11) return "high";
+  return "critical";
+}
+
+const RISK_RESULTS_EN: Record<RiskLevel, { label: string; color: string; bg: string; border: string; summary: string; tips: string[] }> = {
+  low: {
+    label: "Low Risk",
+    color: "#1a6b3a",
+    bg: "#f0faf3",
+    border: "#2E6F40",
+    summary: "Your WhatsApp usage practices are relatively privacy-conscious. You're likely avoiding the biggest metadata traps. That said, even low-risk users share their phone number, contacts, IP, and device info with Meta — so this score reflects practices, not absolute safety.",
+    tips: [
+      "Confirm your E2EE backup is switched on in Settings → Chats → Chat Backup.",
+      "Periodically review WhatsApp Web sessions via Settings → Linked Devices.",
+      "Review which groups you're in — even non-active membership exposes your number.",
+    ],
+  },
+  moderate: {
+    label: "Moderate Risk",
+    color: "#8a5a00",
+    bg: "#fffbea",
+    border: "#d4a017",
+    summary: "Your usage patterns expose you to meaningful metadata collection and some structural privacy risks. One or more of your habits — business messaging, cloud backup, or group size — significantly extend the data trail Meta can build about you.",
+    tips: [
+      "Enable end-to-end encrypted backup immediately in Settings → Chats → Chat Backup.",
+      "When messaging businesses, assume Meta can see that conversation and act accordingly.",
+      "Log out of WhatsApp Web sessions when not actively using them.",
+    ],
+  },
+  high: {
+    label: "High Risk",
+    color: "#8a2c00",
+    bg: "#fff3ed",
+    border: "#d45a17",
+    summary: "Multiple high-risk habits compound into a substantial privacy exposure. Your communication patterns, financial behaviour, and network are being extensively profiled. The data trail Meta holds about you is significantly richer than most users realise.",
+    tips: [
+      "Enable E2EE backup or turn off cloud backup entirely.",
+      "Log out of all WhatsApp Web sessions permanently — use mobile only.",
+      "Leave large groups whose membership you don't personally know.",
+      "Consider separating financial transactions from your WhatsApp identity.",
+      "Read the Verdict section (§21) and the Signal comparison (§33).",
+    ],
+  },
+  critical: {
+    label: "Very High Risk",
+    color: "#6e0000",
+    bg: "#fdecec",
+    border: "#c2453a",
+    summary: "Your current WhatsApp usage creates one of the most comprehensive data profiles possible within the Meta ecosystem. You are sharing communication patterns, financial data, device fingerprinting, and group membership at a level that gives Meta — and, by extension, law enforcement and advertisers — an unusually detailed picture of your life.",
+    tips: [
+      "Disable cloud backup entirely, or switch to E2EE backup with a strong, stored password.",
+      "Log out of all linked WhatsApp Web and Desktop sessions immediately.",
+      "Leave high-membership groups where you don't know most members.",
+      "Stop using WhatsApp Pay — use a separate app for financial transactions.",
+      "Read §33 (Signal vs. WhatsApp) and seriously consider migrating high-privacy conversations to Signal.",
+      "Read §19 (delete account) before taking any action — understand what will and won't be erased.",
+    ],
+  },
+};
+
+const RISK_RESULTS_HI: Record<RiskLevel, { label: string; color: string; bg: string; border: string; summary: string; tips: string[] }> = {
+  low: {
+    label: "कम जोखिम",
+    color: "#1a6b3a",
+    bg: "#f0faf3",
+    border: "#2E6F40",
+    summary: "आपकी WhatsApp इस्तेमाल की आदतें अपेक्षाकृत privacy-conscious हैं। आप सबसे बड़े metadata traps से बचते हैं। फिर भी, कम जोखिम वाले users भी अपना phone number, contacts, IP और device info Meta के साथ share करते हैं — यह score practices को दर्शाता है, पूर्ण सुरक्षा को नहीं।",
+    tips: [
+      "Settings → Chats → Chat Backup में E2EE backup चालू है या नहीं, verify करें।",
+      "Settings → Linked Devices में WhatsApp Web sessions की समय-समय पर जाँच करें।",
+      "जिन groups में आप inactive हैं, उनसे exit करें — membership भी आपका number expose करती है।",
+    ],
+  },
+  moderate: {
+    label: "मध्यम जोखिम",
+    color: "#8a5a00",
+    bg: "#fffbea",
+    border: "#d4a017",
+    summary: "आपकी usage patterns आपको meaningful metadata collection और कुछ structural privacy risks के सामने रखती हैं। Business messaging, cloud backup, या group size में से एक या अधिक आदतें Meta द्वारा बनाई जाने वाले data trail को काफ़ी बढ़ा देती हैं।",
+    tips: [
+      "तुरंत Settings → Chats → Chat Backup में end-to-end encrypted backup चालू करें।",
+      "Businesses को message करते समय मान लें कि Meta उस बातचीत को देख सकता है।",
+      "WhatsApp Web sessions का उपयोग न होने पर logout करें।",
+    ],
+  },
+  high: {
+    label: "उच्च जोखिम",
+    color: "#8a2c00",
+    bg: "#fff3ed",
+    border: "#d45a17",
+    summary: "कई high-risk आदतें मिलकर एक बड़ा privacy exposure बनाती हैं। आपके communication patterns, financial behaviour और network की व्यापक profiling हो रही है। Meta के पास आपके बारे में data trail ज़्यादातर users की सोच से कहीं अधिक समृद्ध है।",
+    tips: [
+      "E2EE backup चालू करें या cloud backup पूरी तरह बंद करें।",
+      "सभी WhatsApp Web sessions से logout करें।",
+      "बड़े groups जहाँ आप personally सदस्यों को नहीं जानते, उन्हें छोड़ें।",
+      "Financial transactions को WhatsApp identity से अलग करने पर विचार करें।",
+      "§21 (Verdict) और §33 (Signal vs. WhatsApp) ज़रूर पढ़ें।",
+    ],
+  },
+  critical: {
+    label: "बहुत उच्च जोखिम",
+    color: "#6e0000",
+    bg: "#fdecec",
+    border: "#c2453a",
+    summary: "आपकी WhatsApp usage Meta ecosystem में सबसे व्यापक data profiles में से एक बनाती है। आप communication patterns, financial data, device fingerprinting और group membership इस स्तर पर share कर रहे हैं जो Meta — और इसके ज़रिए law enforcement और advertisers — को आपकी ज़िंदगी की असाधारण रूप से विस्तृत तस्वीर देता है।",
+    tips: [
+      "Cloud backup पूरी तरह बंद करें, या एक strong password के साथ E2EE backup चालू करें।",
+      "सभी linked WhatsApp Web और Desktop sessions तुरंत logout करें।",
+      "अधिकांश सदस्यों को न जानने वाले बड़े groups छोड़ें।",
+      "WhatsApp Pay बंद करें — financial transactions के लिए अलग app इस्तेमाल करें।",
+      "§33 (Signal vs. WhatsApp) पढ़ें और high-privacy बातचीत Signal पर migrate करने पर विचार करें।",
+      "कोई कदम उठाने से पहले §19 (delete account) पढ़ें।",
+    ],
+  },
+};
+
+function PrivacyRiskCalculator({ lang }: { lang: "en" | "hi" }) {
+  const questions = lang === "hi" ? RISK_QUESTIONS_HI : RISK_QUESTIONS_EN;
+  const results = lang === "hi" ? RISK_RESULTS_HI : RISK_RESULTS_EN;
+
+  const [answers, setAnswers] = useState<Record<string, number>>({});
+  const [submitted, setSubmitted] = useState(false);
+
+  const allAnswered = questions.every((q) => answers[q.id] !== undefined);
+  const totalScore = Object.values(answers).reduce((s, v) => s + v, 0);
+  const riskLevel = getRiskLevel(totalScore);
+  const result = results[riskLevel];
+
+  const maxScore = questions.length * 3;
+
+  const headingText = lang === "hi" ? "आपका व्यक्तिगत WhatsApp जोखिम स्कोर" : "Your personal WhatsApp risk score";
+  const subText = lang === "hi"
+    ? "नीचे 5 सवालों के जवाब दीजिए — हम आपकी real WhatsApp आदतों के आधार पर आपका privacy risk score बताएँगे।"
+    : "Answer 5 questions about how you actually use WhatsApp and we'll calculate your personal privacy exposure score.";
+  const submitText = lang === "hi" ? "स्कोर देखें" : "See my score";
+  const retakeText = lang === "hi" ? "फिर से करें" : "Retake quiz";
+  const yourScoreText = lang === "hi" ? "आपका स्कोर" : "Your score";
+  const tipsHeading = lang === "hi" ? "आपके लिए तुरंत कदम" : "Immediate steps for you";
+  const disclaimerText = lang === "hi"
+    ? "यह calculator आपके द्वारा दिए गए उत्तरों के आधार पर एक सरलीकृत जोखिम अनुमान है। Meta द्वारा एकत्र किया गया वास्तविक डेटा इस लेख में detailed sources के अनुसार अधिक हो सकता है।"
+    : "This calculator is a simplified risk estimate based on your self-reported usage. The actual data Meta collects is broader than any quiz can capture — see the sources in this article for the full picture.";
+
+  return (
+    <section
+      id="risk-calc"
+      className="scroll-mt-24 my-10 rounded-2xl border overflow-hidden"
+      style={{ borderColor: "#2E6F40" + "40", backgroundColor: "rgba(255,255,255,0.7)" }}
+    >
+      <div className="px-5 sm:px-7 py-5 border-b" style={{ borderColor: "#2E6F40" + "25", backgroundColor: "#f0faf3" }}>
+        <div className="flex items-center gap-2 mb-1">
+          <span className="text-xl" aria-hidden>🔒</span>
+          <span className="text-xs uppercase tracking-wider font-semibold text-[#2E6F40]">
+            {lang === "hi" ? "इंटरैक्टिव टूल" : "Interactive Tool"}
+          </span>
+        </div>
+        <h2 className="text-[22px] sm:text-[26px] font-semibold text-[#0F2A18] leading-tight">{headingText}</h2>
+        <p className="mt-2 text-[15.5px] text-[#2a3d2f] leading-[1.65]">{subText}</p>
+      </div>
+
+      <div className="px-5 sm:px-7 py-6">
+        {!submitted ? (
+          <>
+            <div className="space-y-7">
+              {questions.map((q, qi) => (
+                <div key={q.id}>
+                  <p className="text-[16px] font-semibold text-[#0F2A18] mb-3 leading-snug">
+                    <span className="inline-block mr-2 w-6 h-6 rounded-full text-white text-[13px] font-bold text-center leading-6 shrink-0"
+                      style={{ backgroundColor: "#2E6F40" }}>
+                      {qi + 1}
+                    </span>
+                    {q.question}
+                  </p>
+                  <div className="space-y-2 pl-8">
+                    {q.options.map((opt) => {
+                      const selected = answers[q.id] === opt.score;
+                      return (
+                        <label
+                          key={opt.label}
+                          className="flex items-start gap-3 cursor-pointer group"
+                        >
+                          <input
+                            type="radio"
+                            name={q.id}
+                            value={opt.score}
+                            checked={selected}
+                            onChange={() => setAnswers((prev) => ({ ...prev, [q.id]: opt.score }))}
+                            className="mt-1 accent-[#2E6F40] shrink-0"
+                          />
+                          <span
+                            className="text-[15.5px] leading-snug text-[#1f2a24] group-hover:text-[#2E6F40] transition-colors"
+                            style={selected ? { color: "#2E6F40", fontWeight: 500 } : {}}
+                          >
+                            {opt.label}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-8">
+              <div className="mb-3 text-[14px] text-[#4a5a4f]">
+                {lang === "hi"
+                  ? `${Object.keys(answers).length} / ${questions.length} सवालों के जवाब दिए`
+                  : `${Object.keys(answers).length} / ${questions.length} questions answered`}
+              </div>
+              <button
+                onClick={() => { if (allAnswered) setSubmitted(true); }}
+                disabled={!allAnswered}
+                className="px-6 py-3 rounded-full font-semibold text-white text-[15.5px] transition-all"
+                style={{
+                  backgroundColor: allAnswered ? "#2E6F40" : "#9ab8a4",
+                  cursor: allAnswered ? "pointer" : "not-allowed",
+                }}
+              >
+                {submitText}
+              </button>
+            </div>
+          </>
+        ) : (
+          <div>
+            <div
+              className="rounded-xl px-5 py-5 mb-6 border"
+              style={{ backgroundColor: result.bg, borderColor: result.border + "55" }}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+                <div>
+                  <div className="text-[13px] uppercase tracking-wider font-semibold mb-1" style={{ color: result.color }}>
+                    {yourScoreText}
+                  </div>
+                  <div className="text-[40px] font-bold leading-none" style={{ color: result.color }}>
+                    {totalScore} <span className="text-[20px] font-normal text-[#4a5a4f]">/ {maxScore}</span>
+                  </div>
+                </div>
+                <div
+                  className="px-4 py-2 rounded-full font-bold text-white text-[15px]"
+                  style={{ backgroundColor: result.color }}
+                >
+                  {result.label}
+                </div>
+              </div>
+
+              <div className="w-full h-3 rounded-full bg-white/60 overflow-hidden mb-4">
+                <div
+                  className="h-full rounded-full transition-all duration-700"
+                  style={{
+                    width: `${(totalScore / maxScore) * 100}%`,
+                    backgroundColor: result.color,
+                  }}
+                />
+              </div>
+
+              <p className="text-[15.5px] leading-[1.7] text-[#1f2a24]">{result.summary}</p>
+            </div>
+
+            {result.tips.length > 0 && (
+              <div className="mb-6">
+                <h3 className="text-[17px] font-semibold text-[#0F2A18] mb-3">{tipsHeading}</h3>
+                <ul className="space-y-2">
+                  {result.tips.map((tip, i) => (
+                    <li key={i} className="flex items-start gap-2 text-[15.5px] leading-[1.65] text-[#1f2a24]">
+                      <span className="mt-0.5 shrink-0 text-[#2E6F40] font-bold">→</span>
+                      <span>{tip}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <div className="text-[13px] text-[#4a5a4f] italic mb-5 leading-[1.6]">{disclaimerText}</div>
+
+            <button
+              onClick={() => { setAnswers({}); setSubmitted(false); }}
+              className="px-5 py-2.5 rounded-full text-[14.5px] font-medium border text-[#0F2A18] hover:bg-[#0F2A18]/5 transition-colors"
+              style={{ borderColor: "#0F2A18" + "25" }}
+            >
+              {retakeText}
+            </button>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
 /* ───────────────────────────── ENGLISH ARTICLE ───────────────────────────── */
 
 function ArticleEnglish() {
   return (
     <>
+      <PrivacyRiskCalculator lang="en" />
       <H2 id="tldr">TL;DR — what this article proves</H2>
       <ul className="space-y-3 text-[17px] leading-[1.75] text-[#1f2a24] list-none">
         <li><strong>1.</strong> WhatsApp is owned by Meta — the same company that owns Facebook, Instagram, Messenger and Threads, and the same company whose 2018 Cambridge Analytica scandal is one of the largest data-misuse events in history.<S ids={[51, 52, 53, 61]} /></li>
@@ -1801,6 +2210,7 @@ function ArticleEnglish() {
 function ArticleHindi() {
   return (
     <>
+      <PrivacyRiskCalculator lang="hi" />
       <H2 id="tldr">संक्षेप में — यह लेख क्या साबित करता है</H2>
       <ul className="space-y-3 text-[17px] leading-[1.75] text-[#1f2a24] list-none">
         <li><strong>1.</strong> WhatsApp आज Meta का है — वही कंपनी जो Facebook, Instagram, Messenger और Threads भी चलाती है, और वही कंपनी जिसका 2018 का Cambridge Analytica काण्ड इतिहास के सबसे बड़े डेटा-दुरुपयोग में गिना जाता है।<S ids={[51, 52, 53, 61]} /></li>
