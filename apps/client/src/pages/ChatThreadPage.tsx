@@ -125,7 +125,7 @@ export function ChatThreadPage() {
 
   if (!peerId) {
     return (
-      <main className="min-h-full flex flex-col bg-bg text-text">
+      <main className="h-[100dvh] flex flex-col bg-bg text-text overflow-hidden">
         <AppBar title="Chat" back="/chats" />
         <div className="p-4">
           <ErrorMessage>Missing peer id.</ErrorMessage>
@@ -134,8 +134,13 @@ export function ChatThreadPage() {
     );
   }
 
+  // The chat surface is bounded to the dynamic viewport height
+  // (`100dvh` adapts as mobile address bars hide/show), and the page
+  // itself never scrolls — only the message list inside does. That's
+  // what lets the composer sit rock-solid at the bottom on mobile,
+  // exactly like WhatsApp, with no "phantom" page-level swipe.
   return (
-    <main className="min-h-full flex flex-col bg-bg text-text">
+    <main className="h-[100dvh] flex flex-col bg-bg text-text overflow-hidden">
       {!identity ? (
         <>
           <AppBar title="Chat" back="/chats" />
@@ -876,20 +881,29 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
           <button
             type="button"
             onClick={() => navigate(`/profile/${peerId}`)}
-            className="flex items-center gap-2 w-full text-left wa-tap"
+            className="flex items-center gap-2 sm:gap-2.5 w-full text-left wa-tap min-w-0"
             aria-label="View contact info"
           >
+            {/*
+              Avatar shrinks slightly on mobile so the name + status get
+              more horizontal room. The avatar component takes a numeric
+              `size`, so we render the smaller value by default and the
+              larger one is only meaningful on tablet+ where the
+              container can fit it; we keep a single value to avoid two
+              DOM nodes, picking the mobile-optimised 32px since the
+              header is already visually anchored by the back button.
+            */}
             <Avatar
               seed={peer?.peer.username || peerId}
               src={peer?.peer.avatarDataUrl ?? null}
               label={displayName.slice(0, 2)}
-              size={36}
+              size={32}
             />
             <div className="flex-1 min-w-0">
-              <div className="font-semibold text-base truncate">
+              <div className="font-semibold text-[15px] sm:text-base truncate">
                 {displayName}
-                {subDisplay && (
-                  <span className="ml-2 text-[11px] font-normal text-text-oncolor/70 font-mono">
+                {subDisplay && subDisplay !== displayName && (
+                  <span className="hidden sm:inline ml-2 text-[11px] font-normal text-text-oncolor/70 font-mono">
                     {subDisplay}
                   </span>
                 )}
@@ -3434,7 +3448,15 @@ function Composer({
 
   return (
     <>
-    <div className="sticky bottom-0 bg-bg/95 backdrop-blur border-t border-line/60 lg:px-[max(1rem,calc((100%-48rem)/2))] xl:px-[max(1.5rem,calc((100%-56rem)/2))]">
+    {/*
+      Composer sits at the very bottom of the bounded chat surface and
+      *never* scrolls away — exactly like WhatsApp. The
+      `pb-[env(safe-area-inset-bottom)]` lifts it above the iOS
+      home-indicator bar so the mic / send button is always tappable
+      on notched iPhones, and the `bg-bg/95 backdrop-blur` keeps the
+      composer visually distinct from the message wallpaper above.
+    */}
+    <div className="sticky bottom-0 bg-bg/95 backdrop-blur border-t border-line/60 pb-[env(safe-area-inset-bottom)] lg:px-[max(1rem,calc((100%-48rem)/2))] xl:px-[max(1.5rem,calc((100%-56rem)/2))]">
       {replyTo && (
         <div className="px-3 py-2 border-b border-line/60 bg-surface/40 flex items-start gap-2">
           <div
@@ -3470,7 +3492,7 @@ function Composer({
         </div>
       )}
 
-      <div className="px-2 py-2 flex items-end gap-2">
+      <div className="px-1.5 sm:px-2 py-1.5 sm:py-2 flex items-end gap-1.5 sm:gap-2">
       <input
         ref={fileInput}
         type="file"
@@ -3482,12 +3504,12 @@ function Composer({
           e.target.value = "";
         }}
       />
-      <div className="flex-1 bg-surface rounded-3xl px-2 py-1 flex items-end gap-1">
+      <div className="flex-1 min-w-0 bg-surface rounded-3xl px-1.5 sm:px-2 py-1 flex items-end gap-0.5 sm:gap-1">
         <button
           type="button"
           onClick={() => setEmojiOpen((v) => !v)}
           className={
-            "size-9 rounded-full hover:bg-white/10 flex items-center justify-center shrink-0 text-xl " +
+            "size-8 sm:size-9 rounded-full hover:bg-white/10 flex items-center justify-center shrink-0 text-lg sm:text-xl " +
             (emojiOpen ? "text-wa-green" : "text-text-muted hover:text-text")
           }
           aria-label="Open emoji picker"
@@ -3508,7 +3530,7 @@ function Composer({
             fileInput.current?.click();
           }}
           disabled={sending}
-          className="size-9 rounded-full text-text-muted hover:text-text hover:bg-white/10 flex items-center justify-center shrink-0 disabled:opacity-50"
+          className="size-8 sm:size-9 rounded-full text-text-muted hover:text-text hover:bg-white/10 flex items-center justify-center shrink-0 disabled:opacity-50"
           aria-label={
             viewOnceDefault || oneShotViewOnce
               ? "Attach view-once image"
@@ -3519,27 +3541,27 @@ function Composer({
           }
         >
           {viewOnceDefault || oneShotViewOnce ? (
-            <span>👁</span>
+            <span className="text-base sm:text-lg">👁</span>
           ) : (
-            <PaperclipIcon className="w-5 h-5" />
+            <PaperclipIcon className="w-[18px] h-[18px] sm:w-5 sm:h-5" />
           )}
         </button>
         <button
           type="button"
           onClick={onCreatePoll}
           disabled={sending}
-          className="size-9 rounded-full text-text-muted hover:text-text hover:bg-white/10 flex items-center justify-center shrink-0 disabled:opacity-50"
+          className="size-8 sm:size-9 rounded-full text-text-muted hover:text-text hover:bg-white/10 flex items-center justify-center shrink-0 disabled:opacity-50"
           aria-label="Create poll"
           title="Create poll"
         >
-          <PollIcon className="w-5 h-5" />
+          <PollIcon className="w-[18px] h-[18px] sm:w-5 sm:h-5" />
         </button>
         <button
           type="button"
           onClick={onToggleOneShotViewOnce}
           disabled={sending}
           className={
-            "size-9 rounded-full hover:bg-white/10 flex items-center justify-center shrink-0 text-lg disabled:opacity-50 " +
+            "size-8 sm:size-9 rounded-full hover:bg-white/10 flex items-center justify-center shrink-0 text-base sm:text-lg disabled:opacity-50 " +
             (oneShotViewOnce
               ? "text-wa-green bg-wa-green/15"
               : "text-text-muted hover:text-text")
@@ -3623,12 +3645,16 @@ function Composer({
       </div>
       {draft.trim() ? (
         <>
-          {/* Schedule button — only visible when there's text to schedule */}
+          {/* Schedule button — only visible when there's text to schedule.
+              Hidden on the smallest screens so the send button stays
+              prominent and the textarea keeps maximum width. The same
+              feature is still reachable from the message-action menu
+              after long-pressing a draft, and from the AppBar menu. */}
           <button
             type="button"
             onClick={() => setSchedulePickerOpen(true)}
             disabled={sending}
-            className="size-10 rounded-full text-text-muted hover:text-text hover:bg-white/10 flex items-center justify-center shrink-0 text-xl disabled:opacity-50"
+            className="hidden sm:flex size-10 rounded-full text-text-muted hover:text-text hover:bg-white/10 items-center justify-center shrink-0 text-xl disabled:opacity-50"
             aria-label="Schedule message"
             title="Schedule message"
           >
@@ -3638,14 +3664,14 @@ function Composer({
             onClick={onSendText}
             disabled={sending}
             data-veil-send-btn
-            className="size-12 rounded-full bg-wa-green text-text-oncolor flex items-center justify-center hover:bg-wa-green-dark transition disabled:opacity-50 wa-tap shrink-0"
+            className="size-11 sm:size-12 rounded-full bg-wa-green text-text-oncolor flex items-center justify-center hover:bg-wa-green-dark transition disabled:opacity-50 wa-tap shrink-0"
             aria-label="Send"
           >
             <SendIcon />
           </button>
         </>
       ) : (
-        <div className="relative shrink-0 size-12">
+        <div className="relative shrink-0 size-11 sm:size-12">
           {/* Soft pulsing halo behind the idle mic — communicates "ready, alive". */}
           <span
             aria-hidden="true"
@@ -3668,12 +3694,12 @@ function Composer({
             }}
             disabled={sending}
             className={
-              "relative size-12 rounded-full bg-wa-green text-text-oncolor flex items-center justify-center hover:bg-wa-green-dark active:scale-95 transition-[transform,background-color] duration-150 disabled:opacity-50 wa-tap " +
+              "relative size-11 sm:size-12 rounded-full bg-wa-green text-text-oncolor flex items-center justify-center hover:bg-wa-green-dark active:scale-95 transition-[transform,background-color] duration-150 disabled:opacity-50 wa-tap " +
               (micShake ? "veil-voice-shake" : "")
             }
             aria-label="Record voice message"
           >
-            <MicIcon className="w-6 h-6" />
+            <MicIcon className="w-[22px] h-[22px] sm:w-6 sm:h-6" />
           </button>
         </div>
       )}
@@ -4930,13 +4956,13 @@ function AddContactBanner({
   }
 
   return (
-    <div className="px-3 py-2 bg-wa-green/10 border-b border-line text-sm">
+    <div className="px-3 py-1.5 sm:py-2 bg-wa-green/10 border-b border-line text-sm">
       {editing ? (
         <div className="flex flex-col gap-2">
-          <div className="text-xs text-text-muted">
+          <div className="text-[11px] sm:text-xs text-text-muted">
             Save a private name for {peerLabelText}. Only you can see it.
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             <input
               autoFocus
               type="text"
@@ -4944,7 +4970,7 @@ function AddContactBanner({
               onChange={(e) => setDraft(e.target.value)}
               maxLength={60}
               placeholder="e.g. Mom, Alex from work…"
-              className="flex-1 bg-surface border border-line rounded-full px-3 py-1.5 text-sm outline-none focus:border-wa-green text-text"
+              className="flex-1 min-w-0 bg-surface border border-line rounded-full px-3 py-1.5 text-sm outline-none focus:border-wa-green text-text"
               onKeyDown={(e) => {
                 if (e.key === "Enter") void save();
                 if (e.key === "Escape") setEditing(false);
@@ -4953,13 +4979,13 @@ function AddContactBanner({
             <button
               onClick={save}
               disabled={setContactName.isPending}
-              className="px-3 py-1.5 rounded-full text-xs bg-wa-green text-text-oncolor disabled:opacity-50"
+              className="px-2.5 sm:px-3 py-1.5 rounded-full text-[11px] sm:text-xs font-semibold bg-wa-green text-text-oncolor disabled:opacity-50 shrink-0"
             >
               {setContactName.isPending ? "Saving…" : "Save"}
             </button>
             <button
               onClick={() => setEditing(false)}
-              className="px-2 py-1.5 rounded-full text-xs text-text-muted"
+              className="px-2 py-1.5 rounded-full text-[11px] sm:text-xs text-text-muted shrink-0"
               disabled={setContactName.isPending}
             >
               Cancel
@@ -4968,24 +4994,33 @@ function AddContactBanner({
           {error && <div className="text-xs text-red-500">{error}</div>}
         </div>
       ) : (
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           <div className="flex-1 min-w-0">
-            <div className="text-text font-medium truncate">
-              Save {peerLabelText} to your contacts?
+            {/*
+              Mobile keeps the prompt to a single tight line so the row
+              stays one-row-tall and the message list doesn't lose
+              vertical space. Tablet+ shows the friendlier two-line
+              version with the helpful subtitle.
+            */}
+            <div className="text-text font-medium text-[13px] sm:text-sm truncate">
+              <span className="sm:hidden">Save {peerLabelText}?</span>
+              <span className="hidden sm:inline">
+                Save {peerLabelText} to your contacts?
+              </span>
             </div>
-            <div className="text-xs text-text-muted">
+            <div className="hidden sm:block text-xs text-text-muted">
               Pick a private nickname for your chat list.
             </div>
           </div>
           <button
             onClick={() => setEditing(true)}
-            className="px-3 py-1.5 rounded-full text-xs bg-wa-green text-text-oncolor shrink-0"
+            className="px-2.5 sm:px-3 py-1.5 rounded-full text-[11px] sm:text-xs font-semibold bg-wa-green text-text-oncolor shrink-0"
           >
             Add name
           </button>
           <button
             onClick={dismiss}
-            className="px-2 py-1.5 rounded-full text-xs text-text-muted shrink-0"
+            className="size-7 sm:size-8 rounded-full text-text-muted hover:bg-text/5 flex items-center justify-center shrink-0"
             aria-label="Dismiss"
           >
             ✕
