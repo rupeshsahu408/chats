@@ -64,11 +64,7 @@ class VeilWebSocketClient {
       const s = this.socket;
       this.detachHandlers(s);
       this.socket = null;
-      try {
-        s.close(1000, "client stop");
-      } catch {
-        /* ignore */
-      }
+      this.closeQuietly(s, 1000, "client stop");
     }
     this.currentToken = null;
     this.reconnectAttempt = 0;
@@ -114,15 +110,45 @@ class VeilWebSocketClient {
     const stale = this.socket;
     if (stale) {
       this.detachHandlers(stale);
-      try {
-        stale.close(4000, "token refresh");
-      } catch {
-        /* ignore */
-      }
+      this.closeQuietly(stale, 4000, "token refresh");
       this.socket = null;
     }
     this.clearTransportTimers();
     this.connect();
+  }
+
+  /**
+   * Close a WebSocket without producing the noisy
+   *   "WebSocket is closed before the connection is established"
+   * Chrome warning. Calling `close()` on a socket that's still in
+   * the CONNECTING state is what produces that warning, so we defer
+   * the close until the socket actually opens (or errors out). The
+   * caller is expected to have already detached event handlers, so
+   * the deferred close has no observable side effects beyond
+   * actually shutting the socket down.
+   */
+  private closeQuietly(s: WebSocket, code: number, reason: string): void {
+    if (s.readyState === WebSocket.CLOSING || s.readyState === WebSocket.CLOSED) {
+      return;
+    }
+    if (s.readyState === WebSocket.CONNECTING) {
+      s.onopen = () => {
+        try {
+          s.close(code, reason);
+        } catch {
+          /* ignore */
+        }
+      };
+      s.onerror = () => {
+        /* the connection failed before opening — nothing to close */
+      };
+      return;
+    }
+    try {
+      s.close(code, reason);
+    } catch {
+      /* ignore */
+    }
   }
 
   private detachHandlers(s: WebSocket): void {
