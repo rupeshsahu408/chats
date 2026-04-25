@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
 import { trpc } from "../lib/trpc";
 import { trpcClientProxy } from "../lib/trpcClientProxy";
+import { ChatTwoPaneShell } from "../components/ChatTwoPaneShell";
 import { useAuthStore } from "../lib/store";
 import { useUnlockStore } from "../lib/unlockStore";
 import { toast as veilToast } from "../lib/toast";
@@ -1076,7 +1077,8 @@ function GroupChatInner({ groupId }: { groupId: string }) {
   }
 
   return (
-    <>
+    <ChatTwoPaneShell kind="group" activeId={groupId}>
+    <div className="flex flex-col flex-1 min-h-0">
       {inSelectionMode ? (
         <AppBar
           title={
@@ -1667,7 +1669,8 @@ function GroupChatInner({ groupId }: { groupId: string }) {
           {toast}
         </div>
       )}
-    </>
+    </div>
+    </ChatTwoPaneShell>
   );
 }
 

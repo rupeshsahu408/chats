@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
 import { trpc } from "../lib/trpc";
+import { ChatTwoPaneShell } from "../components/ChatTwoPaneShell";
 import { useAuthStore } from "../lib/store";
 import { useUnlockStore } from "../lib/unlockStore";
 import { toast } from "../lib/toast";
@@ -847,6 +848,7 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
       : null;
 
   return (
+    <ChatTwoPaneShell kind="direct" activeId={peerId}>
     <div
       className="flex flex-col flex-1 min-h-0"
       data-veil-accent={accentSwatch ? accentScopeId : undefined}
@@ -1549,6 +1551,7 @@ function ChatThreadInner({ peerId }: { peerId: string }) {
         </div>
       )}
     </div>
+    </ChatTwoPaneShell>
   );
 }
 
@@ -4982,3 +4985,4 @@ function AddContactBanner({
     </div>
   );
 }
+
