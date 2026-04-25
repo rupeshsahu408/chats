@@ -11,6 +11,7 @@ import smilingWithPhone from "../assets/landing/smiling-with-phone.jpg";
  * purpose: no app shell, no auth dependencies, no tRPC.
  */
 export function LandingPage() {
+  useTapToScroll();
   return (
     <div
       className="min-h-screen antialiased"
@@ -27,6 +28,7 @@ export function LandingPage() {
       <Features />
       <DeviceShowcase />
       <Lifestyle />
+      <SecurityBond />
       <PressStrip />
       <Testimonials />
       <HowItWorks />
@@ -39,6 +41,53 @@ export function LandingPage() {
       <FloatingInstallChip />
     </div>
   );
+}
+
+/* ───────────────────────── Tap-to-scroll ─────────────────────────
+ *
+ * Tapping anywhere on a "passive" area of the landing page jumps the
+ * viewport to the bottom. Tapping again once already at the bottom
+ * jumps it back to the top. Clicks on links, buttons, form controls
+ * or any element marked `data-no-tap-scroll` are ignored so normal
+ * navigation keeps working, and the handler is silent while the user
+ * is selecting text.
+ */
+function useTapToScroll() {
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const INTERACTIVE_SELECTOR =
+      'a, button, input, textarea, select, label, summary, [role="button"], [role="link"], [data-no-tap-scroll]';
+
+    const handler = (e: MouseEvent) => {
+      if (e.defaultPrevented) return;
+      if (e.button !== 0) return;
+
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+      if (target.closest(INTERACTIVE_SELECTOR)) return;
+
+      const sel = window.getSelection?.();
+      if (sel && sel.toString().length > 0) return;
+
+      const doc = document.documentElement;
+      const scrollTop = window.scrollY || doc.scrollTop;
+      const maxScroll = Math.max(
+        0,
+        doc.scrollHeight - window.innerHeight,
+      );
+      if (maxScroll < 8) return;
+
+      const atBottom = maxScroll - scrollTop < 8;
+      window.scrollTo({
+        top: atBottom ? 0 : maxScroll,
+        behavior: "smooth",
+      });
+    };
+
+    document.addEventListener("click", handler);
+    return () => document.removeEventListener("click", handler);
+  }, []);
 }
 
 /* ───────────────────────── Floating install chip ───────────────────────── */
@@ -1222,6 +1271,114 @@ function ValuePoint({ title, body }: { title: string; body: string }) {
         <p className="text-[15px] text-[#3C5A47] mt-1 leading-relaxed">{body}</p>
       </div>
     </li>
+  );
+}
+
+/* ───────────────────────── Security bond ───────────────────────── */
+
+/**
+ * Trust / "Security Bond" promise section. A bold, reassuring
+ * statement framed in a hero-style card, anchored by a forest-green
+ * shield seal so the message reads as a real guarantee — not just
+ * marketing copy. Sits in the warm cream rhythm between the lifestyle
+ * shot and the press strip.
+ */
+function SecurityBond() {
+  return (
+    <section
+      id="security-bond"
+      className="py-24 sm:py-32 px-5 sm:px-8"
+      style={{ backgroundColor: "#FCF5EB" }}
+    >
+      <div className="mx-auto max-w-5xl">
+        <div className="relative rounded-[2rem] sm:rounded-[2.5rem] overflow-hidden border border-[#68BA7F]/30 bg-white shadow-[0_30px_80px_-30px_rgba(46,111,64,0.35)]">
+          <div
+            aria-hidden
+            className="absolute inset-0 -z-0"
+            style={{
+              background:
+                "radial-gradient(circle at 18% 18%, rgba(207,255,220,0.95), rgba(207,255,220,0) 60%), radial-gradient(circle at 85% 100%, rgba(104,186,127,0.22), rgba(104,186,127,0) 65%)",
+            }}
+          />
+          <div className="relative p-8 sm:p-12 lg:p-16 grid lg:grid-cols-12 gap-10 lg:gap-14 items-center">
+            <div className="lg:col-span-3 grid place-items-center order-1 lg:order-1">
+              <SecurityBondSeal />
+            </div>
+            <div className="lg:col-span-9 text-center lg:text-left order-2 lg:order-2">
+              <div className="inline-flex items-center gap-2 text-[12px] font-semibold tracking-wide uppercase text-[#2E6F40] bg-[#CFFFDC] border border-[#68BA7F]/40 rounded-full px-3 py-1.5">
+                <LockMini />
+                Our Security Bond
+              </div>
+              <h2
+                className="mt-5 text-[28px] sm:text-[36px] md:text-[44px] font-semibold tracking-[-0.02em] leading-[1.1] text-[#253D2C]"
+                style={{
+                  fontFamily: "'Fraunces', 'Inter', serif",
+                  fontWeight: 600,
+                }}
+              >
+                Trust VeilChat — your data and chats are{" "}
+                <span className="italic" style={{ color: "#2E6F40" }}>
+                  100% safe and secure.
+                </span>
+              </h2>
+              <p className="mt-4 text-[16px] sm:text-[18px] text-[#3C5A47] leading-[1.55] max-w-2xl mx-auto lg:mx-0">
+                Your data is protected by our security bond — a public
+                promise, backed by end-to-end encryption and
+                zero-knowledge servers, that what you share stays yours.
+              </p>
+              <div className="mt-7 flex flex-wrap gap-x-6 gap-y-2.5 text-[14px] text-[#3C5A47] justify-center lg:justify-start">
+                <span className="inline-flex items-center gap-2">
+                  <CheckDot /> End-to-end encrypted
+                </span>
+                <span className="inline-flex items-center gap-2">
+                  <CheckDot /> Zero-knowledge servers
+                </span>
+                <span className="inline-flex items-center gap-2">
+                  <CheckDot /> Backed by our bond
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function SecurityBondSeal() {
+  return (
+    <div className="relative w-32 h-32 sm:w-36 sm:h-36">
+      <div
+        aria-hidden
+        className="absolute -inset-3 rounded-full border-2 border-dashed"
+        style={{ borderColor: "rgba(46,111,64,0.35)" }}
+      />
+      <div
+        className="absolute inset-0 rounded-full grid place-items-center text-white shadow-[0_20px_40px_-12px_rgba(46,111,64,0.55)]"
+        style={{ backgroundColor: "#2E6F40" }}
+      >
+        <svg
+          viewBox="0 0 24 24"
+          width="58"
+          height="58"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.7"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden
+        >
+          <path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-4z" />
+          <path d="M9 12l2 2 4-4" />
+        </svg>
+      </div>
+      <div
+        aria-hidden
+        className="absolute -bottom-2 left-1/2 -translate-x-1/2 px-2.5 py-0.5 rounded-full text-[10px] font-semibold tracking-wider text-[#2E6F40] bg-white border border-[#68BA7F]/40 shadow-sm uppercase"
+      >
+        100% Safe
+      </div>
+    </div>
   );
 }
 
