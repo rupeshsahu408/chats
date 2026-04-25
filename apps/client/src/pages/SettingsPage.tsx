@@ -163,6 +163,7 @@ export function SettingsPage() {
         <SectionHeader>Privacy</SectionHeader>
         <PrivacyRows />
         <LastSeenPrivacyRow />
+        <DiscoverabilityRow />
         <BlockedContactsRow />
         <VeilKeyboardRow />
         <SettingsRow
@@ -1580,6 +1581,36 @@ function VeilKeyboardRow() {
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Opt-in for the public "Discover people" directory. Defaults to off
+ * for every account — users only show up after explicitly flipping
+ * this on. Toggling it off removes them from the directory immediately
+ * (the server filters by this column on every list query).
+ */
+function DiscoverabilityRow() {
+  const q = trpc.discover.getDiscoverability.useQuery(undefined, {
+    retry: false,
+  });
+  const utils = trpc.useUtils();
+  const m = trpc.discover.setDiscoverability.useMutation({
+    onSuccess: () => {
+      void utils.discover.getDiscoverability.invalidate();
+    },
+  });
+  // Optimistic local view so the toggle feels instant.
+  const value = m.isPending
+    ? Boolean(m.variables?.enabled)
+    : (q.data?.enabled ?? false);
+  return (
+    <ToggleRow
+      label="Show me in Discover people"
+      sub="When on, anyone on Veil can find your profile and send you a chat request. You'll still need to confirm each request."
+      value={value}
+      onChange={(v) => m.mutate({ enabled: v })}
+    />
   );
 }
 

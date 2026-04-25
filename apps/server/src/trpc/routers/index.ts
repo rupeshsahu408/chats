@@ -13,6 +13,7 @@ import { groupsRouter } from "./groups.js";
 import { scheduledRouter } from "./scheduled.js";
 import { contactsRouter } from "./contacts.js";
 import { passkeyRouter } from "./passkey.js";
+import { discoverRouter } from "./discover.js";
 
 export const appRouter = router({
   auth: authRouter,
@@ -29,6 +30,7 @@ export const appRouter = router({
   scheduled: scheduledRouter,
   contacts: contactsRouter,
   passkey: passkeyRouter,
+  discover: discoverRouter,
 });
 
 export type AppRouter = typeof appRouter;

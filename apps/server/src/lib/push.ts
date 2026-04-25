@@ -54,7 +54,7 @@ export function isPushConfigured(): boolean {
 
 export interface VeilPushPayload {
   /** What kind of event triggered this push. */
-  type: "new_message";
+  type: "new_message" | "chat_request";
   /** Generic non-leaking title shown if the SW can't decrypt. */
   title?: string;
   /** Generic non-leaking body. Never the actual message text. */

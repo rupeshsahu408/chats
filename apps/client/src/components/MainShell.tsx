@@ -2,13 +2,12 @@ import type { ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
   AppBar,
-  IconButton,
-  MoreVerticalIcon,
   ChatIcon,
   PeopleIcon,
   SettingsIcon,
 } from "./Layout";
 import { WsHealthDot } from "./WsHealthDot";
+import { HeaderMenu } from "./HeaderMenu";
 
 /**
  * Shared shell for the three primary tabs: Chats, People, Settings.
@@ -32,11 +31,7 @@ export function MainShell({
         right={
           <>
             <WsHealthDot />
-            {rightActions ?? (
-              <IconButton label="Menu" className="text-text-oncolor">
-                <MoreVerticalIcon />
-              </IconButton>
-            )}
+            {rightActions ?? <HeaderMenu />}
           </>
         }
       />

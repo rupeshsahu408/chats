@@ -1464,3 +1464,82 @@ export const CompletePasswordResetResult = z.object({
 export type CompletePasswordResetResult = z.infer<
   typeof CompletePasswordResetResult
 >;
+
+/* ─────────── Discover (public people directory) ─────────── */
+
+/**
+ * Public-directory shape of a single user. Mirrors PublicUserSchema
+ * but lives in its own type so we can extend it (e.g. with relationship
+ * hints or last-active timestamps) without bloating PublicUser.
+ */
+export const DiscoverableUserSchema = z.object({
+  id: UserIdSchema,
+  accountType: AccountTypeSchema,
+  createdAt: z.string(),
+  username: z.string().nullable().optional(),
+  displayName: z.string().nullable().optional(),
+  bio: z.string().nullable().optional(),
+  avatarDataUrl: z.string().nullable().optional(),
+});
+export type DiscoverableUser = z.infer<typeof DiscoverableUserSchema>;
+
+export const ListDiscoverableUsersInput = z.object({
+  /** Free-text search across username and display name (case-insensitive). */
+  search: z.string().trim().max(60).optional(),
+  /** Opaque cursor returned from a previous call. */
+  cursor: z.string().max(200).optional(),
+});
+export type ListDiscoverableUsersInput = z.infer<
+  typeof ListDiscoverableUsersInput
+>;
+
+export const ListDiscoverableUsersResult = z.object({
+  users: z.array(DiscoverableUserSchema),
+  /** Null when there are no more pages. */
+  nextCursor: z.string().nullable(),
+});
+export type ListDiscoverableUsersResult = z.infer<
+  typeof ListDiscoverableUsersResult
+>;
+
+export const GetDiscoverableUserInput = z.object({
+  userId: UserIdSchema,
+});
+export type GetDiscoverableUserInput = z.infer<
+  typeof GetDiscoverableUserInput
+>;
+
+/**
+ * `relationship` lets the UI pick the right CTA on the profile page:
+ *   - "none"        → Send chat request
+ *   - "pending_out" → Request sent (waiting)
+ *   - "pending_in"  → Respond to their request
+ *   - "connected"   → Open chat
+ */
+export const GetDiscoverableUserResult = z.object({
+  user: DiscoverableUserSchema,
+  relationship: z.enum(["none", "connected", "pending_out", "pending_in"]),
+});
+export type GetDiscoverableUserResult = z.infer<
+  typeof GetDiscoverableUserResult
+>;
+
+export const GetDiscoverabilityResult = z.object({
+  enabled: z.boolean(),
+});
+export type GetDiscoverabilityResult = z.infer<
+  typeof GetDiscoverabilityResult
+>;
+
+export const SetDiscoverabilityInput = z.object({
+  enabled: z.boolean(),
+});
+export type SetDiscoverabilityInput = z.infer<typeof SetDiscoverabilityInput>;
+
+export const SetDiscoverabilityResult = z.object({
+  ok: z.literal(true),
+  enabled: z.boolean(),
+});
+export type SetDiscoverabilityResult = z.infer<
+  typeof SetDiscoverabilityResult
+>;

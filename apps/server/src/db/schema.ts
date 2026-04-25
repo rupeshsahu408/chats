@@ -168,6 +168,13 @@ export const users = pgTable(
     requirePasswordChange: boolean("require_password_change")
       .notNull()
       .default(false),
+    /**
+     * Opt-in flag for the public "Discover people" directory. Defaults
+     * to FALSE — a brand-new account is unlisted and only reachable via
+     * username, random ID, invite link, or phone-number contact match.
+     * Toggled from Settings → "Show me in Discover people".
+     */
+    isDiscoverable: boolean("is_discoverable").notNull().default(false),
   },
   (t) => ({
     emailHashIdx: uniqueIndex("users_email_hash_idx")

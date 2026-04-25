@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { trpc } from "../lib/trpc";
+import { toast } from "../lib/toast";
 import { useAuthStore } from "../lib/store";
 import {
   ErrorMessage,
@@ -27,7 +28,17 @@ export function ConnectionsPage() {
   const navigate = useNavigate();
   const accessToken = useAuthStore((s) => s.accessToken);
   const utils = trpc.useUtils();
-  const [tab, setTab] = useState<Tab>("people");
+  // Honour ?tab=incoming|outgoing|people|find from deep links (e.g. the
+  // header menu's "Chat requests" entry and the chat-request push).
+  const [searchParams] = useSearchParams();
+  const initialTab: Tab = (() => {
+    const t = searchParams.get("tab");
+    if (t === "incoming" || t === "outgoing" || t === "find" || t === "people") {
+      return t;
+    }
+    return "people";
+  })();
+  const [tab, setTab] = useState<Tab>(initialTab);
   const [error, setError] = useState<string | null>(null);
 
   const list = trpc.connections.list.useQuery(undefined, {
@@ -47,6 +58,8 @@ export function ConnectionsPage() {
   const reject = trpc.connections.reject.useMutation();
   const cancel = trpc.connections.cancel.useMutation();
   const remove = trpc.connections.remove.useMutation();
+  const block = trpc.privacy.block.useMutation();
+  const report = trpc.privacy.report.useMutation();
 
   useEffect(() => {
     if (!accessToken) navigate("/");
@@ -90,6 +103,70 @@ export function ConnectionsPage() {
     if (!confirm("Disconnect from this person? This can't be undone.")) return;
     try {
       await remove.mutateAsync({ peerId });
+      refresh();
+    } catch (e: unknown) {
+      setError(messageOf(e));
+    }
+  }
+
+  // Block + reject the request in one swing. After this the requester
+  // can no longer find the user via Discover (mutual block hides them
+  // from the directory) or send them anything.
+  async function onBlock(requestId: string, peerId: string) {
+    setError(null);
+    if (
+      !confirm(
+        "Block this person? They won't be able to message you or find you again.",
+      )
+    ) {
+      return;
+    }
+    try {
+      await block.mutateAsync({ peerId });
+      // Best-effort tidy-up so the row disappears from the inbox.
+      try {
+        await reject.mutateAsync({ requestId });
+      } catch {
+        /* request may already be gone — fine. */
+      }
+      toast.success("Blocked");
+      refresh();
+    } catch (e: unknown) {
+      setError(messageOf(e));
+    }
+  }
+
+  // Report + reject in one go. Asks the user to pick a category that
+  // matches the server's ReportReason enum. Cancelling the prompt
+  // aborts the whole flow.
+  async function onReport(requestId: string, peerId: string) {
+    setError(null);
+    const choice = prompt(
+      "Why are you reporting this person?\n" +
+        "Type one of: spam, harassment, impersonation, illegal, other",
+      "harassment",
+    );
+    if (choice === null) return;
+    const normalized = choice.trim().toLowerCase();
+    const allowed = [
+      "spam",
+      "harassment",
+      "impersonation",
+      "illegal",
+      "other",
+    ] as const;
+    type Reason = (typeof allowed)[number];
+    const reason: Reason = (allowed as readonly string[]).includes(normalized)
+      ? (normalized as Reason)
+      : "other";
+    try {
+      await report.mutateAsync({ peerId, reason });
+      try {
+        await reject.mutateAsync({ requestId });
+      } catch {
+        /* request may already be gone — fine. */
+      }
+      toast.success("Report submitted");
       refresh();
     } catch (e: unknown) {
       setError(messageOf(e));
@@ -207,16 +284,23 @@ export function ConnectionsPage() {
               <PersonRow
                 key={r.id}
                 peer={r.from}
+                onClick={() => navigate(`/discover/${r.from.id}`)}
                 sub={
                   r.note
                     ? `"${r.note}"`
                     : `Sent ${new Date(r.createdAt).toLocaleString()}`
                 }
                 right={
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2 justify-end">
+                    <RowButton onClick={() => onReport(r.id, r.from.id)}>
+                      Report
+                    </RowButton>
+                    <RowButton onClick={() => onBlock(r.id, r.from.id)}>
+                      Block
+                    </RowButton>
                     <RowButton onClick={() => onReject(r.id)}>Reject</RowButton>
                     <RowButton onClick={() => onAccept(r.id)} primary>
-                      Accept
+                      Confirm
                     </RowButton>
                   </div>
                 }
@@ -346,13 +430,16 @@ function PersonRow({
   peer,
   sub,
   right,
+  onClick,
 }: {
   peer: Peer;
   sub: string;
   right?: React.ReactNode;
+  /** When provided, the body of the row (excluding the action area) is clickable. */
+  onClick?: () => void;
 }) {
-  return (
-    <div className="px-4 py-3 flex items-center gap-3 border-b border-line/60">
+  const body = (
+    <>
       <Avatar
         seed={peer.username || peer.id}
         label={(peer.displayName || peer.username || peer.fingerprint).slice(0, 2)}
@@ -373,6 +460,21 @@ function PersonRow({
         )}
         <div className="text-xs text-text-muted truncate">{sub}</div>
       </div>
+    </>
+  );
+  return (
+    <div className="px-4 py-3 flex items-center gap-3 border-b border-line/60">
+      {onClick ? (
+        <button
+          type="button"
+          onClick={onClick}
+          className="flex items-center gap-3 flex-1 min-w-0 text-left wa-tap"
+        >
+          {body}
+        </button>
+      ) : (
+        body
+      )}
       {right}
     </div>
   );

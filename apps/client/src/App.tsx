@@ -28,6 +28,8 @@ import { GroupSettingsPage } from "./pages/GroupSettingsPage";
 import { InvitePage } from "./pages/InvitePage";
 import { InviteRedeemPage } from "./pages/InviteRedeemPage";
 import { ConnectionsPage } from "./pages/ConnectionsPage";
+import { DiscoverPage } from "./pages/DiscoverPage";
+import { DiscoverProfilePage } from "./pages/DiscoverProfilePage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { VaultPage } from "./pages/VaultPage";
 import { PrivacyReportPage } from "./pages/PrivacyReportPage";
@@ -105,6 +107,8 @@ export function App() {
           <Route path="/groups/:groupId/settings" element={<GroupSettingsPage />} />
           <Route path="/invite" element={<InvitePage />} />
           <Route path="/connections" element={<ConnectionsPage />} />
+          <Route path="/discover" element={<DiscoverPage />} />
+          <Route path="/discover/:userId" element={<DiscoverProfilePage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/vault" element={<VaultPage />} />
           <Route path="/privacy-report" element={<PrivacyReportPage />} />
