@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { trpc, makeTrpcClient } from "./lib/trpc";
-import { useAuthStore } from "./lib/store";
+import { useAuthStore, getStoredRefreshToken } from "./lib/store";
 import {
   loadCachedUnlockedIdentity,
   useUnlockStore,
@@ -155,6 +155,15 @@ function SessionBootstrap() {
     // prompt for permission here — that happens on user action (a
     // dedicated toggle on the Settings screen).
     void ensurePushSubscription({ requestPermission: false });
+
+    // Skip the refresh attempt entirely when there's no persisted
+    // refresh token. On the deployed Vercel ↔ Render setup the
+    // `veil_refresh` cookie is third-party and is often blocked by
+    // browsers, so calling refresh without a stored token would just
+    // produce a noisy 401 in the console for logged-out visitors.
+    if (!getStoredRefreshToken()) {
+      return;
+    }
 
     // Use the long-lived refresh cookie to mint a new access token.
     refresh
