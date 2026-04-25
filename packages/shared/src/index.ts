@@ -720,6 +720,33 @@ export const VerifyDailyPasswordInput = z.object({
 });
 export type VerifyDailyPasswordInput = z.infer<typeof VerifyDailyPasswordInput>;
 
+/**
+ * Daily-password recovery: when a user signs in on a brand-new device
+ * but no longer has their 12-word recovery phrase, they can prove
+ * ownership with their daily verification password and rotate to a
+ * fresh identity. Old E2EE chat history becomes unrecoverable (the
+ * old keys are gone), but the account itself is preserved.
+ *
+ * Both pubkeys are 32-byte raw keys, base64 encoded.
+ */
+export const ReplaceIdentityWithDailyPasswordInput = z.object({
+  verificationPassword: PasswordSchema,
+  newIdentityPubkey: IdentityPublicKeySchema,
+  newX25519Pubkey: IdentityPublicKeySchema,
+});
+export type ReplaceIdentityWithDailyPasswordInput = z.infer<
+  typeof ReplaceIdentityWithDailyPasswordInput
+>;
+
+export const ReplaceIdentityWithDailyPasswordResult = z.object({
+  ok: z.boolean(),
+  /** Server time the identity was rotated, ISO 8601. */
+  replacedAt: z.string(),
+});
+export type ReplaceIdentityWithDailyPasswordResult = z.infer<
+  typeof ReplaceIdentityWithDailyPasswordResult
+>;
+
 /** Change the daily verification password (requires current one if set). */
 export const SetVerificationPasswordInput = z.object({
   /**

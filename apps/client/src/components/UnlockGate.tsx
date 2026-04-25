@@ -5,36 +5,50 @@ import {
   unlockIdentity,
   unlockIdentityFromPhrase,
   recoverIdentityFromPhraseOnNewDevice,
+  recoverIdentityWithDailyPassword,
   isPhraseDerived,
 } from "../lib/unlock";
 import { loadIdentity } from "../lib/db";
-import { ErrorMessage, FieldLabel, PrimaryButton, LockIcon } from "./Layout";
+import {
+  ErrorMessage,
+  FieldLabel,
+  PrimaryButton,
+  SecondaryButton,
+  LockIcon,
+} from "./Layout";
 
 /**
  * Prompts the user to enter their Backup PIN (email/phone accounts) or
- * recovery phrase (random ID accounts) to decrypt their identity keys.
+ * recovery phrase / daily verification password (random ID accounts) to
+ * decrypt their identity keys.
  *
- * Once unlocked, the keys are cached in IndexedDB so the user only has to
- * do this once per browser (see UnlockedIdentityRecord).
+ * Once unlocked, the keys are cached in IndexedDB so the user only has
+ * to do this once per browser (see UnlockedIdentityRecord).
  *
- * Three modes:
+ * Modes:
  *
- *   1. `phrase`  — local IDB record exists and is phrase-derived. The
- *      user types the phrase; we derive + verify against the locally
- *      stored public key.
- *   2. `pin`     — local IDB record exists and is PIN-encrypted. The
- *      user types the PIN; we decrypt and load.
- *   3. `recover` — NO local IDB record exists yet (signed in on a
- *      brand-new device / cleared site data). For Random-ID accounts
- *      we let the user paste their recovery phrase to derive a fresh
- *      identity on this device. For PIN accounts we explain that the
- *      device-local encrypted backup is required.
- *
- * Without mode 3, a brand-new-device login would land on `/chats`,
- * find no local identity, and render nothing — leaving the user
- * staring at a blank page.
+ *   1. `phrase`                — local IDB record exists, phrase-derived.
+ *   2. `pin`                   — local IDB record exists, PIN-encrypted.
+ *   3. `recover-choose`        — no local record, Random-ID account.
+ *                                User picks recovery method.
+ *   4. `recover-phrase`        — paste 12-word phrase (preserves history).
+ *   5. `recover-daily-password`— enter daily verification password
+ *                                (rotates identity, history is lost).
+ *   6. `recover-show-phrase`   — after daily-password recovery, show
+ *                                the freshly generated phrase so the
+ *                                user can write it down.
+ *   7. `recover-no-backup`     — no local record, PIN account
+ *                                (email/phone) — explain backup import.
  */
-type Mode = "phrase" | "pin" | "recover-phrase" | "recover-no-backup" | null;
+type Mode =
+  | "phrase"
+  | "pin"
+  | "recover-choose"
+  | "recover-phrase"
+  | "recover-daily-password"
+  | "recover-show-phrase"
+  | "recover-no-backup"
+  | null;
 
 export function UnlockGate({ children }: { children?: React.ReactNode }) {
   const identity = useUnlockStore((s) => s.identity);
@@ -45,6 +59,12 @@ export function UnlockGate({ children }: { children?: React.ReactNode }) {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Holds the freshly generated phrase + identity until the user
+  // acknowledges they've saved it; only THEN do we close the gate.
+  const [pendingNewPhrase, setPendingNewPhrase] = useState<{
+    phrase: string;
+    identity: import("../lib/signal/session").UnlockedIdentity;
+  } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -55,7 +75,7 @@ export function UnlockGate({ children }: { children?: React.ReactNode }) {
       } else if (user) {
         // No local identity but we ARE signed in → fresh-device path.
         setMode(
-          user.accountType === "random" ? "recover-phrase" : "recover-no-backup",
+          user.accountType === "random" ? "recover-choose" : "recover-no-backup",
         );
       }
       // (no `user` yet → wait for SessionBootstrap to populate it)
@@ -68,22 +88,35 @@ export function UnlockGate({ children }: { children?: React.ReactNode }) {
   if (identity) return <>{children ?? null}</>;
   if (mode === null) return null;
 
+  function switchMode(next: Mode) {
+    setInput("");
+    setError(null);
+    setMode(next);
+  }
+
   async function onUnlock() {
     setBusy(true);
     setError(null);
     try {
-      let id;
       if (mode === "phrase") {
-        id = await unlockIdentityFromPhrase(input);
+        const id = await unlockIdentityFromPhrase(input);
+        await setIdentity(id);
       } else if (mode === "pin") {
-        id = await unlockIdentity(input);
+        const id = await unlockIdentity(input);
+        await setIdentity(id);
       } else if (mode === "recover-phrase") {
         if (!user) throw new Error("Not signed in.");
-        id = await recoverIdentityFromPhraseOnNewDevice(input, user.id);
-      } else {
-        return;
+        const id = await recoverIdentityFromPhraseOnNewDevice(input, user.id);
+        await setIdentity(id);
+      } else if (mode === "recover-daily-password") {
+        if (!user) throw new Error("Not signed in.");
+        const { identity: id, newPhrase } =
+          await recoverIdentityWithDailyPassword(input, user.id);
+        // Stash the new identity, show the phrase to the user first.
+        setPendingNewPhrase({ phrase: newPhrase, identity: id });
+        setInput("");
+        setMode("recover-show-phrase");
       }
-      await setIdentity(id);
     } catch (e) {
       setError(
         e instanceof Error
@@ -97,9 +130,118 @@ export function UnlockGate({ children }: { children?: React.ReactNode }) {
     }
   }
 
-  // Brand-new-device, PIN account: there's no recovery path because
-  // the AES-GCM ciphertext lives only on the original device. Surface
-  // a clear message instead of an unfixable blank page.
+  // ─── Picker: which recovery method? ──────────────────────────────
+  if (mode === "recover-choose") {
+    return (
+      <div className="rounded-2xl bg-surface border border-line p-5 flex flex-col gap-4">
+        <div className="flex items-start gap-3">
+          <div className="size-10 rounded-full bg-wa-green/15 text-wa-green-dark dark:text-wa-green flex items-center justify-center shrink-0">
+            <LockIcon />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-text">
+              Recover this device
+            </h3>
+            <p className="text-sm text-text-muted mt-0.5">
+              Choose how you'd like to prove this is your account. You'll
+              only do this once on this device.
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => switchMode("recover-phrase")}
+          className="text-left rounded-xl border border-line bg-bg hover:border-wa-green focus:border-wa-green focus:outline-none transition p-4 flex flex-col gap-1"
+        >
+          <div className="flex items-center justify-between">
+            <span className="font-medium text-text">
+              Enter recovery phrase
+            </span>
+            <span className="text-[10px] uppercase tracking-wide font-semibold text-wa-green-dark dark:text-wa-green bg-wa-green/15 rounded-full px-2 py-0.5">
+              Recommended
+            </span>
+          </div>
+          <span className="text-xs text-text-muted">
+            Paste your 12-word phrase. Your old chats stay readable.
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => switchMode("recover-daily-password")}
+          className="text-left rounded-xl border border-line bg-bg hover:border-wa-green focus:border-wa-green focus:outline-none transition p-4 flex flex-col gap-1"
+        >
+          <span className="font-medium text-text">
+            Use daily verification password
+          </span>
+          <span className="text-xs text-text-muted">
+            For when you don't have your phrase. You'll keep your account
+            but lose access to old chat history.
+          </span>
+        </button>
+      </div>
+    );
+  }
+
+  // ─── After daily-password recovery: show the new phrase ─────────
+  if (mode === "recover-show-phrase" && pendingNewPhrase) {
+    const words = pendingNewPhrase.phrase.split(/\s+/);
+    return (
+      <div className="rounded-2xl bg-surface border border-line p-5 flex flex-col gap-4">
+        <div className="flex items-start gap-3">
+          <div className="size-10 rounded-full bg-wa-green/15 text-wa-green-dark dark:text-wa-green flex items-center justify-center shrink-0">
+            <LockIcon />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-text">
+              Your new recovery phrase
+            </h3>
+            <p className="text-sm text-text-muted mt-0.5">
+              We've generated a brand-new phrase for this account. Write
+              it down somewhere safe — it's the only way to recover your
+              new chats if you ever lose this device.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-2 rounded-xl bg-bg border border-line p-3">
+          {words.map((word, i) => (
+            <div
+              key={i}
+              className="flex items-center gap-2 text-sm text-text"
+            >
+              <span className="text-text-muted text-xs w-5 text-right tabular-nums">
+                {i + 1}.
+              </span>
+              <span className="font-mono">{word}</span>
+            </div>
+          ))}
+        </div>
+
+        <SecondaryButton
+          onClick={() => {
+            void navigator.clipboard
+              ?.writeText(pendingNewPhrase.phrase)
+              .catch(() => {});
+          }}
+        >
+          Copy phrase
+        </SecondaryButton>
+
+        <PrimaryButton
+          onClick={async () => {
+            await setIdentity(pendingNewPhrase.identity);
+            setPendingNewPhrase(null);
+          }}
+        >
+          I've saved it — continue
+        </PrimaryButton>
+      </div>
+    );
+  }
+
+  // ─── Fresh-device PIN account: no recovery path possible ────────
   if (mode === "recover-no-backup") {
     return (
       <div className="rounded-2xl bg-surface border border-line p-5 flex flex-col gap-3">
@@ -124,7 +266,9 @@ export function UnlockGate({ children }: { children?: React.ReactNode }) {
     );
   }
 
-  const isPhraseMode = mode === "phrase" || mode === "recover-phrase";
+  // ─── Phrase / PIN / Daily-password entry forms ──────────────────
+  const isPhraseEntry = mode === "phrase" || mode === "recover-phrase";
+  const isDailyPasswordEntry = mode === "recover-daily-password";
   const isFreshRecover = mode === "recover-phrase";
 
   return (
@@ -135,19 +279,27 @@ export function UnlockGate({ children }: { children?: React.ReactNode }) {
         </div>
         <div>
           <h3 className="text-lg font-semibold text-text">
-            {isFreshRecover ? "Recover this device" : "Unlock chats"}
+            {isDailyPasswordEntry
+              ? "Daily verification password"
+              : isFreshRecover
+                ? "Enter recovery phrase"
+                : isPhraseEntry
+                  ? "Unlock chats"
+                  : "Unlock chats"}
           </h3>
           <p className="text-sm text-text-muted mt-0.5">
-            {isFreshRecover
-              ? "Enter the 12-word recovery phrase from your sign-up to set up Veil on this device. You'll only do this once."
-              : isPhraseMode
-                ? "Enter your 12-word recovery phrase to unlock your messaging keys. You'll only do this once on this device."
-                : "Enter your Backup PIN to decrypt your messaging keys. You'll only do this once on this device."}
+            {isDailyPasswordEntry
+              ? "Enter the daily password you set at sign-up. We'll create a fresh identity for this device — your account is preserved, but old chat history won't be readable."
+              : isFreshRecover
+                ? "Enter the 12-word recovery phrase from your sign-up to set up Veil on this device. You'll only do this once."
+                : isPhraseEntry
+                  ? "Enter your 12-word recovery phrase to unlock your messaging keys. You'll only do this once on this device."
+                  : "Enter your Backup PIN to decrypt your messaging keys. You'll only do this once on this device."}
           </p>
         </div>
       </div>
 
-      {isPhraseMode ? (
+      {isPhraseEntry ? (
         <div>
           <FieldLabel>Recovery phrase</FieldLabel>
           <textarea
@@ -157,6 +309,20 @@ export function UnlockGate({ children }: { children?: React.ReactNode }) {
             onChange={(e) => setInput(e.target.value)}
             placeholder="word1 word2 word3 …"
             className="w-full rounded-xl bg-bg border border-line text-text px-4 py-3 outline-none focus:border-wa-green transition resize-none text-sm"
+          />
+        </div>
+      ) : isDailyPasswordEntry ? (
+        <div>
+          <FieldLabel>Daily verification password</FieldLabel>
+          <input
+            type="password"
+            autoFocus
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && input.length >= 8) onUnlock();
+            }}
+            className="w-full rounded-xl bg-bg border border-line text-text px-4 py-3 outline-none focus:border-wa-green transition"
           />
         </div>
       ) : (
@@ -182,11 +348,26 @@ export function UnlockGate({ children }: { children?: React.ReactNode }) {
         loading={busy}
         disabled={
           !input ||
-          (isPhraseMode && input.trim().split(/\s+/).length < 12)
+          (isPhraseEntry && input.trim().split(/\s+/).length < 12) ||
+          (isDailyPasswordEntry && input.length < 8)
         }
       >
-        {isFreshRecover ? "Recover and unlock" : "Unlock"}
+        {isDailyPasswordEntry
+          ? "Verify and continue"
+          : isFreshRecover
+            ? "Recover and unlock"
+            : "Unlock"}
       </PrimaryButton>
+
+      {(isFreshRecover || isDailyPasswordEntry) && (
+        <button
+          type="button"
+          onClick={() => switchMode("recover-choose")}
+          className="text-sm text-text-muted hover:text-text transition self-center"
+        >
+          ← Use a different recovery method
+        </button>
+      )}
     </div>
   );
 }

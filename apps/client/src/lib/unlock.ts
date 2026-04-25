@@ -5,6 +5,7 @@ import {
   encryptWithPin,
   deriveIdentityFromPhrase,
   deriveX25519FromPhrase,
+  generateRecoveryPhrase,
 } from "./crypto";
 import { ed25519 } from "@noble/curves/ed25519.js";
 import { loadIdentity, saveIdentity } from "./db";
@@ -148,6 +149,109 @@ export async function recoverIdentityFromPhraseOnNewDevice(
     userId,
     ed25519: ed,
     x25519: { privateKey: x25519Priv, publicKey: x25519Pub },
+  };
+}
+
+/**
+ * Daily-password recovery on a brand-new device.
+ *
+ * Used when a Random-ID account holder has lost (or never recorded)
+ * their 12-word recovery phrase but still knows the daily verification
+ * password they set at sign-up. Trades that secret for a fresh
+ * identity on the server.
+ *
+ * Flow:
+ *   1. Generate a brand-new BIP-39 recovery phrase locally.
+ *   2. Derive Ed25519 + X25519 keypairs from it.
+ *   3. POST `me.replaceIdentityWithDailyPassword` — server verifies
+ *      the password, atomically rotates both pubkeys on the user
+ *      row, and wipes all old prekeys. Wrong password → UNAUTHORIZED.
+ *   4. Persist the new phrase + derived identity to IndexedDB so the
+ *      user only does this once per browser. Saved as
+ *      `iv: "phrase-derived"` so the standard phrase-unlock path
+ *      works on subsequent visits.
+ *   5. Upload a fresh prekey bundle so peers can complete X3DH with
+ *      the new identity immediately.
+ *
+ * Returns BOTH the unlocked identity AND the freshly generated
+ * recovery phrase, because the caller MUST display the phrase to the
+ * user before the gate closes — losing it again is the only way
+ * they can lock themselves out for good.
+ *
+ * IMPORTANT: This is destructive on the server side. Old chat history
+ * is unrecoverable; peers will see a "safety number changed" warning.
+ * The caller must already have warned the user.
+ */
+export async function recoverIdentityWithDailyPassword(
+  verificationPassword: string,
+  userId: string,
+): Promise<{ identity: UnlockedIdentity; newPhrase: string }> {
+  const newPhrase = generateRecoveryPhrase();
+  const ed = deriveIdentityFromPhrase(newPhrase);
+  const { privateKey: x25519Priv } = deriveX25519FromPhrase(newPhrase);
+  const x25519Pub = x25519PublicKeyFromPrivate(x25519Priv);
+
+  // Server: verify password + rotate identity atomically. Throws
+  // UNAUTHORIZED on wrong password, PRECONDITION_FAILED if no daily
+  // password was ever set, TOO_MANY_REQUESTS on abuse.
+  try {
+    await trpcClientProxy().me.replaceIdentityWithDailyPassword.mutate({
+      verificationPassword,
+      newIdentityPubkey: bytesToBase64(ed.publicKey),
+      newX25519Pubkey: bytesToBase64(x25519Pub),
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    // Re-throw with a friendlier message; UnlockGate will surface it.
+    if (/unauthorized|wrong verification password/i.test(msg)) {
+      throw new Error("Wrong verification password.");
+    }
+    if (/precondition|doesn't have a daily/i.test(msg)) {
+      throw new Error(
+        "This account doesn't have a daily verification password set up. Please use your recovery phrase instead.",
+      );
+    }
+    if (/too many/i.test(msg)) {
+      throw new Error("Too many attempts. Please wait a few minutes.");
+    }
+    throw new Error(`Couldn't verify with the server: ${msg}`);
+  }
+
+  await saveIdentity({
+    id: "self",
+    userId,
+    encPrivateKey: bytesToBase64(ed.privateKey),
+    iv: "phrase-derived",
+    salt: "phrase-derived",
+    publicKey: bytesToBase64(ed.publicKey),
+    encX25519PrivateKey: bytesToBase64(x25519Priv),
+    iv2: "phrase-derived",
+    salt2: "phrase-derived",
+    x25519PublicKey: bytesToBase64(x25519Pub),
+    recoveryPhrase: newPhrase,
+    createdAt: new Date().toISOString(),
+  });
+
+  // Best-effort prekey upload — server already wiped the old ones,
+  // so until this succeeds peers can't claim a bundle for us.
+  try {
+    const bundle = await buildPrekeyBundle({
+      identityPrivateKey: ed.privateKey,
+      numOneTime: 20,
+      freshStart: true,
+    });
+    await trpcClientProxy().prekeys.upload.mutate(bundle);
+  } catch (err) {
+    console.warn("Prekey upload failed during daily-password recovery", err);
+  }
+
+  return {
+    identity: {
+      userId,
+      ed25519: ed,
+      x25519: { privateKey: x25519Priv, publicKey: x25519Pub },
+    },
+    newPhrase,
   };
 }
 
