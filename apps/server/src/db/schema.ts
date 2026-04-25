@@ -43,14 +43,43 @@ export const reportReason = pgEnum("report_reason", [
   "other",
 ]);
 
-const bytea = customType<{ data: Buffer; driverData: string; default: false }>(
+// postgres-js sends bytea parameters as binary when given a Buffer/Uint8Array,
+// and returns bytea as a Uint8Array. An earlier version of this customType
+// converted Buffers to a "\xHEX" string in toDriver — but with parameterised
+// queries PG stores that string LITERALLY (66 ASCII bytes for a 32-byte key),
+// instead of parsing it as the bytea hex escape format. That corrupted every
+// key written to the DB and broke chat (claimBundleFor returned 88-char
+// base64 strings that failed output validation).
+//
+// Fix: pass Buffers straight through on write. On read, detect the legacy
+// corrupted form (bytes that ARE the ASCII "\\xHEX..." literal) and decode
+// it so existing users don't have to re-upload their identity / prekeys.
+const LEGACY_PREFIX = Buffer.from("\\x");
+function decodeLegacyHexBytea(b: Buffer): Buffer {
+  const hex = b.subarray(2).toString("ascii");
+  if (!/^[0-9a-fA-F]*$/.test(hex) || hex.length % 2 !== 0) return b;
+  return Buffer.from(hex, "hex");
+}
+const bytea = customType<{ data: Buffer; driverData: Buffer; default: false }>(
   {
     dataType: () => "bytea",
-    toDriver: (val: Buffer) => "\\x" + val.toString("hex"),
-    fromDriver: (val: string | Buffer) =>
-      typeof val === "string"
-        ? Buffer.from(val.startsWith("\\x") ? val.slice(2) : val, "hex")
-        : Buffer.from(val),
+    toDriver: (val: Buffer) => val,
+    fromDriver: (val: unknown) => {
+      let buf: Buffer;
+      if (typeof val === "string") {
+        buf = Buffer.from(val.startsWith("\\x") ? val.slice(2) : val, "hex");
+      } else if (Buffer.isBuffer(val)) {
+        buf = val;
+      } else if (val instanceof Uint8Array) {
+        buf = Buffer.from(val);
+      } else {
+        buf = Buffer.from(val as ArrayLike<number>);
+      }
+      if (buf.length >= 2 && buf[0] === LEGACY_PREFIX[0] && buf[1] === LEGACY_PREFIX[1]) {
+        return decodeLegacyHexBytea(buf);
+      }
+      return buf;
+    },
   },
 );
 

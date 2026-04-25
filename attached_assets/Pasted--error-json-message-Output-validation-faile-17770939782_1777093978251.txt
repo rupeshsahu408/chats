@@ -1,0 +1,34 @@
+[
+    {
+        "error": {
+            "json": {
+                "message": "Output validation failed",
+                "code": -32603,
+                "data": {
+                    "code": "INTERNAL_SERVER_ERROR",
+                    "httpStatus": 500,
+                    "stack": "TRPCError: Output validation failed\n    at outputValidatorMiddleware (file:///opt/render/project/src/node_modules/.pnpm/@trpc+server@11.16.0_typescript@5.9.3/node_modules/@trpc/server/dist/initTRPC-B1ggxyJl.mjs:66:10)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at async callRecursive (file:///opt/render/project/src/node_modules/.pnpm/@trpc+server@11.16.0_typescript@5.9.3/node_modules/@trpc/server/dist/initTRPC-B1ggxyJl.mjs:256:18)\n    at async callRecursive (file:///opt/render/project/src/node_modules/.pnpm/@trpc+server@11.16.0_typescript@5.9.3/node_modules/@trpc/server/dist/initTRPC-B1ggxyJl.mjs:256:18)\n    at async callRecursive (file:///opt/render/project/src/node_modules/.pnpm/@trpc+server@11.16.0_typescript@5.9.3/node_modules/@trpc/server/dist/initTRPC-B1ggxyJl.mjs:256:18)\n    at async callRecursive (file:///opt/render/project/src/node_modules/.pnpm/@trpc+server@11.16.0_typescript@5.9.3/node_modules/@trpc/server/dist/initTRPC-B1ggxyJl.mjs:256:18)\n    at async procedure (file:///opt/render/project/src/node_modules/.pnpm/@trpc+server@11.16.0_typescript@5.9.3/node_modules/@trpc/server/dist/initTRPC-B1ggxyJl.mjs:281:18)\n    at async file:///opt/render/project/src/node_modules/.pnpm/@trpc+server@11.16.0_typescript@5.9.3/node_modules/@trpc/server/dist/resolveResponse-C5I6V_wc.mjs:1969:18\n    at async Promise.all (index 0)\n    at async resolveResponse (file:///opt/render/project/src/node_modules/.pnpm/@trpc+server@11.16.0_typescript@5.9.3/node_modules/@trpc/server/dist/resolveResponse-C5I6V_wc.mjs:2184:20)",
+                    "path": "prekeys.claimBundleFor",
+                    "zodError": {
+                        "formErrors": [],
+                        "fieldErrors": {
+                            "identityPublicKey": [
+                                "String must contain at most 64 character(s)"
+                            ],
+                            "identityX25519PublicKey": [
+                                "String must contain at most 64 character(s)"
+                            ],
+                            "signedPreKey": [
+                                "String must contain at most 64 character(s)",
+                                "String must contain at most 100 character(s)"
+                            ],
+                            "oneTimePreKey": [
+                                "String must contain at most 64 character(s)"
+                            ]
+                        }
+                    }
+                }
+            }
+        }
+    }
+]
