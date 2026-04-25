@@ -1689,6 +1689,7 @@ function Composer({
 }) {
   const fileInput = useRef<HTMLInputElement>(null);
   const [recording, setRecording] = useState<RecordingState | null>(null);
+  const [micShake, setMicShake] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
 
   if (recording) {
@@ -1696,11 +1697,11 @@ function Composer({
       <RecordingBar
         rec={recording}
         onCancel={() => {
+          try { navigator.vibrate?.(8); } catch { /* haptics optional */ }
           recording.cancel();
           setRecording(null);
         }}
-        onSend={async () => {
-          const result = await recording.finish();
+        onComplete={(result) => {
           setRecording(null);
           if (result) onSendVoice(result.bytes, result.mime, result.durationMs);
         }}
@@ -1790,21 +1791,35 @@ function Composer({
             <SendIcon />
           </button>
         ) : (
-          <button
-            onClick={async () => {
-              const r = await startRecording();
-              if (r.kind === "ok") setRecording(r.state);
-              else
-                veilToast.error(r.message, {
-                  title: "Couldn't start recording",
-                });
-            }}
-            disabled={sending}
-            className="size-12 rounded-full bg-wa-green text-text-oncolor flex items-center justify-center hover:bg-wa-green-dark transition disabled:opacity-50 wa-tap shrink-0"
-            aria-label="Record voice message"
-          >
-            <MicIcon className="w-6 h-6" />
-          </button>
+          <div className="relative shrink-0 size-12">
+            {/* Soft pulsing halo behind the idle mic — communicates "ready, alive". */}
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 rounded-full bg-wa-green/40 blur-xl veil-voice-idle-glow"
+            />
+            <button
+              onClick={async () => {
+                try { navigator.vibrate?.(12); } catch { /* haptics optional */ }
+                const r = await startRecording();
+                if (r.kind === "ok") setRecording(r.state);
+                else {
+                  setMicShake(true);
+                  setTimeout(() => setMicShake(false), 420);
+                  veilToast.error(`${r.message} Try again.`, {
+                    title: "Mic unavailable",
+                  });
+                }
+              }}
+              disabled={sending}
+              className={
+                "relative size-12 rounded-full bg-wa-green text-text-oncolor flex items-center justify-center hover:bg-wa-green-dark active:scale-95 transition-[transform,background-color] duration-150 disabled:opacity-50 wa-tap " +
+                (micShake ? "veil-voice-shake" : "")
+              }
+              aria-label="Record voice message"
+            >
+              <MicIcon className="w-6 h-6" />
+            </button>
+          </div>
         )}
       </div>
     </div>

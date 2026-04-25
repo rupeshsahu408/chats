@@ -3330,6 +3330,7 @@ function Composer({
   const [schedulePickerOpen, setSchedulePickerOpen] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const [recording, setRecording] = useState<RecordingState | null>(null);
+  const [micShake, setMicShake] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
   // Auto-cancel "choosing a photo…" if the OS file dialog is dismissed —
   // we have no `cancel` event, so we rely on focus returning + a timeout.
@@ -3400,12 +3401,12 @@ function Composer({
       <RecordingBar
         rec={recording}
         onCancel={() => {
+          try { navigator.vibrate?.(8); } catch { /* haptics optional */ }
           recording.cancel();
           setRecording(null);
           onActivity?.(false, "voice");
         }}
-        onSend={async () => {
-          const result = await recording.finish();
+        onComplete={(result) => {
           setRecording(null);
           onActivity?.(false, "voice");
           if (result) onSendVoice(result.bytes, result.mime, result.durationMs);
@@ -3627,24 +3628,37 @@ function Composer({
           </button>
         </>
       ) : (
-        <button
-          onClick={async () => {
-            const r = await startRecording();
-            if (r.kind === "ok") {
-              setRecording(r.state);
-              onActivity?.(true, "voice");
-            } else {
-              toast.error(r.message, {
-                title: "Couldn't start recording",
-              });
+        <div className="relative shrink-0 size-12">
+          {/* Soft pulsing halo behind the idle mic — communicates "ready, alive". */}
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 rounded-full bg-wa-green/40 blur-xl veil-voice-idle-glow"
+          />
+          <button
+            onClick={async () => {
+              try { navigator.vibrate?.(12); } catch { /* haptics optional */ }
+              const r = await startRecording();
+              if (r.kind === "ok") {
+                setRecording(r.state);
+                onActivity?.(true, "voice");
+              } else {
+                setMicShake(true);
+                setTimeout(() => setMicShake(false), 420);
+                toast.error(`${r.message} Try again.`, {
+                  title: "Mic unavailable",
+                });
+              }
+            }}
+            disabled={sending}
+            className={
+              "relative size-12 rounded-full bg-wa-green text-text-oncolor flex items-center justify-center hover:bg-wa-green-dark active:scale-95 transition-[transform,background-color] duration-150 disabled:opacity-50 wa-tap " +
+              (micShake ? "veil-voice-shake" : "")
             }
-          }}
-          disabled={sending}
-          className="size-12 rounded-full bg-wa-green text-text-oncolor flex items-center justify-center hover:bg-wa-green-dark transition disabled:opacity-50 wa-tap shrink-0"
-          aria-label="Record voice message"
-        >
-          <MicIcon className="w-6 h-6" />
-        </button>
+            aria-label="Record voice message"
+          >
+            <MicIcon className="w-6 h-6" />
+          </button>
+        </div>
       )}
       </div>
 
@@ -3722,50 +3736,231 @@ function KeyboardSwitchButton({
   );
 }
 
+/**
+ * Live audio reactive waveform driven by an AnalyserNode reading from the
+ * mic stream. Bars update via direct DOM mutations (no per-frame React
+ * reconciliation) for smooth 60fps motion even on lower-end devices.
+ */
+function VoiceWaveform({
+  stream,
+  count = 28,
+  active,
+}: {
+  stream: MediaStream | null;
+  count?: number;
+  active: boolean;
+}) {
+  const barsRef = useRef<HTMLDivElement[]>([]);
+  useEffect(() => {
+    if (!stream || !active) return;
+    type AudioCtxCtor = typeof AudioContext;
+    const Ctor: AudioCtxCtor | undefined =
+      typeof window !== "undefined"
+        ? window.AudioContext ??
+          (window as unknown as { webkitAudioContext?: AudioCtxCtor })
+            .webkitAudioContext
+        : undefined;
+    if (!Ctor) return;
+    let raf = 0;
+    let audioCtx: AudioContext | null = null;
+    try {
+      audioCtx = new Ctor();
+      const source = audioCtx.createMediaStreamSource(stream);
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 128;
+      analyser.smoothingTimeConstant = 0.78;
+      source.connect(analyser);
+      const data = new Uint8Array(analyser.frequencyBinCount);
+      const step = Math.max(1, Math.floor(data.length / count));
+      const tick = () => {
+        analyser.getByteFrequencyData(data);
+        for (let i = 0; i < count; i++) {
+          const el = barsRef.current[i];
+          if (!el) continue;
+          const v = (data[i * step] ?? 0) / 255;
+          // Slight amplification + minimum baseline so silence still shows
+          // a delicate flat line rather than an empty stripe.
+          const h = 4 + Math.pow(v, 0.85) * 36;
+          el.style.height = `${h}px`;
+          el.style.opacity = `${0.45 + v * 0.55}`;
+        }
+        raf = requestAnimationFrame(tick);
+      };
+      raf = requestAnimationFrame(tick);
+    } catch {
+      /* analyser unsupported — bars stay at the resting baseline */
+    }
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+      if (audioCtx) audioCtx.close().catch(() => {});
+    };
+  }, [stream, count, active]);
+  return (
+    <div
+      className="flex-1 flex items-center justify-center gap-[3px] h-10 px-2"
+      aria-hidden="true"
+    >
+      {Array.from({ length: count }).map((_, i) => (
+        <div
+          key={i}
+          ref={(el) => {
+            if (el) barsRef.current[i] = el;
+          }}
+          className="w-[3px] rounded-full bg-wa-green/85 transition-[height,opacity] duration-75 ease-out"
+          style={{ height: 4, opacity: 0.45 }}
+        />
+      ))}
+    </div>
+  );
+}
+
 export function RecordingBar({
+  rec,
   onCancel,
-  onSend,
+  onComplete,
 }: {
   rec: RecordingState;
   onCancel: () => void;
-  onSend: () => void;
+  onComplete: (
+    result: { bytes: Uint8Array; mime: string; durationMs: number } | null,
+  ) => void;
 }) {
   const [elapsed, setElapsed] = useState(0);
+  const [phase, setPhase] = useState<"recording" | "processing">("recording");
+  // Latch onto the stream once. After we transition to "processing" the
+  // mic tracks stop, so we keep the original reference for waveform setup
+  // (the analyser will simply receive silence and rest at baseline).
+  const streamRef = useRef<MediaStream>(rec.stream);
+
+  // Use refs so the auto-stop timer always sees the latest handlers without
+  // being torn down/recreated each tick.
+  const handleSend = useCallback(async () => {
+    if (phase !== "recording") return;
+    try { navigator.vibrate?.([10, 40, 10]); } catch { /* haptics optional */ }
+    setPhase("processing");
+    // Minimum visible "Understanding your voice…" window so the
+    // transition feels intentional rather than a flicker, even when the
+    // encoder finishes instantly.
+    const MIN_PROCESSING_MS = 720;
+    const t0 = Date.now();
+    const result = await rec.finish();
+    const remaining = MIN_PROCESSING_MS - (Date.now() - t0);
+    if (remaining > 0) await new Promise((r) => setTimeout(r, remaining));
+    onComplete(result);
+  }, [phase, rec, onComplete]);
+
+  const handleSendRef = useRef(handleSend);
   useEffect(() => {
+    handleSendRef.current = handleSend;
+  }, [handleSend]);
+
+  useEffect(() => {
+    if (phase !== "recording") return;
     const start = Date.now();
     const t = setInterval(() => {
       const ms = Date.now() - start;
       setElapsed(ms);
       if (ms >= MAX_VOICE_MS) {
-        void onSend();
+        void handleSendRef.current();
       }
-    }, 200);
+    }, 100);
     return () => clearInterval(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [phase]);
+
+  const seconds = Math.floor(elapsed / 1000);
+  const isRecording = phase === "recording";
+
   return (
-    <div className="sticky bottom-0 bg-bg/95 backdrop-blur px-3 py-3 border-t border-line flex items-center gap-3">
-      <button
-        onClick={onCancel}
-        className="size-10 rounded-full text-red-500 hover:bg-white/10 flex items-center justify-center"
-        aria-label="Cancel recording"
-      >
-        <TrashIcon />
-      </button>
-      <div className="flex-1 flex items-center gap-2">
-        <span className="size-2 rounded-full bg-red-500 animate-pulse" />
-        <span className="text-sm text-text tabular-nums">
-          {fmtTime(Math.floor(elapsed / 1000))}
+    <div className="sticky bottom-0 px-3 py-3 border-t border-line/60 bg-bg/95 backdrop-blur-md veil-voice-overlay-in">
+      {/* Status line — animated dots while listening, shimmering label
+          while processing. Communicates "the system is understanding me",
+          not "an audio file is being saved". */}
+      <div className="flex items-center justify-between mb-2 px-1.5">
+        <span className="text-[12px] text-text-muted flex items-center gap-1.5 leading-none">
+          <span
+            className={
+              "size-1.5 rounded-full " +
+              (isRecording ? "bg-red-500 animate-pulse" : "bg-wa-green")
+            }
+            aria-hidden="true"
+          />
+          {isRecording ? (
+            <>
+              <span>Listening</span>
+              <span className="veil-voice-dot" />
+              <span className="veil-voice-dot" />
+              <span className="veil-voice-dot" />
+            </>
+          ) : (
+            <>
+              <span className="veil-voice-shimmer">Understanding your voice</span>
+              <span className="veil-voice-dot" />
+              <span className="veil-voice-dot" />
+              <span className="veil-voice-dot" />
+            </>
+          )}
         </span>
-        <span className="text-xs text-text-muted">Recording…</span>
+        <span
+          className={
+            "text-[13px] tabular-nums font-medium " +
+            (isRecording ? "text-text" : "text-text-muted")
+          }
+          aria-live="polite"
+        >
+          {fmtTime(seconds)}
+        </span>
       </div>
-      <button
-        onClick={onSend}
-        className="size-12 rounded-full bg-wa-green text-text-oncolor flex items-center justify-center"
-        aria-label="Stop and send"
-      >
-        <StopIcon />
-      </button>
+
+      <div className="flex items-center gap-3">
+        {/* Cancel — slides away when processing so the user can't double-act. */}
+        <button
+          onClick={onCancel}
+          disabled={!isRecording}
+          className="size-10 rounded-full text-red-500 hover:bg-white/10 active:scale-95 flex items-center justify-center transition disabled:opacity-30 disabled:cursor-not-allowed"
+          aria-label="Cancel recording"
+          title="Cancel"
+        >
+          <TrashIcon />
+        </button>
+
+        {/* Live waveform when listening; collapses gracefully on send. */}
+        <div className="relative flex-1 min-w-0">
+          {isRecording ? (
+            <VoiceWaveform stream={streamRef.current} active={isRecording} />
+          ) : (
+            <div className="flex-1 flex items-center justify-center h-10 text-[12px] text-text-muted">
+              <span className="veil-voice-shimmer">Preparing your message</span>
+            </div>
+          )}
+        </div>
+
+        {/* Stop & send — slides in, then breathes while listening; turns
+            into a soft pulsing dot during the AI-thinking phase. */}
+        <button
+          onClick={handleSend}
+          disabled={!isRecording}
+          className={
+            "relative shrink-0 size-12 rounded-full bg-wa-green text-text-oncolor flex items-center justify-center hover:bg-wa-green-dark active:scale-95 transition wa-tap veil-voice-slide-in " +
+            (isRecording ? "veil-voice-breathe" : "opacity-90")
+          }
+          aria-label={isRecording ? "Stop and send" : "Sending"}
+          title={isRecording ? "Stop & send" : "Sending…"}
+        >
+          {/* Concentric voice rings — only while actively listening. */}
+          {isRecording && (
+            <>
+              <span className="veil-voice-ring" aria-hidden="true" />
+              <span className="veil-voice-ring veil-voice-ring-2" aria-hidden="true" />
+              <span className="veil-voice-ring veil-voice-ring-3" aria-hidden="true" />
+            </>
+          )}
+          {isRecording ? (
+            <StopIcon />
+          ) : (
+            <span className="size-3 rounded-full bg-white/95 animate-pulse" aria-hidden="true" />
+          )}
+        </button>
+      </div>
     </div>
   );
 }
@@ -3775,6 +3970,8 @@ export function RecordingBar({
 export interface RecordingState {
   cancel: () => void;
   finish: () => Promise<{ bytes: Uint8Array; mime: string; durationMs: number } | null>;
+  /** Live mic stream — exposed so the UI can render a real waveform. */
+  stream: MediaStream;
 }
 
 export async function startRecording(): Promise<
@@ -3813,6 +4010,7 @@ export async function startRecording(): Promise<
   return {
     kind: "ok",
     state: {
+      stream,
       cancel() {
         cancelled = true;
         try {
