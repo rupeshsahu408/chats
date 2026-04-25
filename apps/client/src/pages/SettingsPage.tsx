@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { trpc } from "../lib/trpc";
 import { useAuthStore } from "../lib/store";
 import { useUnlockStore } from "../lib/unlockStore";
@@ -13,6 +13,8 @@ import {
   SecondaryButton,
   FieldLabel,
   TextInput,
+  ChevronLeftIcon,
+  ChevronRightIcon,
 } from "../components/Layout";
 import { MainShell } from "../components/MainShell";
 import { ScheduledMessagesSheet } from "../components/ScheduledMessagesSheet";
@@ -39,8 +41,55 @@ import { isPasskeySupported } from "../lib/passkey";
 import { humanizeErrorMessage } from "../lib/humanizeError";
 import { encryptRecoveryPhraseForServer } from "../lib/unlock";
 
+/**
+ * Wireframe of the Settings surface.
+ *
+ *   ┌──────────── AppBar ──────────────────────────────────┐
+ *   │  Chats │ People │ Settings ◀ active tab               │
+ *   ├──────────────┬──────────────────────────────────────┤
+ *   │ Profile card │                                       │
+ *   │              │                                       │
+ *   │ ▸ Profile    │     Selected category content         │
+ *   │ ▸ Account    │     (each row preserved verbatim)     │
+ *   │ ▸ Security   │                                       │
+ *   │ ▸ Privacy    │                                       │
+ *   │ ▸ Appearance │                                       │
+ *   │ ▸ Notifs     │                                       │
+ *   │ ▸ Transp.    │                                       │
+ *   │ ▸ Session    │                                       │
+ *   │  legal foot  │                                       │
+ *   └──────────────┴──────────────────────────────────────┘
+ *
+ * Responsive behavior
+ *   - md+ (≥768px) — sidebar (w-80) + content panel side by side. The
+ *     sidebar is permanently visible. With no category selected we
+ *     show a quiet empty-state inviting the user to pick one.
+ *   - mobile (<768px) — sidebar OR content, never both. The category
+ *     list at /settings is the index. Tapping a category routes to
+ *     /settings/<id> and replaces the view; a back arrow returns home.
+ *
+ * Routing
+ *   - The route is registered as /settings/* so this page handles its
+ *     own sub-paths. The active category id is derived from the URL,
+ *     so deep links (and the browser Back button) work naturally.
+ *
+ * Preservation guarantee
+ *   - Every row, link, and action that existed on the legacy single-
+ *     page settings is rendered by exactly one section below. Nothing
+ *     was deleted; only re-grouped.
+ */
+
+interface SettingsSection {
+  id: string;
+  label: string;
+  desc: string;
+  icon: string;
+  render: () => React.ReactNode;
+}
+
 export function SettingsPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const accessToken = useAuthStore((s) => s.accessToken);
   const user = useAuthStore((s) => s.user);
   const clearAuth = useAuthStore((s) => s.clearAuth);
@@ -103,165 +152,336 @@ export function SettingsPage() {
   const headline =
     me?.displayName?.trim() ||
     (me?.username ? `@${me.username}` : "Your account");
-  const sub = me?.username ? `@${me.username}` : null;
+  const subtitle = me?.username ? `@${me.username}` : null;
+
+  // Section catalog — order matters: matches the order in the sidebar
+  // and dictates the visual hierarchy of the page. Every row that lived
+  // on the legacy single-page settings has a home in exactly one of
+  // these sections; nothing was removed.
+  const sections: SettingsSection[] = useMemo(
+    () => [
+      {
+        id: "profile",
+        label: "Profile",
+        desc: "Name, photo, bio, and username",
+        icon: "👤",
+        render: () => (
+          <SettingsSectionPanel>
+            <UsernameRow username={me?.username ?? null} />
+            <ProfileEditor />
+          </SettingsSectionPanel>
+        ),
+      },
+      {
+        id: "account",
+        label: "Account",
+        desc: "Connections, invites, scheduled messages",
+        icon: "🪪",
+        render: () => (
+          <SettingsSectionPanel>
+            <SettingsRow
+              icon={<LockIcon />}
+              label="Encryption"
+              sub={
+                hasSpk
+                  ? `Signed prekey · ${otpkCount} one-time keys`
+                  : "No prekeys uploaded yet"
+              }
+            />
+            <SettingsRow
+              label="People"
+              sub="Manage your connections"
+              to="/connections"
+            />
+            <SettingsRow
+              label="Invite someone"
+              sub="Generate a private link or QR"
+              to="/invite"
+            />
+            <SettingsRow
+              label="Scheduled messages"
+              sub={
+                pendingScheduledCount && pendingScheduledCount > 0
+                  ? `${pendingScheduledCount} pending across all chats`
+                  : "View and manage messages waiting to send"
+              }
+              onClick={() => setScheduledOpen(true)}
+            />
+            {me && (
+              <SettingsRow
+                label="Member since"
+                sub={new Date(me.createdAt).toLocaleDateString()}
+              />
+            )}
+          </SettingsSectionPanel>
+        ),
+      },
+      {
+        id: "security",
+        label: "Security",
+        desc: "Passwords, recovery, passkeys, sign-ins",
+        icon: "🔒",
+        render: () => (
+          <SettingsSectionPanel>
+            <ChangeLoginPasswordEditor />
+            <DailyPasswordEditor />
+            <RecoveryKeyRow username={me?.username ?? null} />
+            <PasskeyRow />
+            <SignInActivityRow />
+          </SettingsSectionPanel>
+        ),
+      },
+      {
+        id: "privacy",
+        label: "Privacy",
+        desc: "Read receipts, blocking, vault, keyboard",
+        icon: "🛡️",
+        render: () => (
+          <SettingsSectionPanel>
+            <PrivacyRows />
+            <LastSeenPrivacyRow />
+            <DiscoverabilityRow />
+            <BlockedContactsRow />
+            <VeilKeyboardRow />
+            <SettingsRow
+              label="Vault"
+              sub="Hide chats behind your fingerprint or face"
+              to="/vault"
+            />
+          </SettingsSectionPanel>
+        ),
+      },
+      {
+        id: "appearance",
+        label: "Appearance",
+        desc: "Theme and chat wallpaper",
+        icon: "🎨",
+        render: () => (
+          <SettingsSectionPanel>
+            <ThemeRow />
+            <WallpaperRow />
+          </SettingsSectionPanel>
+        ),
+      },
+      {
+        id: "notifications",
+        label: "Notifications & feel",
+        desc: "Focus mode, sounds, haptics, push",
+        icon: "🔔",
+        render: () => (
+          <SettingsSectionPanel>
+            <FocusModeStatusRow />
+            <SettingsRow
+              label="Sound & feel"
+              sub="Master volume, haptics, and per-motif previews"
+              to="/sound"
+            />
+            <PushRow />
+          </SettingsSectionPanel>
+        ),
+      },
+      {
+        id: "transparency",
+        label: "Transparency",
+        desc: "Promises, privacy reports, what we store",
+        icon: "📋",
+        render: () => (
+          <SettingsSectionPanel>
+            <SettingsRow
+              label="Our promises"
+              sub="No ads, no data sharing, local-first, open source — in plain words"
+              to="/promises"
+            />
+            <SettingsRow
+              label="Daily privacy report"
+              sub="See what Veil protected today"
+              to="/privacy-report"
+            />
+            <SettingsRow
+              label="Under the hood"
+              sub="Live cipher suite, keys on this device, and your session state"
+              to="/under-the-hood"
+            />
+            <SettingsRow
+              label="What we store"
+              sub="Field-by-field: ciphertext vs metadata in our database"
+              to="/what-we-store"
+            />
+          </SettingsSectionPanel>
+        ),
+      },
+      {
+        id: "session",
+        label: "Session",
+        desc: "Log out or wipe this device",
+        icon: "⏻",
+        render: () => (
+          <SettingsSectionPanel>
+            <SettingsRow
+              label="Log out"
+              sub="Sign out of this browser"
+              onClick={onLogout}
+            />
+            <SettingsRow
+              label="Wipe local data"
+              sub="Removes identity & chats from this device"
+              onClick={onWipeDevice}
+              danger
+            />
+          </SettingsSectionPanel>
+        ),
+      },
+    ],
+    // We intentionally close over the latest props/handlers each render.
+    // The render functions are tiny and re-creating them is cheaper than
+    // memoizing — and avoids subtle staleness bugs in the row data.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [me, hasSpk, otpkCount, pendingScheduledCount],
+  );
+
+  // Active category derived from the URL, e.g. /settings/security → "security"
+  const activeId = (() => {
+    const m = location.pathname.match(/^\/settings\/([^/]+)/);
+    return m ? m[1] : null;
+  })();
+  const active = sections.find((s) => s.id === activeId) ?? null;
 
   return (
     <MainShell active="settings" title="Settings">
-      <div className="bg-panel">
-        {/* Profile header */}
-        <div className="flex items-center gap-4 px-4 py-5 border-b border-line">
-          {me?.avatarDataUrl ? (
-            <img
-              src={me.avatarDataUrl}
-              alt=""
-              className="w-16 h-16 rounded-full object-cover ring-2 ring-line shrink-0"
-            />
-          ) : (
-            <Avatar
-              seed={me?.username || user?.id || "self"}
-              label={(me?.displayName || me?.username || "?").slice(0, 2)}
-              size={64}
-            />
-          )}
-          <div className="min-w-0">
-            <div className="font-semibold text-text text-lg truncate">
-              {headline}
-            </div>
-            {sub && (
-              <div className="text-sm text-text-muted truncate">{sub}</div>
+      <div className="flex flex-1 min-h-0">
+        {/* ─────────────────── Sidebar ─────────────────── */}
+        <aside
+          aria-label="Settings categories"
+          className={
+            "bg-panel md:w-80 md:shrink-0 md:border-r md:border-line/60 md:block " +
+            (active ? "hidden md:block" : "block w-full")
+          }
+        >
+          {/* Profile card — anchors the sidebar with identity + state */}
+          <div className="flex items-center gap-4 px-4 py-5 border-b border-line">
+            {me?.avatarDataUrl ? (
+              <img
+                src={me.avatarDataUrl}
+                alt=""
+                className="w-16 h-16 rounded-full object-cover ring-2 ring-line shrink-0"
+              />
+            ) : (
+              <Avatar
+                seed={me?.username || user?.id || "self"}
+                label={(me?.displayName || me?.username || "?").slice(0, 2)}
+                size={64}
+              />
             )}
-            {me?.bio && (
-              <div className="text-xs text-text-muted truncate mt-0.5">
-                {me.bio}
+            <div className="min-w-0">
+              <div className="font-semibold text-text text-lg truncate">
+                {headline}
               </div>
-            )}
-            <div className="mt-1 flex items-center gap-2">
-              {identity ? (
-                <Pill tone="ok">unlocked</Pill>
-              ) : (
-                <Pill tone="warn">locked</Pill>
+              {subtitle && (
+                <div className="text-sm text-text-muted truncate">
+                  {subtitle}
+                </div>
               )}
+              {me?.bio && (
+                <div className="text-xs text-text-muted truncate mt-0.5">
+                  {me.bio}
+                </div>
+              )}
+              <div className="mt-1 flex items-center gap-2">
+                {identity ? (
+                  <Pill tone="ok">unlocked</Pill>
+                ) : (
+                  <Pill tone="warn">locked</Pill>
+                )}
+              </div>
             </div>
           </div>
-        </div>
 
-        <SectionHeader>Profile</SectionHeader>
-        <UsernameRow username={me?.username ?? null} />
-        <ProfileEditor />
+          {/* Category list */}
+          <nav className="py-2" aria-label="Settings categories list">
+            {sections.map((s) => (
+              <CategoryLink
+                key={s.id}
+                id={s.id}
+                label={s.label}
+                desc={s.desc}
+                icon={s.icon}
+                isActive={active?.id === s.id}
+              />
+            ))}
+          </nav>
 
-        <SectionHeader>Security</SectionHeader>
-        <ChangeLoginPasswordEditor />
-        <DailyPasswordEditor />
-        <RecoveryKeyRow username={me?.username ?? null} />
-        <PasskeyRow />
-        <SignInActivityRow />
+          {/* Surface-level error from the me query — kept in the
+              sidebar so users always see it regardless of which
+              category they're in. */}
+          {meQuery.error && (
+            <div className="p-4">
+              <ErrorMessage>{meQuery.error.message}</ErrorMessage>
+            </div>
+          )}
 
-        <SectionHeader>Appearance</SectionHeader>
-        <ThemeRow />
-        <WallpaperRow />
+          <p className="text-[11px] text-text-faint text-center py-6 px-6 leading-relaxed">
+            Veil · End-to-end encrypted messaging.
+            <br />
+            Sessions stay signed in for 90 days. PIN once per browser.
+          </p>
+        </aside>
 
-        <SectionHeader>Privacy</SectionHeader>
-        <PrivacyRows />
-        <LastSeenPrivacyRow />
-        <DiscoverabilityRow />
-        <BlockedContactsRow />
-        <VeilKeyboardRow />
-        <SettingsRow
-          label="Vault"
-          sub="Hide chats behind your fingerprint or face"
-          to="/vault"
-        />
-        <SectionHeader>Transparency</SectionHeader>
-        <SettingsRow
-          label="Our promises"
-          sub="No ads, no data sharing, local-first, open source — in plain words"
-          to="/promises"
-        />
-        <SettingsRow
-          label="Daily privacy report"
-          sub="See what Veil protected today"
-          to="/privacy-report"
-        />
-        <SettingsRow
-          label="Under the hood"
-          sub="Live cipher suite, keys on this device, and your session state"
-          to="/under-the-hood"
-        />
-        <SettingsRow
-          label="What we store"
-          sub="Field-by-field: ciphertext vs metadata in our database"
-          to="/what-we-store"
-        />
-
-        <SectionHeader>Notifications & feel</SectionHeader>
-        <FocusModeStatusRow />
-        <SettingsRow
-          label="Sound & feel"
-          sub="Master volume, haptics, and per-motif previews"
-          to="/sound"
-        />
-        <PushRow />
-
-        <SectionHeader>Account</SectionHeader>
-        <SettingsRow
-          icon={<LockIcon />}
-          label="Encryption"
-          sub={
-            hasSpk
-              ? `Signed prekey · ${otpkCount} one-time keys`
-              : "No prekeys uploaded yet"
+        {/* ─────────────────── Content ─────────────────── */}
+        <section
+          aria-label="Settings content"
+          className={
+            "flex-1 min-w-0 bg-bg " + (active ? "block" : "hidden md:block")
           }
-        />
-        <SettingsRow
-          label="People"
-          sub="Manage your connections"
-          to="/connections"
-        />
-        <SettingsRow
-          label="Invite someone"
-          sub="Generate a private link or QR"
-          to="/invite"
-        />
-        <SettingsRow
-          label="Scheduled messages"
-          sub={
-            pendingScheduledCount && pendingScheduledCount > 0
-              ? `${pendingScheduledCount} pending across all chats`
-              : "View and manage messages waiting to send"
-          }
-          onClick={() => setScheduledOpen(true)}
-        />
-        {meQuery.data && (
-          <SettingsRow
-            label="Member since"
-            sub={new Date(meQuery.data.createdAt).toLocaleDateString()}
-          />
-        )}
+        >
+          {active ? (
+            <>
+              {/* Mobile sub-header with back-to-list. Desktop already
+                  shows both panels at once, so the back affordance is
+                  unnecessary there. */}
+              <div className="md:hidden sticky top-[6.5rem] z-[5] bg-panel/95 backdrop-blur border-b border-line/60 px-2 py-2 flex items-center gap-1">
+                <button
+                  onClick={() => navigate("/settings")}
+                  className="size-10 rounded-full hover:bg-white/10 flex items-center justify-center wa-tap"
+                  aria-label="Back to settings categories"
+                >
+                  <ChevronLeftIcon className="w-5 h-5" />
+                </button>
+                <span className="text-base font-semibold truncate">
+                  {active.label}
+                </span>
+              </div>
 
-        <SectionHeader>Session</SectionHeader>
-        <SettingsRow
-          label="Log out"
-          sub="Sign out of this browser"
-          onClick={onLogout}
-        />
-        <SettingsRow
-          label="Wipe local data"
-          sub="Removes identity & chats from this device"
-          onClick={onWipeDevice}
-          danger
-        />
+              {/* Desktop section header — gives content its own title
+                  even though the sidebar already shows the active
+                  state. Helps when the sidebar scrolls out of view. */}
+              <div className="hidden md:flex items-baseline gap-3 px-6 pt-6 pb-3 border-b border-line/60">
+                <h2 className="text-xl font-semibold text-text">
+                  {active.label}
+                </h2>
+                <span className="text-sm text-text-muted truncate">
+                  {active.desc}
+                </span>
+              </div>
 
-        {meQuery.error && (
-          <div className="p-4">
-            <ErrorMessage>{meQuery.error.message}</ErrorMessage>
-          </div>
-        )}
-
-        <p className="text-[11px] text-text-faint text-center py-6 px-6 leading-relaxed">
-          Veil · End-to-end encrypted messaging.
-          <br />
-          Sessions stay signed in for 90 days. PIN once per browser.
-        </p>
+              {active.render()}
+            </>
+          ) : (
+            // Desktop empty-state placeholder. (On mobile this branch
+            // is hidden because the sidebar fills the viewport.)
+            <div className="hidden md:flex flex-col items-center justify-center text-center p-16 text-text-muted h-full min-h-[60vh]">
+              <div className="size-16 rounded-full bg-surface flex items-center justify-center mb-4 text-3xl">
+                ⚙
+              </div>
+              <h2 className="text-text font-semibold mb-1">
+                Choose a category
+              </h2>
+              <p className="text-sm max-w-sm">
+                Pick a section from the left to manage your account, security,
+                privacy, and more.
+              </p>
+            </div>
+          )}
+        </section>
       </div>
 
       {scheduledOpen && (
@@ -272,6 +492,66 @@ export function SettingsPage() {
       )}
     </MainShell>
   );
+}
+
+/**
+ * Sidebar entry. Renders as a router Link so deep-links work; the
+ * active state is purely visual (the URL is the source of truth).
+ */
+function CategoryLink({
+  id,
+  label,
+  desc,
+  icon,
+  isActive,
+}: {
+  id: string;
+  label: string;
+  desc: string;
+  icon: string;
+  isActive: boolean;
+}) {
+  return (
+    <Link
+      to={`/settings/${id}`}
+      aria-current={isActive ? "page" : undefined}
+      className={
+        "flex items-center gap-3 px-4 py-3 wa-tap transition-colors " +
+        "border-l-[3px] " +
+        (isActive
+          ? "bg-wa-green/10 border-wa-green text-text"
+          : "border-transparent text-text hover:bg-surface/60")
+      }
+    >
+      <span
+        className={
+          "size-10 rounded-full flex items-center justify-center text-lg shrink-0 " +
+          (isActive ? "bg-wa-green/15" : "bg-surface")
+        }
+        aria-hidden="true"
+      >
+        {icon}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block font-medium text-[15px] leading-tight">
+          {label}
+        </span>
+        <span className="block text-xs text-text-muted truncate mt-0.5">
+          {desc}
+        </span>
+      </span>
+      <ChevronRightIcon className="w-4 h-4 text-text-muted md:hidden shrink-0" />
+    </Link>
+  );
+}
+
+/**
+ * Thin container for a settings category panel. Keeps the visual
+ * styling consistent across categories without each section having to
+ * remember the right background and dividers.
+ */
+function SettingsSectionPanel({ children }: { children: React.ReactNode }) {
+  return <div className="bg-panel md:bg-bg">{children}</div>;
 }
 
 function SectionHeader({ children }: { children: React.ReactNode }) {

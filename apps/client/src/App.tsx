@@ -109,7 +109,7 @@ export function App() {
           <Route path="/connections" element={<ConnectionsPage />} />
           <Route path="/discover" element={<DiscoverPage />} />
           <Route path="/discover/:userId" element={<DiscoverProfilePage />} />
-          <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/settings/*" element={<SettingsPage />} />
           <Route path="/vault" element={<VaultPage />} />
           <Route path="/privacy-report" element={<PrivacyReportPage />} />
           <Route path="/under-the-hood" element={<UnderTheHoodPage />} />
