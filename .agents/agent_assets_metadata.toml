@@ -17,3 +17,9 @@ id = "38krUzUxvGSEtMuLSZsDn"
 uri = "file://attached_assets/recovery-kit-preview/veil-recovery-kit-preview.png"
 type = "image"
 title = "Recovery Kit page preview"
+
+[[outputs]]
+id = "K0KDVkD-wMnqSQbze45dD"
+uri = "file://apps/client/public/og-image.png"
+type = "image"
+title = "VeilChat — Social share preview (1200×630)"
