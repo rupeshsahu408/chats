@@ -50,23 +50,74 @@ export function ScreenShell({
   );
 }
 
-/** WhatsApp-style logo (white speech bubble with phone, on green). */
+/**
+ * VeilChat brand mark.
+ *
+ * A flat, premium squircle tile in the brand green with a bold
+ * geometric "V" and a small dot at the upper-right tip — the dot
+ * reads as a chat-bubble / presence marker. Single-color, no
+ * gradients in the foreground, matches the favicon and PWA icons
+ * pixel-for-pixel so the brand feels consistent across every
+ * surface (browser tab, home-screen icon, in-app header, login
+ * screens, social share, etc.).
+ */
 export function Logo({ size = 64 }: { size?: number }) {
+  const radius = Math.round(size * 0.22);
   return (
     <div
-      style={{ width: size, height: size }}
-      className="rounded-full bg-wa-green flex items-center justify-center shadow-lg"
+      style={{
+        width: size,
+        height: size,
+        borderRadius: radius,
+        boxShadow:
+          "inset 0 1px 0 rgba(255,255,255,0.18), 0 4px 14px rgba(0,168,132,0.28)",
+      }}
+      className="bg-wa-green flex items-center justify-center"
     >
-      <svg viewBox="0 0 32 32" className="w-3/5 h-3/5" aria-hidden="true">
+      <svg
+        viewBox="0 0 64 64"
+        className="w-[68%] h-[68%]"
+        aria-hidden="true"
+      >
         <path
-          d="M16 3C9.4 3 4 8.4 4 15c0 2.4.7 4.6 1.9 6.5L4 29l7.7-1.9C13.5 28 14.7 28.3 16 28.3c6.6 0 12-5.4 12-12.3S22.6 3 16 3z"
-          fill="white"
+          d="M16 22 L32 44 L48 22"
+          fill="none"
+          stroke="white"
+          strokeWidth="5.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
         />
-        <path
-          d="M22.6 19.4c-.3-.2-2-1-2.3-1.1-.3-.1-.5-.2-.8.2-.2.3-.9 1.1-1.1 1.3-.2.2-.4.2-.7.1-.3-.2-1.4-.5-2.6-1.6-1-.9-1.6-2-1.8-2.3-.2-.3 0-.5.1-.7.1-.1.3-.4.5-.5.2-.2.2-.3.3-.5.1-.2.1-.4 0-.5-.1-.2-.7-1.7-1-2.4-.3-.6-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4-.3.3-1 1-1 2.5s1.1 2.9 1.2 3.1c.2.2 2.2 3.4 5.4 4.6.8.3 1.4.5 1.8.7.8.2 1.5.2 2 .1.6-.1 2-.8 2.2-1.5.3-.8.3-1.4.2-1.5-.1-.1-.3-.2-.5-.3z"
-          fill="rgb(var(--wa-green))"
-        />
+        <circle cx="52" cy="13" r="4" fill="white" />
       </svg>
+    </div>
+  );
+}
+
+/**
+ * Horizontal lockup: brand mark + "VeilChat" wordmark, sized
+ * proportionally. Use anywhere a single visual identity line is
+ * needed (welcome screens, marketing surfaces, share previews).
+ */
+export function Wordmark({
+  size = 36,
+  className,
+}: {
+  size?: number;
+  className?: string;
+}) {
+  return (
+    <div
+      className={
+        "inline-flex items-center gap-2.5 " + (className ?? "")
+      }
+    >
+      <Logo size={size} />
+      <span
+        style={{ fontSize: Math.round(size * 0.6), lineHeight: 1 }}
+        className="font-semibold tracking-tight text-text"
+      >
+        VeilChat
+      </span>
     </div>
   );
 }
