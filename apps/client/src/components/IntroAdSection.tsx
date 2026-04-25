@@ -1,33 +1,36 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 /**
- * Cinematic VeilChat intro ad. Renders to a `<canvas>` with synced
- * Web Audio so it can be both *played* on the landing page and
- * *recorded* into a downloadable video file (with sound).
+ * Cinematic VeilChat intro — a 25-second private-vault ad rendered to a
+ * `<canvas>` with a synchronised Web Audio score so it can be both
+ * *played* on the landing page and *recorded* into a downloadable
+ * video file (with sound).
  *
- * Beat sheet (≈18s):
- *   0.0 – 2.6s  Brand splash: logo zooms in, "VeilChat" wordmark, tagline
- *   2.6 – 3.4s  Phone rises into view, header "online" pulse appears
- *   3.4 – 4.6s  Alex types (animated three-dot bubble + tick clicks)
- *   4.6s        Message 1 arrives with chime
- *   5.2 – 6.4s  User types in their input bar
- *   6.4s        Message 2 sent with pop
- *   6.4 – 7.1s  ✓ → ✓✓ → blue ✓✓ read-receipt animation
- *   7.2 – 8.3s  Alex types
- *   8.3s        Message 3 arrives
- *   8.9s        Heart reaction floats up onto Message 3
- *   9.4 – 10.5s User records, sends a voice note
- *  10.5 – 11.1s Voice note sent + read receipts update
- *  11.2 – 12.0s Alex types
- *  12.0s        Message 5 arrives
- *  12.6 – 14.0s Encryption badge pulses ("end-to-end encrypted")
- *  14.0 – 18.0s Outro: cross-fade to logo, wordmark, tagline, CTA pill
+ * Beat sheet (~25s):
+ *   0.0 – 1.2s  Identity scan: padlock fades in, scan line passes,
+ *               "Identity verified" appears
+ *   1.2 – 3.4s  Brand splash: logo, encryption keys orbit, wordmark
+ *   3.4 – 4.2s  Phone rises into view, header settles with verified ✓
+ *   4.5 – 6.3s  Alex types (slower, friendlier 3-dot bubble)
+ *   6.3s        Message 1 from Alex with encrypted shimmer + receive ding
+ *   7.0 – 8.8s  User types in the input bar (live caret)
+ *   8.8s        Message 2 sent — lock-seal animation, "Encrypting…" tag
+ *   8.8 – 10.0s ✓ → ✓✓ → blue ✓✓ read-receipt animation (slower)
+ *  10.0 – 11.8s Alex types
+ *  11.8s        Message 3 arrives with disappearing-timer badge
+ *  12.4 – 14.0s User records — recording UI in input bar
+ *  14.0s        Voice note sent with lock-seal
+ *  15.2 – 16.8s Alex types
+ *  16.8s        Final message arrives ("We never had this chat")
+ *  17.4s        Heart reaction floats up
+ *  18.0 – 20.5s Encryption highlight + "Screenshot blocked" alert banner
+ *  20.5 – 25.0s Outro: logo zoom, tagline, CTA pill, drifting particles
  */
 
 const VIDEO_W = 720;
 const VIDEO_H = 1280;
 const FPS = 30;
-const DURATION_SEC = 18;
+const DURATION_SEC = 25;
 
 /* ───────────────────────── timeline ───────────────────────── */
 
@@ -40,7 +43,8 @@ type MessageEvent = {
   side: Side;
   variant: "text" | "voice";
   text?: string;
-  duration?: number; // for voice note (seconds)
+  duration?: number;
+  disappearing?: boolean;
   at: number;
 };
 
@@ -68,68 +72,71 @@ type ReactionEvent = {
 type Event = MessageEvent | TypingEvent | TickEvent | ReactionEvent;
 
 const EVENTS: Event[] = [
-  { kind: "typing", side: "in", start: 3.4, end: 4.6 },
+  { kind: "typing", side: "in", start: 4.5, end: 6.3 },
   {
     kind: "message",
     id: "m1",
     side: "in",
     variant: "text",
-    text: "Hey! 👋 are we still on for Saturday?",
-    at: 4.6,
+    text: "I've sent you the file. Eyes only, please.",
+    at: 6.3,
   },
 
-  { kind: "typing", side: "out", start: 5.2, end: 6.4 },
+  { kind: "typing", side: "out", start: 7.0, end: 8.8 },
   {
     kind: "message",
     id: "m2",
     side: "out",
     variant: "text",
-    text: "Wouldn't miss it. 7pm at the place by the park?",
-    at: 6.4,
+    text: "Vault open on my side. Reading it now.",
+    at: 8.8,
   },
-  { kind: "tick", id: "m2", stage: "sent", at: 6.45 },
-  { kind: "tick", id: "m2", stage: "delivered", at: 6.75 },
-  { kind: "tick", id: "m2", stage: "read", at: 7.05 },
+  { kind: "tick", id: "m2", stage: "sent", at: 8.85 },
+  { kind: "tick", id: "m2", stage: "delivered", at: 9.4 },
+  { kind: "tick", id: "m2", stage: "read", at: 10.0 },
 
-  { kind: "typing", side: "in", start: 7.2, end: 8.3 },
+  { kind: "typing", side: "in", start: 10.0, end: 11.8 },
   {
     kind: "message",
     id: "m3",
     side: "in",
     variant: "text",
-    text: "Perfect. I'll bring the playlist. 🎶",
-    at: 8.3,
+    text: "Notes are inside. Burns in 24h.",
+    disappearing: true,
+    at: 11.8,
   },
-  { kind: "reaction", id: "m3", emoji: "❤", at: 8.9 },
 
-  { kind: "typing", side: "out", start: 9.4, end: 10.5 },
+  { kind: "typing", side: "out", start: 12.4, end: 14.0 },
   {
     kind: "message",
     id: "m4",
     side: "out",
     variant: "voice",
-    duration: 8,
-    at: 10.5,
+    duration: 12,
+    at: 14.0,
   },
-  { kind: "tick", id: "m4", stage: "sent", at: 10.55 },
-  { kind: "tick", id: "m4", stage: "delivered", at: 10.75 },
-  { kind: "tick", id: "m4", stage: "read", at: 11.05 },
+  { kind: "tick", id: "m4", stage: "sent", at: 14.05 },
+  { kind: "tick", id: "m4", stage: "delivered", at: 14.6 },
+  { kind: "tick", id: "m4", stage: "read", at: 15.2 },
 
-  { kind: "typing", side: "in", start: 11.2, end: 12.0 },
+  { kind: "typing", side: "in", start: 15.2, end: 16.8 },
   {
     kind: "message",
     id: "m5",
     side: "in",
     variant: "text",
-    text: "Can't wait!",
-    at: 12.0,
+    text: "Perfect. We never had this chat 🤐",
+    at: 16.8,
   },
+  { kind: "reaction", id: "m5", emoji: "❤", at: 17.4 },
 ];
 
-const ENCRYPTION_HIGHLIGHT = { start: 12.6, end: 14.0 } as const;
-const INTRO = { start: 0, end: 2.6 } as const;
-const PHONE_IN = { start: 2.6, end: 3.4 } as const;
-const OUTRO = { start: 14.0, end: 18.0 } as const;
+const AUTH_SCAN = { start: 0.0, end: 1.3 } as const;
+const INTRO = { start: 1.2, end: 3.4 } as const;
+const PHONE_IN = { start: 3.4, end: 4.2 } as const;
+const SCREENSHOT_BANNER = { start: 18.4, end: 20.2 } as const;
+const ENCRYPTION_HIGHLIGHT = { start: 18.0, end: 20.5 } as const;
+const OUTRO = { start: 20.5, end: 25.0 } as const;
 
 /* ───────────────────────── easing ───────────────────────── */
 
@@ -203,7 +210,6 @@ function drawLogoMark(
   ctx.fill();
   ctx.restore();
 
-  // subtle inner highlight
   ctx.save();
   const grd = ctx.createLinearGradient(x, y, x, y + size);
   grd.addColorStop(0, "rgba(255,255,255,0.18)");
@@ -213,7 +219,6 @@ function drawLogoMark(
   ctx.fill();
   ctx.restore();
 
-  // V mark
   ctx.save();
   ctx.strokeStyle = "#FFFFFF";
   ctx.lineWidth = size * 0.085;
@@ -225,7 +230,6 @@ function drawLogoMark(
   ctx.lineTo(cx + size * 0.25, cy - size * 0.16);
   ctx.stroke();
 
-  // dot
   ctx.fillStyle = "#FFFFFF";
   ctx.beginPath();
   ctx.arc(cx + size * 0.31, cy - size * 0.30, size * 0.06, 0, Math.PI * 2);
@@ -257,7 +261,116 @@ function drawLockMini(
   ctx.restore();
 }
 
-/* ───────────────────────── phone shell + chrome ───────────────────────── */
+function drawSealLock(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  size: number,
+  closeProgress: number,
+  alpha: number,
+) {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+
+  ctx.shadowColor = "rgba(46,111,64,0.6)";
+  ctx.shadowBlur = size * 0.6;
+
+  const bw = size * 0.95;
+  const bh = size * 0.78;
+  ctx.fillStyle = "#2E6F40";
+  roundRect(ctx, cx - bw / 2, cy - bh / 2 + size * 0.12, bw, bh, size * 0.2);
+  ctx.fill();
+
+  ctx.shadowBlur = 0;
+
+  // outer ring
+  ctx.strokeStyle = "rgba(207,255,220,0.6)";
+  ctx.lineWidth = size * 0.05;
+  roundRect(ctx, cx - bw / 2, cy - bh / 2 + size * 0.12, bw, bh, size * 0.2);
+  ctx.stroke();
+
+  // arc — lifts when open, settles when closed
+  const archLift = (1 - closeProgress) * size * 0.32;
+  ctx.strokeStyle = "#2E6F40";
+  ctx.lineWidth = size * 0.13;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.arc(
+    cx,
+    cy - bh / 2 + size * 0.12 - archLift,
+    bw * 0.32,
+    Math.PI,
+    0,
+  );
+  ctx.stroke();
+
+  // arc highlight
+  ctx.strokeStyle = "rgba(207,255,220,0.9)";
+  ctx.lineWidth = size * 0.04;
+  ctx.beginPath();
+  ctx.arc(
+    cx,
+    cy - bh / 2 + size * 0.12 - archLift,
+    bw * 0.32,
+    Math.PI,
+    Math.PI * 1.4,
+  );
+  ctx.stroke();
+
+  // keyhole
+  ctx.fillStyle = "#FFFFFF";
+  ctx.beginPath();
+  ctx.arc(cx, cy + size * 0.16, size * 0.07, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillRect(cx - size * 0.04, cy + size * 0.16, size * 0.08, size * 0.16);
+
+  // sparkle ring on close
+  if (closeProgress > 0.7) {
+    const ringProg = (closeProgress - 0.7) / 0.3;
+    ctx.globalAlpha = alpha * (1 - ringProg);
+    ctx.strokeStyle = "rgba(104,186,127,0.9)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(cx, cy + size * 0.05, size * 0.5 + ringProg * size * 0.4, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
+function drawVerifiedBadge(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  size: number,
+) {
+  ctx.save();
+  ctx.fillStyle = "#0EA5E9";
+  ctx.beginPath();
+  for (let i = 0; i < 16; i++) {
+    const angle = (i / 16) * Math.PI * 2 - Math.PI / 2;
+    const r = i % 2 === 0 ? size : size * 0.78;
+    const x = cx + Math.cos(angle) * r;
+    const y = cy + Math.sin(angle) * r;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.strokeStyle = "#FFFFFF";
+  ctx.lineWidth = Math.max(1.5, size * 0.22);
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.beginPath();
+  ctx.moveTo(cx - size * 0.4, cy);
+  ctx.lineTo(cx - size * 0.1, cy + size * 0.32);
+  ctx.lineTo(cx + size * 0.45, cy - size * 0.28);
+  ctx.stroke();
+  ctx.restore();
+}
+
+/* ───────────────────────── phone shell ───────────────────────── */
 
 const PHONE = {
   x: VIDEO_W * 0.07,
@@ -283,7 +396,6 @@ const BODY_Y = HEADER_Y + HEADER_H;
 const BODY_BOTTOM = SCREEN.y + SCREEN.h - INPUT_H;
 
 function drawPhoneBody(ctx: CanvasRenderingContext2D) {
-  // outer frame
   ctx.save();
   ctx.shadowColor = "rgba(17,27,33,0.4)";
   ctx.shadowBlur = 80;
@@ -293,7 +405,6 @@ function drawPhoneBody(ctx: CanvasRenderingContext2D) {
   ctx.fill();
   ctx.restore();
 
-  // inner bezel highlight
   ctx.save();
   ctx.strokeStyle = "rgba(255,255,255,0.06)";
   ctx.lineWidth = 1.5;
@@ -301,14 +412,12 @@ function drawPhoneBody(ctx: CanvasRenderingContext2D) {
   ctx.stroke();
   ctx.restore();
 
-  // side button (mute switch)
   ctx.fillStyle = "#1A2A30";
   ctx.fillRect(PHONE.x - 3, PHONE.y + 130, 4, 40);
   ctx.fillRect(PHONE.x - 3, PHONE.y + 200, 4, 64);
   ctx.fillRect(PHONE.x - 3, PHONE.y + 280, 4, 64);
   ctx.fillRect(PHONE.x + PHONE.w - 1, PHONE.y + 180, 4, 100);
 
-  // screen background
   ctx.save();
   roundRect(ctx, SCREEN.x, SCREEN.y, SCREEN.w, SCREEN.h, 64);
   ctx.clip();
@@ -318,7 +427,6 @@ function drawPhoneBody(ctx: CanvasRenderingContext2D) {
 }
 
 function drawNotch(ctx: CanvasRenderingContext2D) {
-  // dynamic-island-style pill at the top of the screen
   const w = 200;
   const h = 32;
   const x = SCREEN.x + (SCREEN.w - w) / 2;
@@ -327,7 +435,6 @@ function drawNotch(ctx: CanvasRenderingContext2D) {
   ctx.fillStyle = "#0F1A1F";
   roundRect(ctx, x, y, w, h, 16);
   ctx.fill();
-  // tiny camera dot
   ctx.fillStyle = "#1A2A30";
   ctx.beginPath();
   ctx.arc(x + w - 14, y + h / 2, 4, 0, Math.PI * 2);
@@ -335,7 +442,7 @@ function drawNotch(ctx: CanvasRenderingContext2D) {
   ctx.restore();
 }
 
-function drawStatusBar(ctx: CanvasRenderingContext2D) {
+function drawStatusBar(ctx: CanvasRenderingContext2D, t: number) {
   ctx.save();
   ctx.fillStyle = "rgba(37,61,44,0.72)";
   ctx.font = "600 22px Inter, sans-serif";
@@ -343,11 +450,31 @@ function drawStatusBar(ctx: CanvasRenderingContext2D) {
   ctx.textAlign = "left";
   ctx.fillText("9:41", SCREEN.x + 38, SCREEN.y + 30);
 
-  // signal + battery indicators
+  // tiny shield icon next to clock — secured channel indicator
+  const sx = SCREEN.x + 96;
+  const sy = SCREEN.y + 30;
+  const shieldPulse = 0.6 + Math.sin(t * 2.2) * 0.25;
+  ctx.fillStyle = `rgba(46,111,64,${shieldPulse})`;
+  ctx.beginPath();
+  ctx.moveTo(sx, sy - 8);
+  ctx.lineTo(sx - 6, sy - 4);
+  ctx.lineTo(sx - 6, sy + 2);
+  ctx.bezierCurveTo(sx - 6, sy + 6, sx - 2, sy + 9, sx, sy + 9);
+  ctx.bezierCurveTo(sx + 2, sy + 9, sx + 6, sy + 6, sx + 6, sy + 2);
+  ctx.lineTo(sx + 6, sy - 4);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = "700 10px Inter, sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText("E2E", sx, sy + 1);
+
+  ctx.textBaseline = "middle";
   ctx.textAlign = "right";
+  ctx.fillStyle = "rgba(37,61,44,0.72)";
+  ctx.font = "600 22px Inter, sans-serif";
   ctx.fillText("100%", SCREEN.x + SCREEN.w - 42, SCREEN.y + 30);
 
-  // battery glyph
   const bx = SCREEN.x + SCREEN.w - 36;
   const by = SCREEN.y + 22;
   ctx.strokeStyle = "rgba(37,61,44,0.55)";
@@ -362,11 +489,16 @@ function drawStatusBar(ctx: CanvasRenderingContext2D) {
 }
 
 function drawHeader(ctx: CanvasRenderingContext2D, t: number) {
-  // bg
   ctx.fillStyle = "#2E6F40";
   ctx.fillRect(SCREEN.x, HEADER_Y, SCREEN.w, HEADER_H);
 
-  // back chevron
+  // header subtle gradient overlay
+  const grd = ctx.createLinearGradient(SCREEN.x, HEADER_Y, SCREEN.x, HEADER_Y + HEADER_H);
+  grd.addColorStop(0, "rgba(255,255,255,0.06)");
+  grd.addColorStop(1, "rgba(0,0,0,0.06)");
+  ctx.fillStyle = grd;
+  ctx.fillRect(SCREEN.x, HEADER_Y, SCREEN.w, HEADER_H);
+
   ctx.save();
   ctx.strokeStyle = "rgba(255,255,255,0.92)";
   ctx.lineWidth = 4;
@@ -381,7 +513,6 @@ function drawHeader(ctx: CanvasRenderingContext2D, t: number) {
   ctx.stroke();
   ctx.restore();
 
-  // avatar
   const avatarX = SCREEN.x + 76;
   const avatarY = HEADER_Y + HEADER_H / 2;
   ctx.fillStyle = "rgba(255,255,255,0.18)";
@@ -394,52 +525,47 @@ function drawHeader(ctx: CanvasRenderingContext2D, t: number) {
   ctx.textBaseline = "middle";
   ctx.fillText("A", avatarX, avatarY + 1);
 
-  // online dot with pulse
+  // online pulse
   const pulseR = 6 + Math.sin(t * 3.5) * 1.5;
   ctx.fillStyle = "rgba(104,186,127,0.45)";
   ctx.beginPath();
   ctx.arc(avatarX + 22, avatarY + 22, pulseR + 4, 0, Math.PI * 2);
   ctx.fill();
-  ctx.fillStyle = "#68BA7F";
-  ctx.beginPath();
-  ctx.arc(avatarX + 22, avatarY + 22, 6, 0, Math.PI * 2);
-  ctx.fill();
   ctx.fillStyle = "#2E6F40";
   ctx.beginPath();
   ctx.arc(avatarX + 22, avatarY + 22, 7.5, 0, Math.PI * 2);
-  ctx.lineWidth = 2;
-  ctx.strokeStyle = "#2E6F40";
-  ctx.stroke();
+  ctx.fill();
   ctx.fillStyle = "#68BA7F";
   ctx.beginPath();
   ctx.arc(avatarX + 22, avatarY + 22, 5.5, 0, Math.PI * 2);
   ctx.fill();
 
-  // title + subtitle
   ctx.textAlign = "left";
   ctx.textBaseline = "alphabetic";
   ctx.fillStyle = "#FFFFFF";
   ctx.font = "600 26px Inter, sans-serif";
-  ctx.fillText("Alex Mendoza", avatarX + 46, avatarY - 4);
+  const nameX = avatarX + 46;
+  ctx.fillText("Alex Mendoza", nameX, avatarY - 4);
 
-  // status — "online" or "typing…" depending on whether Alex is typing
+  // verified badge after the name
+  const nameW = ctx.measureText("Alex Mendoza").width;
+  drawVerifiedBadge(ctx, nameX + nameW + 14, avatarY - 12, 8);
+
   const alexTyping = isTypingAt(t, "in");
   ctx.fillStyle = "#CFFFDC";
   ctx.font = "500 18px Inter, sans-serif";
   ctx.fillText(
-    alexTyping ? "typing…" : "online",
-    avatarX + 46,
+    alexTyping ? "typing…" : "online · vault open",
+    nameX,
     avatarY + 22,
   );
 
-  // call icons (right side)
   ctx.save();
   ctx.strokeStyle = "rgba(255,255,255,0.92)";
   ctx.lineWidth = 2.5;
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
 
-  // video icon
   const vx = SCREEN.x + SCREEN.w - 110;
   const vy = HEADER_Y + HEADER_H / 2;
   roundRect(ctx, vx - 14, vy - 9, 22, 18, 4);
@@ -452,7 +578,6 @@ function drawHeader(ctx: CanvasRenderingContext2D, t: number) {
   ctx.closePath();
   ctx.stroke();
 
-  // phone icon
   const px = SCREEN.x + SCREEN.w - 50;
   const py = HEADER_Y + HEADER_H / 2;
   ctx.beginPath();
@@ -464,88 +589,143 @@ function drawHeader(ctx: CanvasRenderingContext2D, t: number) {
   ctx.restore();
 }
 
+/* ───────────────────────── input bar ───────────────────────── */
+
+function isRecordingAt(t: number): boolean {
+  const evt = currentTypingEvent(t, "out");
+  if (!evt) return false;
+  for (const e of EVENTS) {
+    if (e.kind === "message" && e.side === "out" && e.at >= evt.start - 0.05) {
+      return e.variant === "voice";
+    }
+  }
+  return false;
+}
+
 function drawInputBar(ctx: CanvasRenderingContext2D, t: number) {
   const barY = SCREEN.y + SCREEN.h - INPUT_H;
   ctx.fillStyle = "#FCF5EB";
   ctx.fillRect(SCREEN.x, barY, SCREEN.w, INPUT_H);
 
-  // upward divider
   ctx.fillStyle = "rgba(37,61,44,0.08)";
   ctx.fillRect(SCREEN.x, barY, SCREEN.w, 1);
 
-  // input pill
   const pad = 24;
   const pillX = SCREEN.x + pad + 6;
   const pillY = barY + 22;
   const pillW = SCREEN.w - pad * 2 - 80;
   const pillH = 56;
-  ctx.fillStyle = "#FFFFFF";
-  roundRect(ctx, pillX, pillY, pillW, pillH, 28);
-  ctx.fill();
-  ctx.strokeStyle = "rgba(37,61,44,0.12)";
-  ctx.lineWidth = 1.5;
-  roundRect(ctx, pillX, pillY, pillW, pillH, 28);
-  ctx.stroke();
 
-  // emoji + plus icons inside the pill
-  ctx.save();
-  ctx.strokeStyle = "rgba(60,90,71,0.55)";
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.arc(pillX + 28, pillY + pillH / 2, 11, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.arc(pillX + 24, pillY + pillH / 2 - 3, 1.4, 0, Math.PI * 2);
-  ctx.arc(pillX + 32, pillY + pillH / 2 - 3, 1.4, 0, Math.PI * 2);
-  ctx.fillStyle = "rgba(60,90,71,0.55)";
-  ctx.fill();
-  ctx.beginPath();
-  ctx.arc(pillX + 28, pillY + pillH / 2 + 2, 5, 0.15 * Math.PI, 0.85 * Math.PI);
-  ctx.stroke();
-  ctx.restore();
+  const recording = isRecordingAt(t);
 
-  // typing simulation in the pill — show a draft text being typed when
-  // the *user* (out side) is "typing"
-  const userTyping = isTypingAt(t, "out");
-  const userTypingEvent = currentTypingEvent(t, "out");
-  const draftText = nextOutgoingMessageText(t);
+  if (recording) {
+    // recording pill — red tint, waveform animation, "Recording…" + duration
+    ctx.fillStyle = "rgba(225,29,72,0.08)";
+    roundRect(ctx, pillX, pillY, pillW, pillH, 28);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(225,29,72,0.45)";
+    ctx.lineWidth = 1.5;
+    roundRect(ctx, pillX, pillY, pillW, pillH, 28);
+    ctx.stroke();
 
-  if (userTyping && userTypingEvent && draftText) {
-    const progress = clamp01(
-      (t - userTypingEvent.start) / (userTypingEvent.end - userTypingEvent.start),
-    );
-    const charsToShow = Math.floor(draftText.length * easeOut(progress));
-    const visible = draftText.slice(0, charsToShow);
-    ctx.save();
-    ctx.fillStyle = "#111B21";
-    ctx.font = "400 22px Inter, sans-serif";
+    // pulsing red dot
+    const pulse = 0.7 + Math.sin(t * 8) * 0.3;
+    ctx.fillStyle = `rgba(225,29,72,${pulse})`;
+    ctx.beginPath();
+    ctx.arc(pillX + 24, pillY + pillH / 2, 7, 0, Math.PI * 2);
+    ctx.fill();
+
+    // recording duration text — counts up while recording
+    const recordEvt = currentTypingEvent(t, "out");
+    const recElapsed = recordEvt ? Math.max(0, t - recordEvt.start) : 0;
+    const mm = Math.floor(recElapsed / 60).toString().padStart(1, "0");
+    const ss = Math.floor(recElapsed).toString().padStart(2, "0");
+
+    ctx.fillStyle = "#E11D48";
+    ctx.font = "600 15px Inter, sans-serif";
     ctx.textBaseline = "middle";
     ctx.textAlign = "left";
-    const textX = pillX + 60;
-    const textY = pillY + pillH / 2;
-    // truncate if too wide
-    let display = visible;
-    while (ctx.measureText(display).width > pillW - 80 && display.length > 4) {
-      display = "…" + display.slice(-Math.floor(display.length * 0.8));
+    ctx.fillText(`${mm}:${ss}`, pillX + 42, pillY + pillH / 2);
+
+    // animated waveform bars
+    const wfX = pillX + 88;
+    const wfW = pillW - 110;
+    const bars = 28;
+    for (let i = 0; i < bars; i++) {
+      const phase = t * 4 + i * 0.4;
+      const h = 4 + Math.abs(Math.sin(phase) * 16) + Math.abs(Math.cos(phase * 1.3) * 6);
+      const x = wfX + (i / (bars - 1)) * wfW;
+      ctx.fillStyle = "rgba(225,29,72,0.55)";
+      ctx.fillRect(x - 1.5, pillY + pillH / 2 - h / 2, 3, h);
     }
-    ctx.fillText(display, textX, textY + 1);
-
-    // blinking caret
-    const caretAlpha = Math.sin(t * 14) > 0 ? 1 : 0.2;
-    ctx.globalAlpha = caretAlpha;
-    ctx.fillStyle = "#2E6F40";
-    const caretX = textX + ctx.measureText(display).width + 4;
-    ctx.fillRect(caretX, textY - 12, 2, 24);
-    ctx.restore();
   } else {
+    ctx.fillStyle = "#FFFFFF";
+    roundRect(ctx, pillX, pillY, pillW, pillH, 28);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(37,61,44,0.12)";
+    ctx.lineWidth = 1.5;
+    roundRect(ctx, pillX, pillY, pillW, pillH, 28);
+    ctx.stroke();
+
+    // emoji icon
+    ctx.save();
+    ctx.strokeStyle = "rgba(60,90,71,0.55)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(pillX + 28, pillY + pillH / 2, 11, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(pillX + 24, pillY + pillH / 2 - 3, 1.4, 0, Math.PI * 2);
+    ctx.arc(pillX + 32, pillY + pillH / 2 - 3, 1.4, 0, Math.PI * 2);
     ctx.fillStyle = "rgba(60,90,71,0.55)";
-    ctx.font = "400 22px Inter, sans-serif";
-    ctx.textBaseline = "middle";
-    ctx.textAlign = "left";
-    ctx.fillText("Message", pillX + 60, pillY + pillH / 2 + 1);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(pillX + 28, pillY + pillH / 2 + 2, 5, 0.15 * Math.PI, 0.85 * Math.PI);
+    ctx.stroke();
+    ctx.restore();
+
+    const userTyping = isTypingAt(t, "out");
+    const userTypingEvent = currentTypingEvent(t, "out");
+    const draftText = nextOutgoingMessageText(t);
+
+    if (userTyping && userTypingEvent && draftText) {
+      const progress = clamp01(
+        (t - userTypingEvent.start) / (userTypingEvent.end - userTypingEvent.start),
+      );
+      const charsToShow = Math.floor(draftText.length * easeOut(progress));
+      const visible = draftText.slice(0, charsToShow);
+      ctx.save();
+      ctx.fillStyle = "#111B21";
+      ctx.font = "400 22px Inter, sans-serif";
+      ctx.textBaseline = "middle";
+      ctx.textAlign = "left";
+      const textX = pillX + 60;
+      const textY = pillY + pillH / 2;
+      let display = visible;
+      while (
+        ctx.measureText(display).width > pillW - 80 &&
+        display.length > 4
+      ) {
+        display = "…" + display.slice(-Math.floor(display.length * 0.8));
+      }
+      ctx.fillText(display, textX, textY + 1);
+
+      const caretAlpha = Math.sin(t * 14) > 0 ? 1 : 0.2;
+      ctx.globalAlpha = caretAlpha;
+      ctx.fillStyle = "#2E6F40";
+      const caretX = textX + ctx.measureText(display).width + 4;
+      ctx.fillRect(caretX, textY - 12, 2, 24);
+      ctx.restore();
+    } else {
+      ctx.fillStyle = "rgba(60,90,71,0.55)";
+      ctx.font = "400 22px Inter, sans-serif";
+      ctx.textBaseline = "middle";
+      ctx.textAlign = "left";
+      ctx.fillText("Encrypted message", pillX + 60, pillY + pillH / 2 + 1);
+    }
   }
 
-  // attachment / camera icon at right of pill
+  // attachment icon
   ctx.save();
   ctx.strokeStyle = "rgba(60,90,71,0.55)";
   ctx.lineWidth = 2;
@@ -569,15 +749,16 @@ function drawInputBar(ctx: CanvasRenderingContext2D, t: number) {
   ctx.stroke();
   ctx.restore();
 
-  // send / mic button on right
+  // send / mic button
   const btnCx = SCREEN.x + SCREEN.w - 50;
   const btnCy = barY + INPUT_H / 2;
+  const userTyping = isTypingAt(t, "out") && !recording;
+
   ctx.fillStyle = "#2E6F40";
   ctx.beginPath();
   ctx.arc(btnCx, btnCy, 28, 0, Math.PI * 2);
   ctx.fill();
 
-  // show send arrow when user is typing, else mic icon
   ctx.save();
   ctx.strokeStyle = "#FFFFFF";
   ctx.fillStyle = "#FFFFFF";
@@ -589,8 +770,12 @@ function drawInputBar(ctx: CanvasRenderingContext2D, t: number) {
     ctx.lineTo(btnCx - 6, btnCy);
     ctx.closePath();
     ctx.fill();
+  } else if (recording) {
+    // pulsing stop square
+    ctx.fillStyle = "#FFFFFF";
+    const sq = 14 + Math.sin(t * 8) * 1.5;
+    ctx.fillRect(btnCx - sq / 2, btnCy - sq / 2, sq, sq);
   } else {
-    // mic icon
     ctx.lineWidth = 2.5;
     ctx.lineCap = "round";
     roundRect(ctx, btnCx - 6, btnCy - 12, 12, 18, 6);
@@ -628,7 +813,7 @@ function layoutMessage(
   m: MessageEvent,
 ): Layout {
   if (m.variant === "voice") {
-    return { msg: m, lines: [], w: 240, h: 64 };
+    return { msg: m, lines: [], w: 260, h: 70 };
   }
   ctx.font = `400 ${BUBBLE_FONT}px Inter, sans-serif`;
   const lines = wrapText(ctx, m.text ?? "", BUBBLE_MAX_TEXT_W);
@@ -692,8 +877,7 @@ function drawTickGlyph(
   stage: Tick,
 ) {
   if (stage === "none") return;
-  const color =
-    stage === "read" ? "#0EA5E9" : "rgba(60,90,71,0.6)";
+  const color = stage === "read" ? "#0EA5E9" : "rgba(60,90,71,0.6)";
   ctx.save();
   ctx.strokeStyle = color;
   ctx.lineWidth = 2;
@@ -723,24 +907,24 @@ function drawTypingBubble(
 ) {
   const w = 88;
   const h = 46;
-  const bx = side === "in" ? SCREEN.x + SIDE_PAD : SCREEN.x + SCREEN.w - SIDE_PAD - w;
+  const bx =
+    side === "in"
+      ? SCREEN.x + SIDE_PAD
+      : SCREEN.x + SCREEN.w - SIDE_PAD - w;
 
   ctx.save();
   ctx.globalAlpha = alpha;
 
-  // shadow
   ctx.fillStyle = "rgba(17,27,33,0.06)";
   roundRect(ctx, bx, y + 3, w, h, 23);
   ctx.fill();
 
-  // bubble
   ctx.fillStyle = side === "in" ? "#FFFFFF" : "#CFFFDC";
   roundRect(ctx, bx, y, w, h, 23);
   ctx.fill();
 
-  // 3 bouncing dots
   for (let i = 0; i < 3; i++) {
-    const phase = t * 7 - i * 0.7;
+    const phase = t * 6 - i * 0.7;
     const lift = Math.max(0, Math.sin(phase)) * 5;
     const scale = 0.85 + Math.max(0, Math.sin(phase)) * 0.3;
     const dx = bx + 24 + i * 20;
@@ -750,6 +934,125 @@ function drawTypingBubble(
     ctx.arc(dx, dy, 5 * scale, 0, Math.PI * 2);
     ctx.fill();
   }
+
+  ctx.restore();
+}
+
+function drawEncryptedShimmer(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number,
+  progress: number,
+) {
+  ctx.save();
+  roundRect(ctx, x, y, w, h, r);
+  ctx.clip();
+
+  const sweepX = x - 60 + progress * (w + 120);
+  const grd = ctx.createLinearGradient(
+    sweepX - 30,
+    y,
+    sweepX + 60,
+    y + h,
+  );
+  grd.addColorStop(0, "rgba(255,255,255,0)");
+  grd.addColorStop(0.5, "rgba(255,255,255,0.55)");
+  grd.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = grd;
+  ctx.fillRect(x, y, w, h);
+
+  ctx.restore();
+}
+
+function drawDisappearingBadge(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  t: number,
+  appearAt: number,
+) {
+  const local = clamp01((t - appearAt) / 0.45);
+  if (local <= 0) return;
+  const alpha = local;
+  const pulse = 0.85 + Math.sin((t - appearAt) * 3.2) * 0.15;
+
+  ctx.save();
+  ctx.globalAlpha = alpha;
+
+  const pillW = 132;
+  const pillH = 28;
+
+  ctx.fillStyle = `rgba(225,29,72,${0.12 * pulse})`;
+  roundRect(ctx, x, y, pillW, pillH, 14);
+  ctx.fill();
+
+  ctx.strokeStyle = `rgba(225,29,72,${0.45 * pulse})`;
+  ctx.lineWidth = 1;
+  roundRect(ctx, x, y, pillW, pillH, 14);
+  ctx.stroke();
+
+  // clock icon
+  ctx.strokeStyle = "#E11D48";
+  ctx.lineWidth = 1.5;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.arc(x + 14, y + pillH / 2, 6.5, 0, Math.PI * 2);
+  ctx.stroke();
+  // hand sweeps with time to feel like a countdown
+  const handAngle = ((t - appearAt) * 0.8) % (Math.PI * 2);
+  ctx.beginPath();
+  ctx.moveTo(x + 14, y + pillH / 2);
+  ctx.lineTo(
+    x + 14 + Math.sin(handAngle) * 4,
+    y + pillH / 2 - Math.cos(handAngle) * 4,
+  );
+  ctx.stroke();
+
+  ctx.fillStyle = "#E11D48";
+  ctx.font = "600 13px Inter, sans-serif";
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  ctx.fillText("Burns in 24h", x + 28, y + pillH / 2 + 1);
+
+  ctx.restore();
+}
+
+function drawEncryptingTag(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  alpha: number,
+) {
+  if (alpha <= 0) return;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+
+  const text = "Encrypting…";
+  ctx.font = "500 12px Inter, sans-serif";
+  const w = ctx.measureText(text).width + 30;
+  const h = 22;
+
+  ctx.fillStyle = "rgba(46,111,64,0.12)";
+  roundRect(ctx, x, y, w, h, 11);
+  ctx.fill();
+
+  // tiny lock glyph
+  ctx.strokeStyle = "#2E6F40";
+  ctx.lineWidth = 1.4;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.arc(x + 10, y + h / 2 - 1, 3.5, Math.PI, 0);
+  ctx.stroke();
+  ctx.fillStyle = "#2E6F40";
+  ctx.fillRect(x + 6.5, y + h / 2 - 1, 7, 6);
+
+  ctx.fillStyle = "#2E6F40";
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  ctx.fillText(text, x + 18, y + h / 2);
 
   ctx.restore();
 }
@@ -766,7 +1069,6 @@ function drawVoiceNoteBubble(
   const side = layout.msg.side;
   const duration = layout.msg.duration ?? 8;
 
-  // shadow + bubble
   ctx.fillStyle = "rgba(17,27,33,0.06)";
   roundRect(ctx, bx, by + 3, w, h, 22);
   ctx.fill();
@@ -774,7 +1076,6 @@ function drawVoiceNoteBubble(
   roundRect(ctx, bx, by, w, h, 22);
   ctx.fill();
 
-  // play triangle
   const playCx = bx + 28;
   const playCy = by + h / 2;
   ctx.fillStyle = "#2E6F40";
@@ -789,13 +1090,12 @@ function drawVoiceNoteBubble(
   ctx.closePath();
   ctx.fill();
 
-  // waveform bars
   const wfX = bx + 52;
   const wfY = by + h / 2;
   const wfW = w - 100;
-  const bars = 22;
+  const bars = 24;
   const elapsed = Math.max(0, t - appearAt);
-  const playProgress = clamp01(elapsed / 1.5);
+  const playProgress = clamp01(elapsed / 1.8);
   for (let i = 0; i < bars; i++) {
     const seedH =
       6 +
@@ -807,14 +1107,12 @@ function drawVoiceNoteBubble(
     ctx.fillRect(x - 1.5, wfY - seedH / 2, 3, seedH);
   }
 
-  // duration text
   ctx.fillStyle = "rgba(60,90,71,0.7)";
   ctx.font = "500 15px Inter, sans-serif";
   ctx.textAlign = "left";
   ctx.textBaseline = "alphabetic";
-  ctx.fillText(`0:0${duration}`, bx + 52, by + h - 8);
+  ctx.fillText(`0:${duration.toString().padStart(2, "0")}`, bx + 52, by + h - 8);
 
-  // timestamp + tick
   const stage =
     side === "out" ? tickStateAt(t, layout.msg.id) : "none";
   ctx.fillStyle = side === "in" ? "rgba(60,90,71,0.6)" : "#2E6F40";
@@ -836,17 +1134,14 @@ function drawTextBubble(
   const { w, h, lines } = layout;
   const side = layout.msg.side;
 
-  // shadow
   ctx.fillStyle = "rgba(17,27,33,0.06)";
   roundRect(ctx, bx, by + 3, w, h, 22);
   ctx.fill();
 
-  // bubble
   ctx.fillStyle = side === "in" ? "#FFFFFF" : "#CFFFDC";
   roundRect(ctx, bx, by, w, h, 22);
   ctx.fill();
 
-  // text
   ctx.fillStyle = "#111B21";
   ctx.font = `400 ${BUBBLE_FONT}px Inter, sans-serif`;
   ctx.textAlign = "left";
@@ -856,7 +1151,6 @@ function drawTextBubble(
     ctx.fillText(line, bx + BUBBLE_PAD_X, by + BUBBLE_PAD_Y + i * BUBBLE_LH);
   }
 
-  // timestamp + tick (only outgoing show ticks)
   ctx.fillStyle = side === "in" ? "rgba(60,90,71,0.6)" : "#2E6F40";
   ctx.font = "500 16px Inter, sans-serif";
   ctx.textAlign = "right";
@@ -869,14 +1163,13 @@ function drawTextBubble(
 }
 
 function drawConversation(ctx: CanvasRenderingContext2D, t: number) {
-  // chat body bg
   ctx.save();
   roundRect(ctx, SCREEN.x, BODY_Y, SCREEN.w, BODY_BOTTOM - BODY_Y, 0);
   ctx.clip();
   ctx.fillStyle = "#E6FFDA";
   ctx.fillRect(SCREEN.x, BODY_Y, SCREEN.w, BODY_BOTTOM - BODY_Y);
 
-  // subtle ornamental pattern
+  // ornamental dots
   ctx.globalAlpha = 0.05;
   ctx.fillStyle = "#2E6F40";
   for (let y = BODY_Y + 30; y < BODY_BOTTOM; y += 70) {
@@ -895,7 +1188,6 @@ function drawConversation(ctx: CanvasRenderingContext2D, t: number) {
   const pillX = SCREEN.x + (SCREEN.w - pillW) / 2;
   const pillY = BODY_Y + 18;
 
-  // encryption highlight effect
   let pillGlow = 0;
   if (t >= ENCRYPTION_HIGHLIGHT.start && t <= ENCRYPTION_HIGHLIGHT.end) {
     const local = (t - ENCRYPTION_HIGHLIGHT.start) /
@@ -908,9 +1200,10 @@ function drawConversation(ctx: CanvasRenderingContext2D, t: number) {
     ctx.shadowColor = "rgba(46,111,64,0.7)";
     ctx.shadowBlur = 30 * pillGlow;
   }
-  ctx.fillStyle = pillGlow > 0
-    ? `rgba(207,255,220,${0.85 + pillGlow * 0.15})`
-    : "rgba(207,255,220,0.85)";
+  ctx.fillStyle =
+    pillGlow > 0
+      ? `rgba(207,255,220,${0.85 + pillGlow * 0.15})`
+      : "rgba(207,255,220,0.85)";
   roundRect(ctx, pillX, pillY, pillW, pillH, 22);
   ctx.fill();
   ctx.restore();
@@ -926,27 +1219,25 @@ function drawConversation(ctx: CanvasRenderingContext2D, t: number) {
     pillY + pillH / 2 + 1,
   );
 
-  // pre-layout all messages
   const layouts: Layout[] = EVENTS.filter(
     (e): e is MessageEvent => e.kind === "message",
   ).map((m) => layoutMessage(ctx, m));
 
-  // draw messages in their slots
   let cursorY = pillY + pillH + 24;
   for (let i = 0; i < layouts.length; i++) {
     const layout = layouts[i]!;
     const m = layout.msg;
-    const local = clamp01((t - m.at) / 0.4);
+    const local = clamp01((t - m.at) / 0.45);
     const visible = local > 0;
 
     if (!visible) {
-      // reserve space anyway so future messages have stable Y
       cursorY += layout.h + BUBBLE_GAP;
+      if (m.disappearing) cursorY += 32;
       continue;
     }
 
     const eased = easeOut(local);
-    const slideY = (1 - eased) * 30;
+    const slideY = (1 - eased) * 36;
     const alpha = eased;
 
     const bx =
@@ -965,24 +1256,69 @@ function drawConversation(ctx: CanvasRenderingContext2D, t: number) {
       drawTextBubble(ctx, layout, bx, by, t);
     }
 
+    // encryption shimmer sweep over the bubble for ~0.7s
+    const shimmerLocal = clamp01((t - m.at) / 0.7);
+    if (shimmerLocal > 0 && shimmerLocal < 1) {
+      drawEncryptedShimmer(
+        ctx,
+        bx,
+        by,
+        layout.w,
+        layout.h,
+        22,
+        shimmerLocal,
+      );
+    }
+
+    // lock-seal animation for outgoing messages: a small padlock that
+    // closes and fades over the first ~0.55s
+    if (m.side === "out") {
+      const sealLocal = clamp01((t - m.at) / 0.55);
+      const sealAlpha = 1 - clamp01((t - m.at - 0.35) / 0.25);
+      if (sealAlpha > 0) {
+        const sealCx = bx - 4;
+        const sealCy = by + layout.h / 2;
+        drawSealLock(
+          ctx,
+          sealCx,
+          sealCy,
+          36,
+          easeOut(sealLocal),
+          sealAlpha,
+        );
+      }
+
+      // "Encrypting…" tag underneath, fades out
+      const tagAlpha = 1 - clamp01((t - m.at - 0.5) / 0.5);
+      if (tagAlpha > 0) {
+        drawEncryptingTag(
+          ctx,
+          bx + layout.w - 110,
+          by + layout.h + 6,
+          tagAlpha,
+        );
+      }
+    }
+
     ctx.restore();
 
-    // reaction floating up onto this bubble
+    // disappearing badge for messages flagged as such
+    if (m.disappearing) {
+      drawDisappearingBadge(ctx, bx, by + layout.h + 6, t, m.at + 0.3);
+    }
+
+    // reaction floating up
     const rxn = reactionAt(t, m.id);
     if (rxn) {
-      const reactionLocal = clamp01(rxn.age / 0.6);
-      const reactionAlpha =
-        reactionLocal < 0.8
-          ? easeOut(reactionLocal / 0.8)
-          : 1;
-      const reactionScale = 0.6 + easeOut(Math.min(1, reactionLocal * 1.4)) * 0.5;
+      const rl = clamp01(rxn.age / 0.6);
+      const reactionAlpha = rl < 0.85 ? easeOut(rl / 0.85) : 1;
+      const reactionScale = 0.6 + easeOut(Math.min(1, rl * 1.4)) * 0.5;
       const rxX = m.side === "in" ? bx + layout.w - 8 : bx + 8;
-      const rxY = by + layout.h - 4 + (1 - reactionLocal) * 8;
+      const rxY = by + layout.h - 4 + (1 - rl) * 8;
       ctx.save();
       ctx.globalAlpha = reactionAlpha;
       ctx.translate(rxX, rxY);
       ctx.scale(reactionScale, reactionScale);
-      // pill background
       ctx.fillStyle = "#FFFFFF";
       ctx.shadowColor = "rgba(17,27,33,0.18)";
       ctx.shadowBlur = 8;
@@ -991,9 +1327,8 @@ function drawConversation(ctx: CanvasRenderingContext2D, t: number) {
       ctx.fill();
       ctx.shadowBlur = 0;
       ctx.fillStyle = "#E11D48";
-      // heart shape
-      ctx.beginPath();
       const s = 1;
+      ctx.beginPath();
       ctx.moveTo(0, 5 * s);
       ctx.bezierCurveTo(-10 * s, -2 * s, -10 * s, -10 * s, 0, -4 * s);
       ctx.bezierCurveTo(10 * s, -10 * s, 10 * s, -2 * s, 0, 5 * s);
@@ -1002,11 +1337,11 @@ function drawConversation(ctx: CanvasRenderingContext2D, t: number) {
     }
 
     cursorY += layout.h + BUBBLE_GAP;
+    if (m.disappearing) cursorY += 32;
   }
 
-  // typing indicator (drawn at the next slot if active)
-  for (const side of ["in", "out"] as const) {
-    if (side === "out") continue; // user typing is shown in input bar instead
+  // typing indicator (only for incoming side; outgoing is shown in input bar)
+  for (const side of ["in"] as const) {
     const evt = currentTypingEvent(t, side);
     if (!evt) continue;
     const fadeIn = clamp01((t - evt.start) / 0.18);
@@ -1016,7 +1351,265 @@ function drawConversation(ctx: CanvasRenderingContext2D, t: number) {
     drawTypingBubble(ctx, side, cursorY, t, alpha);
   }
 
-  ctx.restore(); // unclip body
+  // screenshot blocked banner overlay
+  drawScreenshotBlockedBanner(ctx, t);
+
+  ctx.restore();
+}
+
+function drawScreenshotBlockedBanner(
+  ctx: CanvasRenderingContext2D,
+  t: number,
+) {
+  const { start, end } = SCREENSHOT_BANNER;
+  const local = (t - start) / (end - start);
+  if (local < 0 || local > 1) return;
+
+  let slide = 1;
+  if (local < 0.18) slide = local / 0.18;
+  else if (local > 0.82) slide = (1 - local) / 0.18;
+
+  const bannerH = 56;
+  const x = SCREEN.x + 24;
+  const w = SCREEN.w - 48;
+  const targetY = BODY_Y + 80;
+  const y = targetY - (1 - easeOut(slide)) * (bannerH + 24);
+  const alpha = easeOut(slide);
+
+  ctx.save();
+  ctx.globalAlpha = alpha;
+
+  ctx.fillStyle = "rgba(15,26,31,0.94)";
+  ctx.shadowColor = "rgba(0,0,0,0.35)";
+  ctx.shadowBlur = 24;
+  roundRect(ctx, x, y, w, bannerH, 14);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  // shield icon
+  ctx.strokeStyle = "#FCD34D";
+  ctx.lineWidth = 2.2;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  const sx = x + 30;
+  const sy = y + bannerH / 2;
+  ctx.beginPath();
+  ctx.moveTo(sx, sy - 14);
+  ctx.lineTo(sx - 12, sy - 7);
+  ctx.lineTo(sx - 12, sy + 4);
+  ctx.bezierCurveTo(sx - 12, sy + 11, sx - 5, sy + 16, sx, sy + 16);
+  ctx.bezierCurveTo(sx + 5, sy + 16, sx + 12, sy + 11, sx + 12, sy + 4);
+  ctx.lineTo(sx + 12, sy - 7);
+  ctx.closePath();
+  ctx.stroke();
+
+  ctx.strokeStyle = "#FCD34D";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(sx - 4, sy - 1);
+  ctx.lineTo(sx, sy + 4);
+  ctx.lineTo(sx + 6, sy - 4);
+  ctx.stroke();
+
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = "600 17px Inter, sans-serif";
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  ctx.fillText("Screenshot blocked", x + 60, sy - 6);
+
+  ctx.fillStyle = "rgba(255,255,255,0.65)";
+  ctx.font = "500 13px Inter, sans-serif";
+  ctx.fillText("Conversation stays in the vault", x + 60, sy + 12);
+
+  ctx.restore();
+}
+
+/* ───────────────────────── intro auth scan + key orbit ───────────────────────── */
+
+function drawAuthScan(ctx: CanvasRenderingContext2D, t: number) {
+  const { start, end } = AUTH_SCAN;
+  if (t < start || t > end + 0.2) return;
+  const local = (t - start) / (end - start);
+
+  const cx = VIDEO_W / 2;
+  const cy = VIDEO_H / 2 - 60;
+  const size = 160;
+
+  const fadeIn = clamp01(local / 0.2);
+  const fadeOut = 1 - clamp01((local - 0.85) / 0.15);
+  const alpha = fadeIn * fadeOut;
+
+  if (alpha <= 0) return;
+
+  ctx.save();
+  ctx.globalAlpha = alpha;
+
+  // soft halo
+  const halo = ctx.createRadialGradient(cx, cy, 20, cx, cy, 240);
+  halo.addColorStop(0, "rgba(104,186,127,0.35)");
+  halo.addColorStop(1, "rgba(104,186,127,0)");
+  ctx.fillStyle = halo;
+  ctx.fillRect(cx - 240, cy - 240, 480, 480);
+
+  // lock body
+  const bw = size * 0.7;
+  const bh = size * 0.55;
+  ctx.fillStyle = "rgba(46,111,64,0.12)";
+  roundRect(ctx, cx - bw / 2, cy - bh / 2 + size * 0.1, bw, bh, 16);
+  ctx.fill();
+
+  ctx.strokeStyle = "#2E6F40";
+  ctx.lineWidth = 5;
+  ctx.lineCap = "round";
+  roundRect(ctx, cx - bw / 2, cy - bh / 2 + size * 0.1, bw, bh, 16);
+  ctx.stroke();
+
+  // arc lifts after 0.6s
+  const arcLift = clamp01((local - 0.6) / 0.25) * 30;
+  ctx.beginPath();
+  ctx.arc(
+    cx,
+    cy - bh / 2 + size * 0.1 - arcLift,
+    bw * 0.32,
+    Math.PI,
+    0,
+  );
+  ctx.stroke();
+
+  ctx.fillStyle = "#2E6F40";
+  ctx.beginPath();
+  ctx.arc(cx, cy + size * 0.1, 5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillRect(cx - 3, cy + size * 0.1, 6, 14);
+
+  // scan line
+  if (local >= 0.2 && local <= 0.65) {
+    const scanProg = (local - 0.2) / 0.45;
+    const scanY = cy - bh / 2 + size * 0.1 + scanProg * bh;
+    const grd = ctx.createLinearGradient(
+      cx - bw / 2,
+      scanY - 14,
+      cx - bw / 2,
+      scanY + 14,
+    );
+    grd.addColorStop(0, "rgba(104,186,127,0)");
+    grd.addColorStop(0.5, "rgba(104,186,127,0.7)");
+    grd.addColorStop(1, "rgba(104,186,127,0)");
+    ctx.fillStyle = grd;
+    ctx.fillRect(cx - bw / 2, scanY - 14, bw, 28);
+
+    ctx.strokeStyle = "#68BA7F";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(cx - bw / 2 + 6, scanY);
+    ctx.lineTo(cx + bw / 2 - 6, scanY);
+    ctx.stroke();
+  }
+
+  // verified text after scan completes
+  if (local >= 0.65) {
+    const txtAlpha = clamp01((local - 0.65) / 0.2);
+    ctx.globalAlpha = alpha * txtAlpha;
+
+    drawVerifiedBadge(ctx, cx - 78, cy + size * 0.55, 9);
+
+    ctx.fillStyle = "#2E6F40";
+    ctx.font = "600 22px Inter, sans-serif";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    ctx.fillText("Identity verified", cx - 60, cy + size * 0.55);
+  }
+
+  ctx.restore();
+}
+
+function drawKeyOrbit(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  radius: number,
+  t: number,
+  alpha: number,
+) {
+  if (alpha <= 0) return;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+
+  // orbit ellipse
+  ctx.strokeStyle = "rgba(104,186,127,0.18)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, radius, radius * 0.45, 0, 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, radius * 0.85, radius * 0.55, Math.PI / 6, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // orbiting dots
+  for (let i = 0; i < 4; i++) {
+    const phase = t * 1.6 + (i / 4) * Math.PI * 2;
+    const r = radius + Math.sin(t * 0.8 + i) * 6;
+    const x = cx + Math.cos(phase) * r;
+    const y = cy + Math.sin(phase) * r * 0.5;
+
+    // glow
+    ctx.fillStyle = "rgba(104,186,127,0.35)";
+    ctx.beginPath();
+    ctx.arc(x, y, 14, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "#68BA7F";
+    ctx.beginPath();
+    ctx.arc(x, y, 6, 0, Math.PI * 2);
+    ctx.fill();
+
+    // tail
+    for (let j = 1; j < 6; j++) {
+      const trailPhase = phase - j * 0.1;
+      const trailR = radius + Math.sin(t * 0.8 + i - j * 0.1) * 6;
+      const tx = cx + Math.cos(trailPhase) * trailR;
+      const ty = cy + Math.sin(trailPhase) * trailR * 0.5;
+      ctx.fillStyle = `rgba(104,186,127,${0.45 - j * 0.07})`;
+      ctx.beginPath();
+      ctx.arc(tx, ty, Math.max(0.5, 5 - j * 0.7), 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  ctx.restore();
+}
+
+/* ───────────────────────── outro particles ───────────────────────── */
+
+const PARTICLES = Array.from({ length: 60 }, (_, i) => ({
+  xSeed: Math.sin(i * 12.9898) * 0.5 + 0.5,
+  speed: 0.35 + (Math.cos(i * 78.233) * 0.5 + 0.5) * 0.7,
+  size: 2 + (Math.sin(i * 7.317) * 0.5 + 0.5) * 4,
+  phase: i * 0.91,
+  hue: Math.sin(i * 3.7) * 0.5 + 0.5,
+}));
+
+function drawOutroParticles(ctx: CanvasRenderingContext2D, t: number) {
+  if (t < OUTRO.start - 0.2) return;
+  const elapsed = Math.max(0, t - OUTRO.start);
+
+  ctx.save();
+  for (const p of PARTICLES) {
+    const cycle = (elapsed * p.speed * 70 + p.phase * 80) % (VIDEO_H + 200);
+    const y = VIDEO_H - cycle;
+    const x =
+      p.xSeed * VIDEO_W + Math.sin(elapsed * 0.8 + p.phase) * 24;
+    const alpha = 0.2 + Math.abs(Math.sin(elapsed * 1.4 + p.phase)) * 0.45;
+    ctx.fillStyle =
+      p.hue > 0.5
+        ? `rgba(104,186,127,${alpha})`
+        : `rgba(207,255,220,${alpha})`;
+    ctx.beginPath();
+    ctx.arc(x, y, p.size, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
 }
 
 /* ───────────────────────── full frame ───────────────────────── */
@@ -1026,7 +1619,6 @@ function drawFrame(ctx: CanvasRenderingContext2D, t: number) {
   ctx.fillStyle = "#FCF5EB";
   ctx.fillRect(0, 0, VIDEO_W, VIDEO_H);
 
-  // soft brand glow
   const grd = ctx.createRadialGradient(
     VIDEO_W * 0.78,
     VIDEO_H * 0.12,
@@ -1040,24 +1632,31 @@ function drawFrame(ctx: CanvasRenderingContext2D, t: number) {
   ctx.fillStyle = grd;
   ctx.fillRect(0, 0, VIDEO_W, VIDEO_H);
 
-  /* — intro splash — */
-  if (t < INTRO.end + 0.4) {
-    const local = clamp01(t / 1.0);
-    const fade = 1 - clamp01((t - 2.1) / 0.5);
+  /* — auth scan — */
+  drawAuthScan(ctx, t);
+
+  /* — intro splash with key orbit — */
+  if (t >= INTRO.start && t <= INTRO.end + 0.4) {
+    const local = clamp01((t - INTRO.start) / 1.0);
+    const fade = 1 - clamp01((t - INTRO.end + 0.3) / 0.5);
     if (fade > 0) {
+      const cx = VIDEO_W / 2;
+      const cy = VIDEO_H / 2 - 70;
+
+      // key orbit (behind the logo)
+      drawKeyOrbit(ctx, cx, cy, 200, t - INTRO.start, fade * 0.95);
+
       ctx.save();
       ctx.globalAlpha = fade;
       const scale = 0.6 + easeOut(local) * 0.4;
-      const cx = VIDEO_W / 2;
-      const cy = VIDEO_H / 2 - 70;
       ctx.translate(cx, cy);
       ctx.scale(scale, scale);
       ctx.translate(-cx, -cy);
       drawLogoMark(ctx, cx, cy, 200, true);
       ctx.restore();
 
-      // wordmark + tagline (delayed)
-      const wordAlpha = clamp01((t - 0.7) / 0.5) * fade;
+      // wordmark + tagline
+      const wordAlpha = clamp01((t - INTRO.start - 0.7) / 0.5) * fade;
       if (wordAlpha > 0) {
         ctx.save();
         ctx.globalAlpha = wordAlpha;
@@ -1065,14 +1664,14 @@ function drawFrame(ctx: CanvasRenderingContext2D, t: number) {
         ctx.font = "italic 600 64px 'Fraunces', serif";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.fillText("VeilChat", VIDEO_W / 2, VIDEO_H / 2 + 80);
+        ctx.fillText("VeilChat", VIDEO_W / 2, VIDEO_H / 2 + 90);
 
         ctx.fillStyle = "#3C5A47";
-        ctx.font = "500 26px Inter, sans-serif";
+        ctx.font = "500 24px Inter, sans-serif";
         ctx.fillText(
-          "Private by design.",
+          "A vault for your conversations.",
           VIDEO_W / 2,
-          VIDEO_H / 2 + 130,
+          VIDEO_H / 2 + 140,
         );
         ctx.restore();
       }
@@ -1091,26 +1690,35 @@ function drawFrame(ctx: CanvasRenderingContext2D, t: number) {
     ctx.translate(0, ty);
     drawPhoneBody(ctx);
     drawNotch(ctx);
-    drawStatusBar(ctx);
+    drawStatusBar(ctx, t);
     drawHeader(ctx, t);
     drawConversation(ctx, t);
     drawInputBar(ctx, t);
     ctx.restore();
   }
 
+  /* — outro particles always behind outro card — */
+  drawOutroParticles(ctx, t);
+
   /* — outro card — */
   if (t >= OUTRO.start - 0.2) {
     const fade = clamp01((t - OUTRO.start + 0.2) / 0.6);
     ctx.save();
     ctx.globalAlpha = fade;
-    ctx.fillStyle = "#FCF5EB";
+    ctx.fillStyle = "rgba(252,245,235,0.96)";
     ctx.fillRect(0, 0, VIDEO_W, VIDEO_H);
 
-    // slow zoom on logo
+    // particles in front of bg overlay too
+    drawOutroParticles(ctx, t);
+
     const zoomLocal = clamp01((t - OUTRO.start) / (OUTRO.end - OUTRO.start));
     const scale = 1 + easeInOut(zoomLocal) * 0.06;
     const cx = VIDEO_W / 2;
-    const cy = VIDEO_H / 2 - 140;
+    const cy = VIDEO_H / 2 - 160;
+
+    // soft orbit behind the outro logo too (slower)
+    drawKeyOrbit(ctx, cx, cy, 220, (t - OUTRO.start) * 0.4, 0.45 * fade);
+
     ctx.save();
     ctx.translate(cx, cy);
     ctx.scale(scale, scale);
@@ -1119,24 +1727,25 @@ function drawFrame(ctx: CanvasRenderingContext2D, t: number) {
     ctx.restore();
 
     ctx.fillStyle = "#253D2C";
-    ctx.font = "italic 600 80px 'Fraunces', serif";
+    ctx.font = "italic 600 72px 'Fraunces', serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText("Message privately.", VIDEO_W / 2, VIDEO_H / 2 + 10);
+    ctx.fillText("Message privately.", VIDEO_W / 2, VIDEO_H / 2 - 10);
+    ctx.fillText("Vanish completely.", VIDEO_W / 2, VIDEO_H / 2 + 80);
 
     ctx.fillStyle = "#3C5A47";
-    ctx.font = "500 30px Inter, sans-serif";
+    ctx.font = "500 28px Inter, sans-serif";
     ctx.fillText(
       "VeilChat · End-to-end encrypted",
       VIDEO_W / 2,
-      VIDEO_H / 2 + 80,
+      VIDEO_H / 2 + 160,
     );
 
     // CTA pill
-    const pillW = 360;
-    const pillH = 84;
+    const pillW = 380;
+    const pillH = 88;
     const px = (VIDEO_W - pillW) / 2;
-    const py = VIDEO_H / 2 + 160;
+    const py = VIDEO_H / 2 + 230;
     const pillScale = 0.96 + Math.sin(t * 4) * 0.02;
     ctx.save();
     ctx.translate(VIDEO_W / 2, py + pillH / 2);
@@ -1146,23 +1755,22 @@ function drawFrame(ctx: CanvasRenderingContext2D, t: number) {
     ctx.shadowColor = "rgba(46,111,64,0.4)";
     ctx.shadowBlur = 30;
     ctx.shadowOffsetY = 12;
-    roundRect(ctx, px, py, pillW, pillH, 42);
+    roundRect(ctx, px, py, pillW, pillH, 44);
     ctx.fill();
     ctx.restore();
 
     ctx.shadowBlur = 0;
     ctx.fillStyle = "#FFFFFF";
     ctx.font = "600 28px Inter, sans-serif";
-    ctx.fillText("Get VeilChat — it's free", VIDEO_W / 2, py + pillH / 2 + 2);
-
-    // small lock badge below
-    ctx.fillStyle = "rgba(60,90,71,0.7)";
-    ctx.font = "500 20px Inter, sans-serif";
     ctx.fillText(
-      "veilchat.app",
+      "Open the vault — it's free",
       VIDEO_W / 2,
-      py + pillH + 50,
+      py + pillH / 2 + 2,
     );
+
+    ctx.fillStyle = "rgba(60,90,71,0.7)";
+    ctx.font = "500 22px Inter, sans-serif";
+    ctx.fillText("veilchat.app", VIDEO_W / 2, py + pillH + 56);
 
     ctx.restore();
   }
@@ -1230,10 +1838,7 @@ class AudioEngine {
     }
     gain.gain.setValueAtTime(0, when);
     gain.gain.linearRampToValueAtTime(peak, when + attack);
-    gain.gain.exponentialRampToValueAtTime(
-      0.0001,
-      when + duration,
-    );
+    gain.gain.exponentialRampToValueAtTime(0.0001, when + duration);
     osc.connect(gain);
     gain.connect(this.master);
     osc.start(when);
@@ -1250,14 +1855,12 @@ class AudioEngine {
   }
 
   playReceive(when: number) {
-    // soft two-note "ding" — bright, friendly notification
     [880, 1320].forEach((f, i) =>
-      this.envOsc("sine", f, when + i * 0.06, 0.28, 0.18, 0.005),
+      this.envOsc("sine", f, when + i * 0.07, 0.32, 0.18, 0.005),
     );
   }
 
   playSend(when: number) {
-    // upward swoop "pop" — outgoing whoosh
     this.envOsc(
       "sine",
       (osc, t) => {
@@ -1265,52 +1868,134 @@ class AudioEngine {
         osc.frequency.exponentialRampToValueAtTime(1180, t + 0.13);
       },
       when,
-      0.18,
-      0.25,
+      0.2,
+      0.22,
       0.005,
     );
   }
 
+  playLockClick(when: number) {
+    // metallic click — sharp square + short noise-like decay
+    this.envOsc("square", 1700, when, 0.04, 0.18, 0.001);
+    this.envOsc("triangle", 800, when + 0.005, 0.08, 0.12, 0.002);
+  }
+
   playTick(when: number) {
-    // subtle UI tick (used for read-receipt updates)
     this.envOsc("triangle", 1500, when, 0.05, 0.07, 0.002);
   }
 
   playTypeClick(when: number) {
-    // very short keyboard click
     this.envOsc("square", 1100, when, 0.025, 0.04, 0.001);
   }
 
   playReaction(when: number) {
     [880, 1100, 1320].forEach((f, i) =>
-      this.envOsc("sine", f, when + i * 0.04, 0.18, 0.16, 0.005),
+      this.envOsc("sine", f, when + i * 0.04, 0.2, 0.16, 0.005),
     );
   }
 
   playOutroChime(when: number) {
-    // gentle major arpeggio C-E-G
     [523.25, 659.25, 783.99, 1046.5].forEach((f, i) =>
-      this.envOsc("sine", f, when + i * 0.09, 1.4, 0.18, 0.02),
+      this.envOsc("sine", f, when + i * 0.1, 1.5, 0.18, 0.025),
+    );
+  }
+
+  playAuthSweep(when: number) {
+    // rising filtered tone — auth scan
+    this.envOsc(
+      "sawtooth",
+      (osc, t) => {
+        osc.frequency.setValueAtTime(220, t);
+        osc.frequency.exponentialRampToValueAtTime(880, t + 0.6);
+      },
+      when,
+      0.65,
+      0.06,
+      0.05,
+    );
+    this.envOsc(
+      "sine",
+      (osc, t) => {
+        osc.frequency.setValueAtTime(440, t);
+        osc.frequency.exponentialRampToValueAtTime(1320, t + 0.6);
+      },
+      when,
+      0.65,
+      0.05,
+      0.05,
+    );
+  }
+
+  playAuthConfirm(when: number) {
+    // ascending bright chime when scan completes
+    [659.25, 987.77].forEach((f, i) =>
+      this.envOsc("sine", f, when + i * 0.08, 0.5, 0.18, 0.01),
+    );
+  }
+
+  playShimmer(when: number) {
+    // gentle filtered sweep accompanying the shimmer wave
+    this.envOsc(
+      "triangle",
+      (osc, t) => {
+        osc.frequency.setValueAtTime(2200, t);
+        osc.frequency.exponentialRampToValueAtTime(800, t + 0.35);
+      },
+      when,
+      0.4,
+      0.07,
+      0.005,
+    );
+  }
+
+  playHeartbeat(when: number) {
+    // two low pulses — secure connection feel
+    this.envOsc(
+      "sine",
+      (osc, t) => {
+        osc.frequency.setValueAtTime(70, t);
+        osc.frequency.exponentialRampToValueAtTime(45, t + 0.18);
+      },
+      when,
+      0.2,
+      0.32,
+      0.01,
+    );
+    this.envOsc(
+      "sine",
+      (osc, t) => {
+        osc.frequency.setValueAtTime(80, t);
+        osc.frequency.exponentialRampToValueAtTime(50, t + 0.18);
+      },
+      when + 0.28,
+      0.2,
+      0.28,
+      0.01,
+    );
+  }
+
+  playSparkle(when: number) {
+    [1760, 2349.32].forEach((f, i) =>
+      this.envOsc("triangle", f, when + i * 0.03, 0.25, 0.1, 0.004),
     );
   }
 
   playAmbientPad(start: number, end: number) {
-    // soft sustained chord across the whole intro
-    const notes = [261.63, 329.63, 392.0]; // C major
-    notes.forEach((f) => {
+    const notes = [261.63, 329.63, 392.0, 196.0]; // C major + low octave
+    notes.forEach((f, idx) => {
       const osc = this.ctx.createOscillator();
       const gain = this.ctx.createGain();
-      osc.type = "sine";
+      osc.type = idx === 3 ? "triangle" : "sine";
       osc.frequency.value = f;
+      const peak = idx === 3 ? 0.018 : 0.024;
       gain.gain.setValueAtTime(0, start);
-      gain.gain.linearRampToValueAtTime(0.025, start + 1.2);
-      gain.gain.setValueAtTime(0.025, end - 1.4);
+      gain.gain.linearRampToValueAtTime(peak, start + 1.4);
+      gain.gain.setValueAtTime(peak, end - 1.6);
       gain.gain.linearRampToValueAtTime(0, end);
 
-      // gentle slow LFO for warmth
       const lfo = this.ctx.createOscillator();
       const lfoGain = this.ctx.createGain();
-      lfo.frequency.value = 0.18;
+      lfo.frequency.value = 0.16 + idx * 0.04;
       lfoGain.gain.value = 0.6;
       lfo.connect(lfoGain);
       lfoGain.connect(osc.detune);
@@ -1337,11 +2022,16 @@ class AudioEngine {
 }
 
 function scheduleTimelineAudio(engine: AudioEngine, audioStart: number) {
-  // ambient background pad
+  // ambient pad through the whole piece
   engine.playAmbientPad(audioStart + 0.0, audioStart + DURATION_SEC - 0.2);
 
-  // intro shimmer
-  engine.playReaction(audioStart + 0.4);
+  // auth scan
+  engine.playAuthSweep(audioStart + AUTH_SCAN.start + 0.05);
+  engine.playAuthConfirm(audioStart + AUTH_SCAN.start + 0.78);
+
+  // intro logo shimmer
+  engine.playReaction(audioStart + INTRO.start + 0.2);
+  engine.playSparkle(audioStart + INTRO.start + 0.6);
 
   // phone whoosh
   engine.envOsc(
@@ -1356,25 +2046,28 @@ function scheduleTimelineAudio(engine: AudioEngine, audioStart: number) {
     0.05,
   );
 
-  // typing clicks for all typing events
+  // typing clicks
   for (const e of EVENTS) {
     if (e.kind !== "typing") continue;
     const dur = e.end - e.start;
-    const count = Math.max(4, Math.floor(dur / 0.13));
+    const count = Math.max(5, Math.floor(dur / 0.15));
     for (let i = 0; i < count; i++) {
       const when =
-        audioStart + e.start + (i / count) * dur + (Math.random() * 0.04);
+        audioStart + e.start + (i / count) * dur + Math.random() * 0.04;
       engine.playTypeClick(when);
     }
   }
 
-  // message arrival sounds
+  // message arrivals + their associated effects
   for (const e of EVENTS) {
     if (e.kind !== "message") continue;
     if (e.side === "in") {
+      engine.playShimmer(audioStart + e.at - 0.05);
       engine.playReceive(audioStart + e.at);
     } else {
       engine.playSend(audioStart + e.at);
+      engine.playShimmer(audioStart + e.at + 0.02);
+      engine.playLockClick(audioStart + e.at + 0.32); // seal closes
     }
   }
 
@@ -1383,23 +2076,41 @@ function scheduleTimelineAudio(engine: AudioEngine, audioStart: number) {
     if (e.kind === "tick") engine.playTick(audioStart + e.at);
   }
 
-  // reaction pop
+  // reactions
   for (const e of EVENTS) {
     if (e.kind === "reaction") engine.playReaction(audioStart + e.at);
   }
 
-  // encryption highlight little chime
+  // encryption highlight: heartbeat pulses + low chime
+  engine.playHeartbeat(audioStart + ENCRYPTION_HIGHLIGHT.start + 0.2);
+  engine.playHeartbeat(audioStart + ENCRYPTION_HIGHLIGHT.start + 1.2);
   engine.envOsc(
     "sine",
     1320,
-    audioStart + ENCRYPTION_HIGHLIGHT.start + 0.2,
-    0.4,
-    0.15,
+    audioStart + ENCRYPTION_HIGHLIGHT.start + 0.4,
+    0.45,
+    0.13,
     0.04,
   );
 
-  // outro chime
+  // screenshot blocked alert tone
+  engine.envOsc(
+    "triangle",
+    (osc, t) => {
+      osc.frequency.setValueAtTime(880, t);
+      osc.frequency.exponentialRampToValueAtTime(440, t + 0.18);
+    },
+    audioStart + SCREENSHOT_BANNER.start + 0.05,
+    0.25,
+    0.16,
+    0.005,
+  );
+
+  // outro chime + sparkles
   engine.playOutroChime(audioStart + OUTRO.start + 0.3);
+  for (let i = 0; i < 4; i++) {
+    engine.playSparkle(audioStart + OUTRO.start + 0.6 + i * 0.7);
+  }
 }
 
 /* ───────────────────────── recorder format ───────────────────────── */
@@ -1440,13 +2151,12 @@ export function IntroAdSection() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [supported, setSupported] = useState(true);
 
-  // initial poster frame
   useEffect(() => {
     const c = canvasRef.current;
     if (!c) return;
     const ctx = c.getContext("2d");
     if (!ctx) return;
-    drawFrame(ctx, 0.6);
+    drawFrame(ctx, INTRO.start + 0.4);
   }, []);
 
   useEffect(() => {
@@ -1472,29 +2182,26 @@ export function IntroAdSection() {
     }
   }, [muted]);
 
-  const runAnimation = useCallback(
-    (onDone: () => void) => {
-      const c = canvasRef.current;
-      if (!c) return;
-      const ctx = c.getContext("2d");
-      if (!ctx) return;
+  const runAnimation = useCallback((onDone: () => void) => {
+    const c = canvasRef.current;
+    if (!c) return;
+    const ctx = c.getContext("2d");
+    if (!ctx) return;
 
-      const start = performance.now();
-      const tick = () => {
-        const t = (performance.now() - start) / 1000;
-        drawFrame(ctx, Math.min(t, DURATION_SEC));
-        setProgress(clamp01(t / DURATION_SEC));
-        if (t < DURATION_SEC) {
-          rafRef.current = requestAnimationFrame(tick);
-        } else {
-          rafRef.current = null;
-          onDone();
-        }
-      };
-      rafRef.current = requestAnimationFrame(tick);
-    },
-    [],
-  );
+    const start = performance.now();
+    const tick = () => {
+      const t = (performance.now() - start) / 1000;
+      drawFrame(ctx, Math.min(t, DURATION_SEC));
+      setProgress(clamp01(t / DURATION_SEC));
+      if (t < DURATION_SEC) {
+        rafRef.current = requestAnimationFrame(tick);
+      } else {
+        rafRef.current = null;
+        onDone();
+      }
+    };
+    rafRef.current = requestAnimationFrame(tick);
+  }, []);
 
   const play = useCallback(async () => {
     if (status === "playing" || status === "recording") return;
@@ -1601,7 +2308,7 @@ export function IntroAdSection() {
         } catch {
           /* already stopped */
         }
-      }, 180);
+      }, 220);
     });
   }, [download, ensureAudio, runAnimation, status]);
 
@@ -1633,7 +2340,7 @@ export function IntroAdSection() {
       <div className="mx-auto max-w-6xl">
         <div className="text-center mb-12 sm:mb-16">
           <div className="inline-flex items-center gap-2 text-[12px] font-semibold tracking-wide uppercase text-[#2E6F40] bg-[#CFFFDC] border border-[#68BA7F]/40 rounded-full px-3 py-1.5">
-            New · Animated intro · With sound
+            New · Vault-grade intro · 25s with sound
           </div>
           <h2
             className="mt-5 text-[32px] sm:text-[42px] md:text-[52px] font-semibold tracking-[-0.02em] leading-[1.05] text-[#253D2C]"
@@ -1642,17 +2349,17 @@ export function IntroAdSection() {
               fontWeight: 600,
             }}
           >
-            Watch the{" "}
+            A private exchange,{" "}
             <span className="italic" style={{ color: "#2E6F40" }}>
-              VeilChat intro.
+              sealed on screen.
             </span>
           </h2>
           <p className="mt-4 text-[16px] sm:text-[18px] text-[#3C5A47] max-w-2xl mx-auto leading-[1.55]">
-            A cinematic 18-second story of two friends chatting on
-            VeilChat — typing indicators, voice notes, reactions,
-            read receipts and a brand-built soundtrack. Generated fresh
-            on your device, ready to download as a real video file with
-            sound.
+            Watch a 25-second cinematic story of a confidential exchange
+            on VeilChat — identity-scanned, vault-sealed, voice on the
+            wire, screenshots blocked, notes that burn in 24 hours.
+            Generated fresh on your device with a custom soundtrack,
+            ready to download as a real video file with sound.
           </p>
         </div>
 
@@ -1670,7 +2377,7 @@ export function IntroAdSection() {
                 height={VIDEO_H}
                 className="block w-full h-auto bg-[#FCF5EB]"
                 style={{ aspectRatio: `${VIDEO_W} / ${VIDEO_H}` }}
-                aria-label="VeilChat animated intro preview"
+                aria-label="VeilChat private-vault intro preview"
               />
 
               {/* mute toggle */}
@@ -1704,7 +2411,6 @@ export function IntroAdSection() {
                 />
               </div>
 
-              {/* play overlay when idle */}
               {status === "idle" && progress === 0 && (
                 <button
                   type="button"
@@ -1727,15 +2433,19 @@ export function IntroAdSection() {
               )}
             </div>
 
-            {/* feature chips under the player */}
-            <div className="mt-5 flex flex-wrap justify-center gap-2 max-w-[460px] mx-auto">
+            {/* feature chips */}
+            <div className="mt-5 flex flex-wrap justify-center gap-2 max-w-[480px] mx-auto">
               {[
-                "Typing indicators",
-                "Read receipts",
-                "Voice note",
-                "Heart reaction",
+                "Identity scan",
+                "Key orbit",
+                "Vault sealing",
+                "Encrypted shimmer",
+                "Verified ✓",
+                "Disappearing notes",
+                "Voice on the wire",
+                "Screenshot blocked",
+                "Heartbeat secure",
                 "Brand soundtrack",
-                "Encryption highlight",
               ].map((chip) => (
                 <span
                   key={chip}
@@ -1753,13 +2463,13 @@ export function IntroAdSection() {
               className="text-[22px] sm:text-[26px] font-semibold text-[#253D2C]"
               style={{ fontFamily: "'Fraunces', serif" }}
             >
-              Yours to keep — with sound.
+              Yours to keep — sealed and signed.
             </h3>
             <p className="mt-2 text-[15px] sm:text-[16px] text-[#3C5A47] leading-relaxed">
-              The intro is rendered fresh on your device every time, so
-              the file you download is brand-new — no servers, no
-              watermarks. Pop it on your reels, your pitch, or your own
-              site.
+              Every frame is rendered fresh on your device, so the file
+              you download is brand-new — no servers, no watermarks. A
+              cinematic 25-second story of privacy, ready for your reels,
+              your pitch, or your own site.
             </p>
 
             <div className="mt-6 flex flex-col sm:flex-row gap-3">
@@ -1822,7 +2532,7 @@ export function IntroAdSection() {
               >
                 <div>
                   <div className="text-[14px] font-semibold text-[#253D2C]">
-                    Your intro is ready
+                    Your intro is sealed and ready
                   </div>
                   <div className="text-[12px] text-[#3C5A47]">
                     veilchat-intro.{download.ext} · {DURATION_SEC}s ·
@@ -1861,22 +2571,36 @@ export function IntroAdSection() {
                 <span className="grid place-items-center w-5 h-5 rounded-full bg-[#CFFFDC] text-[#2E6F40] mt-0.5">
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
                 </span>
-                Real chat behaviour: Alex types, you reply, ticks turn
-                blue, hearts fly.
+                Opens with an identity scan and orbiting encryption keys
+                — pure trust theatre.
               </li>
               <li className="flex items-start gap-2.5">
                 <span className="grid place-items-center w-5 h-5 rounded-full bg-[#CFFFDC] text-[#2E6F40] mt-0.5">
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
                 </span>
-                Custom soundtrack: warm pad, send/receive chimes, tick
-                clicks and an outro arpeggio.
+                Each outgoing message gets a real lock-and-seal animation
+                with a soft metallic click.
               </li>
               <li className="flex items-start gap-2.5">
                 <span className="grid place-items-center w-5 h-5 rounded-full bg-[#CFFFDC] text-[#2E6F40] mt-0.5">
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
                 </span>
-                Your VeilChat brand mark front and centre, in intro and
-                outro.
+                Disappearing-message countdown, voice-recording UI,
+                read receipts and a verified ✓ on Alex.
+              </li>
+              <li className="flex items-start gap-2.5">
+                <span className="grid place-items-center w-5 h-5 rounded-full bg-[#CFFFDC] text-[#2E6F40] mt-0.5">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
+                </span>
+                A "Screenshot blocked" alert flashes during the
+                encryption highlight — privacy as a feature, not a promise.
+              </li>
+              <li className="flex items-start gap-2.5">
+                <span className="grid place-items-center w-5 h-5 rounded-full bg-[#CFFFDC] text-[#2E6F40] mt-0.5">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
+                </span>
+                Custom soundtrack: warm pad, auth sweep, send/receive
+                chimes, lock clicks, heartbeat, and outro arpeggio.
               </li>
               <li className="flex items-start gap-2.5">
                 <span className="grid place-items-center w-5 h-5 rounded-full bg-[#CFFFDC] text-[#2E6F40] mt-0.5">
