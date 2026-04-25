@@ -18,6 +18,7 @@ import {
   LockIcon,
 } from "../components/Layout";
 import { MainShell } from "../components/MainShell";
+import { ReportDialog } from "../components/ReportDialog";
 import { bytesToBase64 } from "../lib/crypto";
 import type { Peer } from "@veil/shared";
 import { peerLabel, peerSubLabel } from "../lib/peerLabel";
@@ -40,6 +41,10 @@ export function ConnectionsPage() {
   })();
   const [tab, setTab] = useState<Tab>(initialTab);
   const [error, setError] = useState<string | null>(null);
+  const [reportTarget, setReportTarget] = useState<{
+    requestId: string;
+    peer: Peer;
+  } | null>(null);
 
   const list = trpc.connections.list.useQuery(undefined, {
     enabled: !!accessToken,
@@ -136,41 +141,11 @@ export function ConnectionsPage() {
     }
   }
 
-  // Report + reject in one go. Asks the user to pick a category that
-  // matches the server's ReportReason enum. Cancelling the prompt
-  // aborts the whole flow.
-  async function onReport(requestId: string, peerId: string) {
+  // Open the premium ReportDialog for an incoming request. Submission
+  // is handled by the dialog's onSubmit below.
+  function onReport(requestId: string, peer: Peer) {
     setError(null);
-    const choice = prompt(
-      "Why are you reporting this person?\n" +
-        "Type one of: spam, harassment, impersonation, illegal, other",
-      "harassment",
-    );
-    if (choice === null) return;
-    const normalized = choice.trim().toLowerCase();
-    const allowed = [
-      "spam",
-      "harassment",
-      "impersonation",
-      "illegal",
-      "other",
-    ] as const;
-    type Reason = (typeof allowed)[number];
-    const reason: Reason = (allowed as readonly string[]).includes(normalized)
-      ? (normalized as Reason)
-      : "other";
-    try {
-      await report.mutateAsync({ peerId, reason });
-      try {
-        await reject.mutateAsync({ requestId });
-      } catch {
-        /* request may already be gone — fine. */
-      }
-      toast.success("Report submitted");
-      refresh();
-    } catch (e: unknown) {
-      setError(messageOf(e));
-    }
+    setReportTarget({ requestId, peer });
   }
 
   const incomingCount = incoming.data?.length ?? 0;
@@ -292,7 +267,7 @@ export function ConnectionsPage() {
                 }
                 right={
                   <div className="flex flex-wrap gap-2 justify-end">
-                    <RowButton onClick={() => onReport(r.id, r.from.id)}>
+                    <RowButton onClick={() => onReport(r.id, r.from)}>
                       Report
                     </RowButton>
                     <RowButton onClick={() => onBlock(r.id, r.from.id)}>
@@ -353,6 +328,44 @@ export function ConnectionsPage() {
       <FAB to="/invite" label="Invite someone">
         <PlusIcon />
       </FAB>
+
+      {reportTarget && (
+        <ReportDialog
+          peerLabel={peerLabel(reportTarget.peer)}
+          peerHandle={peerSubLabel(reportTarget.peer)}
+          avatar={
+            <Avatar
+              seed={reportTarget.peer.username || reportTarget.peer.id}
+              label={(
+                reportTarget.peer.displayName ||
+                reportTarget.peer.username ||
+                reportTarget.peer.fingerprint
+              ).slice(0, 2)}
+              size={64}
+              src={reportTarget.peer.avatarDataUrl ?? null}
+            />
+          }
+          defaultAlsoBlock={true}
+          onClose={() => setReportTarget(null)}
+          onSubmit={async (reason, note, alsoBlock) => {
+            const { requestId, peer } = reportTarget;
+            await report.mutateAsync({
+              peerId: peer.id,
+              reason,
+              note: note || undefined,
+              alsoBlock,
+            });
+            try {
+              await reject.mutateAsync({ requestId });
+            } catch {
+              /* request may already be gone — fine. */
+            }
+            setReportTarget(null);
+            toast.success("Report submitted. Thank you.", { title: "Got it" });
+            refresh();
+          }}
+        />
+      )}
     </MainShell>
   );
 }

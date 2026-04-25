@@ -215,6 +215,13 @@ After PIN setup at signup, the client generates 1 signed prekey + 20 one-time pr
 - Server: `privacy` router (block/unblock/list/report, lastSeenVisibility get/set). Block enforcement in `messages.send` (forbid both directions) and `connections.requestByPeerId` (refuses an inbound request from someone the receiver has blocked). Last-seen filtered by visibility setting.
 - Client: ChatThread overflow menu adds Block / Unblock / Report. Settings page adds blocked-contacts list + last-seen radio. `inspect.ts` script trimmed.
 
+### Report polish (Apr 2026)
+
+- Shared premium component `apps/client/src/components/ReportDialog.tsx` (portal modal, animated, icon reason cards, char counter, optional **Also block** toggle that defaults on, red gradient header, brand-styled). Used by `ChatThreadPage`, `ConnectionsPage`, and `GroupChatPage` — all `prompt()`-based reporting was removed.
+- Server: `apps/server/src/lib/reportMailer.ts` sends a styled HTML+text email of every submitted report to `REPORT_EMAIL_TO` via SMTP (Gmail app password). Wired into `privacy.report` mutation; fire-and-forget with structured logging via `ctx.req.log` ("Report email dispatched." / "Failed to send report email.").
+- Env (server-side, in `apps/server/.env` and required on Render): `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`, `REPORT_EMAIL_TO`. Declared in `apps/server/src/env.ts`. `nodemailer` + `@types/nodemailer` installed in the server package.
+- E2E verified locally: `privacy.report` returns `{ ok: true }` and Gmail SMTP returns `accepted: [support.studyhelp@gmail.com]`.
+
 ## Phase 7 — Group chats (complete, pending e2e verification)
 
 - **Crypto choice:** sender-key scheme equivalent to MLS, mirroring the Phase 3 pragmatic substitute. Each (group, sender, epoch) has a 32-byte chain key. Per send: `msgKey = HMAC(chain, [0x01])`, then `chain ← HMAC(chain, [0x02])`. Out-of-order tolerated via a 64-key skipped-key cache. AES-GCM with the JSON header + 4-byte counter as AD. Implemented in `apps/client/src/lib/signal/group.ts`.

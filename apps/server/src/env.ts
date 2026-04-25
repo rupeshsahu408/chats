@@ -52,6 +52,14 @@ export const env = {
   R2_ACCESS_KEY_ID: str(process.env.R2_ACCESS_KEY_ID),
   R2_SECRET_ACCESS_KEY: str(process.env.R2_SECRET_ACCESS_KEY),
   R2_BUCKET: str(process.env.R2_BUCKET),
+
+  /* SMTP — used to mirror abuse reports to the operator's inbox. */
+  SMTP_HOST: str(process.env.SMTP_HOST),
+  SMTP_PORT: num(process.env.SMTP_PORT, 587),
+  SMTP_USER: str(process.env.SMTP_USER),
+  SMTP_PASS: str(process.env.SMTP_PASS),
+  SMTP_FROM: str(process.env.SMTP_FROM),
+  REPORT_EMAIL_TO: str(process.env.REPORT_EMAIL_TO),
 } as const;
 
 export const isDev = env.NODE_ENV !== "production";

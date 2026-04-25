@@ -67,6 +67,7 @@ import { sendChatEnvelope } from "../lib/messageSync";
 import { MessageText } from "../lib/markdown";
 import { PollComposer } from "../components/Poll";
 import { QuickActionsSheet } from "../components/QuickActionsSheet";
+import { ReportDialog } from "../components/ReportDialog";
 import {
   type ChatEnvelope,
   type EnvelopeLinkPreview,
@@ -357,6 +358,10 @@ function GroupChatInner({ groupId }: { groupId: string }) {
   // Phase 1 parity state.
   const [replyTo, setReplyTo] = useState<GroupMessageRecord | null>(null);
   const [actionFor, setActionFor] = useState<GroupMessageRecord | null>(null);
+  const [reportTarget, setReportTarget] = useState<{
+    senderUserId: string;
+    label: string;
+  } | null>(null);
   const [quickActionsFor, setQuickActionsFor] = useState<string | null>(null);
   const [reactFor, setReactFor] = useState<GroupMessageRecord | null>(null);
   const [editFor, setEditFor] = useState<GroupMessageRecord | null>(null);
@@ -891,17 +896,29 @@ function GroupChatInner({ groupId }: { groupId: string }) {
     }
   }
 
-  async function handleReportSender(senderUserId: string) {
-    const note = prompt("Add details (optional):") ?? "";
+  function handleReportSender(senderUserId: string) {
+    const label =
+      memberMap.get(senderUserId) ?? senderUserId.slice(0, 8) + "…";
+    setReportTarget({ senderUserId, label });
+  }
+
+  async function submitGroupReport(
+    senderUserId: string,
+    reason: "spam" | "harassment" | "impersonation" | "illegal" | "other",
+    note: string,
+    alsoBlock: boolean,
+  ) {
     try {
       await trpcClientProxy().privacy.report.mutate({
         peerId: senderUserId,
-        reason: "other",
+        reason,
         ...(note ? { note } : {}),
+        alsoBlock,
       });
-      showToast("Reported");
+      showToast("Report submitted");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Report failed.");
+      throw e;
     }
   }
 
@@ -1501,6 +1518,23 @@ function GroupChatInner({ groupId }: { groupId: string }) {
         <QuickActionsSheet
           text={quickActionsFor}
           onClose={() => setQuickActionsFor(null)}
+        />
+      )}
+
+      {reportTarget && (
+        <ReportDialog
+          peerLabel={reportTarget.label}
+          defaultAlsoBlock={true}
+          onClose={() => setReportTarget(null)}
+          onSubmit={async (reason, note, alsoBlock) => {
+            await submitGroupReport(
+              reportTarget.senderUserId,
+              reason,
+              note,
+              alsoBlock,
+            );
+            setReportTarget(null);
+          }}
         />
       )}
 

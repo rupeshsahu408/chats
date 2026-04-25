@@ -4,6 +4,7 @@ import { z } from "zod";
 import { protectedProcedure, router } from "../init.js";
 import { getDb, schema } from "../../db/index.js";
 import { fingerprintForPublicKey } from "../../lib/fingerprint.js";
+import { sendReportEmail } from "../../lib/reportMailer.js";
 import { OkSchema, PeerIdInput, PeerSchema, type Peer } from "@veil/shared";
 
 const ReportReason = z.enum([
@@ -170,6 +171,7 @@ export const privacyRouter = router({
         });
       }
       const db = getDb();
+      const createdAt = new Date();
       await db.insert(schema.reports).values({
         reporterUserId: ctx.userId,
         reportedUserId: input.peerId,
@@ -185,6 +187,44 @@ export const privacyRouter = router({
           })
           .onConflictDoNothing();
       }
+
+      // Mirror the report to the operator's inbox over SMTP. We do this
+      // out-of-band so a flaky outbound mailer can never fail a
+      // user-submitted report; the row is already safely persisted above.
+      void (async () => {
+        try {
+          const both = await db
+            .select({
+              id: schema.users.id,
+              username: schema.users.username,
+              displayName: schema.users.displayName,
+            })
+            .from(schema.users)
+            .where(
+              or(
+                eq(schema.users.id, ctx.userId),
+                eq(schema.users.id, input.peerId),
+              ),
+            );
+          const reporter = both.find((u) => u.id === ctx.userId);
+          const reported = both.find((u) => u.id === input.peerId);
+          if (!reporter || !reported) return;
+          await sendReportEmail({
+            payload: {
+              reporter,
+              reported,
+              reason: input.reason,
+              note: input.note ?? null,
+              alsoBlock: !!input.alsoBlock,
+              createdAt,
+            },
+            log: ctx.req.log,
+          });
+        } catch (err) {
+          ctx.req.log.error({ err }, "Report email pipeline failed.");
+        }
+      })();
+
       return { ok: true as const };
     }),
 
