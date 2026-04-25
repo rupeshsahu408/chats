@@ -37,6 +37,7 @@ import { RecoveryKitDownloadCard } from "../components/RecoveryKitDownloadCard";
 import { PasskeySetupCard } from "../components/PasskeySetupCard";
 import { isPasskeySupported } from "../lib/passkey";
 import { humanizeErrorMessage } from "../lib/humanizeError";
+import { encryptRecoveryPhraseForServer } from "../lib/unlock";
 
 export function SettingsPage() {
   const navigate = useNavigate();
@@ -1055,9 +1056,28 @@ function DailyPasswordEditor() {
       return;
     }
     try {
+      // Re-encrypt the local recovery phrase under the NEW daily
+      // password so the server-side encrypted backup stays in sync.
+      // Without this, a future new-device login with the new daily
+      // password could not decrypt the old blob.
+      let encryptedRecoveryPhrase: Awaited<
+        ReturnType<typeof encryptRecoveryPhraseForServer>
+      > | undefined;
+      try {
+        const rec = await loadIdentity();
+        if (rec?.recoveryPhrase) {
+          encryptedRecoveryPhrase = await encryptRecoveryPhraseForServer(
+            rec.recoveryPhrase,
+            next,
+          );
+        }
+      } catch {
+        /* if we can't read the phrase, server will clear the blob */
+      }
       await set.mutateAsync({
         currentPassword: current || undefined,
         newPassword: next,
+        encryptedRecoveryPhrase,
       });
       setOkMsg("Daily verification password updated.");
       setOpen(false);

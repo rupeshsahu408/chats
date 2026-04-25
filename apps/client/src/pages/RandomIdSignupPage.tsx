@@ -28,6 +28,7 @@ import { useUnlockStore } from "../lib/unlockStore";
 import { postAuthLandingPath } from "../lib/inviteRedirect";
 import { resizeAvatarToDataUrl } from "../lib/avatar";
 import { markDailyVerified } from "../lib/dailyVerification";
+import { encryptRecoveryPhraseForServer } from "../lib/unlock";
 
 type Step =
   | "username"
@@ -154,12 +155,22 @@ export function RandomIdSignupPage() {
       const x25519Pub = x25519PublicKeyFromPrivate(x25519Priv);
       const x25519Kp = { privateKey: x25519Priv, publicKey: x25519Pub };
 
+      // Encrypt the recovery phrase with the daily verification password
+      // so the server can hand it back when the user later signs in on a
+      // new device with only their daily password (no rotation needed —
+      // the original identity is restored from the decrypted phrase).
+      const encryptedRecoveryPhrase = await encryptRecoveryPhraseForServer(
+        phrase,
+        verificationPassword,
+      );
+
       const r = await signup.mutateAsync({
         username,
         password,
         verificationPassword,
         identityPublicKey: bytesToBase64(ed.publicKey),
         botToken,
+        encryptedRecoveryPhrase,
       });
       setAuth({
         accessToken: r.accessToken,

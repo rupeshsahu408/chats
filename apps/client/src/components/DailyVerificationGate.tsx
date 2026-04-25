@@ -6,6 +6,8 @@ import {
   isDailyVerificationDue,
   markDailyVerified,
 } from "../lib/dailyVerification";
+import { loadIdentity } from "../lib/db";
+import { encryptRecoveryPhraseForServer } from "../lib/unlock";
 import {
   Logo,
   PrimaryButton,
@@ -76,7 +78,25 @@ export function DailyVerificationGate() {
     if (password.length < 8 || !user) return;
     setError(null);
     try {
-      await verify.mutateAsync({ password });
+      // Opportunistically back-fill the server-side encrypted recovery
+      // phrase blob for legacy accounts that signed up before this
+      // feature existed. The server only stores it when the column is
+      // currently null, so this is a one-time upgrade.
+      let encryptedRecoveryPhrase: Awaited<
+        ReturnType<typeof encryptRecoveryPhraseForServer>
+      > | undefined;
+      try {
+        const rec = await loadIdentity();
+        if (rec?.recoveryPhrase) {
+          encryptedRecoveryPhrase = await encryptRecoveryPhraseForServer(
+            rec.recoveryPhrase,
+            password,
+          );
+        }
+      } catch {
+        /* best-effort backfill; never block verification */
+      }
+      await verify.mutateAsync({ password, encryptedRecoveryPhrase });
       markDailyVerified(user.id);
       setPassword("");
       setOpen(false);

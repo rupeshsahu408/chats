@@ -5,8 +5,8 @@ import bcrypt from "bcryptjs";
 import {
   PublicUserSchema,
   SetX25519IdentityInput,
-  ReplaceIdentityWithDailyPasswordInput,
-  ReplaceIdentityWithDailyPasswordResult,
+  FetchEncryptedRecoveryPhraseInput,
+  FetchEncryptedRecoveryPhraseResult,
   OkSchema,
   UserIdSchema,
   UpdateProfileInput,
@@ -195,31 +195,28 @@ export const meRouter = router({
    * Daily-password recovery on a brand-new device.
    *
    * The user has lost / never recorded their 12-word recovery phrase
-   * but DOES still know their daily verification password. We trade
-   * that secret for the right to overwrite both identity public keys
-   * (Ed25519 + X25519) on this account, effectively starting fresh.
+   * but still knows their daily verification password. We trade that
+   * secret for the encrypted backup of the recovery phrase the client
+   * uploaded at sign-up (or the next time they verified the daily
+   * password after we shipped this feature). The client decrypts the
+   * blob locally, derives the SAME identity keypairs from it, and is
+   * back in business — original chat history readable, peers see no
+   * safety-number change.
    *
-   * Implications the client UI MUST surface to the user before
-   * calling this:
+   * Server can't decrypt: the key is Argon2id(daily-password, salt).
+   * It just verifies the bcrypt hash and hands the ciphertext back.
    *
-   *   - Old E2EE chat history is unrecoverable — peer messages were
-   *     encrypted to the old X25519 identity which no longer exists
-   *     anywhere.
-   *   - Peers will see a "safety number changed" warning the next
-   *     time they reach out, just like reinstalling Signal.
-   *   - All previously-uploaded prekeys are deleted server-side, so
-   *     in-flight X3DH bundles for this user become invalid until
-   *     the client uploads fresh ones (it does this immediately
-   *     after this call).
-   *
-   * Atomic: identity rotation + prekey teardown happen in one tx.
+   * Returns PRECONDITION_FAILED if the account has no backup yet
+   * (legacy account whose owner has never re-verified on a current
+   * client). The caller should ask the user to use their recovery
+   * phrase instead, or sign in once on the original device first.
    */
-  replaceIdentityWithDailyPassword: protectedProcedure
-    .input(ReplaceIdentityWithDailyPasswordInput)
-    .output(ReplaceIdentityWithDailyPasswordResult)
+  fetchEncryptedRecoveryPhrase: protectedProcedure
+    .input(FetchEncryptedRecoveryPhraseInput)
+    .output(FetchEncryptedRecoveryPhraseResult)
     .mutation(async ({ ctx, input }) => {
       const userLimit = rateLimit({
-        key: `replace-identity:user:${ctx.userId}`,
+        key: `fetch-recovery-phrase:user:${ctx.userId}`,
         limit: 5,
         windowSeconds: 10 * 60,
       });
@@ -230,22 +227,19 @@ export const meRouter = router({
         });
       }
 
-      const newEd = Buffer.from(input.newIdentityPubkey, "base64");
-      const newX = Buffer.from(input.newX25519Pubkey, "base64");
-      if (newEd.length !== 32 || newX.length !== 32) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Identity keys must be 32 bytes each.",
-        });
-      }
-
       const db = getDb();
       const found = await db
-        .select({ hash: schema.users.verificationPasswordHash })
+        .select({
+          hash: schema.users.verificationPasswordHash,
+          ct: schema.users.encryptedRecoveryPhrase,
+          iv: schema.users.recoveryPhraseIv,
+          salt: schema.users.recoveryPhraseSalt,
+        })
         .from(schema.users)
         .where(eq(schema.users.id, ctx.userId))
         .limit(1);
-      const stored = found[0]?.hash ?? null;
+      const row = found[0];
+      const stored = row?.hash ?? null;
       if (!stored) {
         throw new TRPCError({
           code: "PRECONDITION_FAILED",
@@ -262,24 +256,21 @@ export const meRouter = router({
         });
       }
 
-      // Atomic rotation: new identity in, all old prekeys out.
-      await db.transaction(async (tx) => {
-        await tx
-          .update(schema.users)
-          .set({
-            identityPubkey: newEd,
-            identityX25519Pubkey: newX,
-          })
-          .where(eq(schema.users.id, ctx.userId));
-        await tx
-          .delete(schema.signedPrekeys)
-          .where(eq(schema.signedPrekeys.userId, ctx.userId));
-        await tx
-          .delete(schema.oneTimePrekeys)
-          .where(eq(schema.oneTimePrekeys.userId, ctx.userId));
-      });
+      if (!row?.ct || !row.iv || !row.salt) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message:
+            "No encrypted recovery backup is stored for this account yet. Sign in once on a device that has your phrase, then try again — or use your recovery phrase here.",
+        });
+      }
 
-      return { ok: true, replacedAt: new Date().toISOString() };
+      return {
+        encryptedRecoveryPhrase: {
+          ciphertext: row.ct,
+          iv: row.iv,
+          salt: row.salt,
+        },
+      };
     }),
 
   /** Returns whether a peer is currently connected (online). */

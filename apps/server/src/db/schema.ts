@@ -118,6 +118,23 @@ export const users = pgTable(
      */
     verificationPasswordHash: text("verification_password_hash"),
     /**
+     * Backup of the BIP-39 recovery phrase, encrypted client-side with a
+     * key derived from the daily verification password (Argon2id + AES-GCM).
+     *
+     * Lets a user who lost their phrase but still knows their daily
+     * password recover the SAME identity (and chat history) on a new
+     * device. The server cannot decrypt — it just hands the ciphertext
+     * back after a successful daily-password check.
+     *
+     * Three columns (ciphertext / iv / salt) are all base64 strings.
+     * Nullable for legacy random-ID accounts that signed up before this
+     * feature; back-filled the next time the user verifies their daily
+     * password (or changes it) on an updated client.
+     */
+    encryptedRecoveryPhrase: text("encrypted_recovery_phrase"),
+    recoveryPhraseIv: text("recovery_phrase_iv"),
+    recoveryPhraseSalt: text("recovery_phrase_salt"),
+    /**
      * Public profile fields shown in chat headers, contact lists, etc.
      * All optional — UI falls back to the username (or random ID).
      */

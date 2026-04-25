@@ -1069,6 +1069,13 @@ export const authRouter = router({
           passwordHash,
           verificationPasswordHash,
           identityPubkey: pubkeyBytes,
+          // Recovery-phrase backup (encrypted with the daily password,
+          // client-side). Lets the user recover the SAME identity on a
+          // new device without rotating keys / losing chat history.
+          encryptedRecoveryPhrase:
+            input.encryptedRecoveryPhrase?.ciphertext ?? null,
+          recoveryPhraseIv: input.encryptedRecoveryPhrase?.iv ?? null,
+          recoveryPhraseSalt: input.encryptedRecoveryPhrase?.salt ?? null,
         })
         .returning({ id: schema.users.id, createdAt: schema.users.createdAt });
 
@@ -1147,7 +1154,10 @@ export const authRouter = router({
 
       const db = getDb();
       const found = await db
-        .select({ hash: schema.users.verificationPasswordHash })
+        .select({
+          hash: schema.users.verificationPasswordHash,
+          existingCt: schema.users.encryptedRecoveryPhrase,
+        })
         .from(schema.users)
         .where(eq(schema.users.id, ctx.userId))
         .limit(1);
@@ -1161,6 +1171,24 @@ export const authRouter = router({
           message: "Wrong verification password.",
         });
       }
+
+      // Opportunistic back-fill: legacy random-ID accounts (created
+      // before the recovery-phrase backup feature) get their first
+      // encrypted blob stored here, the moment they verify their daily
+      // password on a current client. We never overwrite an existing
+      // backup from this endpoint — that's what setVerificationPassword
+      // (a deliberate re-encryption with a NEW password) is for.
+      if (input.encryptedRecoveryPhrase && !found[0]?.existingCt) {
+        await db
+          .update(schema.users)
+          .set({
+            encryptedRecoveryPhrase: input.encryptedRecoveryPhrase.ciphertext,
+            recoveryPhraseIv: input.encryptedRecoveryPhrase.iv,
+            recoveryPhraseSalt: input.encryptedRecoveryPhrase.salt,
+          })
+          .where(eq(schema.users.id, ctx.userId));
+      }
+
       return { ok: true, verifiedAt: new Date().toISOString() };
     }),
 
@@ -1205,9 +1233,22 @@ export const authRouter = router({
       }
 
       const newHash = await bcrypt.hash(input.newPassword, 12);
+      // Always rewrite the encrypted-phrase backup alongside the
+      // password change. Two cases:
+      //   • Client supplied a fresh blob (re-encrypted with the new
+      //     password): store it.
+      //   • Client did not supply one (older client, or user has no
+      //     phrase locally): clear any stale ciphertext so we don't
+      //     leave a backup decryptable only by the OLD password.
       await db
         .update(schema.users)
-        .set({ verificationPasswordHash: newHash })
+        .set({
+          verificationPasswordHash: newHash,
+          encryptedRecoveryPhrase:
+            input.encryptedRecoveryPhrase?.ciphertext ?? null,
+          recoveryPhraseIv: input.encryptedRecoveryPhrase?.iv ?? null,
+          recoveryPhraseSalt: input.encryptedRecoveryPhrase?.salt ?? null,
+        })
         .where(eq(schema.users.id, ctx.userId));
 
       return { ok: true, updatedAt: new Date().toISOString() };

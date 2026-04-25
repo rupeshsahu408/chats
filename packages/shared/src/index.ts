@@ -694,6 +694,23 @@ export const VerifyBotChallengeResult = z.object({
 });
 export type VerifyBotChallengeResult = z.infer<typeof VerifyBotChallengeResult>;
 
+/**
+ * Encrypted backup of the user's BIP-39 recovery phrase, encrypted
+ * client-side with a key derived from the daily verification password
+ * (Argon2id + AES-GCM). Server never sees plaintext — it just stores
+ * the three base64 strings and hands them back after a successful
+ * password check, letting the client decrypt and restore the SAME
+ * identity on a new device (no rotation, chat history preserved).
+ */
+export const EncryptedRecoveryPhraseSchema = z.object({
+  ciphertext: z.string().min(1),
+  iv: z.string().min(1),
+  salt: z.string().min(1),
+});
+export type EncryptedRecoveryPhrase = z.infer<
+  typeof EncryptedRecoveryPhraseSchema
+>;
+
 export const SignupRandomV2Input = z.object({
   username: UsernameSchema,
   password: PasswordSchema,
@@ -705,6 +722,13 @@ export const SignupRandomV2Input = z.object({
   identityPublicKey: IdentityPublicKeySchema,
   /** Token issued by verifyBotChallenge. */
   botToken: z.string(),
+  /**
+   * Recovery phrase encrypted with the daily verification password.
+   * Optional only for backwards compatibility with older clients;
+   * new clients always send it so daily-password recovery on a new
+   * device can restore the original identity.
+   */
+  encryptedRecoveryPhrase: EncryptedRecoveryPhraseSchema.optional(),
 });
 export type SignupRandomV2Input = z.infer<typeof SignupRandomV2Input>;
 
@@ -717,34 +741,38 @@ export type LoginRandomV2Input = z.infer<typeof LoginRandomV2Input>;
 /** Daily verification password check (24-hour gate). */
 export const VerifyDailyPasswordInput = z.object({
   password: PasswordSchema,
+  /**
+   * Optional encrypted-phrase backup. The client opportunistically
+   * sends this whenever the daily check succeeds so legacy accounts
+   * (created before the recovery-backup feature) get back-filled
+   * automatically — the server only stores it if the row currently
+   * has none, never overwriting an existing backup. Re-encryption
+   * with a NEW password goes through `setVerificationPassword`
+   * instead, which performs an unconditional update.
+   */
+  encryptedRecoveryPhrase: EncryptedRecoveryPhraseSchema.optional(),
 });
 export type VerifyDailyPasswordInput = z.infer<typeof VerifyDailyPasswordInput>;
 
 /**
- * Daily-password recovery: when a user signs in on a brand-new device
- * but no longer has their 12-word recovery phrase, they can prove
- * ownership with their daily verification password and rotate to a
- * fresh identity. Old E2EE chat history becomes unrecoverable (the
- * old keys are gone), but the account itself is preserved.
- *
- * Both pubkeys are 32-byte raw keys, base64 encoded.
+ * Daily-password recovery on a new device: trade the daily verification
+ * password for the encrypted backup of the user's recovery phrase. The
+ * client decrypts it locally to restore the SAME identity (no rotation,
+ * chat history preserved). PRECONDITION_FAILED if the account has no
+ * backup yet (legacy account that hasn't refreshed it post-update).
  */
-export const ReplaceIdentityWithDailyPasswordInput = z.object({
+export const FetchEncryptedRecoveryPhraseInput = z.object({
   verificationPassword: PasswordSchema,
-  newIdentityPubkey: IdentityPublicKeySchema,
-  newX25519Pubkey: IdentityPublicKeySchema,
 });
-export type ReplaceIdentityWithDailyPasswordInput = z.infer<
-  typeof ReplaceIdentityWithDailyPasswordInput
+export type FetchEncryptedRecoveryPhraseInput = z.infer<
+  typeof FetchEncryptedRecoveryPhraseInput
 >;
 
-export const ReplaceIdentityWithDailyPasswordResult = z.object({
-  ok: z.boolean(),
-  /** Server time the identity was rotated, ISO 8601. */
-  replacedAt: z.string(),
+export const FetchEncryptedRecoveryPhraseResult = z.object({
+  encryptedRecoveryPhrase: EncryptedRecoveryPhraseSchema,
 });
-export type ReplaceIdentityWithDailyPasswordResult = z.infer<
-  typeof ReplaceIdentityWithDailyPasswordResult
+export type FetchEncryptedRecoveryPhraseResult = z.infer<
+  typeof FetchEncryptedRecoveryPhraseResult
 >;
 
 /** Change the daily verification password (requires current one if set). */
@@ -755,6 +783,14 @@ export const SetVerificationPasswordInput = z.object({
    */
   currentPassword: PasswordSchema.optional(),
   newPassword: PasswordSchema,
+  /**
+   * Recovery phrase, re-encrypted with the NEW daily password. Always
+   * sent by current clients (they already have the phrase locally,
+   * either from sign-up or from a previous recovery). Optional only
+   * so older clients don't fail closed; on omission the server clears
+   * the backup so an out-of-sync ciphertext can never linger.
+   */
+  encryptedRecoveryPhrase: EncryptedRecoveryPhraseSchema.optional(),
 });
 export type SetVerificationPasswordInput = z.infer<
   typeof SetVerificationPasswordInput

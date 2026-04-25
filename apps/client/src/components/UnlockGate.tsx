@@ -13,7 +13,6 @@ import {
   ErrorMessage,
   FieldLabel,
   PrimaryButton,
-  SecondaryButton,
   LockIcon,
 } from "./Layout";
 
@@ -33,11 +32,11 @@ import {
  *                                User picks recovery method.
  *   4. `recover-phrase`        — paste 12-word phrase (preserves history).
  *   5. `recover-daily-password`— enter daily verification password
- *                                (rotates identity, history is lost).
- *   6. `recover-show-phrase`   — after daily-password recovery, show
- *                                the freshly generated phrase so the
- *                                user can write it down.
- *   7. `recover-no-backup`     — no local record, PIN account
+ *                                (decrypts the server-side encrypted
+ *                                backup of the original phrase, so the
+ *                                same identity and chat history are
+ *                                preserved — no new phrase generated).
+ *   6. `recover-no-backup`     — no local record, PIN account
  *                                (email/phone) — explain backup import.
  */
 type Mode =
@@ -46,7 +45,6 @@ type Mode =
   | "recover-choose"
   | "recover-phrase"
   | "recover-daily-password"
-  | "recover-show-phrase"
   | "recover-no-backup"
   | null;
 
@@ -59,12 +57,6 @@ export function UnlockGate({ children }: { children?: React.ReactNode }) {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Holds the freshly generated phrase + identity until the user
-  // acknowledges they've saved it; only THEN do we close the gate.
-  const [pendingNewPhrase, setPendingNewPhrase] = useState<{
-    phrase: string;
-    identity: import("../lib/signal/session").UnlockedIdentity;
-  } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -110,12 +102,8 @@ export function UnlockGate({ children }: { children?: React.ReactNode }) {
         await setIdentity(id);
       } else if (mode === "recover-daily-password") {
         if (!user) throw new Error("Not signed in.");
-        const { identity: id, newPhrase } =
-          await recoverIdentityWithDailyPassword(input, user.id);
-        // Stash the new identity, show the phrase to the user first.
-        setPendingNewPhrase({ phrase: newPhrase, identity: id });
-        setInput("");
-        setMode("recover-show-phrase");
+        const id = await recoverIdentityWithDailyPassword(input, user.id);
+        await setIdentity(id);
       }
     } catch (e) {
       setError(
@@ -176,67 +164,11 @@ export function UnlockGate({ children }: { children?: React.ReactNode }) {
             Use daily verification password
           </span>
           <span className="text-xs text-text-muted">
-            For when you don't have your phrase. You'll keep your account
-            but lose access to old chat history.
+            For when you don't have your phrase. Your account, your
+            existing recovery phrase, and your old chat history all
+            stay intact.
           </span>
         </button>
-      </div>
-    );
-  }
-
-  // ─── After daily-password recovery: show the new phrase ─────────
-  if (mode === "recover-show-phrase" && pendingNewPhrase) {
-    const words = pendingNewPhrase.phrase.split(/\s+/);
-    return (
-      <div className="rounded-2xl bg-surface border border-line p-5 flex flex-col gap-4">
-        <div className="flex items-start gap-3">
-          <div className="size-10 rounded-full bg-wa-green/15 text-wa-green-dark dark:text-wa-green flex items-center justify-center shrink-0">
-            <LockIcon />
-          </div>
-          <div>
-            <h3 className="text-lg font-semibold text-text">
-              Your new recovery phrase
-            </h3>
-            <p className="text-sm text-text-muted mt-0.5">
-              We've generated a brand-new phrase for this account. Write
-              it down somewhere safe — it's the only way to recover your
-              new chats if you ever lose this device.
-            </p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-3 gap-2 rounded-xl bg-bg border border-line p-3">
-          {words.map((word, i) => (
-            <div
-              key={i}
-              className="flex items-center gap-2 text-sm text-text"
-            >
-              <span className="text-text-muted text-xs w-5 text-right tabular-nums">
-                {i + 1}.
-              </span>
-              <span className="font-mono">{word}</span>
-            </div>
-          ))}
-        </div>
-
-        <SecondaryButton
-          onClick={() => {
-            void navigator.clipboard
-              ?.writeText(pendingNewPhrase.phrase)
-              .catch(() => {});
-          }}
-        >
-          Copy phrase
-        </SecondaryButton>
-
-        <PrimaryButton
-          onClick={async () => {
-            await setIdentity(pendingNewPhrase.identity);
-            setPendingNewPhrase(null);
-          }}
-        >
-          I've saved it — continue
-        </PrimaryButton>
       </div>
     );
   }
@@ -289,7 +221,7 @@ export function UnlockGate({ children }: { children?: React.ReactNode }) {
           </h3>
           <p className="text-sm text-text-muted mt-0.5">
             {isDailyPasswordEntry
-              ? "Enter the daily password you set at sign-up. We'll create a fresh identity for this device — your account is preserved, but old chat history won't be readable."
+              ? "Enter the daily password you set at sign-up. We'll restore your original keys on this device — your recovery phrase and chat history stay exactly as they were."
               : isFreshRecover
                 ? "Enter the 12-word recovery phrase from your sign-up to set up Veil on this device. You'll only do this once."
                 : isPhraseEntry
