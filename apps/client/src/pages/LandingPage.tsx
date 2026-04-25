@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import QRCode from "qrcode";
 import peopleUsingPhones from "../assets/landing/people-using-phones.jpg";
 import smilingWithPhone from "../assets/landing/smiling-with-phone.jpg";
+import { IntroAdSection } from "../components/IntroAdSection";
 
 /**
  * Public marketing landing page.
@@ -35,6 +36,7 @@ export function LandingPage() {
       <Security />
       <Comparison />
       <GetTheApp />
+      <IntroAdSection />
       <FAQ />
       <FinalCTA />
       <Footer />
