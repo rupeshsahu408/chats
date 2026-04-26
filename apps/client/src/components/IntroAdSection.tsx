@@ -1,40 +1,67 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 /**
- * Cinematic VeilChat intro — a 25-second private-vault ad rendered to a
- * `<canvas>` with a synchronised Web Audio score so it can be both
- * *played* on the landing page and *recorded* into a downloadable
- * video file (with sound).
+ * Cinematic VeilChat product tour — a ~60-second guided walkthrough rendered
+ * to a `<canvas>` with a synchronised Web Audio score so it can be both
+ * *played* on the landing page and *recorded* into a downloadable video
+ * file (with sound).
  *
- * Beat sheet (~25s):
- *   0.0 – 1.2s  Identity scan: padlock fades in, scan line passes,
- *               "Identity verified" appears
- *   1.2 – 3.4s  Brand splash: logo, encryption keys orbit, wordmark
- *   3.4 – 4.2s  Phone rises into view, header settles with verified ✓
- *   4.5 – 6.3s  Alex types (slower, friendlier 3-dot bubble)
- *   6.3s        Message 1 from Alex with encrypted shimmer + receive ding
- *   6.55s       Self-destructing photo bubble arrives, locked
- *   7.4s        Photo unlocks (scan line reveal) — countdown begins
- *   7.0 – 8.8s  User types in the input bar (live caret)
- *   8.8s        Message 2 sent — lock-seal animation, "Encrypting…" tag
- *   8.8 – 10.0s ✓ → ✓✓ → blue ✓✓ read-receipt animation (slower)
- *  10.0 – 11.8s Alex types
- *  11.8s        Message 3 arrives with disappearing-timer badge
- *  12.4 – 14.0s User records — recording UI in input bar
- *  14.0s        Voice note sent with lock-seal
- *  15.2 – 16.8s Alex types final goodbye
- *  15.8 – 16.65 Photo BURNS into pixel-dust embers (with crackle)
- *  16.65–17.1s  Photo bubble collapses, freeing chat space
- *  16.8s        Final message arrives ("We never had this chat")
- *  17.4s        Heart reaction floats up
- *  18.0 – 20.5s Encryption highlight + "Screenshot blocked" alert banner
- *  20.5 – 25.0s Outro: logo zoom, tagline, CTA pill, drifting particles
+ * Beat sheet (~60s):
+ *   0.0 – 1.2s   Identity scan: padlock + scan line + "Identity verified"
+ *   1.2 – 3.4s   Brand splash: logo, encryption keys orbit, wordmark
+ *   3.4 – 4.2s   Phone rises, header settles with Maya Patel + verified ✓
+ *   4.5 – 6.3s   Maya types (slower 3-dot bubble)
+ *   6.3s         Message 1 arrives with encrypted shimmer + receive ding
+ *   6.55s        Self-destructing photo bubble arrives, locked
+ *   7.4s         Photo unlocks (scan line reveal) — countdown begins
+ *   7.0 – 8.8s   You type in the input bar
+ *   8.8s         Message 2 sent — lock-seal + "Encrypting…" tag + ✓→✓✓→read
+ *  10.0 – 11.8s  Maya types
+ *  11.8s         Message 3 arrives with disappearing-timer badge
+ *  12.4 – 14.0s  You record — recording UI in input bar
+ *  14.0s         Voice note sent with lock-seal
+ *  15.2 – 16.8s  Maya types final goodbye
+ *  15.8 – 16.65  Photo BURNS into pixel-dust embers (with crackle)
+ *  16.65–17.1s   Photo bubble collapses, freeing chat space
+ *  16.8s         Final message arrives ("We never had this chat")
+ *  17.4s         Heart reaction floats up
+ *  18.0 – 20.5s  Encryption highlight + "Screenshot blocked" alert banner
+ *  21.0 – 22.0s  Touch ripple lands on a message (long-press)
+ *  22.0 – 25.5s  Long-press action menu: Reply / Forward / Pin / Edit /
+ *                Schedule / Star / Delete / **Unsend**
+ *  25.5 – 26.8s  Tap Unsend → message scatters into pixel particles +
+ *                "Message unsent" toast
+ *  26.8 – 28.0s  You start composing a new message in the input bar
+ *  28.0 – 29.5s  Tap "+" → attachment grid (Photo, Camera, Document,
+ *                Schedule send, Location)
+ *  29.5 – 30.0s  Tap "Schedule send"
+ *  30.0 – 32.5s  Schedule modal slides up: day picker (Today / Tomorrow /
+ *                Custom) + time wheels (9 : 00 AM)
+ *  32.5 – 33.0s  Tap "Schedule" → modal slides down with confirm chime
+ *  33.0 – 34.5s  Scheduled-message bubble appears in chat with clock badge
+ *  34.5 – 35.0s  Tap header 3-dot menu → dropdown opens (Search / Mute /
+ *                Disappearing / **Settings**)
+ *  35.0 – 35.4s  Tap Settings
+ *  35.4 – 36.4s  Chat slides off-screen to the left, Settings slides in
+ *  36.4 – 50.0s  Settings tour:
+ *                  • Profile card (avatar + name + status + edit pencil)
+ *                  • Privacy: Read receipts toggle, Disappearing default
+ *                    picker, Auto-delete media picker, Screen security
+ *                  • Storage: usage bars + "Clean up cache" → progress →
+ *                    "Cleaned 5.2 GB" toast
+ *                  • Notifications: Hide previews toggle, In-app sounds
+ *                  • Account: Linked devices submenu (phone + tablet)
+ *                  • Two-factor authentication toggle
+ *                  • Backup: Encrypted backup
+ *                  • About: version + "End-to-end encrypted ✓"
+ *  50.0 – 50.8s  Tap back → settings slides off, chat slides back in
+ *  50.8 – 60.0s  Outro: logo zoom, tagline, CTA pill, drifting particles
  */
 
 const VIDEO_W = 720;
 const VIDEO_H = 1280;
 const FPS = 30;
-const DURATION_SEC = 25;
+const DURATION_SEC = 60;
 
 /* ───────────────────────── timeline ───────────────────────── */
 
@@ -156,7 +183,21 @@ const INTRO = { start: 1.2, end: 3.4 } as const;
 const PHONE_IN = { start: 3.4, end: 4.2 } as const;
 const SCREENSHOT_BANNER = { start: 18.4, end: 20.2 } as const;
 const ENCRYPTION_HIGHLIGHT = { start: 18.0, end: 20.5 } as const;
-const OUTRO = { start: 20.5, end: 25.0 } as const;
+
+/* product-tour scenes (added) */
+const TOUCH_HINT = { start: 21.0, end: 22.0 } as const;
+const LONG_PRESS = { start: 22.0, end: 25.5 } as const;
+const UNSEND_ACTION = { start: 25.5, end: 26.8 } as const;
+const COMPOSE_HINT = { start: 26.8, end: 28.0 } as const;
+const ATTACHMENT_MENU = { start: 28.0, end: 29.7 } as const;
+const SCHEDULE_PICKER = { start: 29.7, end: 33.0 } as const;
+const SCHEDULED_PILL = { start: 33.0, end: 34.5 } as const;
+const HEADER_MENU = { start: 34.5, end: 35.4 } as const;
+const SETTINGS_TRANSITION = { start: 35.4, end: 36.4 } as const;
+const SETTINGS_SCENE = { start: 36.4, end: 50.0 } as const;
+const SETTINGS_BACK = { start: 50.0, end: 50.8 } as const;
+
+const OUTRO = { start: 50.8, end: 60.0 } as const;
 
 /* ───────────────────────── easing ───────────────────────── */
 
@@ -565,10 +606,10 @@ function drawHeader(ctx: CanvasRenderingContext2D, t: number) {
   ctx.fillStyle = "#FFFFFF";
   ctx.font = "600 26px Inter, sans-serif";
   const nameX = avatarX + 46;
-  ctx.fillText("Alex Mendoza", nameX, avatarY - 4);
+  ctx.fillText("Maya Patel", nameX, avatarY - 4);
 
   // verified badge after the name
-  const nameW = ctx.measureText("Alex Mendoza").width;
+  const nameW = ctx.measureText("Maya Patel").width;
   drawVerifiedBadge(ctx, nameX + nameW + 14, avatarY - 12, 8);
 
   const alexTyping = isTypingAt(t, "in");
@@ -1254,7 +1295,7 @@ function drawPhotoContent(
   // author + date subtitle
   ctx.fillStyle = "rgba(15,26,31,0.5)";
   ctx.font = "500 10px Inter, sans-serif";
-  ctx.fillText("A. Mendoza · 25 Apr 2026", x + 14, y + 67);
+  ctx.fillText("M. Patel · 25 Apr 2026", x + 14, y + 67);
 
   // redacted bars (simulated lines of text, blacked out)
   const barX = x + 14;
@@ -1621,6 +1662,10 @@ function drawPhotoBubble(
   }
 }
 
+// captured during drawConversation so the unsend particle effect can target
+// the exact bubble that "Maya" just sent.
+let m5Bbox: { x: number; y: number; w: number; h: number } | null = null;
+
 function drawConversation(ctx: CanvasRenderingContext2D, t: number) {
   ctx.save();
   roundRect(ctx, SCREEN.x, BODY_Y, SCREEN.w, BODY_BOTTOM - BODY_Y, 0);
@@ -1716,8 +1761,26 @@ function drawConversation(ctx: CanvasRenderingContext2D, t: number) {
         : SCREEN.x + SCREEN.w - SIDE_PAD - layout.w;
     const by = cursorY;
 
+    // capture m5 bbox so the unsend overlay can target it precisely
+    if (m.id === "m5") {
+      m5Bbox = { x: bx, y: by, w: layout.w, h: layout.h };
+    }
+
+    // m5 fades out during the unsend animation
+    let unsendFade = 1;
+    if (m.id === "m5") {
+      const ul = (t - UNSEND_ACTION.start) / 0.45;
+      if (ul > 0) unsendFade = clamp01(1 - ul);
+      if (t > UNSEND_ACTION.start + 0.45) unsendFade = 0;
+    }
+    if (unsendFade <= 0) {
+      cursorY += effectiveH + effectiveGap;
+      if (m.disappearing) cursorY += 32;
+      continue;
+    }
+
     ctx.save();
-    ctx.globalAlpha = alpha;
+    ctx.globalAlpha = alpha * unsendFade;
     ctx.translate(0, slideY);
 
     if (m.variant === "photo") {
@@ -2104,6 +2167,1357 @@ function drawOutroParticles(ctx: CanvasRenderingContext2D, t: number) {
   ctx.restore();
 }
 
+/* ──────────────────── product-tour helpers ──────────────────── */
+
+function drawChatDim(ctx: CanvasRenderingContext2D, alpha: number) {
+  if (alpha <= 0) return;
+  ctx.save();
+  ctx.fillStyle = `rgba(15,26,31,${alpha})`;
+  ctx.fillRect(SCREEN.x, HEADER_Y + HEADER_H, SCREEN.w, SCREEN.h - STATUS_H - HEADER_H);
+  ctx.restore();
+}
+
+function drawTouchIndicator(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  t: number,
+  startTime: number,
+  duration = 0.9,
+) {
+  const local = (t - startTime) / duration;
+  if (local < 0 || local > 1.2) return;
+  const alpha = clamp01(1 - local);
+  ctx.save();
+  ctx.fillStyle = `rgba(46,111,64,${0.28 * alpha})`;
+  ctx.beginPath();
+  ctx.arc(x, y, 28 + local * 18, 0, Math.PI * 2);
+  ctx.fill();
+  for (let i = 0; i < 2; i++) {
+    const r = 24 + (local + i * 0.25) * 80;
+    const ringA = clamp01(1 - (local + i * 0.25)) * 0.35;
+    if (ringA <= 0) continue;
+    ctx.strokeStyle = `rgba(46,111,64,${ringA})`;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.fillStyle = `rgba(255,255,255,${0.95 * clamp01(1 - local * 0.6)})`;
+  ctx.beginPath();
+  ctx.arc(x, y, 9, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = `rgba(46,111,64,${0.85 * alpha})`;
+  ctx.beginPath();
+  ctx.arc(x, y, 5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+const LONG_PRESS_ACTIONS = [
+  { icon: "↩", label: "Reply" },
+  { icon: "→", label: "Forward" },
+  { icon: "★", label: "Star" },
+  { icon: "📌", label: "Pin" },
+  { icon: "✎", label: "Edit" },
+  { icon: "🗓", label: "Schedule" },
+  { icon: "🗑", label: "Delete" },
+  { icon: "↶", label: "Unsend" },
+];
+
+function drawLongPressMenu(ctx: CanvasRenderingContext2D, t: number) {
+  if (t < LONG_PRESS.start - 0.05 || t > LONG_PRESS.end + 0.2) return;
+  const inDur = 0.32;
+  const outDur = 0.28;
+  const inLocal = clamp01((t - LONG_PRESS.start) / inDur);
+  const outLocal = clamp01((t - (LONG_PRESS.end - outDur)) / outDur);
+  const visible = easeOut(inLocal) * (1 - easeOut(outLocal));
+  if (visible <= 0) return;
+
+  drawChatDim(ctx, 0.35 * visible);
+
+  const sheetW = SCREEN.w - 40;
+  const sheetH = 360;
+  const sheetX = SCREEN.x + 20;
+  const finalY = SCREEN.y + SCREEN.h - INPUT_H - sheetH - 16;
+  const sheetY = finalY + (1 - visible) * 80;
+
+  ctx.save();
+  ctx.globalAlpha = visible;
+  ctx.fillStyle = "rgba(15,26,31,0.25)";
+  roundRect(ctx, sheetX, sheetY + 6, sheetW, sheetH, 24);
+  ctx.fill();
+  ctx.fillStyle = "#FFFFFF";
+  roundRect(ctx, sheetX, sheetY, sheetW, sheetH, 24);
+  ctx.fill();
+
+  ctx.fillStyle = "rgba(37,61,44,0.18)";
+  roundRect(ctx, sheetX + sheetW / 2 - 26, sheetY + 12, 52, 5, 3);
+  ctx.fill();
+
+  const cols = 4;
+  const padX = 18;
+  const cellW = (sheetW - padX * 2) / cols;
+  const cellH = 130;
+  const gridY = sheetY + 36;
+
+  const highlightStart = LONG_PRESS.end - 0.7;
+  const highlightLocal = clamp01((t - highlightStart) / 0.5);
+
+  for (let i = 0; i < LONG_PRESS_ACTIONS.length; i++) {
+    const action = LONG_PRESS_ACTIONS[i]!;
+    const col = i % cols;
+    const row = Math.floor(i / cols);
+    const cx = sheetX + padX + col * cellW + cellW / 2;
+    const cy = gridY + row * cellH + cellH / 2 - 14;
+
+    const stagger = clamp01((visible - i * 0.04) / 0.3);
+    if (stagger <= 0) continue;
+
+    ctx.save();
+    ctx.globalAlpha = stagger * visible;
+
+    const isUnsend = action.label === "Unsend";
+    const isHighlighted = isUnsend && highlightLocal > 0;
+    ctx.fillStyle = isHighlighted
+      ? `rgba(46,111,64,${0.18 + highlightLocal * 0.18})`
+      : "rgba(207,255,220,0.55)";
+    ctx.beginPath();
+    ctx.arc(cx, cy, 30, 0, Math.PI * 2);
+    ctx.fill();
+
+    if (isHighlighted) {
+      ctx.strokeStyle = `rgba(46,111,64,${0.6 + highlightLocal * 0.4})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 32 + highlightLocal * 2, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    ctx.fillStyle = "#253D2C";
+    ctx.font = "26px 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(action.icon, cx, cy);
+
+    ctx.fillStyle = isUnsend ? "#2E6F40" : "#253D2C";
+    ctx.font = `${isUnsend ? "600" : "500"} 14px Inter, sans-serif`;
+    ctx.fillText(action.label, cx, cy + 50);
+    ctx.restore();
+  }
+
+  // tap on Unsend (touch indicator)
+  if (highlightLocal > 0) {
+    const unsendIdx = LONG_PRESS_ACTIONS.findIndex((a) => a.label === "Unsend");
+    const col = unsendIdx % cols;
+    const row = Math.floor(unsendIdx / cols);
+    const cx = sheetX + padX + col * cellW + cellW / 2;
+    const cy = gridY + row * cellH + cellH / 2 - 14;
+    drawTouchIndicator(ctx, cx, cy, t, highlightStart, 0.7);
+  }
+
+  // cancel pill
+  const cancelY = sheetY + sheetH - 32;
+  ctx.fillStyle = "rgba(37,61,44,0.06)";
+  roundRect(ctx, sheetX + 24, cancelY - 18, sheetW - 48, 36, 18);
+  ctx.fill();
+  ctx.fillStyle = "rgba(37,61,44,0.6)";
+  ctx.font = "500 14px Inter, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("Cancel", sheetX + sheetW / 2, cancelY);
+
+  ctx.restore();
+}
+
+const UNSEND_PARTICLES = Array.from({ length: 220 }, (_, i) => ({
+  fx: Math.sin(i * 12.9898) * 0.5 + 0.5,
+  fy: Math.cos(i * 78.233) * 0.5 + 0.5,
+  vx: (Math.sin(i * 3.7) - 0.5) * 280,
+  vy: -120 - (Math.cos(i * 9.1) * 0.5 + 0.5) * 200,
+  size: 1.5 + (Math.sin(i * 5.7) * 0.5 + 0.5) * 2,
+  delay: (Math.sin(i * 11.3) * 0.5 + 0.5) * 0.2,
+}));
+
+function drawUnsendParticles(
+  ctx: CanvasRenderingContext2D,
+  bx: number,
+  by: number,
+  bw: number,
+  bh: number,
+  t: number,
+  startTime: number,
+) {
+  const dur = 0.9;
+  const local = (t - startTime) / dur;
+  if (local < 0 || local > 1.4) return;
+  ctx.save();
+  for (const p of UNSEND_PARTICLES) {
+    const pl = local - p.delay;
+    if (pl < 0) continue;
+    const px = bx + p.fx * bw + p.vx * pl;
+    const py = by + p.fy * bh + p.vy * pl + 0.5 * 320 * pl * pl;
+    const alpha = clamp01(1 - pl);
+    if (alpha <= 0) continue;
+    ctx.fillStyle = `rgba(207,255,220,${alpha * 0.85})`;
+    ctx.fillRect(px - p.size / 2, py - p.size / 2, p.size, p.size);
+  }
+  ctx.restore();
+}
+
+function drawToast(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  t: number,
+  startTime: number,
+  duration = 1.4,
+) {
+  const local = (t - startTime) / duration;
+  if (local < 0 || local > 1.1) return;
+  const inA = clamp01(local / 0.18);
+  const outA = clamp01(1 - (local - 0.78) / 0.22);
+  const alpha = inA * outA;
+  if (alpha <= 0) return;
+
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.font = "500 16px Inter, sans-serif";
+  const tw = ctx.measureText(text).width;
+  const padX = 24;
+  const w = tw + padX * 2;
+  const h = 44;
+  const x = SCREEN.x + (SCREEN.w - w) / 2;
+  const y = SCREEN.y + SCREEN.h - INPUT_H - 80 - (1 - inA) * 18;
+
+  ctx.fillStyle = "rgba(15,26,31,0.28)";
+  roundRect(ctx, x, y + 4, w, h, 22);
+  ctx.fill();
+  ctx.fillStyle = "#253D2C";
+  roundRect(ctx, x, y, w, h, 22);
+  ctx.fill();
+
+  ctx.fillStyle = "#FFFFFF";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(text, x + w / 2, y + h / 2);
+  ctx.restore();
+}
+
+const ATTACHMENT_OPTIONS = [
+  { icon: "🖼", label: "Photo", color: "#7C3AED" },
+  { icon: "📷", label: "Camera", color: "#E11D48" },
+  { icon: "📄", label: "Document", color: "#2563EB" },
+  { icon: "🗓", label: "Schedule", color: "#2E6F40" },
+  { icon: "📍", label: "Location", color: "#EA580C" },
+];
+
+function drawAttachmentMenu(ctx: CanvasRenderingContext2D, t: number) {
+  if (t < ATTACHMENT_MENU.start - 0.05 || t > ATTACHMENT_MENU.end + 0.2) return;
+  const dur = 0.3;
+  const inLocal = clamp01((t - ATTACHMENT_MENU.start) / dur);
+  const outLocal = clamp01((t - (ATTACHMENT_MENU.end - dur)) / dur);
+  const visible = easeOut(inLocal) * (1 - easeOut(outLocal));
+  if (visible <= 0) return;
+
+  drawChatDim(ctx, 0.28 * visible);
+
+  const sheetW = SCREEN.w - 40;
+  const sheetH = 200;
+  const sheetX = SCREEN.x + 20;
+  const finalY = SCREEN.y + SCREEN.h - INPUT_H - sheetH - 14;
+  const sheetY = finalY + (1 - visible) * 60;
+
+  ctx.save();
+  ctx.globalAlpha = visible;
+  ctx.fillStyle = "rgba(15,26,31,0.22)";
+  roundRect(ctx, sheetX, sheetY + 5, sheetW, sheetH, 22);
+  ctx.fill();
+  ctx.fillStyle = "#FFFFFF";
+  roundRect(ctx, sheetX, sheetY, sheetW, sheetH, 22);
+  ctx.fill();
+  ctx.fillStyle = "rgba(37,61,44,0.18)";
+  roundRect(ctx, sheetX + sheetW / 2 - 26, sheetY + 12, 52, 5, 3);
+  ctx.fill();
+
+  const cols = 5;
+  const padX = 14;
+  const cellW = (sheetW - padX * 2) / cols;
+  const gridY = sheetY + 36;
+
+  const highlightStart = ATTACHMENT_MENU.end - 0.55;
+  const highlightLocal = clamp01((t - highlightStart) / 0.4);
+
+  for (let i = 0; i < ATTACHMENT_OPTIONS.length; i++) {
+    const opt = ATTACHMENT_OPTIONS[i]!;
+    const cx = sheetX + padX + i * cellW + cellW / 2;
+    const cy = gridY + 50;
+    const stagger = clamp01((visible - i * 0.05) / 0.3);
+    if (stagger <= 0) continue;
+
+    const isSchedule = opt.label === "Schedule";
+    const isHighlighted = isSchedule && highlightLocal > 0;
+
+    ctx.save();
+    ctx.globalAlpha = stagger * visible;
+    const r = 32 + (isHighlighted ? highlightLocal * 4 : 0);
+    ctx.fillStyle = opt.color;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fill();
+    if (isHighlighted) {
+      ctx.strokeStyle = `rgba(46,111,64,${0.5 + highlightLocal * 0.4})`;
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r + 6, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.fillStyle = "#FFFFFF";
+    ctx.font = "26px 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(opt.icon, cx, cy);
+    ctx.fillStyle = "#253D2C";
+    ctx.font = "500 13px Inter, sans-serif";
+    ctx.fillText(opt.label, cx, cy + 56);
+    ctx.restore();
+  }
+
+  // touch indicator on Schedule
+  if (highlightLocal > 0) {
+    const idx = ATTACHMENT_OPTIONS.findIndex((o) => o.label === "Schedule");
+    const cx = sheetX + padX + idx * cellW + cellW / 2;
+    const cy = gridY + 50;
+    drawTouchIndicator(ctx, cx, cy, t, highlightStart, 0.5);
+  }
+
+  ctx.restore();
+}
+
+function drawTimeWheel(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  prev: string,
+  cur: string,
+  next: string,
+  scrollOffset: number,
+) {
+  ctx.save();
+  ctx.fillStyle = "rgba(207,255,220,0.4)";
+  roundRect(ctx, x, y, w, h, 16);
+  ctx.fill();
+
+  const cx = x + w / 2;
+  const cy = y + h / 2;
+
+  ctx.fillStyle = "rgba(46,111,64,0.12)";
+  roundRect(ctx, x + 8, cy - 28, w - 16, 56, 12);
+  ctx.fill();
+
+  ctx.fillStyle = "#253D2C";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+
+  const items = [prev, cur, next];
+  const itemH = 56;
+
+  ctx.save();
+  ctx.beginPath();
+  roundRect(ctx, x, y, w, h, 16);
+  ctx.clip();
+  for (let i = 0; i < 3; i++) {
+    const iy = cy + (i - 1) * itemH - scrollOffset;
+    const dist = Math.abs(iy - cy) / 56;
+    const alpha = clamp01(1 - dist * 0.7);
+    const sz = i === 1 ? 32 : 24;
+    ctx.globalAlpha = alpha;
+    ctx.font = `${i === 1 ? "700" : "500"} ${sz}px Inter, sans-serif`;
+    ctx.fillText(items[i]!, cx, iy);
+  }
+  ctx.restore();
+  ctx.globalAlpha = 1;
+
+  // top/bottom fade overlay using bg cream
+  const grad = ctx.createLinearGradient(x, y, x, y + h);
+  grad.addColorStop(0, "rgba(255,255,255,1)");
+  grad.addColorStop(0.35, "rgba(255,255,255,0)");
+  grad.addColorStop(0.65, "rgba(255,255,255,0)");
+  grad.addColorStop(1, "rgba(255,255,255,1)");
+  ctx.save();
+  ctx.beginPath();
+  roundRect(ctx, x, y, w, h, 16);
+  ctx.clip();
+  ctx.fillStyle = grad;
+  ctx.fillRect(x, y, w, h);
+  ctx.restore();
+
+  ctx.restore();
+}
+
+function drawSchedulePicker(ctx: CanvasRenderingContext2D, t: number) {
+  if (t < SCHEDULE_PICKER.start - 0.05 || t > SCHEDULE_PICKER.end + 0.2) return;
+  const inDur = 0.4;
+  const outDur = 0.32;
+  const inLocal = clamp01((t - SCHEDULE_PICKER.start) / inDur);
+  const outLocal = clamp01((t - (SCHEDULE_PICKER.end - outDur)) / outDur);
+  const visible = easeOut(inLocal) * (1 - easeOut(outLocal));
+  if (visible <= 0) return;
+
+  ctx.save();
+  ctx.fillStyle = `rgba(15,26,31,${0.55 * visible})`;
+  ctx.fillRect(SCREEN.x, SCREEN.y, SCREEN.w, SCREEN.h);
+
+  const modalW = SCREEN.w - 40;
+  const modalH = 540;
+  const modalX = SCREEN.x + 20;
+  const finalY = SCREEN.y + SCREEN.h - modalH - 30;
+  const modalY = finalY + (1 - visible) * 100;
+
+  ctx.globalAlpha = visible;
+  ctx.fillStyle = "rgba(15,26,31,0.32)";
+  roundRect(ctx, modalX, modalY + 8, modalW, modalH, 28);
+  ctx.fill();
+  ctx.fillStyle = "#FFFFFF";
+  roundRect(ctx, modalX, modalY, modalW, modalH, 28);
+  ctx.fill();
+
+  ctx.fillStyle = "rgba(37,61,44,0.18)";
+  roundRect(ctx, modalX + modalW / 2 - 26, modalY + 12, 52, 5, 3);
+  ctx.fill();
+
+  ctx.fillStyle = "#253D2C";
+  ctx.font = "600 22px Inter, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("Schedule message", modalX + modalW / 2, modalY + 46);
+  ctx.fillStyle = "rgba(37,61,44,0.55)";
+  ctx.font = "500 14px Inter, sans-serif";
+  ctx.fillText(
+    "Send when it's the right moment.",
+    modalX + modalW / 2,
+    modalY + 76,
+  );
+
+  const days = ["Today", "Tomorrow", "Custom"];
+  const chipY = modalY + 110;
+  const chipH = 44;
+  const chipW = (modalW - 80) / 3;
+  const sceneT = t - SCHEDULE_PICKER.start;
+  const selectedDay = sceneT > 0.9 ? 1 : 0;
+  for (let i = 0; i < days.length; i++) {
+    const cx = modalX + 28 + i * (chipW + 12);
+    const isSelected = i === selectedDay;
+    if (isSelected) {
+      ctx.fillStyle = "#2E6F40";
+      roundRect(ctx, cx, chipY, chipW, chipH, 22);
+      ctx.fill();
+      ctx.fillStyle = "#FFFFFF";
+    } else {
+      ctx.fillStyle = "rgba(207,255,220,0.55)";
+      roundRect(ctx, cx, chipY, chipW, chipH, 22);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(46,111,64,0.25)";
+      ctx.lineWidth = 1;
+      roundRect(ctx, cx, chipY, chipW, chipH, 22);
+      ctx.stroke();
+      ctx.fillStyle = "#253D2C";
+    }
+    ctx.font = "600 15px Inter, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(days[i]!, cx + chipW / 2, chipY + chipH / 2);
+  }
+
+  // tap on Tomorrow chip
+  if (sceneT >= 0.6 && sceneT < 1.4) {
+    const cx = modalX + 28 + 1 * (chipW + 12) + chipW / 2;
+    drawTouchIndicator(ctx, cx, chipY + chipH / 2, t, SCHEDULE_PICKER.start + 0.6, 0.7);
+  }
+
+  // time wheels
+  const wheelY = modalY + 190;
+  const wheelH = 200;
+  const wheelW = 100;
+  const gap = 14;
+  const wheelTotalW = wheelW * 3 + gap * 2 + 24;
+  const wheelStartX = modalX + (modalW - wheelTotalW) / 2;
+
+  const hourScroll = Math.min(sceneT, 1.6) * 28;
+  const minScroll = Math.min(Math.max(sceneT - 0.5, 0), 1.4) * 30;
+  drawTimeWheel(ctx, wheelStartX, wheelY, wheelW, wheelH, "8", "9", "10", hourScroll);
+  ctx.fillStyle = "#253D2C";
+  ctx.font = "700 36px Inter, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(":", wheelStartX + wheelW + gap / 2 + 6, wheelY + wheelH / 2);
+  drawTimeWheel(
+    ctx,
+    wheelStartX + wheelW + gap + 12,
+    wheelY,
+    wheelW,
+    wheelH,
+    "55",
+    "00",
+    "05",
+    minScroll,
+  );
+  drawTimeWheel(
+    ctx,
+    wheelStartX + wheelW * 2 + gap * 2 + 12,
+    wheelY,
+    wheelW,
+    wheelH,
+    "PM",
+    "AM",
+    "PM",
+    0,
+  );
+
+  ctx.fillStyle = "#2E6F40";
+  ctx.font = "600 16px Inter, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(
+    "Sends Tomorrow · 9:00 AM",
+    modalX + modalW / 2,
+    wheelY + wheelH + 30,
+  );
+
+  // Schedule button
+  const btnW = modalW - 60;
+  const btnH = 56;
+  const btnX = modalX + 30;
+  const btnY = modalY + modalH - btnH - 30;
+  const tapStart = SCHEDULE_PICKER.end - 0.5;
+  const tapL = clamp01((t - tapStart) / 0.3);
+
+  ctx.fillStyle = `rgba(46,111,64,${1 - tapL * 0.18})`;
+  roundRect(ctx, btnX, btnY, btnW, btnH, 28);
+  ctx.fill();
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = "600 17px Inter, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("Schedule message", btnX + btnW / 2, btnY + btnH / 2);
+
+  if (tapL > 0) {
+    drawTouchIndicator(
+      ctx,
+      btnX + btnW / 2,
+      btnY + btnH / 2,
+      t,
+      tapStart,
+      0.5,
+    );
+  }
+
+  ctx.restore();
+}
+
+function drawScheduledBubble(ctx: CanvasRenderingContext2D, t: number) {
+  if (t < SCHEDULED_PILL.start - 0.05 || t > HEADER_MENU.end + 0.4) return;
+  const inDur = 0.4;
+  const inLocal = clamp01((t - SCHEDULED_PILL.start) / inDur);
+  const fadeOut = 1 - clamp01((t - SETTINGS_TRANSITION.start) / 0.5);
+  const visible = easeOut(inLocal) * fadeOut;
+  if (visible <= 0) return;
+
+  const bubbleW = 380;
+  const bubbleH = 96;
+  const bubbleX = SCREEN.x + SCREEN.w - bubbleW - 28;
+  const finalY = SCREEN.y + SCREEN.h - INPUT_H - bubbleH - 26;
+  const bubbleY = finalY + (1 - visible) * 16;
+
+  ctx.save();
+  ctx.globalAlpha = visible;
+
+  ctx.fillStyle = "#CFFFDC";
+  roundRect(ctx, bubbleX, bubbleY, bubbleW, bubbleH, 22);
+  ctx.fill();
+
+  ctx.save();
+  ctx.setLineDash([6, 4]);
+  ctx.strokeStyle = "rgba(46,111,64,0.55)";
+  ctx.lineWidth = 1.5;
+  roundRect(ctx, bubbleX, bubbleY, bubbleW, bubbleH, 22);
+  ctx.stroke();
+  ctx.restore();
+
+  const iconX = bubbleX + 22;
+  const iconY = bubbleY + 30;
+  ctx.strokeStyle = "#2E6F40";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(iconX, iconY, 10, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(iconX, iconY);
+  ctx.lineTo(iconX, iconY - 6);
+  ctx.moveTo(iconX, iconY);
+  ctx.lineTo(iconX + 5, iconY + 2);
+  ctx.stroke();
+
+  ctx.fillStyle = "#2E6F40";
+  ctx.font = "700 11px Inter, sans-serif";
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  ctx.fillText("SCHEDULED", iconX + 18, iconY);
+
+  ctx.fillStyle = "#253D2C";
+  ctx.font = "500 15px Inter, sans-serif";
+  ctx.textBaseline = "alphabetic";
+  ctx.fillText("See you tomorrow at 9 ☀", bubbleX + 22, bubbleY + 64);
+
+  ctx.fillStyle = "rgba(37,61,44,0.55)";
+  ctx.font = "500 11px Inter, sans-serif";
+  ctx.textAlign = "right";
+  ctx.fillText("Tomorrow 9:00 AM", bubbleX + bubbleW - 18, bubbleY + bubbleH - 12);
+
+  ctx.restore();
+}
+
+const HEADER_MENU_ITEMS = [
+  { label: "View contact", icon: "👤" },
+  { label: "Search", icon: "🔍" },
+  { label: "Mute notifications", icon: "🔕" },
+  { label: "Disappearing messages", icon: "⏱" },
+  { label: "Settings", icon: "⚙" },
+];
+
+function drawHeaderMenuDropdown(ctx: CanvasRenderingContext2D, t: number) {
+  if (t < HEADER_MENU.start - 0.05 || t > HEADER_MENU.end + 0.3) return;
+  const inDur = 0.22;
+  const inLocal = clamp01((t - HEADER_MENU.start) / inDur);
+  const outLocal = clamp01((t - (HEADER_MENU.end - 0.18)) / 0.18);
+  const visible = easeOut(inLocal) * (1 - easeOut(outLocal));
+  if (visible <= 0) return;
+
+  const w = 290;
+  const rowH = 44;
+  const h = HEADER_MENU_ITEMS.length * rowH + 16;
+  const x = SCREEN.x + SCREEN.w - w - 24;
+  const y = HEADER_Y + 64;
+
+  ctx.save();
+  ctx.translate(x + w, y);
+  ctx.scale(visible, visible);
+  ctx.translate(-(x + w), -y);
+  ctx.globalAlpha = visible;
+
+  ctx.fillStyle = "rgba(15,26,31,0.28)";
+  roundRect(ctx, x, y + 4, w, h, 18);
+  ctx.fill();
+  ctx.fillStyle = "#FFFFFF";
+  roundRect(ctx, x, y, w, h, 18);
+  ctx.fill();
+
+  const highlightStart = HEADER_MENU.end - 0.4;
+  const highlightLocal = clamp01((t - highlightStart) / 0.28);
+
+  for (let i = 0; i < HEADER_MENU_ITEMS.length; i++) {
+    const item = HEADER_MENU_ITEMS[i]!;
+    const ry = y + 8 + i * rowH;
+    const isSettings = item.label === "Settings";
+    const isHl = isSettings && highlightLocal > 0;
+
+    if (isHl) {
+      ctx.fillStyle = `rgba(46,111,64,${0.12 + highlightLocal * 0.12})`;
+      roundRect(ctx, x + 6, ry, w - 12, rowH, 10);
+      ctx.fill();
+    }
+
+    ctx.fillStyle = isHl ? "#2E6F40" : "#253D2C";
+    ctx.font = "20px 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    ctx.fillText(item.icon, x + 22, ry + rowH / 2);
+
+    ctx.font = `${isHl ? "600" : "500"} 15px Inter, sans-serif`;
+    ctx.fillText(item.label, x + 56, ry + rowH / 2);
+  }
+
+  if (highlightLocal > 0) {
+    const idx = HEADER_MENU_ITEMS.findIndex((m) => m.label === "Settings");
+    const ry = y + 8 + idx * rowH + rowH / 2;
+    drawTouchIndicator(ctx, x + w - 50, ry, t, highlightStart, 0.4);
+  }
+
+  ctx.restore();
+}
+
+/* ───────────────── settings screen ───────────────── */
+
+type ToggleId =
+  | "readReceipts"
+  | "screenshots"
+  | "hidePreviews"
+  | "inAppSounds"
+  | "twoFactor";
+
+interface ToggleTimeline {
+  id: ToggleId;
+  flipAt: number;
+  initial: boolean;
+}
+
+const TOGGLE_TIMELINE: ToggleTimeline[] = [
+  { id: "readReceipts", flipAt: 38.0, initial: false },
+  { id: "screenshots", flipAt: 41.4, initial: false },
+  { id: "hidePreviews", flipAt: 44.0, initial: false },
+  { id: "inAppSounds", flipAt: 44.7, initial: true },
+  { id: "twoFactor", flipAt: 47.4, initial: false },
+];
+
+function getToggleState(
+  id: ToggleId,
+  t: number,
+): { value: boolean; anim: number } {
+  const entry = TOGGLE_TIMELINE.find((x) => x.id === id);
+  if (!entry) return { value: false, anim: 0 };
+  const local = (t - entry.flipAt) / 0.32;
+  if (local < 0) return { value: entry.initial, anim: 0 };
+  if (local >= 1) return { value: !entry.initial, anim: 1 };
+  return { value: !entry.initial, anim: easeOut(local) };
+}
+
+function drawToggle(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  id: ToggleId,
+  t: number,
+) {
+  const { value, anim } = getToggleState(id, t);
+  const w = 52;
+  const h = 30;
+  const t01 = value ? anim : 1 - anim;
+  const r = Math.round(192 + (46 - 192) * t01);
+  const g = Math.round(199 + (111 - 199) * t01);
+  const b = Math.round(206 + (64 - 206) * t01);
+  ctx.fillStyle = `rgb(${r},${g},${b})`;
+  roundRect(ctx, x, y, w, h, 15);
+  ctx.fill();
+
+  const startX = x + 4;
+  const endX = x + w - h + 4;
+  const knobX = startX + (endX - startX) * (value ? anim : 1 - anim);
+
+  ctx.fillStyle = "rgba(15,26,31,0.18)";
+  ctx.beginPath();
+  ctx.arc(knobX + h / 2 - 4, y + h / 2 + 1.5, h / 2 - 4, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = "#FFFFFF";
+  ctx.beginPath();
+  ctx.arc(knobX + h / 2 - 4, y + h / 2, h / 2 - 4, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawSettingsRow(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  label: string,
+  meta: string | undefined,
+  toggle: ToggleId | undefined,
+  t: number,
+  rightArrow: boolean,
+) {
+  const h = 60;
+  ctx.fillStyle = "rgba(37,61,44,0.06)";
+  ctx.fillRect(x + 14, y + h - 1, w - 28, 1);
+
+  ctx.fillStyle = "#253D2C";
+  ctx.font = "500 17px Inter, sans-serif";
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  ctx.fillText(label, x + 18, y + h / 2);
+
+  if (toggle) {
+    drawToggle(ctx, x + w - 18 - 52, y + h / 2 - 15, toggle, t);
+  } else if (meta) {
+    ctx.fillStyle = "rgba(37,61,44,0.55)";
+    ctx.font = "500 15px Inter, sans-serif";
+    ctx.textAlign = "right";
+    ctx.fillText(meta, x + w - (rightArrow ? 32 : 18), y + h / 2);
+    if (rightArrow) {
+      ctx.strokeStyle = "rgba(37,61,44,0.45)";
+      ctx.lineWidth = 2;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.beginPath();
+      ctx.moveTo(x + w - 22, y + h / 2 - 6);
+      ctx.lineTo(x + w - 14, y + h / 2);
+      ctx.lineTo(x + w - 22, y + h / 2 + 6);
+      ctx.stroke();
+    }
+  } else if (rightArrow) {
+    ctx.strokeStyle = "rgba(37,61,44,0.45)";
+    ctx.lineWidth = 2;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.beginPath();
+    ctx.moveTo(x + w - 22, y + h / 2 - 6);
+    ctx.lineTo(x + w - 14, y + h / 2);
+    ctx.lineTo(x + w - 22, y + h / 2 + 6);
+    ctx.stroke();
+  }
+}
+
+function drawSettingsSectionHeader(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  label: string,
+) {
+  ctx.fillStyle = "#2E6F40";
+  ctx.font = "700 11px Inter, sans-serif";
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  ctx.fillText(label.toUpperCase(), x + 22, y + 18);
+}
+
+function drawProfileCard(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+) {
+  const h = 110;
+  const ax = x + 24;
+  const ay = y + h / 2;
+  ctx.fillStyle = "#2E6F40";
+  ctx.beginPath();
+  ctx.arc(ax + 32, ay, 32, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = "700 22px Inter, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("YOU", ax + 32, ay + 1);
+
+  ctx.fillStyle = "#253D2C";
+  ctx.font = "600 20px Inter, sans-serif";
+  ctx.textAlign = "left";
+  ctx.fillText("You", ax + 80, ay - 12);
+
+  ctx.fillStyle = "rgba(37,61,44,0.55)";
+  ctx.font = "500 14px Inter, sans-serif";
+  ctx.fillText("Tap to edit profile, name, photo", ax + 80, ay + 14);
+
+  // edit pencil
+  const px = x + w - 36;
+  const py = ay;
+  ctx.strokeStyle = "rgba(46,111,64,0.7)";
+  ctx.lineWidth = 2;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.beginPath();
+  ctx.moveTo(px - 8, py + 8);
+  ctx.lineTo(px + 6, py - 6);
+  ctx.lineTo(px + 10, py - 2);
+  ctx.lineTo(px - 4, py + 12);
+  ctx.closePath();
+  ctx.stroke();
+}
+
+function drawStorageBars(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  t: number,
+) {
+  const segments = [
+    { label: "Photos", value: 1.2, color: "#2E6F40" },
+    { label: "Videos", value: 3.1, color: "#68BA7F" },
+    { label: "Voice", value: 0.4, color: "#A3D9B1" },
+    { label: "Docs", value: 0.5, color: "#CFFFDC" },
+    { label: "Other", value: 0.6, color: "rgba(46,111,64,0.35)" },
+  ];
+  const total = segments.reduce((s, x) => s + x.value, 0);
+  const cleanLocal = clamp01((t - 42.4) / 0.8);
+  const cleaned = clamp01((t - 43.2) / 0.4);
+
+  ctx.fillStyle = "#253D2C";
+  ctx.font = "600 15px Inter, sans-serif";
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  ctx.fillText("Storage usage", x + 18, y + 18);
+
+  ctx.fillStyle = "rgba(37,61,44,0.6)";
+  ctx.font = "500 13px Inter, sans-serif";
+  ctx.textAlign = "right";
+  const remaining = (total - cleaned * 5.2).toFixed(1);
+  ctx.fillText(`${remaining} GB used`, x + w - 18, y + 18);
+
+  // stacked bar
+  const barY = y + 40;
+  const barH = 12;
+  ctx.fillStyle = "rgba(37,61,44,0.06)";
+  roundRect(ctx, x + 18, barY, w - 36, barH, 6);
+  ctx.fill();
+
+  ctx.save();
+  ctx.beginPath();
+  roundRect(ctx, x + 18, barY, w - 36, barH, 6);
+  ctx.clip();
+  let cursor = x + 18;
+  const maxW = w - 36;
+  for (const seg of segments) {
+    const segW = (seg.value / total) * maxW * (1 - cleaned * 0.7);
+    ctx.fillStyle = seg.color;
+    ctx.fillRect(cursor, barY, segW, barH);
+    cursor += segW;
+  }
+  ctx.restore();
+
+  // legend
+  let lx = x + 18;
+  const ly = y + 64;
+  ctx.font = "500 11px Inter, sans-serif";
+  ctx.textBaseline = "middle";
+  ctx.textAlign = "left";
+  for (const seg of segments) {
+    ctx.fillStyle = seg.color;
+    ctx.beginPath();
+    ctx.arc(lx + 4, ly, 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "rgba(37,61,44,0.65)";
+    ctx.fillText(seg.label, lx + 14, ly);
+    lx += ctx.measureText(seg.label).width + 32;
+  }
+
+  // cleanup button / progress
+  const btnY = y + 84;
+  const btnH = 42;
+  if (cleaned >= 1) {
+    ctx.fillStyle = "rgba(46,111,64,0.12)";
+    roundRect(ctx, x + 18, btnY, w - 36, btnH, 21);
+    ctx.fill();
+    ctx.fillStyle = "#2E6F40";
+    ctx.font = "600 14px Inter, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("✓  Cleaned 5.2 GB of cache", x + w / 2, btnY + btnH / 2);
+  } else if (cleanLocal > 0) {
+    ctx.fillStyle = "rgba(46,111,64,0.18)";
+    roundRect(ctx, x + 18, btnY, w - 36, btnH, 21);
+    ctx.fill();
+    ctx.save();
+    ctx.beginPath();
+    roundRect(ctx, x + 18, btnY, w - 36, btnH, 21);
+    ctx.clip();
+    ctx.fillStyle = "#2E6F40";
+    ctx.fillRect(x + 18, btnY, (w - 36) * cleanLocal, btnH);
+    ctx.restore();
+    ctx.fillStyle = "#FFFFFF";
+    ctx.font = "600 14px Inter, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(
+      `Cleaning… ${Math.round(cleanLocal * 100)}%`,
+      x + w / 2,
+      btnY + btnH / 2,
+    );
+  } else {
+    ctx.fillStyle = "#2E6F40";
+    roundRect(ctx, x + 18, btnY, w - 36, btnH, 21);
+    ctx.fill();
+    ctx.fillStyle = "#FFFFFF";
+    ctx.font = "600 14px Inter, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("Clean up cache", x + w / 2, btnY + btnH / 2);
+  }
+}
+
+function drawDevicesList(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+) {
+  const devices = [
+    { label: "iPhone 15 · This device", sub: "Online now", icon: "📱", active: true },
+    { label: "iPad Pro", sub: "Active 2h ago", icon: "💻", active: false },
+  ];
+  for (let i = 0; i < devices.length; i++) {
+    const d = devices[i]!;
+    const dy = y + i * 60;
+    if (i > 0) {
+      ctx.fillStyle = "rgba(37,61,44,0.06)";
+      ctx.fillRect(x + 18, dy, w - 36, 1);
+    }
+    ctx.fillStyle = "#253D2C";
+    ctx.font = "20px 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    ctx.fillText(d.icon, x + 28, dy + 30);
+
+    ctx.fillStyle = "#253D2C";
+    ctx.font = "500 15px Inter, sans-serif";
+    ctx.fillText(d.label, x + 60, dy + 22);
+
+    ctx.fillStyle = d.active ? "#2E6F40" : "rgba(37,61,44,0.55)";
+    ctx.font = "500 12px Inter, sans-serif";
+    ctx.fillText(d.sub, x + 60, dy + 42);
+
+    if (d.active) {
+      ctx.fillStyle = "#2E6F40";
+      ctx.beginPath();
+      ctx.arc(x + 60 - 8, dy + 42, 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+}
+
+type SettingsBlock = {
+  kind: "profile" | "section" | "row" | "storage" | "devices" | "about" | "spacer";
+  height: number;
+  data?: any;
+  yTop?: number;
+};
+
+function getSettingsBlocks(t: number): SettingsBlock[] {
+  return [
+    { kind: "spacer", height: 16 },
+    { kind: "profile", height: 110 },
+    { kind: "spacer", height: 18 },
+    { kind: "section", height: 30, data: "Privacy" },
+    { kind: "row", height: 60, data: { label: "Read receipts", toggle: "readReceipts" } },
+    {
+      kind: "row",
+      height: 60,
+      data: {
+        label: "Disappearing messages",
+        meta: t > 39.4 ? "24 hours" : "Off",
+        arrow: true,
+      },
+    },
+    {
+      kind: "row",
+      height: 60,
+      data: {
+        label: "Auto-delete media",
+        meta: t > 40.6 ? "7 days" : "Off",
+        arrow: true,
+      },
+    },
+    { kind: "row", height: 60, data: { label: "Block screenshots", toggle: "screenshots" } },
+    { kind: "spacer", height: 18 },
+    { kind: "section", height: 30, data: "Storage" },
+    { kind: "storage", height: 140 },
+    { kind: "spacer", height: 18 },
+    { kind: "section", height: 30, data: "Notifications" },
+    { kind: "row", height: 60, data: { label: "Hide message previews", toggle: "hidePreviews" } },
+    { kind: "row", height: 60, data: { label: "In-app sounds", toggle: "inAppSounds" } },
+    { kind: "spacer", height: 18 },
+    { kind: "section", height: 30, data: "Account" },
+    { kind: "devices", height: 130 },
+    { kind: "row", height: 60, data: { label: "Two-factor authentication", toggle: "twoFactor" } },
+    { kind: "spacer", height: 18 },
+    { kind: "section", height: 30, data: "Backup" },
+    {
+      kind: "row",
+      height: 60,
+      data: {
+        label: "Encrypted backup",
+        meta: t > 48.6 ? "Just now" : "Daily",
+        arrow: true,
+      },
+    },
+    { kind: "spacer", height: 18 },
+    { kind: "section", height: 30, data: "About" },
+    { kind: "about", height: 80 },
+    { kind: "spacer", height: 24 },
+  ];
+}
+
+function getSettingsScroll(t: number): number {
+  const stops: Array<[number, number]> = [
+    [36.4, 0],
+    [38.0, 0],
+    [40.0, 90],
+    [41.5, 200],
+    [43.0, 320],
+    [44.0, 440],
+    [45.5, 560],
+    [47.0, 680],
+    [48.0, 780],
+    [49.0, 880],
+    [50.0, 940],
+  ];
+  for (let i = 0; i < stops.length - 1; i++) {
+    const a = stops[i]!;
+    const b = stops[i + 1]!;
+    if (t >= a[0] && t <= b[0]) {
+      const local = clamp01((t - a[0]) / (b[0] - a[0]));
+      return a[1] + (b[1] - a[1]) * easeInOut(local);
+    }
+  }
+  if (t < stops[0]![0]) return stops[0]![1];
+  return stops[stops.length - 1]![1];
+}
+
+function drawSettingsTouches(
+  ctx: CanvasRenderingContext2D,
+  t: number,
+  blocks: SettingsBlock[],
+) {
+  const tapEvents: Array<{ at: number; targetLabel: string; xOffset?: number }> = [
+    { at: 38.0, targetLabel: "Read receipts", xOffset: -40 },
+    { at: 39.2, targetLabel: "Disappearing messages", xOffset: -40 },
+    { at: 40.4, targetLabel: "Auto-delete media", xOffset: -40 },
+    { at: 41.4, targetLabel: "Block screenshots", xOffset: -40 },
+    { at: 42.4, targetLabel: "Clean up cache" },
+    { at: 44.0, targetLabel: "Hide message previews", xOffset: -40 },
+    { at: 44.7, targetLabel: "In-app sounds", xOffset: -40 },
+    { at: 47.4, targetLabel: "Two-factor authentication", xOffset: -40 },
+    { at: 48.6, targetLabel: "Encrypted backup" },
+  ];
+  for (const e of tapEvents) {
+    if (t < e.at - 0.05 || t > e.at + 1.0) continue;
+    let foundY: number | null = null;
+    let foundH = 60;
+    for (const b of blocks) {
+      const top = b.yTop!;
+      if (b.kind === "row" && b.data?.label === e.targetLabel) {
+        foundY = top;
+        foundH = b.height;
+        break;
+      }
+      if (b.kind === "storage" && e.targetLabel === "Clean up cache") {
+        foundY = top + 84;
+        foundH = 42;
+        break;
+      }
+    }
+    if (foundY === null) continue;
+    const tapX = SCREEN.x + SCREEN.w + (e.xOffset ?? -120);
+    const tapY = foundY + foundH / 2;
+    drawTouchIndicator(ctx, tapX, tapY, t, e.at, 0.8);
+  }
+}
+
+function drawSettingsBackground(ctx: CanvasRenderingContext2D) {
+  ctx.fillStyle = "#F4FBF1";
+  ctx.fillRect(SCREEN.x, SCREEN.y + STATUS_H, SCREEN.w, SCREEN.h - STATUS_H);
+}
+
+function drawSettingsHeader(ctx: CanvasRenderingContext2D, _t: number) {
+  ctx.fillStyle = "#2E6F40";
+  ctx.fillRect(SCREEN.x, SCREEN.y + STATUS_H, SCREEN.w, HEADER_H);
+
+  const g = ctx.createLinearGradient(
+    0,
+    SCREEN.y + STATUS_H,
+    0,
+    SCREEN.y + STATUS_H + HEADER_H,
+  );
+  g.addColorStop(0, "rgba(255,255,255,0.06)");
+  g.addColorStop(1, "rgba(0,0,0,0.06)");
+  ctx.fillStyle = g;
+  ctx.fillRect(SCREEN.x, SCREEN.y + STATUS_H, SCREEN.w, HEADER_H);
+
+  const ax = SCREEN.x + 32;
+  const ay = SCREEN.y + STATUS_H + HEADER_H / 2 + 4;
+  ctx.strokeStyle = "#FFFFFF";
+  ctx.lineWidth = 3;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.beginPath();
+  ctx.moveTo(ax + 12, ay - 12);
+  ctx.lineTo(ax, ay);
+  ctx.lineTo(ax + 12, ay + 12);
+  ctx.stroke();
+
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = "600 26px Inter, sans-serif";
+  ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
+  ctx.fillText("Settings", ax + 38, ay + 8);
+}
+
+function drawSettingsBody(ctx: CanvasRenderingContext2D, t: number) {
+  const bodyTop = SCREEN.y + STATUS_H + HEADER_H;
+  const bodyBottom = SCREEN.y + SCREEN.h;
+  const x = SCREEN.x;
+  const w = SCREEN.w;
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x, bodyTop, w, bodyBottom - bodyTop);
+  ctx.clip();
+
+  const scroll = getSettingsScroll(t);
+  const blocks = getSettingsBlocks(t);
+
+  // assign Y positions
+  let y = bodyTop - scroll;
+  for (const b of blocks) {
+    b.yTop = y;
+    y += b.height;
+  }
+
+  const cardX = x + 16;
+  const cardW = w - 32;
+
+  // draw card backgrounds for runs of groupable blocks
+  let groupStart: number | null = null;
+  let groupStartY = 0;
+  for (let i = 0; i < blocks.length; i++) {
+    const b = blocks[i]!;
+    const groupable =
+      b.kind === "row" ||
+      b.kind === "storage" ||
+      b.kind === "devices" ||
+      b.kind === "about" ||
+      b.kind === "profile";
+    if (groupable) {
+      if (groupStart === null) {
+        groupStart = i;
+        groupStartY = b.yTop!;
+      }
+    } else if (groupStart !== null) {
+      const last = blocks[i - 1]!;
+      const total = last.yTop! + last.height - groupStartY;
+      ctx.fillStyle = "#FFFFFF";
+      roundRect(ctx, cardX, groupStartY, cardW, total, 18);
+      ctx.fill();
+      groupStart = null;
+    }
+  }
+  if (groupStart !== null) {
+    const last = blocks[blocks.length - 1]!;
+    const total = last.yTop! + last.height - groupStartY;
+    ctx.fillStyle = "#FFFFFF";
+    roundRect(ctx, cardX, groupStartY, cardW, total, 18);
+    ctx.fill();
+  }
+
+  for (const b of blocks) {
+    const by = b.yTop!;
+    if (by + b.height < bodyTop || by > bodyBottom) continue;
+    if (b.kind === "profile") {
+      drawProfileCard(ctx, cardX, by, cardW);
+    } else if (b.kind === "section") {
+      drawSettingsSectionHeader(ctx, x, by, b.data);
+    } else if (b.kind === "row") {
+      drawSettingsRow(
+        ctx,
+        cardX,
+        by,
+        cardW,
+        b.data.label,
+        b.data.meta,
+        b.data.toggle,
+        t,
+        !!b.data.arrow,
+      );
+    } else if (b.kind === "storage") {
+      drawStorageBars(ctx, cardX, by, cardW, t);
+    } else if (b.kind === "devices") {
+      drawDevicesList(ctx, cardX, by, cardW);
+    } else if (b.kind === "about") {
+      ctx.fillStyle = "#253D2C";
+      ctx.font = "600 15px Inter, sans-serif";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      ctx.fillText("VeilChat 2.4.0", cardX + 18, by + 24);
+      ctx.fillStyle = "rgba(46,111,64,0.85)";
+      ctx.font = "500 12px Inter, sans-serif";
+      ctx.fillText(
+        "✓  End-to-end encrypted by default",
+        cardX + 18,
+        by + 50,
+      );
+    }
+  }
+
+  drawSettingsTouches(ctx, t, blocks);
+
+  // toasts
+  if (t >= 43.5 && t <= 45.0) {
+    drawToast(ctx, "Cleaned 5.2 GB of cache", t, 43.5, 1.4);
+  }
+  if (t >= 48.6 && t <= 50.0) {
+    drawToast(ctx, "Backup synced · encrypted", t, 48.6, 1.4);
+  }
+
+  ctx.restore();
+}
+
+function drawSettingsScreen(ctx: CanvasRenderingContext2D, t: number) {
+  drawSettingsBackground(ctx);
+  drawSettingsHeader(ctx, t);
+  drawSettingsBody(ctx, t);
+}
+
+// Soft "press-and-hold" indicator that lands on the m5 bubble before the
+// long-press menu opens.
+function drawLongPressHint(ctx: CanvasRenderingContext2D, t: number) {
+  if (t < TOUCH_HINT.start - 0.05 || t > TOUCH_HINT.end + 0.2) return;
+  if (!m5Bbox) return;
+  const local = (t - TOUCH_HINT.start) / (TOUCH_HINT.end - TOUCH_HINT.start);
+  const cx = m5Bbox.x + m5Bbox.w / 2;
+  const cy = m5Bbox.y + m5Bbox.h / 2;
+  // press-and-hold: a steady ring that fills, then releases into the menu
+  ctx.save();
+  ctx.globalAlpha = clamp01(1 - Math.max(0, local - 0.85) / 0.15);
+  // soft hand glow under bubble
+  const r = 36 + easeOut(clamp01(local * 1.4)) * 26;
+  ctx.fillStyle = "rgba(46,111,64,0.18)";
+  ctx.beginPath();
+  ctx.arc(cx, cy, r + 4, 0, Math.PI * 2);
+  ctx.fill();
+  // arc that fills clockwise
+  ctx.strokeStyle = "rgba(46,111,64,0.85)";
+  ctx.lineWidth = 3;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.arc(cx, cy, r + 6, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * clamp01(local));
+  ctx.stroke();
+  // central dot
+  ctx.fillStyle = "rgba(255,255,255,0.95)";
+  ctx.beginPath();
+  ctx.arc(cx, cy, 9, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#2E6F40";
+  ctx.beginPath();
+  ctx.arc(cx, cy, 5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+// Unsend overlay: pixel particles flying out of the m5 bubble + toast pill
+function drawUnsendOverlay(ctx: CanvasRenderingContext2D, t: number) {
+  if (t < UNSEND_ACTION.start - 0.05 || t > UNSEND_ACTION.end + 0.4) return;
+  if (m5Bbox) {
+    drawUnsendParticles(
+      ctx,
+      m5Bbox.x,
+      m5Bbox.y,
+      m5Bbox.w,
+      m5Bbox.h,
+      t,
+      UNSEND_ACTION.start,
+    );
+  }
+  if (t >= UNSEND_ACTION.start + 0.2) {
+    drawToast(ctx, "Message unsent", t, UNSEND_ACTION.start + 0.2, 1.4);
+  }
+}
+
+// Schedule confirm toast — short pill above the input
+function drawScheduleConfirmToast(ctx: CanvasRenderingContext2D, t: number) {
+  if (t < SCHEDULED_PILL.start - 0.05 || t > SCHEDULED_PILL.start + 1.6) return;
+  drawToast(ctx, "Scheduled · Tomorrow 9:00 AM", t, SCHEDULED_PILL.start, 1.4);
+}
+
 /* ───────────────────────── full frame ───────────────────────── */
 
 function drawFrame(ctx: CanvasRenderingContext2D, t: number) {
@@ -2170,12 +3584,36 @@ function drawFrame(ctx: CanvasRenderingContext2D, t: number) {
     }
   }
 
-  /* — phone + chat — */
+  /* — phone + chat + settings — */
   if (t >= PHONE_IN.start && t <= OUTRO.start + 0.6) {
     const rise = clamp01((t - PHONE_IN.start) / 0.7);
     const fadeOut = 1 - clamp01((t - OUTRO.start) / 0.5);
     const alpha = easeOut(rise) * fadeOut;
     const ty = (1 - easeOut(rise)) * 100;
+
+    // Compute chat ↔ settings slide offsets
+    let chatX = 0;
+    let settingsX = SCREEN.w;
+    let drawChat = true;
+    let drawSettings = false;
+
+    if (t >= SETTINGS_TRANSITION.start && t < SETTINGS_TRANSITION.end) {
+      const range = SETTINGS_TRANSITION.end - SETTINGS_TRANSITION.start;
+      const p = easeInOut(clamp01((t - SETTINGS_TRANSITION.start) / range));
+      chatX = -SCREEN.w * p;
+      settingsX = SCREEN.w * (1 - p);
+      drawSettings = true;
+    } else if (t >= SETTINGS_TRANSITION.end && t < SETTINGS_BACK.start) {
+      drawChat = false;
+      settingsX = 0;
+      drawSettings = true;
+    } else if (t >= SETTINGS_BACK.start && t < SETTINGS_BACK.end) {
+      const range = SETTINGS_BACK.end - SETTINGS_BACK.start;
+      const p = easeInOut(clamp01((t - SETTINGS_BACK.start) / range));
+      settingsX = SCREEN.w * p;
+      chatX = -SCREEN.w * (1 - p);
+      drawSettings = true;
+    }
 
     ctx.save();
     ctx.globalAlpha = alpha;
@@ -2183,9 +3621,50 @@ function drawFrame(ctx: CanvasRenderingContext2D, t: number) {
     drawPhoneBody(ctx);
     drawNotch(ctx);
     drawStatusBar(ctx, t);
-    drawHeader(ctx, t);
-    drawConversation(ctx, t);
-    drawInputBar(ctx, t);
+
+    // Clip everything inside the screen so slide transitions look clean
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(SCREEN.x, SCREEN.y + STATUS_H, SCREEN.w, SCREEN.h - STATUS_H);
+    ctx.clip();
+
+    if (drawChat) {
+      ctx.save();
+      ctx.translate(chatX, 0);
+      drawHeader(ctx, t);
+      drawConversation(ctx, t);
+      drawScheduledBubble(ctx, t);
+      drawInputBar(ctx, t);
+      // Chat-only overlays (only when chat is the focal scene)
+      if (chatX === 0) {
+        // Dim the background while modal-style overlays are open
+        if (
+          (t >= LONG_PRESS.start && t < LONG_PRESS.end + 0.3) ||
+          (t >= ATTACHMENT_MENU.start && t < ATTACHMENT_MENU.end + 0.2) ||
+          (t >= SCHEDULE_PICKER.start && t < SCHEDULE_PICKER.end + 0.2) ||
+          (t >= HEADER_MENU.start && t < HEADER_MENU.end + 0.2)
+        ) {
+          drawChatDim(ctx, t);
+        }
+        drawLongPressHint(ctx, t);
+        drawLongPressMenu(ctx, t);
+        drawUnsendOverlay(ctx, t);
+        drawAttachmentMenu(ctx, t);
+        drawSchedulePicker(ctx, t);
+        drawScheduleConfirmToast(ctx, t);
+        drawHeaderMenuDropdown(ctx, t);
+      }
+      ctx.restore();
+    }
+
+    if (drawSettings) {
+      ctx.save();
+      ctx.translate(settingsX, 0);
+      drawSettingsScreen(ctx, t);
+      ctx.restore();
+    }
+
+    ctx.restore(); // screen clip
     ctx.restore();
   }
 
@@ -2656,6 +4135,115 @@ function scheduleTimelineAudio(engine: AudioEngine, audioStart: number) {
     0.005,
   );
 
+  // ── product-tour cues ──────────────────────────────────────────
+  // press-and-hold ramp under the ring fill
+  engine.envOsc(
+    "sine",
+    (osc, t0) => {
+      osc.frequency.setValueAtTime(220, t0);
+      osc.frequency.exponentialRampToValueAtTime(520, t0 + 0.9);
+    },
+    audioStart + TOUCH_HINT.start + 0.05,
+    0.95,
+    0.06,
+    0.02,
+  );
+  // long-press menu pop
+  engine.envOsc("triangle", 720, audioStart + LONG_PRESS.start, 0.12, 0.18, 0.003);
+  engine.envOsc("sine", 360, audioStart + LONG_PRESS.start + 0.02, 0.18, 0.12, 0.005);
+  // tap on the "Unsend" row (just before the unsend animation kicks)
+  engine.playTick(audioStart + UNSEND_ACTION.start - 0.05);
+  // unsend swoosh: pixel-dust scatter
+  engine.envOsc(
+    "sine",
+    (osc, t0) => {
+      osc.frequency.setValueAtTime(900, t0);
+      osc.frequency.exponentialRampToValueAtTime(220, t0 + 0.55);
+    },
+    audioStart + UNSEND_ACTION.start,
+    0.6,
+    0.16,
+    0.01,
+  );
+  engine.playSparkle(audioStart + UNSEND_ACTION.start + 0.05);
+
+  // hint touch on attachment "+" button
+  engine.playTick(audioStart + COMPOSE_HINT.start + 0.4);
+  // attachment menu slide-up pop
+  engine.envOsc("sine", 280, audioStart + ATTACHMENT_MENU.start, 0.22, 0.16, 0.01);
+  engine.envOsc("triangle", 640, audioStart + ATTACHMENT_MENU.start + 0.02, 0.14, 0.12, 0.003);
+  // tap on Schedule chip
+  engine.playTick(audioStart + ATTACHMENT_MENU.start + 0.9);
+  // schedule modal whoosh
+  engine.envOsc(
+    "sine",
+    (osc, t0) => {
+      osc.frequency.setValueAtTime(160, t0);
+      osc.frequency.exponentialRampToValueAtTime(380, t0 + 0.45);
+    },
+    audioStart + SCHEDULE_PICKER.start,
+    0.5,
+    0.16,
+    0.04,
+  );
+  // soft wheel/chip ticks while scrubbing the picker
+  for (let i = 0; i < 5; i++) {
+    engine.playTypeClick(audioStart + SCHEDULE_PICKER.start + 0.55 + i * 0.18);
+  }
+  // schedule confirm chime
+  engine.envOsc("sine", 880, audioStart + SCHEDULED_PILL.start, 0.18, 0.16, 0.01);
+  engine.envOsc("sine", 1320, audioStart + SCHEDULED_PILL.start + 0.06, 0.32, 0.13, 0.02);
+  engine.playSparkle(audioStart + SCHEDULED_PILL.start + 0.04);
+
+  // header 3-dot menu pop, then tap on Settings row
+  engine.envOsc("triangle", 760, audioStart + HEADER_MENU.start, 0.1, 0.15, 0.003);
+  engine.envOsc("sine", 380, audioStart + HEADER_MENU.start + 0.02, 0.16, 0.1, 0.005);
+  engine.playTick(audioStart + HEADER_MENU.start + 0.7);
+
+  // settings whoosh: chat slides off, settings slides in
+  engine.envOsc(
+    "sine",
+    (osc, t0) => {
+      osc.frequency.setValueAtTime(140, t0);
+      osc.frequency.exponentialRampToValueAtTime(420, t0 + 0.6);
+    },
+    audioStart + SETTINGS_TRANSITION.start,
+    0.7,
+    0.16,
+    0.05,
+  );
+
+  // toggle clicks at the toggle keyframes (matches drawSettings interactions)
+  for (const tt of TOGGLE_TIMELINE) {
+    const next = !tt.initial;
+    engine.envOsc("square", 1500, audioStart + tt.flipAt, 0.04, 0.18, 0.001);
+    engine.envOsc(
+      "triangle",
+      next ? 1100 : 700,
+      audioStart + tt.flipAt + 0.01,
+      0.06,
+      0.12,
+      0.002,
+    );
+  }
+  // storage cleanup ding when the bar progress completes
+  engine.envOsc("sine", 980, audioStart + 43.6, 0.18, 0.16, 0.02);
+  engine.envOsc("sine", 1320, audioStart + 43.7, 0.32, 0.13, 0.02);
+  engine.playSparkle(audioStart + 43.65);
+
+  // settings-back whoosh
+  engine.envOsc(
+    "sine",
+    (osc, t0) => {
+      osc.frequency.setValueAtTime(420, t0);
+      osc.frequency.exponentialRampToValueAtTime(140, t0 + 0.6);
+    },
+    audioStart + SETTINGS_BACK.start,
+    0.7,
+    0.14,
+    0.05,
+  );
+
   // outro chime + sparkles
   engine.playOutroChime(audioStart + OUTRO.start + 0.3);
   for (let i = 0; i < 4; i++) {
@@ -2905,10 +4493,12 @@ export function IntroAdSection() {
             </span>
           </h2>
           <p className="mt-4 text-[16px] sm:text-[18px] text-[#3C5A47] max-w-2xl mx-auto leading-[1.55]">
-            Watch a 25-second cinematic story of a confidential exchange
-            on VeilChat — identity-scanned, vault-sealed, voice on the
-            wire, screenshots blocked, a self-destructing photo that
-            burns into pixel-dust, notes that vanish in 24 hours.
+            Watch a 60-second cinematic product tour of VeilChat —
+            identity-scanned and vault-sealed, with voice on the wire,
+            screenshots blocked, a self-destructing photo that burns
+            into pixel-dust, notes that vanish in 24 hours, a long-press
+            unsend, scheduled messages, and a guided walk through the
+            settings panel.
             Generated fresh on your device with a custom soundtrack,
             ready to download as a real video file with sound.
           </p>
@@ -2998,6 +4588,15 @@ export function IntroAdSection() {
                 "Voice on the wire",
                 "Screenshot blocked",
                 "Heartbeat secure",
+                "Long-press menu",
+                "Unsend animation",
+                "Attachment grid",
+                "Schedule picker",
+                "Scheduled bubble",
+                "Settings tour",
+                "Animated toggles",
+                "Storage cleanup",
+                "Linked devices",
                 "Brand soundtrack",
               ].map((chip) => (
                 <span
@@ -3021,7 +4620,7 @@ export function IntroAdSection() {
             <p className="mt-2 text-[15px] sm:text-[16px] text-[#3C5A47] leading-relaxed">
               Every frame is rendered fresh on your device, so the file
               you download is brand-new — no servers, no watermarks. A
-              cinematic 25-second story of privacy, ready for your reels,
+              cinematic 60-second product tour of privacy, ready for your reels,
               your pitch, or your own site.
             </p>
 
@@ -3139,7 +4738,7 @@ export function IntroAdSection() {
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
                 </span>
                 Disappearing-message countdown, voice-recording UI,
-                read receipts and a verified ✓ on Alex.
+                read receipts and a verified ✓ on Maya.
               </li>
               <li className="flex items-start gap-2.5">
                 <span className="grid place-items-center w-5 h-5 rounded-full bg-[#CFFFDC] text-[#2E6F40] mt-0.5">
