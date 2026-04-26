@@ -380,16 +380,42 @@ One-shot responsive sweep (no redesign, no removed features) so the existing UI 
 - User manages their own database (Neon) and all third-party API keys; will store them in `.env` files. Do not provision external services for them or use platform-managed keys.
 - Build phase-by-phase per the plan in `attached_assets/Pasted-Veil-Complete-Finalized-Plan-Summary-...txt`.
 
-## Long-form explainer video showcase (Apr 2026)
+## Long-form explainer video — generated live (Apr 2026)
 
-New **Watch the explainer** section on the landing page, inserted between `<Features />` and `<DeviceShowcase />` in `apps/client/src/pages/LandingPage.tsx` (component `VideoShowcase`, anchor `#watch`).
+New **Watch the explainer** section on the landing page, inserted between `<Features />` and `<DeviceShowcase />` in `apps/client/src/pages/LandingPage.tsx` (component `<ExplainerVideo />` from `apps/client/src/components/ExplainerVideo.tsx`, anchor `#watch`).
 
-- Premium 16:9 video frame: dark-green chrome with macOS-style dots, soft ambient backdrop using brand greens (#CFFFDC + #68BA7F glows on cream).
-- Until the user clicks play, a custom poster is shown — gradient, decorative SVG pattern, big white play button, "6 minutes · Full product walkthrough · With voiceover" caption. On click, the real `<video>` fades in and starts playing. If the file is missing, the poster swaps to a graceful "Video coming soon — script available below" state.
-- 8-chapter scrubber grid (cold open → CTA) with active-chapter highlight (white card → dark-green pill) that auto-syncs to the video's `currentTime`. Click any chapter to seek and play.
-- Two download buttons: green-gradient pill **Download video (MP4)** → `/videos/veilchat-explainer.mp4`, and frosted-white pill **Download script** → `/docs/veilchat-explainer-script.md`.
-- Full ~6:20-minute narration script written and saved to `apps/client/public/docs/veilchat-explainer-script.md` (8 chapters with cue sheet, voiceover direction, music notes, production checklist, ~1,150 words).
-- Drop-in path for the user's final film: `apps/client/public/videos/veilchat-explainer.mp4` (optional poster: `veilchat-explainer-poster.jpg`).
-- This is intentionally separate from the existing `<IntroAdSection />` (which is the canvas-rendered 60-second built-in product tour with sound).
+This is a real, full 5-minute (300 s) animated explainer video — typography-driven motion graphics, drawn live to a 1280×720 landscape `<canvas>` at 30 fps, with a synchronised Web Audio score (long ambient pad in G major + per-chapter chimes + glints/heartbeats/lock-clicks). The user can press **Play** to watch it inline or **Record** to capture it via `MediaRecorder` (canvas.captureStream + audio destination stream) into a real downloadable `.mp4` (or `.webm` fallback) file with sound.
+
+Architecture mirrors the existing `<IntroAdSection />` (the 60-second product tour) but at landscape 16:9, ~5×longer, and explainer-style instead of chat illustration. No celebrity, no avatar, no human face.
+
+Seven chapters (`CHAPTERS` const drives both visuals and audio):
+
+1. `0:00–0:25` Cold open — pulsing lock that morphs into a chat bubble.
+2. `0:25–1:00` The privacy problem — three "App A/B/C" tiles emit warm metadata-leak tags; reveal of the giant **METADATA** word.
+3. `1:00–1:30` Introducing VeilChat — logo lifts in, wordmark + tagline + three brand chips.
+4. `1:30–3:15` Core features — six animated feature beats (E2EE / no phone # / disappearing / verified / groups & calls / cross-device PWA), each with custom icon + slide-from-alternating-side card.
+5. `3:15–4:10` How it works — phone → server → phone diagram with a sealed packet flying across, "unreadable here" beat at the server, plus three takeaway tiles (keys local, forward secrecy, peer-to-peer calls).
+6. `4:10–4:40` Honest analysis — two-column "What works well" vs "Still building" cards.
+7. `4:40–5:00` Get VeilChat — logo + tagline + URL pill + outro chime.
+
+Persistent layers across every frame:
+
+- Cream→ivory vertical gradient with three drifting radial glows (PALE / ACCENT / warm cream).
+- Subtle dot grid + 14 ambient floating motes — keeps captured frames alive (no frozen-poster look).
+- Top-left chapter chip with mini circular progress arc.
+- Bottom-right brand watermark with breathing alpha.
+
+Player UI:
+
+- 8-column canvas (responsive via `aspect-ratio`), big play overlay before first play, mute toggle, time / total readout, progress bar.
+- Three buttons: **Play preview** / **Record video file (with sound)** / **Download .mp4** (appears once recording is finished).
+- Live chapter sidebar (right column, becomes top on mobile via `order` swap) — current chapter highlights as the playhead advances.
+- **Download the full narration script** link → `/docs/veilchat-explainer-script.md`.
+- Browser-support detection via `pickRecordingFormat()` (tries mp4/h264 → webm/vp9 → webm/vp8 → webm) with graceful degradation message.
+- Recording bitrate: 3.5 Mbps video / 128 kbps audio → ~150 MB final file for the 5-min capture.
+
+The narration script remains at `apps/client/public/docs/veilchat-explainer-script.md` (8 chapters, ~1,150 words, with cue sheet — slightly longer than the rendered video; both work standalone).
+
+The old placeholder `VideoShowcase` component plus its constants (`VIDEO_SRC`, `VIDEO_POSTER`, `SCRIPT_SRC`, `VIDEO_CHAPTERS`, `Chapter` type) were removed from `LandingPage.tsx`. The `apps/client/public/videos/` directory is empty and no longer referenced.
 
 `pnpm --filter @veil/client typecheck` is green.
