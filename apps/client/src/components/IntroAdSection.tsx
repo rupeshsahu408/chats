@@ -57,29 +57,15 @@ import { useCallback, useEffect, useRef, useState } from "react";
  *  50.0 – 50.8s  Tap back → settings slides off, chat slides back in
  *  50.8 – 56.2s  Open-source proof: GitHub mark, AGPL-3.0, repo URL
  *  56.2 – 62.0s  Outro: logo zoom, tagline, CTA pill, drifting particles
- *
- * Real playback time is `DURATION_SEC / SPEED` ≈ 38.75 s with the
- * default SPEED of 1.6 — every beat above is timeline seconds, not
- * wall-clock seconds.
  */
 
 const VIDEO_W = 720;
 const VIDEO_H = 1280;
 const FPS = 30;
-/**
- * Playback speed multiplier. Visuals advance at SPEED× of real time, and
- * audio offsets are scaled by 1/SPEED inside `scheduleTimelineAudio` so
- * the soundtrack stays glued to the visuals. The whole timeline finishes
- * in `DURATION_SEC / SPEED` real seconds.
- *
- * SPEED was bumped from 1.0 → 1.6 to make the scenes change snappier —
- * no script lingers for half a minute waiting for the next beat. Audio
- * sound-effect *durations* (lock click, photo burn, etc.) stay at their
- * natural length so nothing sounds chipmunked.
- */
-const SPEED = 1.6;
+// 62 s timeline (was 60 s) — bumped by 2 s to make room for the new
+// open-source proof scene that sits between the settings tour and the
+// outro. Visuals run at real time (no speed multiplier on this player).
 const DURATION_SEC = 62;
-const REAL_DURATION_SEC = DURATION_SEC / SPEED;
 
 /* ───────────────────────── timeline ───────────────────────── */
 
@@ -4366,21 +4352,16 @@ class AudioEngine {
 }
 
 function scheduleTimelineAudio(engine: AudioEngine, audioStart: number) {
-  // Convert a *timeline* offset (in seconds, the same units used by the
-  // visual scene constants) into a real audio-clock time. SPEED > 1
-  // means visuals are sped up, so audio must fire that much sooner too.
-  const at = (offset: number) => audioStart + offset / SPEED;
-
   // ambient pad through the whole piece
-  engine.playAmbientPad(at(0.0), at(DURATION_SEC - 0.2));
+  engine.playAmbientPad(audioStart + 0.0, audioStart + DURATION_SEC - 0.2);
 
   // auth scan
-  engine.playAuthSweep(at(AUTH_SCAN.start + 0.05));
-  engine.playAuthConfirm(at(AUTH_SCAN.start + 0.78));
+  engine.playAuthSweep(audioStart + AUTH_SCAN.start + 0.05);
+  engine.playAuthConfirm(audioStart + AUTH_SCAN.start + 0.78);
 
   // intro logo shimmer
-  engine.playReaction(at(INTRO.start + 0.2));
-  engine.playSparkle(at(INTRO.start + 0.6));
+  engine.playReaction(audioStart + INTRO.start + 0.2);
+  engine.playSparkle(audioStart + INTRO.start + 0.6);
 
   // phone whoosh
   engine.envOsc(
@@ -4389,7 +4370,7 @@ function scheduleTimelineAudio(engine: AudioEngine, audioStart: number) {
       osc.frequency.setValueAtTime(180, t);
       osc.frequency.exponentialRampToValueAtTime(60, t + 0.5);
     },
-    at(PHONE_IN.start),
+    audioStart + PHONE_IN.start,
     0.55,
     0.18,
     0.05,
@@ -4402,7 +4383,7 @@ function scheduleTimelineAudio(engine: AudioEngine, audioStart: number) {
     const count = Math.max(5, Math.floor(dur / 0.15));
     for (let i = 0; i < count; i++) {
       const when =
-        at(e.start + (i / count) * dur) + Math.random() * 0.04;
+        audioStart + e.start + (i / count) * dur + Math.random() * 0.04;
       engine.playTypeClick(when);
     }
   }
@@ -4414,13 +4395,13 @@ function scheduleTimelineAudio(engine: AudioEngine, audioStart: number) {
       // Photo bubbles use the unlock + burn sounds rather than the
       // generic shimmer, but still get a soft receive ding on arrival.
       if (e.variant !== "photo") {
-        engine.playShimmer(at(e.at - 0.05));
+        engine.playShimmer(audioStart + e.at - 0.05);
       }
-      engine.playReceive(at(e.at));
+      engine.playReceive(audioStart + e.at);
     } else {
-      engine.playSend(at(e.at));
-      engine.playShimmer(at(e.at + 0.02));
-      engine.playLockClick(at(e.at + 0.32)); // seal closes
+      engine.playSend(audioStart + e.at);
+      engine.playShimmer(audioStart + e.at + 0.02);
+      engine.playLockClick(audioStart + e.at + 0.32); // seal closes
     }
   }
 
@@ -4428,31 +4409,31 @@ function scheduleTimelineAudio(engine: AudioEngine, audioStart: number) {
   for (const e of EVENTS) {
     if (e.kind !== "message" || e.variant !== "photo") continue;
     if (e.unlockAt !== undefined) {
-      engine.playLockClick(at(e.unlockAt));
-      engine.playShimmer(at(e.unlockAt + 0.05));
+      engine.playLockClick(audioStart + e.unlockAt);
+      engine.playShimmer(audioStart + e.unlockAt + 0.05);
     }
     if (e.burnAt !== undefined) {
-      engine.playPhotoBurn(at(e.burnAt), e.burnDuration ?? 1);
+      engine.playPhotoBurn(audioStart + e.burnAt, e.burnDuration ?? 1);
     }
   }
 
   // tick clicks
   for (const e of EVENTS) {
-    if (e.kind === "tick") engine.playTick(at(e.at));
+    if (e.kind === "tick") engine.playTick(audioStart + e.at);
   }
 
   // reactions
   for (const e of EVENTS) {
-    if (e.kind === "reaction") engine.playReaction(at(e.at));
+    if (e.kind === "reaction") engine.playReaction(audioStart + e.at);
   }
 
   // encryption highlight: heartbeat pulses + low chime
-  engine.playHeartbeat(at(ENCRYPTION_HIGHLIGHT.start + 0.2));
-  engine.playHeartbeat(at(ENCRYPTION_HIGHLIGHT.start + 1.2));
+  engine.playHeartbeat(audioStart + ENCRYPTION_HIGHLIGHT.start + 0.2);
+  engine.playHeartbeat(audioStart + ENCRYPTION_HIGHLIGHT.start + 1.2);
   engine.envOsc(
     "sine",
     1320,
-    at(ENCRYPTION_HIGHLIGHT.start + 0.4),
+    audioStart + ENCRYPTION_HIGHLIGHT.start + 0.4,
     0.45,
     0.13,
     0.04,
@@ -4465,7 +4446,7 @@ function scheduleTimelineAudio(engine: AudioEngine, audioStart: number) {
       osc.frequency.setValueAtTime(880, t);
       osc.frequency.exponentialRampToValueAtTime(440, t + 0.18);
     },
-    at(SCREENSHOT_BANNER.start + 0.05),
+    audioStart + SCREENSHOT_BANNER.start + 0.05,
     0.25,
     0.16,
     0.005,
@@ -4479,16 +4460,16 @@ function scheduleTimelineAudio(engine: AudioEngine, audioStart: number) {
       osc.frequency.setValueAtTime(220, t0);
       osc.frequency.exponentialRampToValueAtTime(520, t0 + 0.9);
     },
-    at(TOUCH_HINT.start + 0.05),
+    audioStart + TOUCH_HINT.start + 0.05,
     0.95,
     0.06,
     0.02,
   );
   // long-press menu pop
-  engine.envOsc("triangle", 720, at(LONG_PRESS.start), 0.12, 0.18, 0.003);
-  engine.envOsc("sine", 360, at(LONG_PRESS.start + 0.02), 0.18, 0.12, 0.005);
+  engine.envOsc("triangle", 720, audioStart + LONG_PRESS.start, 0.12, 0.18, 0.003);
+  engine.envOsc("sine", 360, audioStart + LONG_PRESS.start + 0.02, 0.18, 0.12, 0.005);
   // tap on the "Unsend" row (just before the unsend animation kicks)
-  engine.playTick(at(UNSEND_ACTION.start - 0.05));
+  engine.playTick(audioStart + UNSEND_ACTION.start - 0.05);
   // unsend swoosh: pixel-dust scatter
   engine.envOsc(
     "sine",
@@ -4496,20 +4477,20 @@ function scheduleTimelineAudio(engine: AudioEngine, audioStart: number) {
       osc.frequency.setValueAtTime(900, t0);
       osc.frequency.exponentialRampToValueAtTime(220, t0 + 0.55);
     },
-    at(UNSEND_ACTION.start),
+    audioStart + UNSEND_ACTION.start,
     0.6,
     0.16,
     0.01,
   );
-  engine.playSparkle(at(UNSEND_ACTION.start + 0.05));
+  engine.playSparkle(audioStart + UNSEND_ACTION.start + 0.05);
 
   // hint touch on attachment "+" button
-  engine.playTick(at(COMPOSE_HINT.start + 0.4));
+  engine.playTick(audioStart + COMPOSE_HINT.start + 0.4);
   // attachment menu slide-up pop
-  engine.envOsc("sine", 280, at(ATTACHMENT_MENU.start), 0.22, 0.16, 0.01);
-  engine.envOsc("triangle", 640, at(ATTACHMENT_MENU.start + 0.02), 0.14, 0.12, 0.003);
+  engine.envOsc("sine", 280, audioStart + ATTACHMENT_MENU.start, 0.22, 0.16, 0.01);
+  engine.envOsc("triangle", 640, audioStart + ATTACHMENT_MENU.start + 0.02, 0.14, 0.12, 0.003);
   // tap on Schedule chip
-  engine.playTick(at(ATTACHMENT_MENU.start + 0.9));
+  engine.playTick(audioStart + ATTACHMENT_MENU.start + 0.9);
   // schedule modal whoosh
   engine.envOsc(
     "sine",
@@ -4517,24 +4498,24 @@ function scheduleTimelineAudio(engine: AudioEngine, audioStart: number) {
       osc.frequency.setValueAtTime(160, t0);
       osc.frequency.exponentialRampToValueAtTime(380, t0 + 0.45);
     },
-    at(SCHEDULE_PICKER.start),
+    audioStart + SCHEDULE_PICKER.start,
     0.5,
     0.16,
     0.04,
   );
   // soft wheel/chip ticks while scrubbing the picker
   for (let i = 0; i < 5; i++) {
-    engine.playTypeClick(at(SCHEDULE_PICKER.start + 0.55 + i * 0.18));
+    engine.playTypeClick(audioStart + SCHEDULE_PICKER.start + 0.55 + i * 0.18);
   }
   // schedule confirm chime
-  engine.envOsc("sine", 880, at(SCHEDULED_PILL.start), 0.18, 0.16, 0.01);
-  engine.envOsc("sine", 1320, at(SCHEDULED_PILL.start + 0.06), 0.32, 0.13, 0.02);
-  engine.playSparkle(at(SCHEDULED_PILL.start + 0.04));
+  engine.envOsc("sine", 880, audioStart + SCHEDULED_PILL.start, 0.18, 0.16, 0.01);
+  engine.envOsc("sine", 1320, audioStart + SCHEDULED_PILL.start + 0.06, 0.32, 0.13, 0.02);
+  engine.playSparkle(audioStart + SCHEDULED_PILL.start + 0.04);
 
   // header 3-dot menu pop, then tap on Settings row
-  engine.envOsc("triangle", 760, at(HEADER_MENU.start), 0.1, 0.15, 0.003);
-  engine.envOsc("sine", 380, at(HEADER_MENU.start + 0.02), 0.16, 0.1, 0.005);
-  engine.playTick(at(HEADER_MENU.start + 0.7));
+  engine.envOsc("triangle", 760, audioStart + HEADER_MENU.start, 0.1, 0.15, 0.003);
+  engine.envOsc("sine", 380, audioStart + HEADER_MENU.start + 0.02, 0.16, 0.1, 0.005);
+  engine.playTick(audioStart + HEADER_MENU.start + 0.7);
 
   // settings whoosh: chat slides off, settings slides in
   engine.envOsc(
@@ -4543,7 +4524,7 @@ function scheduleTimelineAudio(engine: AudioEngine, audioStart: number) {
       osc.frequency.setValueAtTime(140, t0);
       osc.frequency.exponentialRampToValueAtTime(420, t0 + 0.6);
     },
-    at(SETTINGS_TRANSITION.start),
+    audioStart + SETTINGS_TRANSITION.start,
     0.7,
     0.16,
     0.05,
@@ -4552,20 +4533,20 @@ function scheduleTimelineAudio(engine: AudioEngine, audioStart: number) {
   // toggle clicks at the toggle keyframes (matches drawSettings interactions)
   for (const tt of TOGGLE_TIMELINE) {
     const next = !tt.initial;
-    engine.envOsc("square", 1500, at(tt.flipAt), 0.04, 0.18, 0.001);
+    engine.envOsc("square", 1500, audioStart + tt.flipAt, 0.04, 0.18, 0.001);
     engine.envOsc(
       "triangle",
       next ? 1100 : 700,
-      at(tt.flipAt + 0.01),
+      audioStart + tt.flipAt + 0.01,
       0.06,
       0.12,
       0.002,
     );
   }
   // storage cleanup ding when the bar progress completes
-  engine.envOsc("sine", 980, at(43.6), 0.18, 0.16, 0.02);
-  engine.envOsc("sine", 1320, at(43.7), 0.32, 0.13, 0.02);
-  engine.playSparkle(at(43.65));
+  engine.envOsc("sine", 980, audioStart + 43.6, 0.18, 0.16, 0.02);
+  engine.envOsc("sine", 1320, audioStart + 43.7, 0.32, 0.13, 0.02);
+  engine.playSparkle(audioStart + 43.65);
 
   // settings-back whoosh
   engine.envOsc(
@@ -4574,7 +4555,7 @@ function scheduleTimelineAudio(engine: AudioEngine, audioStart: number) {
       osc.frequency.setValueAtTime(420, t0);
       osc.frequency.exponentialRampToValueAtTime(140, t0 + 0.6);
     },
-    at(SETTINGS_BACK.start),
+    audioStart + SETTINGS_BACK.start,
     0.7,
     0.14,
     0.05,
@@ -4588,27 +4569,27 @@ function scheduleTimelineAudio(engine: AudioEngine, audioStart: number) {
       osc.frequency.setValueAtTime(220, t0);
       osc.frequency.exponentialRampToValueAtTime(660, t0 + 0.5);
     },
-    at(OPEN_SOURCE.start + 0.15),
+    audioStart + OPEN_SOURCE.start + 0.15,
     0.55,
     0.10,
     0.03,
   );
   // Sparkle as the headline types in.
-  engine.playSparkle(at(OPEN_SOURCE.start + 0.55));
+  engine.playSparkle(audioStart + OPEN_SOURCE.start + 0.55);
   // AGPL chip + repo pill chime.
-  engine.envOsc("sine", 880, at(OPEN_SOURCE.start + 1.4), 0.18, 0.13, 0.01);
-  engine.envOsc("sine", 1320, at(OPEN_SOURCE.start + 1.46), 0.28, 0.10, 0.02);
+  engine.envOsc("sine", 880, audioStart + OPEN_SOURCE.start + 1.4, 0.18, 0.13, 0.01);
+  engine.envOsc("sine", 1320, audioStart + OPEN_SOURCE.start + 1.46, 0.28, 0.10, 0.02);
   // Three quick chip ticks as the proof chips slide in.
-  engine.playTypeClick(at(OPEN_SOURCE.start + 2.20));
-  engine.playTypeClick(at(OPEN_SOURCE.start + 2.55));
-  engine.playTypeClick(at(OPEN_SOURCE.start + 2.90));
+  engine.playTypeClick(audioStart + OPEN_SOURCE.start + 2.20);
+  engine.playTypeClick(audioStart + OPEN_SOURCE.start + 2.55);
+  engine.playTypeClick(audioStart + OPEN_SOURCE.start + 2.90);
   // Soft confirming chime when the footer line lands.
-  engine.envOsc("sine", 660, at(OPEN_SOURCE.start + 3.4), 0.32, 0.10, 0.04);
+  engine.envOsc("sine", 660, audioStart + OPEN_SOURCE.start + 3.4, 0.32, 0.10, 0.04);
 
   // outro chime + sparkles
-  engine.playOutroChime(at(OUTRO.start + 0.3));
+  engine.playOutroChime(audioStart + OUTRO.start + 0.3);
   for (let i = 0; i < 4; i++) {
-    engine.playSparkle(at(OUTRO.start + 0.6 + i * 0.7));
+    engine.playSparkle(audioStart + OUTRO.start + 0.6 + i * 0.7);
   }
 }
 
@@ -4689,13 +4670,10 @@ export function IntroAdSection() {
 
     const start = performance.now();
     const tick = () => {
-      const tReal = (performance.now() - start) / 1000;
-      // Visuals advance at SPEED× of real time so the timeline finishes
-      // in REAL_DURATION_SEC wall-clock seconds.
-      const t = Math.min(tReal * SPEED, DURATION_SEC);
-      drawFrame(ctx, t);
-      setProgress(clamp01(tReal / REAL_DURATION_SEC));
-      if (tReal < REAL_DURATION_SEC) {
+      const t = (performance.now() - start) / 1000;
+      drawFrame(ctx, Math.min(t, DURATION_SEC));
+      setProgress(clamp01(t / DURATION_SEC));
+      if (t < DURATION_SEC) {
         rafRef.current = requestAnimationFrame(tick);
       } else {
         rafRef.current = null;
@@ -4842,7 +4820,7 @@ export function IntroAdSection() {
       <div className="mx-auto max-w-6xl">
         <div className="text-center mb-12 sm:mb-16">
           <div className="inline-flex items-center gap-2 text-[12px] font-semibold tracking-wide uppercase text-[#2E6F40] bg-[#CFFFDC] border border-[#68BA7F]/40 rounded-full px-3 py-1.5">
-            New · Vault-grade intro · ~{Math.round(REAL_DURATION_SEC)}s with sound
+            New · Vault-grade intro · 25s with sound
           </div>
           <h2
             className="mt-5 text-[32px] sm:text-[42px] md:text-[52px] font-semibold tracking-[-0.02em] leading-[1.05] text-[#253D2C]"
@@ -4857,7 +4835,7 @@ export function IntroAdSection() {
             </span>
           </h2>
           <p className="mt-4 text-[16px] sm:text-[18px] text-[#3C5A47] max-w-2xl mx-auto leading-[1.55]">
-            Watch a snappy ~{Math.round(REAL_DURATION_SEC)}-second cinematic product tour of VeilChat —
+            Watch a 60-second cinematic product tour of VeilChat —
             identity-scanned and vault-sealed, with voice on the wire,
             screenshots blocked, a self-destructing photo that burns
             into pixel-dust, notes that vanish in 24 hours, a long-press
@@ -4987,7 +4965,7 @@ export function IntroAdSection() {
             <p className="mt-2 text-[15px] sm:text-[16px] text-[#3C5A47] leading-relaxed">
               Every frame is rendered fresh on your device, so the file
               you download is brand-new — no servers, no watermarks. A
-              brisk ~{Math.round(REAL_DURATION_SEC)}-second cinematic tour of privacy — capped with an
+              cinematic 60-second product tour of privacy — capped with an
               open-source proof beat — ready for your reels, your pitch,
               or your own site.
             </p>
@@ -5055,7 +5033,7 @@ export function IntroAdSection() {
                     Your intro is sealed and ready
                   </div>
                   <div className="text-[12px] text-[#3C5A47]">
-                    veilchat-intro.{download.ext} · ~{Math.round(REAL_DURATION_SEC)}s ·
+                    veilchat-intro.{download.ext} · {DURATION_SEC}s ·
                     720×1280 · with sound
                   </div>
                 </div>

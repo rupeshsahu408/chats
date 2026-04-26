@@ -384,19 +384,22 @@ One-shot responsive sweep (no redesign, no removed features) so the existing UI 
 
 New **Watch the explainer** section on the landing page, inserted between `<Features />` and `<DeviceShowcase />` in `apps/client/src/pages/LandingPage.tsx` (component `<ExplainerVideo />` from `apps/client/src/components/ExplainerVideo.tsx`, anchor `#watch`).
 
-This is a real, full 5-minute (300 s) animated explainer video — typography-driven motion graphics, drawn live to a 1280×720 landscape `<canvas>` at 30 fps, with a synchronised Web Audio score (long ambient pad in G major + per-chapter chimes + glints/heartbeats/lock-clicks). The user can press **Play** to watch it inline or **Record** to capture it via `MediaRecorder` (canvas.captureStream + audio destination stream) into a real downloadable `.mp4` (or `.webm` fallback) file with sound.
+This is a real animated explainer video — typography-driven motion graphics, drawn live to a 1280×720 landscape `<canvas>` at 30 fps, with a synchronised Web Audio score (long ambient pad in G major + per-chapter chimes + glints/heartbeats/lock-clicks). The user can press **Play** to watch it inline or **Record** to capture it via `MediaRecorder` (canvas.captureStream + audio destination stream) into a real downloadable `.mp4` (or `.webm` fallback) file with sound.
 
-Architecture mirrors the existing `<IntroAdSection />` (the cinematic product tour, currently a 62 s timeline that plays in ~38 s real time at SPEED = 1.6 — the timeline now ends with an open-source proof scene before the outro) but at landscape 16:9, ~5×longer, and explainer-style instead of chat illustration. No celebrity, no avatar, no human face.
+Timeline is **188 s** of timeline that plays back in ~**125 s** (≈2 min 05 s) of real time at `SPEED = 1.5`. The `runAnimation` tick advances the timeline at SPEED× of real time and `scheduleAudio` scales every offset by `1/SPEED` (via an `at()` helper) so the soundtrack stays glued to the visuals.
 
-Seven chapters (`CHAPTERS` const drives both visuals and audio):
+Architecture mirrors the existing `<IntroAdSection />` (the cinematic product tour, currently a 62 s timeline that plays in real time — timeline now ends with an open-source proof scene before the outro) but at landscape 16:9, longer, and explainer-style instead of chat illustration. No celebrity, no avatar, no human face.
 
-1. `0:00–0:25` Cold open — pulsing lock that morphs into a chat bubble.
-2. `0:25–1:00` The privacy problem — three "App A/B/C" tiles emit warm metadata-leak tags; reveal of the giant **METADATA** word.
-3. `1:00–1:30` Introducing VeilChat — logo lifts in, wordmark + tagline + three brand chips.
-4. `1:30–3:15` Core features — six animated feature beats (E2EE / no phone # / disappearing / verified / groups & calls / cross-device PWA), each with custom icon + slide-from-alternating-side card.
-5. `3:15–4:10` How it works — phone → server → phone diagram with a sealed packet flying across, "unreadable here" beat at the server, plus three takeaway tiles (keys local, forward secrecy, peer-to-peer calls).
-6. `4:10–4:40` Honest analysis — two-column "What works well" vs "Still building" cards.
-7. `4:40–5:00` Get VeilChat — logo + tagline + URL pill + outro chime.
+Eight chapters (`CHAPTERS` const drives both visuals and audio):
+
+1. `0–12 s` Cold open — pulsing lock that morphs into a chat bubble.
+2. `12–30 s` The privacy problem — three "App A/B/C" tiles emit warm metadata-leak tags; reveal of the giant **METADATA** word.
+3. `30–44 s` Introducing VeilChat — logo lifts in, wordmark + tagline + three brand chips.
+4. `44–72 s` A real conversation — two-user chat scene with encrypted shimmer, screenshot-blocked toast.
+5. `72–132 s` Core features — animated feature beats with custom icons + cards.
+6. `132–162 s` How it works — phone → server → phone diagram with a sealed packet flying across.
+7. `162–170 s` Open source proof — GitHub Octocat mark scales in, AGPL-3.0 pill chimes, public repo URL slides up, three proof chips (Public source / Self-hostable / Forward secrecy), footer "Audit every line. Verify every claim."
+8. `170–188 s` Get VeilChat — logo + tagline + URL pill + outro chime.
 
 Persistent layers across every frame:
 

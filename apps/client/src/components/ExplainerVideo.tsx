@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 /**
- * VeilChat — Animated explainer video (~3:50).
+ * VeilChat — Animated explainer video.
  *
  * Renders a 1280x720 landscape canvas at 30 fps with a synchronised
  * Web Audio score (ambient pad + soft chapter chimes + accents).
@@ -10,14 +10,18 @@ import { useCallback, useEffect, useRef, useState } from "react";
  *
  * Typography-driven motion graphics — no faces, no celebrities.
  *
- * Chapters (timestamps in seconds):
- *   1.   0 – 15   Cold open
- *   2.  15 – 38   The metadata problem
- *   3.  38 – 56   Introducing VeilChat
- *   4.  56 –108   A real conversation (two-user chat)
- *   5. 108 –178   Core features (five beats)
- *   6. 178 –208   How the encryption works
- *   7. 208 –230   Get VeilChat
+ * Chapters (timeline seconds, played back at SPEED× of real time):
+ *   1.   0 – 12   Cold open
+ *   2.  12 – 30   The privacy problem
+ *   3.  30 – 44   Introducing VeilChat
+ *   4.  44 – 72   A real conversation (two-user chat)
+ *   5.  72 –132   Core features
+ *   6. 132 –162   How it works
+ *   7. 162 –170   Open source proof (GitHub mark, AGPL-3.0, repo URL)
+ *   8. 170 –188   Get VeilChat
+ *
+ * Real wall-clock playback time is `DURATION / SPEED` ≈ 125 s
+ * (~2 min 05 s) with the default SPEED of 1.5.
  */
 
 /* ───────────────────────── Constants ───────────────────────── */
@@ -25,7 +29,18 @@ import { useCallback, useEffect, useRef, useState } from "react";
 const VIDEO_W = 1280;
 const VIDEO_H = 720;
 const FPS = 30;
-const DURATION = 180; // 3:00
+/**
+ * Playback speed multiplier. Visuals advance at SPEED× of real time,
+ * and `scheduleAudio` scales every audio offset by 1/SPEED so the
+ * soundtrack stays glued to the visuals. The whole timeline finishes
+ * in `DURATION / SPEED` real seconds.
+ *
+ * Bumped from 1.0 → 1.5 to make the explainer feel snappier — chapters
+ * change at a brisker pace without text becoming unreadable.
+ */
+const SPEED = 1.5;
+const DURATION = 188; // 3:08 of timeline; ~2:05 real time at SPEED 1.5
+const REAL_DURATION = DURATION / SPEED;
 
 // Refined palette — 5 colors used consistently across every chapter.
 const INK = "#0F1B14";       // deepest text & device chrome
@@ -57,7 +72,8 @@ const CHAPTERS: Chapter[] = [
   { key: "chat", start: 44, end: 72, label: "A real conversation" },
   { key: "features", start: 72, end: 132, label: "Core features" },
   { key: "how", start: 132, end: 162, label: "How it works" },
-  { key: "cta", start: 162, end: 180, label: "Get VeilChat" },
+  { key: "open", start: 162, end: 170, label: "Open source" },
+  { key: "cta", start: 170, end: 188, label: "Get VeilChat" },
 ];
 
 /* ───────────────────────── Math helpers ───────────────────────── */
@@ -1919,10 +1935,211 @@ function drawHowItWorks(ctx: CanvasRenderingContext2D, t: number) {
   });
 }
 
-/* ───────────────────────── Chapter 7 — CTA ───────────────────────── */
+/* ───────────────────────── Chapter 7 — Open source proof ───────────────────────── */
+/*
+ * Eight-second beat that lands the open-source story in plain sight:
+ * a hand-drawn GitHub Octocat mark scales in with a soft "vault
+ * unlocking" sweep, the headline types in, an AGPL-3.0 pill chimes,
+ * the public repo URL slides up, and three proof chips
+ * (Public source / Self-hostable / Forward secrecy) tick into place
+ * before a closing "Audit every line. Verify every claim." footer.
+ */
+
+function drawGithubMark(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  size: number,
+  alpha = 1,
+) {
+  if (alpha <= 0) return;
+  const r = size / 2;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  // soft glow underlay
+  const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, size * 1.2);
+  glow.addColorStop(0, `${ACCENT}55`);
+  glow.addColorStop(1, `${ACCENT}00`);
+  ctx.fillStyle = glow;
+  ctx.fillRect(cx - size * 1.2, cy - size * 1.2, size * 2.4, size * 2.4);
+  // disc
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  const body = ctx.createLinearGradient(cx - r, cy - r, cx + r, cy + r);
+  body.addColorStop(0, INK);
+  body.addColorStop(1, DARK);
+  ctx.fillStyle = body;
+  ctx.fill();
+  // octocat silhouette — simplified, drawn with arcs + paths in cream
+  ctx.translate(cx, cy);
+  ctx.scale(size / 100, size / 100);
+  ctx.fillStyle = CREAM;
+  ctx.beginPath();
+  // head (rounded blob)
+  ctx.arc(0, -6, 26, 0, Math.PI * 2);
+  ctx.fill();
+  // body / tentacles
+  ctx.beginPath();
+  ctx.moveTo(-22, 8);
+  ctx.quadraticCurveTo(-30, 22, -22, 32);
+  ctx.quadraticCurveTo(-12, 34, -8, 24);
+  ctx.lineTo(-2, 34);
+  ctx.quadraticCurveTo(4, 38, 10, 32);
+  ctx.lineTo(14, 24);
+  ctx.quadraticCurveTo(20, 32, 24, 28);
+  ctx.quadraticCurveTo(30, 18, 22, 8);
+  ctx.closePath();
+  ctx.fill();
+  // eyes (negative space)
+  ctx.fillStyle = INK;
+  ctx.beginPath();
+  ctx.arc(-9, -8, 3.4, 0, Math.PI * 2);
+  ctx.arc(9, -8, 3.4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawOpenSourceScene(ctx: CanvasRenderingContext2D, t: number) {
+  const ch = CHAPTERS[6]!; // open
+  const lt = t - ch.start;
+  const len = ch.end - ch.start; // 8
+  const cx = VIDEO_W / 2;
+
+  // chapter window so the whole beat fades together at the end
+  const chapterWindow = band(lt, 0, len, 0, 0.6);
+
+  // GitHub mark — springs in from below with a little bounce.
+  const markEnter = clamp01(lt / 0.9);
+  const markScale = lerp(0.7, 1, easeOutBack(markEnter));
+  const markY = lerp(VIDEO_H + 160, 200, easeOutBack(markEnter));
+  const float = Math.sin(lt * 1.2) * 4;
+  drawGithubMark(
+    ctx,
+    cx,
+    markY + float,
+    140 * markScale,
+    easeOut(markEnter) * chapterWindow,
+  );
+
+  // Headline — staggered chars.
+  if (lt > 0.55) {
+    const local = lt - 0.55;
+    setFont(ctx, 64, 700, "serif", -1.5);
+    ctx.fillStyle = DARK;
+    ctx.textBaseline = "middle";
+    ctx.textAlign = "center";
+    ctx.save();
+    ctx.globalAlpha = chapterWindow;
+    drawStaggered(ctx, "Open source.", cx, 360, local, 0.03, 0.45, "center");
+    ctx.restore();
+  }
+
+  // AGPL-3.0 pill — chime at 1.4s.
+  if (lt > 1.35) {
+    const p = easeOut(clamp01((lt - 1.35) / 0.45));
+    setFont(ctx, 16, 700, "sans", 0.6);
+    const label = "AGPL-3.0 LICENCE";
+    const w = ctx.measureText(label).width + 36;
+    const h = 36;
+    const x = cx - w / 2;
+    const y = 412;
+    ctx.save();
+    ctx.globalAlpha = p * chapterWindow;
+    ctx.translate(0, (1 - p) * 8);
+    roundRect(ctx, x, y, w, h, h / 2);
+    ctx.fillStyle = PALE_2;
+    ctx.fill();
+    ctx.strokeStyle = `${ACCENT}aa`;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    // tiny dot
+    ctx.fillStyle = FOREST;
+    fillCircle(ctx, x + 14, y + h / 2, 3.5);
+    // label
+    ctx.fillStyle = FOREST;
+    ctx.textBaseline = "middle";
+    ctx.textAlign = "left";
+    ctx.fillText(label, x + 24, y + h / 2 + 1);
+    ctx.restore();
+  }
+
+  // Repo URL pill (slides up at 1.95s).
+  if (lt > 1.95) {
+    const p = easeOut(clamp01((lt - 1.95) / 0.55));
+    setFont(ctx, 22, 700, "sans", 0.4);
+    const url = "github.com/rupeshsahu408/VeilChat";
+    const w = ctx.measureText(url).width + 80;
+    const h = 56;
+    const x = cx - w / 2;
+    const y = 470;
+    ctx.save();
+    ctx.globalAlpha = p * chapterWindow;
+    ctx.translate(0, (1 - p) * 14);
+    roundRect(ctx, x, y, w, h, h / 2);
+    const g = ctx.createLinearGradient(x, y, x, y + h);
+    g.addColorStop(0, FOREST);
+    g.addColorStop(1, FOREST_DEEP);
+    ctx.fillStyle = g;
+    ctx.fill();
+    setFont(ctx, 22, 700, "sans", 0.4);
+    ctx.fillStyle = WHITE;
+    ctx.textBaseline = "middle";
+    ctx.textAlign = "center";
+    ctx.fillText(url, cx, y + h / 2 + 1);
+    ctx.restore();
+  }
+
+  // Three proof chips, slightly staggered.
+  const chipsStart = 2.15;
+  if (lt > chipsStart) {
+    const chips = ["Public source", "Self-hostable", "Forward secrecy"];
+    const chipY = 558;
+    setFont(ctx, 14, 700, "sans", 0.4);
+    const widths = chips.map((c) => ctx.measureText(c).width + 40);
+    const gap = 14;
+    const totalW = widths.reduce((a, b) => a + b, 0) + gap * (chips.length - 1);
+    let cursor = (VIDEO_W - totalW) / 2;
+    chips.forEach((c, i) => {
+      const local = lt - chipsStart - i * 0.18;
+      const p = clamp01(local / 0.4);
+      const e = easeOut(p);
+      if (e <= 0) return;
+      const w = widths[i]!;
+      ctx.save();
+      ctx.globalAlpha = e * chapterWindow;
+      ctx.translate(0, (1 - e) * 10);
+      roundRect(ctx, cursor, chipY, w, 34, 17);
+      ctx.fillStyle = PALE;
+      ctx.fill();
+      ctx.strokeStyle = `${ACCENT}88`;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.fillStyle = FOREST;
+      fillCircle(ctx, cursor + 14, chipY + 17, 3);
+      ctx.fillStyle = FOREST;
+      ctx.textBaseline = "middle";
+      ctx.textAlign = "left";
+      ctx.fillText(c, cursor + 24, chipY + 18);
+      ctx.restore();
+      cursor += w + gap;
+    });
+  }
+
+  // Footer line.
+  if (lt > 3.4) {
+    setFont(ctx, 18, 600, "serif", -0.2);
+    ctx.fillStyle = MID;
+    ctx.textBaseline = "middle";
+    ctx.textAlign = "center";
+    ctx.save();
+    ctx.globalAlpha = easeOut(clamp01((lt - 3.4) / 0.7)) * chapterWindow;
+    ctx.fillText("Audit every line. Verify every claim.", cx, 624);
+    ctx.restore();
+  }
+}
 
 function drawCTA(ctx: CanvasRenderingContext2D, t: number) {
-  const ch = CHAPTERS[6]!;
+  const ch = CHAPTERS[7]!;
   const lt = t - ch.start;
   const cx = VIDEO_W / 2;
 
@@ -2029,6 +2246,9 @@ function drawFrame(ctx: CanvasRenderingContext2D, t: number) {
       break;
     case "how":
       drawHowItWorks(ctx, t);
+      break;
+    case "open":
+      drawOpenSourceScene(ctx, t);
       break;
     case "cta":
       drawCTA(ctx, t);
@@ -2242,15 +2462,22 @@ class ExplainerAudio {
 /**
  * Schedules the entire audio score at audioStart (an AudioContext
  * timestamp). Mirrors the timeline used by drawFrame.
+ *
+ * Audio offsets are scaled by 1/SPEED so the soundtrack stays glued
+ * to the (sped-up) visuals.
  */
 function scheduleAudio(engine: ExplainerAudio, audioStart: number) {
+  // Convert a *timeline* offset (in seconds, the same units used by
+  // CHAPTERS / draw* functions) into a real audio-clock time.
+  const at = (offset: number) => audioStart + offset / SPEED;
+
   // Continuous pad for the whole piece.
-  engine.pad(audioStart, audioStart + DURATION - 0.5);
+  engine.pad(at(0), at(DURATION - 0.5));
 
   // Chapter transition chimes.
   CHAPTERS.forEach((c) => {
     if (c.start === 0) return;
-    engine.chapterChime(audioStart + c.start);
+    engine.chapterChime(at(c.start));
   });
 
   // Chapter offsets matching CHAPTERS array.
@@ -2260,55 +2487,81 @@ function scheduleAudio(engine: ExplainerAudio, audioStart: number) {
   const CHAT = 44;
   const FEAT = 72;
   const HOW = 132;
-  const CTA = 162;
+  const OPEN = 162;
+  const CTA = 170;
 
   // Cold open accents.
-  engine.glint(audioStart + COLD + 0.5);
-  engine.heartbeat(audioStart + COLD + 4.0);
-  engine.warmPulse(audioStart + COLD + 7.5);
+  engine.glint(at(COLD + 0.5));
+  engine.heartbeat(at(COLD + 4.0));
+  engine.warmPulse(at(COLD + 7.5));
 
   // Problem chapter — warm pulses on tile reveals + metadata.
   for (let i = 0; i < 3; i++) {
-    engine.warmPulse(audioStart + PROBLEM + 1.8 + i * 0.22);
+    engine.warmPulse(at(PROBLEM + 1.8 + i * 0.22));
   }
-  engine.warmPulse(audioStart + PROBLEM + 8.2);
-  engine.warmPulse(audioStart + PROBLEM + 10.2);
+  engine.warmPulse(at(PROBLEM + 8.2));
+  engine.warmPulse(at(PROBLEM + 10.2));
 
   // Intro chapter — sparkle on logo arrival, glints on chips.
-  engine.glint(audioStart + INTRO + 0.2);
-  engine.glint(audioStart + INTRO + 0.9);
+  engine.glint(at(INTRO + 0.2));
+  engine.glint(at(INTRO + 0.9));
   for (let i = 0; i < 3; i++) {
-    engine.glint(audioStart + INTRO + 3.4 + i * 0.15);
+    engine.glint(at(INTRO + 3.4 + i * 0.15));
   }
 
   // Chat chapter — taps on typing starts, soft pings on bubble appearance.
   CHAT_MESSAGES.forEach((m) => {
     for (let k = 0; k < 4; k++) {
-      engine.typeTap(audioStart + CHAT + m.typeStart + 0.25 + k * 0.16);
+      engine.typeTap(at(CHAT + m.typeStart + 0.25 + k * 0.16));
     }
-    engine.messagePing(audioStart + CHAT + m.appear, m.side === "left");
+    engine.messagePing(at(CHAT + m.appear), m.side === "left");
   });
-  engine.glint(audioStart + CHAT + 6.2); // heart float
-  engine.lockClick(audioStart + CHAT + 18.2); // screenshot toast
+  engine.glint(at(CHAT + 6.2)); // heart float
+  engine.lockClick(at(CHAT + 18.2)); // screenshot toast
 
   // Features chapter — glint + lock click on each beat opening.
   FEATURES.forEach((f) => {
-    engine.glint(audioStart + FEAT + f.start + 0.1);
-    engine.lockClick(audioStart + FEAT + f.start + 0.35);
+    engine.glint(at(FEAT + f.start + 0.1));
+    engine.lockClick(at(FEAT + f.start + 0.35));
   });
 
   // How it works — heartbeat under the diagram, lock clicks on packet flight.
-  engine.heartbeat(audioStart + HOW + 2.4);
-  engine.lockClick(audioStart + HOW + 5.5);
-  engine.lockClick(audioStart + HOW + 7.0);
-  engine.lockClick(audioStart + HOW + 9.0);
-  engine.lockClick(audioStart + HOW + 10.5);
+  engine.heartbeat(at(HOW + 2.4));
+  engine.lockClick(at(HOW + 5.5));
+  engine.lockClick(at(HOW + 7.0));
+  engine.lockClick(at(HOW + 9.0));
+  engine.lockClick(at(HOW + 10.5));
   for (let i = 0; i < 3; i++) {
-    engine.heartbeat(audioStart + HOW + 13 + i * 5);
+    engine.heartbeat(at(HOW + 13 + i * 5));
   }
 
+  // ── Open source proof scene ─────────────────────────────────
+  // soft "vault unlocking" sweep as the GitHub mark scales up
+  engine.envOsc(
+    "sine",
+    (osc, t) => {
+      osc.frequency.setValueAtTime(220, t);
+      osc.frequency.exponentialRampToValueAtTime(660, t + 0.5);
+    },
+    at(OPEN + 0.15),
+    0.55,
+    0.10,
+    0.03,
+  );
+  // sparkle as the headline types in
+  engine.glint(at(OPEN + 0.55));
+  // AGPL chip + repo pill chime
+  engine.envOsc("sine", 880, at(OPEN + 1.4), 0.18, 0.13, 0.01);
+  engine.envOsc("sine", 1320, at(OPEN + 1.46), 0.28, 0.10, 0.02);
+  // three quick chip ticks as proof chips slide in
+  engine.typeTap(at(OPEN + 2.20));
+  engine.typeTap(at(OPEN + 2.55));
+  engine.typeTap(at(OPEN + 2.90));
+  // soft confirming chime when the footer line lands
+  engine.envOsc("sine", 660, at(OPEN + 3.4), 0.32, 0.10, 0.04);
+
   // CTA — final outro arpeggio.
-  engine.outroChime(audioStart + CTA + 3.6);
+  engine.outroChime(at(CTA + 3.6));
 }
 
 /* ───────────────────────── Recording helpers ───────────────────────── */
@@ -2397,12 +2650,14 @@ export function ExplainerVideo() {
     if (!ctx) return;
     const start = performance.now();
     const tick = () => {
-      const t = (performance.now() - start) / 1000;
-      const frameT = Math.min(t, DURATION);
+      const tReal = (performance.now() - start) / 1000;
+      // Visuals advance at SPEED× of real time so the timeline finishes
+      // in REAL_DURATION wall-clock seconds.
+      const frameT = Math.min(tReal * SPEED, DURATION);
       drawFrame(ctx, frameT);
-      setProgress(clamp01(t / DURATION));
+      setProgress(clamp01(tReal / REAL_DURATION));
       setCurrentT(frameT);
-      if (t < DURATION) {
+      if (tReal < REAL_DURATION) {
         rafRef.current = requestAnimationFrame(tick);
       } else {
         rafRef.current = null;
@@ -2580,7 +2835,7 @@ export function ExplainerVideo() {
       <div className="relative mx-auto max-w-6xl">
         <div className="text-center max-w-3xl mx-auto mb-10 sm:mb-14">
           <div className="inline-flex items-center gap-2 text-[12px] font-semibold tracking-[0.18em] uppercase text-[#2E6F40] bg-[#D9F5DF] border border-[#68BA7F]/40 rounded-full px-3 py-1.5">
-            New · 3-minute explainer · drawn live with sound
+            New · 2-minute explainer · drawn live with sound
           </div>
           <h2
             className="mt-5 text-[32px] sm:text-[42px] md:text-[52px] font-semibold tracking-[-0.02em] leading-[1.05] text-[#1A2D22]"
@@ -2591,15 +2846,16 @@ export function ExplainerVideo() {
           >
             The full story of VeilChat,{" "}
             <span className="italic" style={{ color: "#2E6F40" }}>
-              in three minutes.
+              in two minutes.
             </span>
           </h2>
           <p className="mt-4 text-[16px] sm:text-[18px] text-[#506A57] max-w-2xl mx-auto leading-[1.55]">
             A typography-driven walkthrough of what VeilChat is, the
             problem it solves, what a real conversation looks like, every
-            core feature, and how the encryption works. Generated fresh on
-            your device with a custom soundtrack — press record to download
-            a real video file with sound.
+            core feature, how the encryption works, and the open-source
+            proof that backs every claim. Generated fresh on your device
+            with a custom soundtrack — press record to download a real
+            video file with sound.
           </p>
         </div>
 
@@ -2616,7 +2872,7 @@ export function ExplainerVideo() {
                 width={VIDEO_W}
                 height={VIDEO_H}
                 className="block w-full h-full bg-[#FCF6EC]"
-                aria-label="VeilChat 3-minute explainer video"
+                aria-label="VeilChat 2-minute explainer video"
               />
 
               {/* Mute toggle */}
