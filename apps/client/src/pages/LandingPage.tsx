@@ -95,18 +95,23 @@ function FloatingScrollToggle() {
       aria-label={atBottom ? "Scroll to top" : "Scroll to bottom"}
       title={atBottom ? "Scroll to top" : "Scroll to bottom"}
       className={[
-        "fixed z-50 right-4 bottom-4 sm:right-6 sm:bottom-24",
+        "group fixed z-50 right-4 bottom-4 sm:right-6 sm:bottom-24",
         "w-11 h-11 sm:w-12 sm:h-12 grid place-items-center rounded-full",
-        "bg-white text-[#253D2C] border border-[#253D2C]/15",
-        "shadow-[0_10px_30px_-10px_rgba(17,27,33,0.35)]",
-        "hover:text-[#2E6F40] hover:border-[#2E6F40]/40 hover:shadow-[0_14px_36px_-12px_rgba(46,111,64,0.45)]",
-        "active:scale-95 transition-all duration-200",
-        needed ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none",
+        "bg-gradient-to-b from-white to-[#FCF5EB] text-[#2E6F40]",
+        "border border-[#253D2C]/12",
+        "shadow-[inset_0_1px_0_rgba(255,255,255,1),0_10px_28px_-12px_rgba(17,27,33,0.28)]",
+        "hover:text-white hover:border-transparent",
+        "hover:bg-gradient-to-b hover:from-[#3A8550] hover:to-[#2E6F40]",
+        "hover:shadow-[0_18px_40px_-14px_rgba(46,111,64,0.55),inset_0_1px_0_rgba(255,255,255,0.22)]",
+        "active:scale-95 transition-all duration-300",
+        needed
+          ? "opacity-100 translate-y-0 pointer-events-auto"
+          : "opacity-0 translate-y-2 pointer-events-none",
       ].join(" ")}
     >
       <svg
-        width="18"
-        height="18"
+        width="17"
+        height="17"
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
@@ -114,7 +119,7 @@ function FloatingScrollToggle() {
         strokeLinecap="round"
         strokeLinejoin="round"
         className={[
-          "transition-transform duration-300",
+          "transition-transform duration-500 ease-out",
           atBottom ? "rotate-180" : "rotate-0",
         ].join(" ")}
         aria-hidden="true"
@@ -390,9 +395,11 @@ function Hero() {
       <div className="relative mx-auto max-w-7xl px-5 sm:px-8">
         <div className="grid lg:grid-cols-12 gap-12 lg:gap-16 items-center">
           <div className="lg:col-span-7">
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="inline-flex items-center gap-2 text-[12px] font-semibold tracking-wide uppercase text-[#2E6F40] bg-[#CFFFDC] border border-[#68BA7F]/40 rounded-full px-3 py-1.5">
-                <LockMini />
+            <div className="flex flex-wrap items-center gap-2.5">
+              <div className="inline-flex items-center gap-2 text-[11.5px] font-bold tracking-[0.14em] uppercase text-[#2E6F40] bg-gradient-to-b from-[#E8FAEE] to-[#CFFFDC] border border-[#68BA7F]/35 rounded-full pl-3 pr-3.5 py-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.7),0_2px_8px_-4px_rgba(46,111,64,0.18)]">
+                <span className="grid place-items-center w-[18px] h-[18px] rounded-full bg-white/65 text-[#2E6F40]">
+                  <LockMini />
+                </span>
                 End-to-end encrypted · Privacy-first
               </div>
               <OpenSourcePill />
@@ -421,19 +428,26 @@ function Hero() {
             <div className="mt-9 flex flex-col sm:flex-row gap-3 sm:items-center">
               <Link
                 to="/welcome"
-                className="group inline-flex items-center justify-center gap-2 bg-[#2E6F40] hover:bg-[#253D2C] text-white font-semibold text-[16px] px-7 py-4 rounded-full shadow-[0_18px_36px_-14px_rgba(46,111,64,0.55)] transition-colors"
+                className="group relative inline-flex items-center justify-center gap-2.5 bg-gradient-to-b from-[#3A8550] to-[#2E6F40] hover:from-[#2E6F40] hover:to-[#253D2C] text-white font-semibold text-[16px] px-7 py-4 rounded-full shadow-[0_18px_36px_-14px_rgba(46,111,64,0.55),inset_0_1px_0_rgba(255,255,255,0.22)] hover:shadow-[0_22px_44px_-14px_rgba(46,111,64,0.65),inset_0_1px_0_rgba(255,255,255,0.25)] transition-all"
               >
                 Get VeilChat — it's free
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M5 12h14" />
-                  <path d="M13 5l7 7-7 7" />
-                </svg>
+                <span className="grid place-items-center w-6 h-6 rounded-full bg-white/15 group-hover:bg-white/25 transition-colors">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" className="transition-transform duration-200 group-hover:translate-x-0.5">
+                    <path d="M5 12h14" />
+                    <path d="M13 5l7 7-7 7" />
+                  </svg>
+                </span>
               </Link>
               <a
                 href="#how"
-                className="inline-flex items-center justify-center gap-2 border border-[#253D2C]/15 hover:border-[#2E6F40]/40 hover:bg-white text-[#253D2C] font-medium text-[16px] px-7 py-4 rounded-full transition-colors"
+                className="group inline-flex items-center justify-center gap-2.5 bg-white/70 hover:bg-white border border-[#253D2C]/12 hover:border-[#2E6F40]/35 text-[#253D2C] hover:text-[#2E6F40] font-semibold text-[16px] px-7 py-4 rounded-full shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_2px_8px_-4px_rgba(17,27,33,0.08)] hover:shadow-[inset_0_1px_0_rgba(255,255,255,1),0_12px_28px_-12px_rgba(46,111,64,0.3)] backdrop-blur-sm transition-all"
               >
                 See how it works
+                <span className="grid place-items-center w-6 h-6 rounded-full bg-[#CFFFDC] text-[#2E6F40] group-hover:bg-[#2E6F40] group-hover:text-white transition-colors">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                </span>
               </a>
             </div>
 
@@ -503,19 +517,21 @@ function OpenSourcePill() {
     <Link
       to="/open-source"
       aria-label="Learn more about VeilChat being open source"
-      className="group inline-flex items-center gap-2 text-[12px] font-semibold tracking-wide uppercase text-[#253D2C] bg-white border border-[#253D2C]/15 hover:border-[#2E6F40]/45 hover:text-[#2E6F40] rounded-full pl-3 pr-2.5 py-1.5 shadow-[0_2px_8px_-4px_rgba(17,27,33,0.18)] hover:shadow-[0_6px_16px_-6px_rgba(46,111,64,0.35)] transition-all"
+      className="group inline-flex items-center gap-2 text-[11.5px] font-bold tracking-[0.14em] uppercase text-[#253D2C] bg-gradient-to-b from-white to-[#FCF5EB] border border-[#253D2C]/12 hover:border-[#2E6F40]/40 hover:text-[#2E6F40] rounded-full pl-3 pr-1.5 py-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,1),0_2px_8px_-4px_rgba(17,27,33,0.12)] hover:shadow-[inset_0_1px_0_rgba(255,255,255,1),0_8px_22px_-10px_rgba(46,111,64,0.4)] transition-all"
     >
-      <GithubMini />
+      <span className="grid place-items-center w-[18px] h-[18px] rounded-full bg-[#253D2C] text-white group-hover:bg-[#2E6F40] transition-colors">
+        <GithubMini />
+      </span>
       Open source
-      <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold normal-case tracking-normal text-[#2E6F40]">
+      <span className="ml-0.5 inline-flex items-center gap-1 text-[10px] font-semibold normal-case tracking-normal text-[#2E6F40] bg-[#CFFFDC] border border-[#68BA7F]/30 rounded-full px-2 py-0.5">
         <span className="hidden sm:inline">Tap</span>
         <svg
-          width="11"
-          height="11"
+          width="10"
+          height="10"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
-          strokeWidth="2.6"
+          strokeWidth="2.8"
           strokeLinecap="round"
           strokeLinejoin="round"
           className="transition-transform duration-200 group-hover:translate-x-0.5"
