@@ -40,8 +40,89 @@ export function LandingPage() {
       <FAQ />
       <FinalCTA />
       <Footer />
+      <FloatingScrollToggle />
       <FloatingInstallChip />
     </div>
+  );
+}
+
+/* ───────────────────────── Floating scroll toggle ─────────────────────────
+ *
+ * Small fixed button in the bottom-right that smoothly scrolls the
+ * page to the bottom when the visitor is near the top, and back to
+ * the top when they're near the bottom. Hidden if the page is too
+ * short to need it. Sits above the install chip on desktop so the
+ * two never overlap, and tucked into the right corner on mobile
+ * (the install chip is centered there, so no collision).
+ */
+function FloatingScrollToggle() {
+  const [atBottom, setAtBottom] = useState(false);
+  const [needed, setNeeded] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const update = () => {
+      const doc = document.documentElement;
+      const max = Math.max(0, doc.scrollHeight - window.innerHeight);
+      setNeeded(max > 200);
+      setAtBottom(max - window.scrollY < 80);
+    };
+    update();
+    window.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
+  }, []);
+
+  const onClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const doc = document.documentElement;
+    const max = Math.max(0, doc.scrollHeight - window.innerHeight);
+    window.scrollTo({
+      top: atBottom ? 0 : max,
+      behavior: "smooth",
+    });
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      data-no-tap-scroll
+      aria-label={atBottom ? "Scroll to top" : "Scroll to bottom"}
+      title={atBottom ? "Scroll to top" : "Scroll to bottom"}
+      className={[
+        "fixed z-50 right-4 bottom-4 sm:right-6 sm:bottom-24",
+        "w-11 h-11 sm:w-12 sm:h-12 grid place-items-center rounded-full",
+        "bg-white text-[#253D2C] border border-[#253D2C]/15",
+        "shadow-[0_10px_30px_-10px_rgba(17,27,33,0.35)]",
+        "hover:text-[#2E6F40] hover:border-[#2E6F40]/40 hover:shadow-[0_14px_36px_-12px_rgba(46,111,64,0.45)]",
+        "active:scale-95 transition-all duration-200",
+        needed ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none",
+      ].join(" ")}
+    >
+      <svg
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className={[
+          "transition-transform duration-300",
+          atBottom ? "rotate-180" : "rotate-0",
+        ].join(" ")}
+        aria-hidden="true"
+      >
+        <path d="M12 5v14" />
+        <path d="M19 12l-7 7-7-7" />
+      </svg>
+    </button>
   );
 }
 
@@ -2281,7 +2362,8 @@ function Footer() {
             internal
             links={[
               { label: "About us", to: "/about" },
-              { label: "GitHub", href: "https://github.com" },
+              { label: "Open source", to: "/open-source" },
+              { label: "GitHub repository", href: "https://github.com/rupeshsahu408/VeilChat" },
               { label: "Privacy Policy", to: "/privacy-policy" },
               { label: "Terms & Conditions", to: "/terms" },
               { label: "Contact support", href: "mailto:hello@sendora.me" },
