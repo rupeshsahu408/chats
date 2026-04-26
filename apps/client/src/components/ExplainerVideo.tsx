@@ -2171,7 +2171,7 @@ function drawCTA(ctx: CanvasRenderingContext2D, t: number) {
   if (lt > 3.6) {
     const p = easeOut(clamp01((lt - 3.6) / 0.7));
     setFont(ctx, 22, 700, "sans", 0.4);
-    const url = "chats-client-vert.vercel.app";
+    const url = "veilchat.me";
     const w = ctx.measureText(url).width + 84;
     const h = 60;
     const x = cx - w / 2;
