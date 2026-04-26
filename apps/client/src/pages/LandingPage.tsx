@@ -462,6 +462,8 @@ function Hero() {
                 <CheckDot /> Free, forever
               </span>
             </div>
+
+            <ReadArticleButton />
           </div>
 
           <div className="lg:col-span-5">
@@ -537,6 +539,41 @@ function OpenSourcePill() {
           className="transition-transform duration-200 group-hover:translate-x-0.5"
           aria-hidden="true"
         >
+          <path d="M5 12h14" />
+          <path d="M13 5l7 7-7 7" />
+        </svg>
+      </span>
+    </Link>
+  );
+}
+
+/**
+ * Compact, refined article callout that links to the in-depth
+ * WhatsApp privacy investigation. Sits in the hero, just under the
+ * trust checks, so it's immediately visible without competing with
+ * the primary CTAs. Pill shape with a small "READ" badge on the
+ * left, the article title in the middle, and an arrow chip on the
+ * right that nudges on hover.
+ */
+function ReadArticleButton() {
+  return (
+    <Link
+      to="/blog/whatsapp-privacy-truth"
+      aria-label="Read the article: The truth about WhatsApp privacy"
+      className="group mt-7 inline-flex items-center gap-2.5 max-w-full bg-gradient-to-b from-white to-[#FCF5EB] border border-[#253D2C]/12 hover:border-[#2E6F40]/35 rounded-full pl-1.5 pr-2 py-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,1),0_2px_8px_-4px_rgba(17,27,33,0.1)] hover:shadow-[inset_0_1px_0_rgba(255,255,255,1),0_12px_28px_-12px_rgba(46,111,64,0.32)] transition-all"
+    >
+      <span className="inline-flex items-center gap-1.5 text-[10.5px] font-bold tracking-[0.16em] uppercase text-white bg-[#253D2C] group-hover:bg-[#2E6F40] rounded-full pl-2 pr-2.5 py-1.5 transition-colors">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M4 4.5A1.5 1.5 0 0 1 5.5 3H19a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H6a2 2 0 0 0-2 2V4.5z" />
+          <path d="M8 7h8M8 11h8M8 15h5" />
+        </svg>
+        Read
+      </span>
+      <span className="text-[14px] font-medium text-[#253D2C] group-hover:text-[#2E6F40] truncate transition-colors">
+        The truth about WhatsApp privacy
+      </span>
+      <span className="grid place-items-center w-6 h-6 rounded-full bg-[#CFFFDC] text-[#2E6F40] group-hover:bg-[#2E6F40] group-hover:text-white shrink-0 transition-colors">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" className="transition-transform duration-200 group-hover:translate-x-0.5" aria-hidden="true">
           <path d="M5 12h14" />
           <path d="M13 5l7 7-7 7" />
         </svg>
