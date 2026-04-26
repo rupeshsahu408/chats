@@ -464,6 +464,46 @@ html.veil-privacy-blur body::after {
   100% { transform: scale(0.85); opacity: 0; }
 }
 
+/* "Live" pulse used on the open-source page next to the live GitHub
+   stats. A small green dot with an outward-rippling ring, signalling
+   that the data behind it is fresh and the project is actively
+   maintained. */
+.veil-live-pulse {
+  position: relative;
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background-color: #2E6F40;
+  box-shadow: 0 0 0 0 rgba(46, 111, 64, 0.55);
+  animation: veil-live-pulse-core 2s ease-in-out infinite;
+}
+.veil-live-pulse::before {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: 9999px;
+  border: 2px solid rgba(46, 111, 64, 0.45);
+  opacity: 0;
+  transform: scale(0.6);
+  animation: veil-live-pulse-ring 2s ease-out infinite;
+}
+@keyframes veil-live-pulse-core {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(46, 111, 64, 0.55);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(46, 111, 64, 0);
+    transform: scale(1.08);
+  }
+}
+@keyframes veil-live-pulse-ring {
+  0%   { opacity: 0.65; transform: scale(0.6); }
+  80%  { opacity: 0;    transform: scale(2.1); }
+  100% { opacity: 0;    transform: scale(2.1); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .veil-toast,
   .veil-toast.veil-toast-enter,
@@ -477,7 +517,9 @@ html.veil-privacy-blur body::after {
   .veil-voice-shake,
   .veil-voice-overlay-in,
   .veil-voice-slide-in,
-  .veil-voice-collapse {
+  .veil-voice-collapse,
+  .veil-live-pulse,
+  .veil-live-pulse::before {
     animation: none !important;
     transition-duration: 1ms !important;
     transform: none !important;

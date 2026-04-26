@@ -245,7 +245,12 @@ function StatsStrip() {
     };
   }, []);
 
-  const cards: Array<{ label: string; value: string; icon: JSX.Element }> = [
+  const cards: Array<{
+    label: string;
+    value: string;
+    icon: JSX.Element;
+    live?: boolean;
+  }> = [
     {
       label: "Stars",
       value: stats.stars != null ? formatCount(stats.stars) : "—",
@@ -265,6 +270,7 @@ function StatsStrip() {
       label: "Last commit",
       value: stats.lastUpdated ? timeAgo(stats.lastUpdated) : "—",
       icon: <ClockIcon />,
+      live: stats.lastUpdated != null,
     },
   ];
 
@@ -284,8 +290,9 @@ function StatsStrip() {
                 {c.icon}
               </span>
               <span className="flex flex-col leading-tight min-w-0">
-                <span className="text-[11px] uppercase tracking-wide font-semibold text-[#3C5A47]/70">
+                <span className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide font-semibold text-[#3C5A47]/70">
                   {c.label}
+                  {c.live && <LivePulse />}
                 </span>
                 <span className="text-[16px] font-semibold text-[#253D2C] truncate">
                   {c.value}
@@ -1103,6 +1110,17 @@ function ScaleIcon() {
       <path d="M3 9a4 4 0 0 0 8 0" />
       <path d="M13 9a4 4 0 0 0 8 0" />
     </svg>
+  );
+}
+
+function LivePulse() {
+  return (
+    <span
+      className="veil-live-pulse"
+      role="img"
+      aria-label="Live — actively maintained"
+      title="Live — actively maintained"
+    />
   );
 }
 
