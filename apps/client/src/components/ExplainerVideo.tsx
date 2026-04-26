@@ -25,7 +25,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 const VIDEO_W = 1280;
 const VIDEO_H = 720;
 const FPS = 30;
-const DURATION = 230; // 3:50
+const DURATION = 180; // 3:00
 
 // Refined palette — 5 colors used consistently across every chapter.
 const INK = "#0F1B14";       // deepest text & device chrome
@@ -51,13 +51,13 @@ type Chapter = {
 };
 
 const CHAPTERS: Chapter[] = [
-  { key: "cold", start: 0, end: 15, label: "Cold open" },
-  { key: "problem", start: 15, end: 38, label: "The privacy problem" },
-  { key: "intro", start: 38, end: 56, label: "Introducing VeilChat" },
-  { key: "chat", start: 56, end: 108, label: "A real conversation" },
-  { key: "features", start: 108, end: 178, label: "Core features" },
-  { key: "how", start: 178, end: 208, label: "How it works" },
-  { key: "cta", start: 208, end: 230, label: "Get VeilChat" },
+  { key: "cold", start: 0, end: 12, label: "Cold open" },
+  { key: "problem", start: 12, end: 30, label: "The privacy problem" },
+  { key: "intro", start: 30, end: 44, label: "Introducing VeilChat" },
+  { key: "chat", start: 44, end: 72, label: "A real conversation" },
+  { key: "features", start: 72, end: 132, label: "Core features" },
+  { key: "how", start: 132, end: 162, label: "How it works" },
+  { key: "cta", start: 162, end: 180, label: "Get VeilChat" },
 ];
 
 /* ───────────────────────── Math helpers ───────────────────────── */
@@ -173,7 +173,9 @@ function wrapLines(
   return lines;
 }
 
-/* Draw text staggering character-by-character with a cubic ease. */
+/* Draw text staggering character-by-character with a cubic ease.
+ * IMPORTANT: multiplies its per-char alpha with the OUTER globalAlpha,
+ * so callers can fade an entire staggered block in/out at once. */
 function drawStaggered(
   ctx: CanvasRenderingContext2D,
   text: string,
@@ -184,6 +186,8 @@ function drawStaggered(
   duration = 0.5,
   align: CanvasTextAlign = "left",
 ) {
+  const baseAlpha = ctx.globalAlpha;
+  if (baseAlpha <= 0.001) return;
   ctx.textAlign = align;
   const chars = [...text];
   let cursor: number;
@@ -202,15 +206,16 @@ function drawStaggered(
     const p = clamp01((localT - start) / duration);
     const e = easeOut(p);
     ctx.save();
-    ctx.globalAlpha = e;
-    ctx.translate(cursor, y + (1 - e) * 16);
+    ctx.globalAlpha = baseAlpha * e;
+    ctx.translate(cursor, y + (1 - e) * 14);
     ctx.fillText(ch, 0, 0);
     ctx.restore();
     cursor += ctx.measureText(ch).width;
   });
 }
 
-/* Draw multi-line wrapped text with a soft fade-up per line. */
+/* Draw multi-line wrapped text with a soft fade-up per line.
+ * Like drawStaggered, multiplies with the outer globalAlpha. */
 function drawWrapped(
   ctx: CanvasRenderingContext2D,
   text: string,
@@ -222,15 +227,17 @@ function drawWrapped(
   lineDelay = 0.16,
   align: CanvasTextAlign = "left",
 ) {
+  const baseAlpha = ctx.globalAlpha;
+  if (baseAlpha <= 0.001) return;
   ctx.textAlign = align;
   const lines = wrapLines(ctx, text, maxWidth);
   lines.forEach((ln, i) => {
     const start = i * lineDelay;
-    const p = clamp01((localT - start) / 0.65);
+    const p = clamp01((localT - start) / 0.5);
     const e = easeOut(p);
     ctx.save();
-    ctx.globalAlpha = e;
-    ctx.translate(0, (1 - e) * 12);
+    ctx.globalAlpha = baseAlpha * e;
+    ctx.translate(0, (1 - e) * 10);
     ctx.fillText(ln, x, y + i * lineHeight);
     ctx.restore();
   });
@@ -647,27 +654,28 @@ function drawWatermark(ctx: CanvasRenderingContext2D, t: number) {
 function drawColdOpen(ctx: CanvasRenderingContext2D, t: number) {
   const ch = CHAPTERS[0]!;
   const lt = t - ch.start;
+  const len = ch.end - ch.start; // 12
 
-  // Lock that morphs into a chat bubble.
-  //   0 –4s   lock pulses, line 1 below
-  //   4 –9s   lock morphs into bubble, line 2 below
-  //   9 –15s  bubble pulses, line 3 below (warm)
-  const morph = clamp01((lt - 4) / 1.4);
+  // Lock that morphs into a chat bubble (morph happens at 4s).
+  const morph = clamp01((lt - 4) / 1.0);
   const cx = VIDEO_W / 2;
   const iconY = 240;
-  const pulse = 1 + Math.sin(lt * 1.6) * 0.03;
+  const pulse = 1 + Math.sin(lt * 2.0) * 0.04;
   const baseSize = 130;
 
-  const lockAlpha = (1 - morph) * band(lt, 0.3, 15, 0.5, 0.3);
+  // Icon stays visible for almost the whole chapter, exiting in last 0.5s.
+  const iconWindow = band(lt, 0.3, len, 0.4, 0.5);
+  const lockAlpha = (1 - morph) * iconWindow;
   drawLockIcon(ctx, cx, iconY, baseSize * pulse, FOREST, lockAlpha);
-  const bubbleAlpha = morph * band(lt, 0.3, 15, 0.5, 0.3);
+  const bubbleAlpha = morph * iconWindow;
   drawChatBubbleIcon(ctx, cx, iconY, baseSize * pulse, FOREST, bubbleAlpha);
 
   // Concentric pulse rings.
   for (let i = 0; i < 3; i++) {
-    const ringT = ((lt + i * 0.6) % 2.0) / 2.0;
+    const ringT = ((lt + i * 0.55) % 1.7) / 1.7;
     const r = 80 + ringT * 110;
-    const a = (1 - ringT) * 0.18;
+    const a = (1 - ringT) * 0.18 * iconWindow;
+    if (a <= 0.01) continue;
     ctx.save();
     ctx.globalAlpha = a;
     ctx.strokeStyle = FOREST;
@@ -678,35 +686,50 @@ function drawColdOpen(ctx: CanvasRenderingContext2D, t: number) {
     ctx.restore();
   }
 
-  const lineWindows: { text: string; start: number; end: number; warm?: boolean }[] = [
-    { text: "Every day, you have private conversations.", start: 1.0, end: 4.5 },
-    { text: "The kind you trust to one person.", start: 5.0, end: 8.6 },
-    { text: "But you're not the only one in the room.", start: 9.2, end: 14.6, warm: true },
+  // Three text beats — each cleanly enters AND exits before the next begins.
+  // Window timings (start, hold, fadeOut) ensure no overlap:
+  //   line 1: 0.4 → 3.4 (3s on)
+  //   line 2: 3.8 → 7.0 (3.2s on)
+  //   line 3: 7.4 → 11.4 (4s on, slightly longer for the punch)
+  const lineWindows: {
+    text: string;
+    start: number;
+    end: number;
+    warm?: boolean;
+  }[] = [
+    { text: "Every day, you have private conversations.", start: 0.4, end: 3.4 },
+    { text: "The kind you trust to one person.", start: 3.8, end: 7.0 },
+    { text: "But you're not the only one in the room.", start: 7.4, end: 11.4, warm: true },
   ];
 
   lineWindows.forEach((w) => {
-    if (lt < w.start) return;
+    if (lt < w.start || lt > w.end) return;
     const local = lt - w.start;
-    const out = clamp01((w.end - lt) / 0.6);
+    const fadeIn = clamp01(local / 0.35);
+    const fadeOut = clamp01((w.end - lt) / 0.4);
+    const a = Math.min(fadeIn, fadeOut);
+    if (a <= 0.01) return;
     setFont(ctx, 44, 600, "serif", -0.3);
     ctx.fillStyle = w.warm ? WARM_DIM : DARK;
     ctx.save();
-    ctx.globalAlpha = out;
-    drawStaggered(ctx, w.text, cx, 460, local, 0.022, 0.5, "center");
+    ctx.globalAlpha = a;
+    drawStaggered(ctx, w.text, cx, 460, local, 0.018, 0.4, "center");
     ctx.restore();
   });
 
   // Subtle ascender line under the icon.
-  const lineA = band(lt, 0.5, 14.6, 0.5, 0.4) * 0.18;
-  ctx.save();
-  ctx.globalAlpha = lineA;
-  ctx.strokeStyle = FOREST;
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.moveTo(cx - 90, 340);
-  ctx.lineTo(cx + 90, 340);
-  ctx.stroke();
-  ctx.restore();
+  const lineA = iconWindow * 0.18;
+  if (lineA > 0.01) {
+    ctx.save();
+    ctx.globalAlpha = lineA;
+    ctx.strokeStyle = FOREST;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(cx - 90, 340);
+    ctx.lineTo(cx + 90, 340);
+    ctx.stroke();
+    ctx.restore();
+  }
 }
 
 /* ───────────────────────── Chapter 2 — The problem ───────────────────────── */
@@ -714,13 +737,14 @@ function drawColdOpen(ctx: CanvasRenderingContext2D, t: number) {
 function drawProblem(ctx: CanvasRenderingContext2D, t: number) {
   const ch = CHAPTERS[1]!;
   const lt = t - ch.start;
-  const len = ch.end - ch.start; // 23
+  const len = ch.end - ch.start; // 18
 
-  const headlineWindow = band(lt, 0.3, len, 0.5, 0.5);
+  // Whole-chapter window so everything fades together at the end.
+  const chapterWindow = band(lt, 0, len, 0.4, 0.5);
 
   // Headline.
   ctx.save();
-  ctx.globalAlpha = headlineWindow;
+  ctx.globalAlpha = chapterWindow;
   setFont(ctx, 50, 600, "serif", -0.4);
   ctx.fillStyle = DARK;
   ctx.textBaseline = "top";
@@ -730,11 +754,11 @@ function drawProblem(ctx: CanvasRenderingContext2D, t: number) {
     VIDEO_W / 2,
     100,
     lt,
-    0.018,
-    0.4,
+    0.016,
+    0.35,
     "center",
   );
-  if (lt > 0.9) {
+  if (lt > 0.7) {
     setFont(ctx, 50, 600, "serif", -0.4);
     ctx.fillStyle = FOREST;
     drawStaggered(
@@ -742,9 +766,9 @@ function drawProblem(ctx: CanvasRenderingContext2D, t: number) {
       "except your message.",
       VIDEO_W / 2,
       162,
-      lt - 0.9,
-      0.022,
-      0.4,
+      lt - 0.7,
+      0.018,
+      0.35,
       "center",
     );
   }
@@ -773,11 +797,11 @@ function drawProblem(ctx: CanvasRenderingContext2D, t: number) {
   ];
 
   tiles.forEach((tile, i) => {
-    const enter = clamp01((lt - 2.4 - i * 0.3) / 0.55);
-    const e = easeOut(enter);
+    const enter = clamp01((lt - 1.8 - i * 0.22) / 0.45);
+    const e = easeOut(enter) * chapterWindow;
     if (e <= 0.01) return;
     const x = startX + i * (tileW + gap);
-    const offsetY = (1 - e) * 26;
+    const offsetY = (1 - easeOut(clamp01((lt - 1.8 - i * 0.22) / 0.45))) * 26;
 
     ctx.save();
     ctx.globalAlpha = e;
@@ -848,10 +872,10 @@ function drawProblem(ctx: CanvasRenderingContext2D, t: number) {
     ctx.restore();
   });
 
-  // Bottom: huge METADATA word reveal.
-  if (lt > 11) {
-    const local = lt - 11;
-    const out = clamp01((len - lt) / 1.0);
+  // Bottom: huge METADATA word reveal — punchier, lands at lt=8s.
+  if (lt > 8) {
+    const local = lt - 8;
+    const out = chapterWindow;
     setFont(ctx, 92, 800, "sans", 4);
     ctx.fillStyle = WARM_DIM;
     ctx.textBaseline = "middle";
@@ -864,19 +888,19 @@ function drawProblem(ctx: CanvasRenderingContext2D, t: number) {
       VIDEO_W / 2,
       612,
       local,
-      0.05,
-      0.55,
+      0.04,
+      0.4,
       "center",
     );
     ctx.restore();
 
-    if (lt > 13) {
+    if (lt > 10) {
       setFont(ctx, 22, 500, "sans", 0.2);
       ctx.fillStyle = MID;
       ctx.textBaseline = "middle";
       ctx.textAlign = "center";
       ctx.save();
-      ctx.globalAlpha = out * easeOut(clamp01((lt - 13) / 1.0));
+      ctx.globalAlpha = out * easeOut(clamp01((lt - 10) / 0.6));
       ctx.fillText(
         "Who you talk to. When. Where from. How often.",
         VIDEO_W / 2,
@@ -892,36 +916,41 @@ function drawProblem(ctx: CanvasRenderingContext2D, t: number) {
 function drawIntroducing(ctx: CanvasRenderingContext2D, t: number) {
   const ch = CHAPTERS[2]!;
   const lt = t - ch.start;
-  const len = ch.end - ch.start; // 18
+  const len = ch.end - ch.start; // 14
   const cx = VIDEO_W / 2;
 
+  // Whole-chapter window so every element fades together at the end.
+  const chapterWindow = band(lt, 0, len, 0, 0.5);
+
   // Logo enters with a little spring.
-  const logoEnter = clamp01(lt / 1.2);
+  const logoEnter = clamp01(lt / 0.9);
   const logoY = lerp(VIDEO_H + 200, 240, easeOutBack(logoEnter));
   const logoScale = lerp(0.7, 1, easeOut(logoEnter));
   const float = Math.sin(lt * 0.8) * 5;
-  drawLogo(ctx, cx, logoY + float, 170 * logoScale, easeOut(logoEnter));
+  drawLogo(ctx, cx, logoY + float, 170 * logoScale, easeOut(logoEnter) * chapterWindow);
 
   // Wordmark.
-  if (lt > 1.0) {
-    const local = lt - 1.0;
+  if (lt > 0.7) {
+    const local = lt - 0.7;
     setFont(ctx, 92, 700, "serif", -2);
     ctx.fillStyle = DARK;
     ctx.textBaseline = "middle";
     ctx.textAlign = "center";
-    drawStaggered(ctx, "VeilChat", cx, 400, local, 0.045, 0.55, "center");
+    ctx.save();
+    ctx.globalAlpha = chapterWindow;
+    drawStaggered(ctx, "VeilChat", cx, 400, local, 0.035, 0.4, "center");
+    ctx.restore();
   }
 
   // Tagline.
-  if (lt > 2.4) {
-    const local = lt - 2.4;
-    const out = clamp01((len - lt) / 1.0);
+  if (lt > 1.8) {
+    const local = lt - 1.8;
     setFont(ctx, 30, 500, "serif", -0.2);
     ctx.fillStyle = MID;
     ctx.textBaseline = "middle";
     ctx.textAlign = "center";
     ctx.save();
-    ctx.globalAlpha = out;
+    ctx.globalAlpha = chapterWindow;
     drawWrapped(
       ctx,
       "Message privately. Built for the people you actually trust.",
@@ -930,14 +959,14 @@ function drawIntroducing(ctx: CanvasRenderingContext2D, t: number) {
       900,
       40,
       local,
-      0.18,
+      0.14,
       "center",
     );
     ctx.restore();
   }
 
   // Chips.
-  const chipsStart = 4.6;
+  const chipsStart = 3.4;
   if (lt > chipsStart) {
     const chips = [
       { label: "End-to-end encrypted" },
@@ -951,15 +980,14 @@ function drawIntroducing(ctx: CanvasRenderingContext2D, t: number) {
     const totalW = widths.reduce((a, b) => a + b, 0) + gap * (chips.length - 1);
     let cursor = (VIDEO_W - totalW) / 2;
     chips.forEach((c, i) => {
-      const local = lt - chipsStart - i * 0.2;
-      const p = clamp01(local / 0.55);
+      const local = lt - chipsStart - i * 0.15;
+      const p = clamp01(local / 0.4);
       const e = easeOut(p);
       if (e <= 0) return;
-      const out = clamp01((len - lt) / 1.0);
       const w = widths[i]!;
       ctx.save();
-      ctx.globalAlpha = e * out;
-      ctx.translate(0, (1 - e) * 12);
+      ctx.globalAlpha = e * chapterWindow;
+      ctx.translate(0, (1 - e) * 10);
       roundRect(ctx, cursor, chipY, w, 38, 19);
       ctx.fillStyle = PALE;
       ctx.fill();
@@ -999,17 +1027,17 @@ type ChatMsg = {
 };
 
 const CHAT_MESSAGES: ChatMsg[] = [
-  { side: "left", text: "Hey, are we still on for Saturday?", typeStart: 1.6, appear: 4.2 },
-  { side: "right", text: "Wouldn't miss it. 7pm at the park?", typeStart: 5.6, appear: 8.4 },
-  { side: "left", text: "Perfect. I'll bring the playlist.", typeStart: 9.8, appear: 12.6 },
-  { side: "right", text: "You always do.", typeStart: 13.8, appear: 16.0 },
-  { side: "left", text: "And here's the address — gone in 30s.", typeStart: 17.2, appear: 20.0, timer: true },
+  { side: "left", text: "Hey, are we still on for Saturday?", typeStart: 0.8, appear: 2.6 },
+  { side: "right", text: "Wouldn't miss it. 7pm at the park?", typeStart: 3.4, appear: 5.4 },
+  { side: "left", text: "Perfect. I'll bring the playlist.", typeStart: 6.2, appear: 8.2 },
+  { side: "right", text: "You always do.", typeStart: 8.8, appear: 10.4 },
+  { side: "left", text: "And here's the address — gone in 30s.", typeStart: 11.0, appear: 13.0, timer: true },
 ];
 
 function drawChat(ctx: CanvasRenderingContext2D, t: number) {
   const ch = CHAPTERS[3]!;
   const lt = t - ch.start;
-  const len = ch.end - ch.start; // 52
+  const len = ch.end - ch.start; // 28
 
   // Layout: phone-shaped chat panel on the right, callouts on the left.
   const panelW = 520;
@@ -1045,17 +1073,17 @@ function drawChat(ctx: CanvasRenderingContext2D, t: number) {
   // Left-side feature callouts that fade in over time.
   const callouts: { start: number; head: string; body: string }[] = [
     {
-      start: 4.0,
+      start: 2.6,
       head: "Encrypted on send",
       body: "Each message is sealed on your device before it leaves.",
     },
     {
-      start: 12.0,
+      start: 7.0,
       head: "Delivered & read",
       body: "Quiet receipts confirm delivery — never tracked anywhere else.",
     },
     {
-      start: 20.0,
+      start: 13.0,
       head: "Disappearing on a timer",
       body: "Pick a window. Both copies vanish when it expires.",
     },
@@ -1325,9 +1353,9 @@ function drawChat(ctx: CanvasRenderingContext2D, t: number) {
     cursorY += L.h + 30;
   });
 
-  // Heart reaction floating up over message #2 around lt 10.5..12.
-  if (lt > 10.5 && lt < 12.4) {
-    const hp = clamp01((lt - 10.5) / 1.7);
+  // Heart reaction floating up over message #2 around lt 6.0..7.6.
+  if (lt > 6.0 && lt < 7.6) {
+    const hp = clamp01((lt - 6.0) / 1.5);
     const hx = panelX + panelW / 2 + 80;
     const hy = lerp(panelY + 320, panelY + 200, hp);
     ctx.save();
@@ -1369,10 +1397,10 @@ function drawChat(ctx: CanvasRenderingContext2D, t: number) {
 
   ctx.restore(); // panel transform
 
-  // "Screenshot blocked" toast at end of chapter (lt 42–48).
-  if (lt > 42 && lt < 49) {
-    const local = lt - 42;
-    const a = easeOut(clamp01(local / 0.4)) * easeOut(clamp01((49 - lt) / 0.6));
+  // "Screenshot blocked" toast near the end of chapter (lt 18–25).
+  if (lt > 18 && lt < 25) {
+    const local = lt - 18;
+    const a = easeOut(clamp01(local / 0.35)) * easeOut(clamp01((25 - lt) / 0.5));
     const tw = 360;
     const th = 56;
     const tx = panelX + panelW / 2 - tw / 2;
@@ -1507,46 +1535,46 @@ type FeatureBeat = {
 const FEATURES: FeatureBeat[] = [
   {
     start: 0,
-    duration: 14,
+    duration: 12,
     title: "End-to-end encrypted by default",
     body:
-      "Every message, photo, and file is sealed on your device with a key only you and your friend share. Not on our servers. Not in our backups. Nowhere else.",
+      "Every message, photo, and file is sealed on your device with a key only you and your friend share. Not on our servers. Nowhere else.",
     drawIcon: (ctx, cx, cy, size, alpha) =>
       drawLockIcon(ctx, cx, cy, size, FOREST, alpha),
   },
   {
-    start: 14,
-    duration: 14,
+    start: 12,
+    duration: 12,
     title: "No phone number required",
     body:
-      "Sign up with a username — that's it. Nothing ties your conversations to your real-world identity, and there's no number for someone to look you up with.",
+      "Sign up with a username — that's it. Nothing ties your conversations to your real-world identity, and no number to look you up with.",
     drawIcon: (ctx, cx, cy, size, alpha) =>
       drawAtIcon(ctx, cx, cy, size, FOREST, alpha),
   },
   {
-    start: 28,
-    duration: 14,
+    start: 24,
+    duration: 12,
     title: "Disappearing messages",
     body:
-      "Pick a timer — five seconds, an hour, a week — and your message is gone from both devices when it expires. No screenshots. No permanent record.",
+      "Pick a timer — five seconds, an hour, a week — and your message is gone from both devices when it expires. No permanent record.",
     drawIcon: (ctx, cx, cy, size, alpha, lt) =>
       drawTimerIcon(ctx, cx, cy, size, FOREST, alpha, lt * 0.8),
   },
   {
-    start: 42,
-    duration: 14,
+    start: 36,
+    duration: 12,
     title: "Verified contacts",
     body:
-      "Compare a small safety code with your friend in person. If the codes match, you know the conversation is sealed between exactly the two of you.",
+      "Compare a small safety code with your friend in person. If the codes match, the conversation is sealed between exactly the two of you.",
     drawIcon: (ctx, cx, cy, size, alpha) =>
       drawCheckBadge(ctx, cx, cy, size, ACCENT, alpha),
   },
   {
-    start: 56,
-    duration: 14,
+    start: 48,
+    duration: 12,
     title: "Works on every device",
     body:
-      "Phone, tablet, laptop. Android, iOS, web, desktop. Install it as an app from your browser in two seconds — no app store account, no review queue.",
+      "Phone, tablet, laptop. Android, iOS, web, desktop. Install it as an app from your browser in seconds — no app store, no review queue.",
     drawIcon: (ctx, cx, cy, size, alpha) =>
       drawDevicesIcon(ctx, cx, cy, size, FOREST, alpha),
   },
@@ -1693,6 +1721,8 @@ function drawFeatures(ctx: CanvasRenderingContext2D, t: number) {
 function drawHowItWorks(ctx: CanvasRenderingContext2D, t: number) {
   const ch = CHAPTERS[5]!;
   const lt = t - ch.start;
+  const len = ch.end - ch.start; // 30
+  const chapterWindow = band(lt, 0, len, 0.4, 0.5);
 
   // Heading.
   setFont(ctx, 48, 600, "serif", -0.6);
@@ -1700,17 +1730,17 @@ function drawHowItWorks(ctx: CanvasRenderingContext2D, t: number) {
   ctx.textBaseline = "top";
   ctx.textAlign = "left";
   ctx.save();
-  ctx.globalAlpha = band(lt, 0.2, ch.end - ch.start, 0.5, 0.5);
-  drawStaggered(ctx, "How it works", 92, 110, lt - 0.2, 0.024, 0.45, "left");
+  ctx.globalAlpha = chapterWindow;
+  drawStaggered(ctx, "How it works", 92, 110, lt, 0.02, 0.4, "left");
   ctx.restore();
 
   // Sub heading.
-  if (lt > 1.0) {
+  if (lt > 0.7) {
     setFont(ctx, 22, 500, "sans", 0.1);
     ctx.fillStyle = MID;
     ctx.textBaseline = "top";
     ctx.save();
-    ctx.globalAlpha = band(lt - 1.0, 0, 30, 0.5, 0.5);
+    ctx.globalAlpha = chapterWindow * easeOut(clamp01((lt - 0.7) / 0.4));
     ctx.fillText("Three things happen the moment you press send.", 92, 174);
     ctx.restore();
   }
@@ -1723,8 +1753,10 @@ function drawHowItWorks(ctx: CanvasRenderingContext2D, t: number) {
   const phoneW = 130;
   const phoneH = 180;
 
-  const stage0In = clamp01((lt - 2.4) / 0.7);
-  const stageA = easeOut(stage0In);
+  // Diagram fades in then fades out around lt=14 to make room for the takeaways.
+  const stage0In = clamp01((lt - 2.0) / 0.6);
+  const diagramHold = 1 - clamp01((lt - 14) / 1.0);
+  const stageA = easeOut(stage0In) * diagramHold * chapterWindow;
   drawPhoneIcon(ctx, phoneA_x, baseY, phoneW, phoneH, INK, stageA);
   drawPhoneIcon(ctx, phoneB_x, baseY, phoneW, phoneH, INK, stageA);
   drawServerIcon(ctx, serverX, baseY - 10, 120, MID, stageA);
@@ -1857,12 +1889,13 @@ function drawHowItWorks(ctx: CanvasRenderingContext2D, t: number) {
   points.forEach((p, i) => {
     if (lt < p.start) return;
     const local = lt - p.start;
-    const a = easeOut(clamp01(local / 0.5));
+    const a = easeOut(clamp01(local / 0.5)) * chapterWindow;
+    if (a <= 0.01) return;
     const tileX = 92 + i * 372;
     const tileY = 560;
     ctx.save();
     ctx.globalAlpha = a;
-    ctx.translate(0, (1 - a) * 14);
+    ctx.translate(0, (1 - easeOut(clamp01(local / 0.5))) * 14);
     drawLockIcon(ctx, tileX + 16, tileY + 16, 32, FOREST, 1);
     setFont(ctx, 18, 700, "sans", -0.1);
     ctx.fillStyle = DARK;
@@ -2220,55 +2253,62 @@ function scheduleAudio(engine: ExplainerAudio, audioStart: number) {
     engine.chapterChime(audioStart + c.start);
   });
 
-  // Cold open accents.
-  engine.glint(audioStart + 1.0);
-  engine.heartbeat(audioStart + 5.0);
-  engine.warmPulse(audioStart + 9.5);
+  // Chapter offsets matching CHAPTERS array.
+  const COLD = 0;
+  const PROBLEM = 12;
+  const INTRO = 30;
+  const CHAT = 44;
+  const FEAT = 72;
+  const HOW = 132;
+  const CTA = 162;
 
-  // Problem chapter — warm pulses.
+  // Cold open accents.
+  engine.glint(audioStart + COLD + 0.5);
+  engine.heartbeat(audioStart + COLD + 4.0);
+  engine.warmPulse(audioStart + COLD + 7.5);
+
+  // Problem chapter — warm pulses on tile reveals + metadata.
   for (let i = 0; i < 3; i++) {
-    engine.warmPulse(audioStart + 15 + 2.4 + i * 0.3);
+    engine.warmPulse(audioStart + PROBLEM + 1.8 + i * 0.22);
   }
-  engine.warmPulse(audioStart + 15 + 11.2);
-  engine.warmPulse(audioStart + 15 + 13.2);
+  engine.warmPulse(audioStart + PROBLEM + 8.2);
+  engine.warmPulse(audioStart + PROBLEM + 10.2);
 
   // Intro chapter — sparkle on logo arrival, glints on chips.
-  engine.glint(audioStart + 38 + 0.3);
-  engine.glint(audioStart + 38 + 1.2);
+  engine.glint(audioStart + INTRO + 0.2);
+  engine.glint(audioStart + INTRO + 0.9);
   for (let i = 0; i < 3; i++) {
-    engine.glint(audioStart + 38 + 4.6 + i * 0.2);
+    engine.glint(audioStart + INTRO + 3.4 + i * 0.15);
   }
 
   // Chat chapter — taps on typing starts, soft pings on bubble appearance.
   CHAT_MESSAGES.forEach((m) => {
-    // Typing taps.
-    for (let k = 0; k < 5; k++) {
-      engine.typeTap(audioStart + 56 + m.typeStart + 0.3 + k * 0.18);
+    for (let k = 0; k < 4; k++) {
+      engine.typeTap(audioStart + CHAT + m.typeStart + 0.25 + k * 0.16);
     }
-    // Bubble ping.
-    engine.messagePing(audioStart + 56 + m.appear, m.side === "left");
+    engine.messagePing(audioStart + CHAT + m.appear, m.side === "left");
   });
-  engine.glint(audioStart + 56 + 11.5); // heart float
-  engine.lockClick(audioStart + 56 + 42.4); // screenshot toast
+  engine.glint(audioStart + CHAT + 6.2); // heart float
+  engine.lockClick(audioStart + CHAT + 18.2); // screenshot toast
 
   // Features chapter — glint + lock click on each beat opening.
   FEATURES.forEach((f) => {
-    engine.glint(audioStart + 108 + f.start + 0.15);
-    engine.lockClick(audioStart + 108 + f.start + 0.45);
+    engine.glint(audioStart + FEAT + f.start + 0.1);
+    engine.lockClick(audioStart + FEAT + f.start + 0.35);
   });
 
   // How it works — heartbeat under the diagram, lock clicks on packet flight.
-  engine.heartbeat(audioStart + 178 + 2.6);
-  engine.lockClick(audioStart + 178 + 5.5);
-  engine.lockClick(audioStart + 178 + 7.0);
-  engine.lockClick(audioStart + 178 + 9.0);
-  engine.lockClick(audioStart + 178 + 10.5);
+  engine.heartbeat(audioStart + HOW + 2.4);
+  engine.lockClick(audioStart + HOW + 5.5);
+  engine.lockClick(audioStart + HOW + 7.0);
+  engine.lockClick(audioStart + HOW + 9.0);
+  engine.lockClick(audioStart + HOW + 10.5);
   for (let i = 0; i < 3; i++) {
-    engine.heartbeat(audioStart + 178 + 13 + i * 5);
+    engine.heartbeat(audioStart + HOW + 13 + i * 5);
   }
 
   // CTA — final outro arpeggio.
-  engine.outroChime(audioStart + 208 + 3.6);
+  engine.outroChime(audioStart + CTA + 3.6);
 }
 
 /* ───────────────────────── Recording helpers ───────────────────────── */
@@ -2540,7 +2580,7 @@ export function ExplainerVideo() {
       <div className="relative mx-auto max-w-6xl">
         <div className="text-center max-w-3xl mx-auto mb-10 sm:mb-14">
           <div className="inline-flex items-center gap-2 text-[12px] font-semibold tracking-[0.18em] uppercase text-[#2E6F40] bg-[#D9F5DF] border border-[#68BA7F]/40 rounded-full px-3 py-1.5">
-            New · 4-minute explainer · drawn live with sound
+            New · 3-minute explainer · drawn live with sound
           </div>
           <h2
             className="mt-5 text-[32px] sm:text-[42px] md:text-[52px] font-semibold tracking-[-0.02em] leading-[1.05] text-[#1A2D22]"
@@ -2551,7 +2591,7 @@ export function ExplainerVideo() {
           >
             The full story of VeilChat,{" "}
             <span className="italic" style={{ color: "#2E6F40" }}>
-              in under four minutes.
+              in three minutes.
             </span>
           </h2>
           <p className="mt-4 text-[16px] sm:text-[18px] text-[#506A57] max-w-2xl mx-auto leading-[1.55]">
@@ -2576,7 +2616,7 @@ export function ExplainerVideo() {
                 width={VIDEO_W}
                 height={VIDEO_H}
                 className="block w-full h-full bg-[#FCF6EC]"
-                aria-label="VeilChat 4-minute explainer video"
+                aria-label="VeilChat 3-minute explainer video"
               />
 
               {/* Mute toggle */}
