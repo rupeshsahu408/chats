@@ -309,9 +309,12 @@ function Hero() {
       <div className="relative mx-auto max-w-7xl px-5 sm:px-8">
         <div className="grid lg:grid-cols-12 gap-12 lg:gap-16 items-center">
           <div className="lg:col-span-7">
-            <div className="inline-flex items-center gap-2 text-[12px] font-semibold tracking-wide uppercase text-[#2E6F40] bg-[#CFFFDC] border border-[#68BA7F]/40 rounded-full px-3 py-1.5">
-              <LockMini />
-              End-to-end encrypted · Privacy-first
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="inline-flex items-center gap-2 text-[12px] font-semibold tracking-wide uppercase text-[#2E6F40] bg-[#CFFFDC] border border-[#68BA7F]/40 rounded-full px-3 py-1.5">
+                <LockMini />
+                End-to-end encrypted · Privacy-first
+              </div>
+              <OpenSourcePill />
             </div>
 
             <h1
@@ -401,6 +404,54 @@ function LockMini() {
     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
       <rect x="5" y="11" width="14" height="9" rx="2.2" />
       <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+    </svg>
+  );
+}
+
+/**
+ * Hero badge that doubles as a tappable button: "OPEN SOURCE →".
+ *
+ * Sits next to the existing "End-to-end encrypted · Privacy-first"
+ * pill but looks distinctly clickable: white background (instead of
+ * the pale-green of the static pill), GitHub mark on the left, and
+ * an arrow on the right that nudges on hover. Internal navigation
+ * to `/open-source` so the user lands on the dedicated page.
+ */
+function OpenSourcePill() {
+  return (
+    <Link
+      to="/open-source"
+      aria-label="Learn more about VeilChat being open source"
+      className="group inline-flex items-center gap-2 text-[12px] font-semibold tracking-wide uppercase text-[#253D2C] bg-white border border-[#253D2C]/15 hover:border-[#2E6F40]/45 hover:text-[#2E6F40] rounded-full pl-3 pr-2.5 py-1.5 shadow-[0_2px_8px_-4px_rgba(17,27,33,0.18)] hover:shadow-[0_6px_16px_-6px_rgba(46,111,64,0.35)] transition-all"
+    >
+      <GithubMini />
+      Open source
+      <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold normal-case tracking-normal text-[#2E6F40]">
+        <span className="hidden sm:inline">Tap</span>
+        <svg
+          width="11"
+          height="11"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.6"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="transition-transform duration-200 group-hover:translate-x-0.5"
+          aria-hidden="true"
+        >
+          <path d="M5 12h14" />
+          <path d="M13 5l7 7-7 7" />
+        </svg>
+      </span>
+    </Link>
+  );
+}
+
+function GithubMini() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M12 .5C5.73.5.75 5.48.75 11.75c0 4.97 3.22 9.18 7.69 10.67.56.1.77-.24.77-.54 0-.27-.01-.97-.02-1.9-3.13.68-3.79-1.51-3.79-1.51-.51-1.3-1.25-1.65-1.25-1.65-1.02-.7.08-.69.08-.69 1.13.08 1.72 1.16 1.72 1.16 1 1.72 2.63 1.22 3.27.93.1-.73.39-1.22.71-1.5-2.5-.28-5.13-1.25-5.13-5.57 0-1.23.44-2.24 1.16-3.03-.12-.29-.5-1.43.11-2.98 0 0 .95-.31 3.1 1.16.9-.25 1.86-.38 2.82-.38.96 0 1.92.13 2.82.38 2.15-1.47 3.1-1.16 3.1-1.16.61 1.55.23 2.69.11 2.98.72.79 1.16 1.8 1.16 3.03 0 4.33-2.64 5.29-5.15 5.56.4.34.76 1.02.76 2.06 0 1.49-.01 2.69-.01 3.05 0 .3.2.65.78.54 4.46-1.49 7.68-5.7 7.68-10.66C23.25 5.48 18.27.5 12 .5z" />
     </svg>
   );
 }
