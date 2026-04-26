@@ -55,13 +55,31 @@ import { useCallback, useEffect, useRef, useState } from "react";
  *                  • Backup: Encrypted backup
  *                  • About: version + "End-to-end encrypted ✓"
  *  50.0 – 50.8s  Tap back → settings slides off, chat slides back in
- *  50.8 – 60.0s  Outro: logo zoom, tagline, CTA pill, drifting particles
+ *  50.8 – 56.2s  Open-source proof: GitHub mark, AGPL-3.0, repo URL
+ *  56.2 – 62.0s  Outro: logo zoom, tagline, CTA pill, drifting particles
+ *
+ * Real playback time is `DURATION_SEC / SPEED` ≈ 38.75 s with the
+ * default SPEED of 1.6 — every beat above is timeline seconds, not
+ * wall-clock seconds.
  */
 
 const VIDEO_W = 720;
 const VIDEO_H = 1280;
 const FPS = 30;
-const DURATION_SEC = 60;
+/**
+ * Playback speed multiplier. Visuals advance at SPEED× of real time, and
+ * audio offsets are scaled by 1/SPEED inside `scheduleTimelineAudio` so
+ * the soundtrack stays glued to the visuals. The whole timeline finishes
+ * in `DURATION_SEC / SPEED` real seconds.
+ *
+ * SPEED was bumped from 1.0 → 1.6 to make the scenes change snappier —
+ * no script lingers for half a minute waiting for the next beat. Audio
+ * sound-effect *durations* (lock click, photo burn, etc.) stay at their
+ * natural length so nothing sounds chipmunked.
+ */
+const SPEED = 1.6;
+const DURATION_SEC = 62;
+const REAL_DURATION_SEC = DURATION_SEC / SPEED;
 
 /* ───────────────────────── timeline ───────────────────────── */
 
@@ -197,7 +215,15 @@ const SETTINGS_TRANSITION = { start: 35.4, end: 36.4 } as const;
 const SETTINGS_SCENE = { start: 36.4, end: 50.0 } as const;
 const SETTINGS_BACK = { start: 50.0, end: 50.8 } as const;
 
-const OUTRO = { start: 50.8, end: 60.0 } as const;
+/**
+ * Open-source proof scene — sits between the settings tour and the
+ * outro. Five seconds of GitHub-mark + AGPL-3.0 + repo URL on the
+ * cream backdrop, with type-on captions echoing the `/open-source`
+ * landing page ("Audit every line. Verify every claim.").
+ */
+const OPEN_SOURCE = { start: 50.8, end: 56.2 } as const;
+
+const OUTRO = { start: 56.2, end: 62.0 } as const;
 
 /* ───────────────────────── easing ───────────────────────── */
 
@@ -3520,6 +3546,306 @@ function drawScheduleConfirmToast(ctx: CanvasRenderingContext2D, t: number) {
 
 /* ───────────────────────── full frame ───────────────────────── */
 
+/* ───────────────────────── open-source scene ───────────────────────── */
+
+/**
+ * GitHub octocat-style mark, drawn from scratch on the canvas so the
+ * scene doesn't depend on any external SVG/font assets at record time.
+ * Centered on (cx, cy) and sized via `size` (the full glyph fits inside
+ * a `size × size` box).
+ */
+function drawGithubMark(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  size: number,
+  color: string,
+  alpha: number,
+) {
+  if (alpha <= 0) return;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  // Simplified octocat silhouette — head + body + ear nubs + tail loop.
+  // Coordinates are in a unit square; scaled below.
+  const r = size * 0.5;
+  // Head circle
+  ctx.arc(cx, cy - size * 0.08, r * 0.95, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  // Tail loop (a small swoosh below-left)
+  ctx.moveTo(cx - size * 0.16, cy + size * 0.32);
+  ctx.bezierCurveTo(
+    cx - size * 0.32,
+    cy + size * 0.48,
+    cx - size * 0.42,
+    cy + size * 0.18,
+    cx - size * 0.28,
+    cy + size * 0.10,
+  );
+  ctx.bezierCurveTo(
+    cx - size * 0.18,
+    cy + size * 0.04,
+    cx - size * 0.12,
+    cy + size * 0.30,
+    cx - size * 0.16,
+    cy + size * 0.32,
+  );
+  ctx.fill();
+  ctx.restore();
+
+  // Two pale "eye" cutouts in cream so the mark reads on dark or light
+  // backgrounds.
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = "#FCF5EB";
+  ctx.beginPath();
+  ctx.arc(cx - size * 0.18, cy - size * 0.04, size * 0.05, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(cx + size * 0.18, cy - size * 0.04, size * 0.05, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+/**
+ * Open-source proof scene. Echoes `OpenSourcePage` ("Audit every line.
+ * Verify every claim.") so anyone watching the ad knows the source is
+ * public, the licence is AGPL-3.0, and where to find the repo.
+ *
+ * Beat sheet (relative to OPEN_SOURCE.start):
+ *   0.00 – 0.45  Cream backdrop fades in
+ *   0.20 – 1.10  GitHub mark scales up + soft sparkle
+ *   0.55 – 1.40  "Open source." headline types in
+ *   0.95 – 1.80  "Audit every line. Verify every claim." subheadline
+ *   1.40 – 2.20  AGPL-3.0 chip + repo URL pill rise from below
+ *   2.20 – 4.40  Three quick proof chips ("Public source", "Self-host",
+ *                "Forward secrecy") slide in left → right
+ *   4.40 – 5.40  Whole scene gracefully fades out into the outro
+ */
+function drawOpenSourceScene(ctx: CanvasRenderingContext2D, t: number) {
+  const lt = t - OPEN_SOURCE.start;
+  const len = OPEN_SOURCE.end - OPEN_SOURCE.start;
+  const fadeIn = clamp01(lt / 0.45);
+  const fadeOut = 1 - clamp01((lt - (len - 0.6)) / 0.6);
+  const sceneA = clamp01(Math.min(easeOut(fadeIn), fadeOut));
+  if (sceneA <= 0.01) return;
+
+  // Background wash that gently dims any phone tail still on screen.
+  ctx.save();
+  ctx.globalAlpha = sceneA * 0.96;
+  ctx.fillStyle = "#FCF5EB";
+  ctx.fillRect(0, 0, VIDEO_W, VIDEO_H);
+
+  const grd = ctx.createRadialGradient(
+    VIDEO_W * 0.5,
+    VIDEO_H * 0.42,
+    60,
+    VIDEO_W * 0.5,
+    VIDEO_H * 0.42,
+    900,
+  );
+  grd.addColorStop(0, "rgba(207,255,220,0.45)");
+  grd.addColorStop(1, "rgba(207,255,220,0)");
+  ctx.fillStyle = grd;
+  ctx.fillRect(0, 0, VIDEO_W, VIDEO_H);
+  ctx.restore();
+
+  const cx = VIDEO_W / 2;
+
+  // Soft mark plate — dark forest disc with a glowing rim, GitHub mark
+  // floating inside it.
+  const markY = VIDEO_H * 0.30;
+  const markEnter = clamp01((lt - 0.2) / 0.6);
+  const markScale = 0.7 + easeOut(markEnter) * 0.3;
+  const markA = sceneA * easeOut(markEnter);
+
+  ctx.save();
+  ctx.globalAlpha = markA;
+  ctx.translate(cx, markY);
+  ctx.scale(markScale, markScale);
+  ctx.translate(-cx, -markY);
+
+  ctx.shadowColor = "rgba(46,111,64,0.45)";
+  ctx.shadowBlur = 60;
+  ctx.fillStyle = "#253D2C";
+  ctx.beginPath();
+  ctx.arc(cx, markY, 130, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  ctx.strokeStyle = "rgba(207,255,220,0.55)";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(cx, markY, 130, 0, Math.PI * 2);
+  ctx.stroke();
+
+  drawGithubMark(ctx, cx, markY, 160, "#FFFFFF", 1);
+
+  // Sparkle ring on enter
+  if (markEnter < 1) {
+    const ring = easeOut(markEnter);
+    ctx.globalAlpha = markA * (1 - ring) * 0.7;
+    ctx.strokeStyle = "rgba(104,186,127,0.9)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(cx, markY, 140 + ring * 90, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // Headline — "Open source."
+  const headA = sceneA * easeOut(clamp01((lt - 0.55) / 0.4));
+  if (headA > 0) {
+    ctx.save();
+    ctx.globalAlpha = headA;
+    ctx.fillStyle = "#253D2C";
+    ctx.font = "italic 600 76px 'Fraunces', serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    const headY = VIDEO_H * 0.49 + (1 - easeOut(clamp01((lt - 0.55) / 0.4))) * 18;
+    ctx.fillText("Open source.", cx, headY);
+    ctx.restore();
+  }
+
+  // Subhead — "Audit every line. Verify every claim."
+  const subA = sceneA * easeOut(clamp01((lt - 0.95) / 0.5));
+  if (subA > 0) {
+    ctx.save();
+    ctx.globalAlpha = subA;
+    ctx.fillStyle = "#3C5A47";
+    ctx.font = "500 28px Inter, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("Audit every line. Verify every claim.", cx, VIDEO_H * 0.55);
+    ctx.restore();
+  }
+
+  // AGPL-3.0 + repo URL pill
+  const pillA = sceneA * easeOut(clamp01((lt - 1.4) / 0.55));
+  if (pillA > 0) {
+    const pillY = VIDEO_H * 0.62 + (1 - easeOut(clamp01((lt - 1.4) / 0.55))) * 14;
+
+    // AGPL chip (left)
+    ctx.save();
+    ctx.globalAlpha = pillA;
+    ctx.font = "700 18px Inter, sans-serif";
+    const agplLabel = "AGPL-3.0";
+    const agplW = ctx.measureText(agplLabel).width + 28;
+    const agplH = 38;
+    const agplX = cx - 240;
+    ctx.fillStyle = "#CFFFDC";
+    roundRect(ctx, agplX - agplW / 2, pillY - agplH / 2, agplW, agplH, agplH / 2);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(46,111,64,0.35)";
+    ctx.lineWidth = 1.4;
+    roundRect(ctx, agplX - agplW / 2, pillY - agplH / 2, agplW, agplH, agplH / 2);
+    ctx.stroke();
+    ctx.fillStyle = "#2E6F40";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(agplLabel, agplX, pillY + 1);
+    ctx.restore();
+
+    // Repo URL pill (right)
+    ctx.save();
+    ctx.globalAlpha = pillA;
+    ctx.font = "600 19px Inter, sans-serif";
+    const repoLabel = "github.com/rupeshsahu408/VeilChat";
+    const repoW = ctx.measureText(repoLabel).width + 64;
+    const repoH = 46;
+    const repoX = cx + 50;
+    ctx.shadowColor = "rgba(37,61,44,0.25)";
+    ctx.shadowBlur = 18;
+    ctx.shadowOffsetY = 6;
+    ctx.fillStyle = "#253D2C";
+    roundRect(ctx, repoX - repoW / 2, pillY - repoH / 2, repoW, repoH, repoH / 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    // Tiny GitHub glyph on the left of the pill
+    drawGithubMark(
+      ctx,
+      repoX - repoW / 2 + 22,
+      pillY,
+      24,
+      "#FFFFFF",
+      1,
+    );
+    ctx.fillStyle = "#FFFFFF";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    ctx.fillText(repoLabel, repoX - repoW / 2 + 42, pillY + 1);
+    ctx.restore();
+  }
+
+  // Three proof chips that stagger in
+  const chips: { label: string; at: number }[] = [
+    { label: "Public source", at: 2.20 },
+    { label: "Self-hostable", at: 2.55 },
+    { label: "Forward secrecy", at: 2.90 },
+  ];
+  ctx.save();
+  ctx.font = "700 16px Inter, sans-serif";
+  const chipY = VIDEO_H * 0.72;
+  const chipGap = 16;
+  const chipMetrics = chips.map((c) => ({
+    label: c.label,
+    at: c.at,
+    w: ctx.measureText(c.label).width + 36,
+  }));
+  const totalW =
+    chipMetrics.reduce((a, c) => a + c.w, 0) + chipGap * (chips.length - 1);
+  let xCursor = cx - totalW / 2;
+  chipMetrics.forEach((c) => {
+    const enter = clamp01((lt - c.at) / 0.4);
+    const a = sceneA * easeOut(enter);
+    if (a > 0.01) {
+      const dx = xCursor;
+      const offsetY = (1 - easeOut(enter)) * 18;
+      ctx.save();
+      ctx.globalAlpha = a;
+      ctx.translate(0, offsetY);
+      ctx.fillStyle = "#FFFFFF";
+      roundRect(ctx, dx, chipY - 18, c.w, 36, 18);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(46,111,64,0.35)";
+      ctx.lineWidth = 1.4;
+      roundRect(ctx, dx, chipY - 18, c.w, 36, 18);
+      ctx.stroke();
+      // little dot bullet on the left of the chip
+      ctx.fillStyle = "#2E6F40";
+      ctx.beginPath();
+      ctx.arc(dx + 12, chipY, 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#253D2C";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      ctx.fillText(c.label, dx + 22, chipY + 1);
+      ctx.restore();
+    }
+    xCursor += c.w + chipGap;
+  });
+  ctx.restore();
+
+  // Footer hint
+  const footA = sceneA * easeOut(clamp01((lt - 3.4) / 0.6));
+  if (footA > 0) {
+    ctx.save();
+    ctx.globalAlpha = footA * 0.8;
+    ctx.fillStyle = "#3C5A47";
+    ctx.font = "500 20px Inter, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(
+      "Don't trust us — read the source.",
+      cx,
+      VIDEO_H * 0.80,
+    );
+    ctx.restore();
+  }
+}
+
 function drawFrame(ctx: CanvasRenderingContext2D, t: number) {
   // background
   ctx.fillStyle = "#FCF5EB";
@@ -3585,9 +3911,9 @@ function drawFrame(ctx: CanvasRenderingContext2D, t: number) {
   }
 
   /* — phone + chat + settings — */
-  if (t >= PHONE_IN.start && t <= OUTRO.start + 0.6) {
+  if (t >= PHONE_IN.start && t <= OPEN_SOURCE.start + 0.4) {
     const rise = clamp01((t - PHONE_IN.start) / 0.7);
-    const fadeOut = 1 - clamp01((t - OUTRO.start) / 0.5);
+    const fadeOut = 1 - clamp01((t - OPEN_SOURCE.start) / 0.4);
     const alpha = easeOut(rise) * fadeOut;
     const ty = (1 - easeOut(rise)) * 100;
 
@@ -3666,6 +3992,11 @@ function drawFrame(ctx: CanvasRenderingContext2D, t: number) {
 
     ctx.restore(); // screen clip
     ctx.restore();
+  }
+
+  /* — open-source scene (sits between settings and outro) — */
+  if (t >= OPEN_SOURCE.start - 0.2 && t <= OPEN_SOURCE.end + 0.4) {
+    drawOpenSourceScene(ctx, t);
   }
 
   /* — outro particles always behind outro card — */
@@ -4035,16 +4366,21 @@ class AudioEngine {
 }
 
 function scheduleTimelineAudio(engine: AudioEngine, audioStart: number) {
+  // Convert a *timeline* offset (in seconds, the same units used by the
+  // visual scene constants) into a real audio-clock time. SPEED > 1
+  // means visuals are sped up, so audio must fire that much sooner too.
+  const at = (offset: number) => audioStart + offset / SPEED;
+
   // ambient pad through the whole piece
-  engine.playAmbientPad(audioStart + 0.0, audioStart + DURATION_SEC - 0.2);
+  engine.playAmbientPad(at(0.0), at(DURATION_SEC - 0.2));
 
   // auth scan
-  engine.playAuthSweep(audioStart + AUTH_SCAN.start + 0.05);
-  engine.playAuthConfirm(audioStart + AUTH_SCAN.start + 0.78);
+  engine.playAuthSweep(at(AUTH_SCAN.start + 0.05));
+  engine.playAuthConfirm(at(AUTH_SCAN.start + 0.78));
 
   // intro logo shimmer
-  engine.playReaction(audioStart + INTRO.start + 0.2);
-  engine.playSparkle(audioStart + INTRO.start + 0.6);
+  engine.playReaction(at(INTRO.start + 0.2));
+  engine.playSparkle(at(INTRO.start + 0.6));
 
   // phone whoosh
   engine.envOsc(
@@ -4053,7 +4389,7 @@ function scheduleTimelineAudio(engine: AudioEngine, audioStart: number) {
       osc.frequency.setValueAtTime(180, t);
       osc.frequency.exponentialRampToValueAtTime(60, t + 0.5);
     },
-    audioStart + PHONE_IN.start,
+    at(PHONE_IN.start),
     0.55,
     0.18,
     0.05,
@@ -4066,7 +4402,7 @@ function scheduleTimelineAudio(engine: AudioEngine, audioStart: number) {
     const count = Math.max(5, Math.floor(dur / 0.15));
     for (let i = 0; i < count; i++) {
       const when =
-        audioStart + e.start + (i / count) * dur + Math.random() * 0.04;
+        at(e.start + (i / count) * dur) + Math.random() * 0.04;
       engine.playTypeClick(when);
     }
   }
@@ -4078,13 +4414,13 @@ function scheduleTimelineAudio(engine: AudioEngine, audioStart: number) {
       // Photo bubbles use the unlock + burn sounds rather than the
       // generic shimmer, but still get a soft receive ding on arrival.
       if (e.variant !== "photo") {
-        engine.playShimmer(audioStart + e.at - 0.05);
+        engine.playShimmer(at(e.at - 0.05));
       }
-      engine.playReceive(audioStart + e.at);
+      engine.playReceive(at(e.at));
     } else {
-      engine.playSend(audioStart + e.at);
-      engine.playShimmer(audioStart + e.at + 0.02);
-      engine.playLockClick(audioStart + e.at + 0.32); // seal closes
+      engine.playSend(at(e.at));
+      engine.playShimmer(at(e.at + 0.02));
+      engine.playLockClick(at(e.at + 0.32)); // seal closes
     }
   }
 
@@ -4092,31 +4428,31 @@ function scheduleTimelineAudio(engine: AudioEngine, audioStart: number) {
   for (const e of EVENTS) {
     if (e.kind !== "message" || e.variant !== "photo") continue;
     if (e.unlockAt !== undefined) {
-      engine.playLockClick(audioStart + e.unlockAt);
-      engine.playShimmer(audioStart + e.unlockAt + 0.05);
+      engine.playLockClick(at(e.unlockAt));
+      engine.playShimmer(at(e.unlockAt + 0.05));
     }
     if (e.burnAt !== undefined) {
-      engine.playPhotoBurn(audioStart + e.burnAt, e.burnDuration ?? 1);
+      engine.playPhotoBurn(at(e.burnAt), e.burnDuration ?? 1);
     }
   }
 
   // tick clicks
   for (const e of EVENTS) {
-    if (e.kind === "tick") engine.playTick(audioStart + e.at);
+    if (e.kind === "tick") engine.playTick(at(e.at));
   }
 
   // reactions
   for (const e of EVENTS) {
-    if (e.kind === "reaction") engine.playReaction(audioStart + e.at);
+    if (e.kind === "reaction") engine.playReaction(at(e.at));
   }
 
   // encryption highlight: heartbeat pulses + low chime
-  engine.playHeartbeat(audioStart + ENCRYPTION_HIGHLIGHT.start + 0.2);
-  engine.playHeartbeat(audioStart + ENCRYPTION_HIGHLIGHT.start + 1.2);
+  engine.playHeartbeat(at(ENCRYPTION_HIGHLIGHT.start + 0.2));
+  engine.playHeartbeat(at(ENCRYPTION_HIGHLIGHT.start + 1.2));
   engine.envOsc(
     "sine",
     1320,
-    audioStart + ENCRYPTION_HIGHLIGHT.start + 0.4,
+    at(ENCRYPTION_HIGHLIGHT.start + 0.4),
     0.45,
     0.13,
     0.04,
@@ -4129,7 +4465,7 @@ function scheduleTimelineAudio(engine: AudioEngine, audioStart: number) {
       osc.frequency.setValueAtTime(880, t);
       osc.frequency.exponentialRampToValueAtTime(440, t + 0.18);
     },
-    audioStart + SCREENSHOT_BANNER.start + 0.05,
+    at(SCREENSHOT_BANNER.start + 0.05),
     0.25,
     0.16,
     0.005,
@@ -4143,16 +4479,16 @@ function scheduleTimelineAudio(engine: AudioEngine, audioStart: number) {
       osc.frequency.setValueAtTime(220, t0);
       osc.frequency.exponentialRampToValueAtTime(520, t0 + 0.9);
     },
-    audioStart + TOUCH_HINT.start + 0.05,
+    at(TOUCH_HINT.start + 0.05),
     0.95,
     0.06,
     0.02,
   );
   // long-press menu pop
-  engine.envOsc("triangle", 720, audioStart + LONG_PRESS.start, 0.12, 0.18, 0.003);
-  engine.envOsc("sine", 360, audioStart + LONG_PRESS.start + 0.02, 0.18, 0.12, 0.005);
+  engine.envOsc("triangle", 720, at(LONG_PRESS.start), 0.12, 0.18, 0.003);
+  engine.envOsc("sine", 360, at(LONG_PRESS.start + 0.02), 0.18, 0.12, 0.005);
   // tap on the "Unsend" row (just before the unsend animation kicks)
-  engine.playTick(audioStart + UNSEND_ACTION.start - 0.05);
+  engine.playTick(at(UNSEND_ACTION.start - 0.05));
   // unsend swoosh: pixel-dust scatter
   engine.envOsc(
     "sine",
@@ -4160,20 +4496,20 @@ function scheduleTimelineAudio(engine: AudioEngine, audioStart: number) {
       osc.frequency.setValueAtTime(900, t0);
       osc.frequency.exponentialRampToValueAtTime(220, t0 + 0.55);
     },
-    audioStart + UNSEND_ACTION.start,
+    at(UNSEND_ACTION.start),
     0.6,
     0.16,
     0.01,
   );
-  engine.playSparkle(audioStart + UNSEND_ACTION.start + 0.05);
+  engine.playSparkle(at(UNSEND_ACTION.start + 0.05));
 
   // hint touch on attachment "+" button
-  engine.playTick(audioStart + COMPOSE_HINT.start + 0.4);
+  engine.playTick(at(COMPOSE_HINT.start + 0.4));
   // attachment menu slide-up pop
-  engine.envOsc("sine", 280, audioStart + ATTACHMENT_MENU.start, 0.22, 0.16, 0.01);
-  engine.envOsc("triangle", 640, audioStart + ATTACHMENT_MENU.start + 0.02, 0.14, 0.12, 0.003);
+  engine.envOsc("sine", 280, at(ATTACHMENT_MENU.start), 0.22, 0.16, 0.01);
+  engine.envOsc("triangle", 640, at(ATTACHMENT_MENU.start + 0.02), 0.14, 0.12, 0.003);
   // tap on Schedule chip
-  engine.playTick(audioStart + ATTACHMENT_MENU.start + 0.9);
+  engine.playTick(at(ATTACHMENT_MENU.start + 0.9));
   // schedule modal whoosh
   engine.envOsc(
     "sine",
@@ -4181,24 +4517,24 @@ function scheduleTimelineAudio(engine: AudioEngine, audioStart: number) {
       osc.frequency.setValueAtTime(160, t0);
       osc.frequency.exponentialRampToValueAtTime(380, t0 + 0.45);
     },
-    audioStart + SCHEDULE_PICKER.start,
+    at(SCHEDULE_PICKER.start),
     0.5,
     0.16,
     0.04,
   );
   // soft wheel/chip ticks while scrubbing the picker
   for (let i = 0; i < 5; i++) {
-    engine.playTypeClick(audioStart + SCHEDULE_PICKER.start + 0.55 + i * 0.18);
+    engine.playTypeClick(at(SCHEDULE_PICKER.start + 0.55 + i * 0.18));
   }
   // schedule confirm chime
-  engine.envOsc("sine", 880, audioStart + SCHEDULED_PILL.start, 0.18, 0.16, 0.01);
-  engine.envOsc("sine", 1320, audioStart + SCHEDULED_PILL.start + 0.06, 0.32, 0.13, 0.02);
-  engine.playSparkle(audioStart + SCHEDULED_PILL.start + 0.04);
+  engine.envOsc("sine", 880, at(SCHEDULED_PILL.start), 0.18, 0.16, 0.01);
+  engine.envOsc("sine", 1320, at(SCHEDULED_PILL.start + 0.06), 0.32, 0.13, 0.02);
+  engine.playSparkle(at(SCHEDULED_PILL.start + 0.04));
 
   // header 3-dot menu pop, then tap on Settings row
-  engine.envOsc("triangle", 760, audioStart + HEADER_MENU.start, 0.1, 0.15, 0.003);
-  engine.envOsc("sine", 380, audioStart + HEADER_MENU.start + 0.02, 0.16, 0.1, 0.005);
-  engine.playTick(audioStart + HEADER_MENU.start + 0.7);
+  engine.envOsc("triangle", 760, at(HEADER_MENU.start), 0.1, 0.15, 0.003);
+  engine.envOsc("sine", 380, at(HEADER_MENU.start + 0.02), 0.16, 0.1, 0.005);
+  engine.playTick(at(HEADER_MENU.start + 0.7));
 
   // settings whoosh: chat slides off, settings slides in
   engine.envOsc(
@@ -4207,7 +4543,7 @@ function scheduleTimelineAudio(engine: AudioEngine, audioStart: number) {
       osc.frequency.setValueAtTime(140, t0);
       osc.frequency.exponentialRampToValueAtTime(420, t0 + 0.6);
     },
-    audioStart + SETTINGS_TRANSITION.start,
+    at(SETTINGS_TRANSITION.start),
     0.7,
     0.16,
     0.05,
@@ -4216,20 +4552,20 @@ function scheduleTimelineAudio(engine: AudioEngine, audioStart: number) {
   // toggle clicks at the toggle keyframes (matches drawSettings interactions)
   for (const tt of TOGGLE_TIMELINE) {
     const next = !tt.initial;
-    engine.envOsc("square", 1500, audioStart + tt.flipAt, 0.04, 0.18, 0.001);
+    engine.envOsc("square", 1500, at(tt.flipAt), 0.04, 0.18, 0.001);
     engine.envOsc(
       "triangle",
       next ? 1100 : 700,
-      audioStart + tt.flipAt + 0.01,
+      at(tt.flipAt + 0.01),
       0.06,
       0.12,
       0.002,
     );
   }
   // storage cleanup ding when the bar progress completes
-  engine.envOsc("sine", 980, audioStart + 43.6, 0.18, 0.16, 0.02);
-  engine.envOsc("sine", 1320, audioStart + 43.7, 0.32, 0.13, 0.02);
-  engine.playSparkle(audioStart + 43.65);
+  engine.envOsc("sine", 980, at(43.6), 0.18, 0.16, 0.02);
+  engine.envOsc("sine", 1320, at(43.7), 0.32, 0.13, 0.02);
+  engine.playSparkle(at(43.65));
 
   // settings-back whoosh
   engine.envOsc(
@@ -4238,16 +4574,41 @@ function scheduleTimelineAudio(engine: AudioEngine, audioStart: number) {
       osc.frequency.setValueAtTime(420, t0);
       osc.frequency.exponentialRampToValueAtTime(140, t0 + 0.6);
     },
-    audioStart + SETTINGS_BACK.start,
+    at(SETTINGS_BACK.start),
     0.7,
     0.14,
     0.05,
   );
 
+  // ── open-source proof scene ───────────────────────────────────
+  // Soft "vault unlocking" sweep as the GitHub mark scales up.
+  engine.envOsc(
+    "sine",
+    (osc, t0) => {
+      osc.frequency.setValueAtTime(220, t0);
+      osc.frequency.exponentialRampToValueAtTime(660, t0 + 0.5);
+    },
+    at(OPEN_SOURCE.start + 0.15),
+    0.55,
+    0.10,
+    0.03,
+  );
+  // Sparkle as the headline types in.
+  engine.playSparkle(at(OPEN_SOURCE.start + 0.55));
+  // AGPL chip + repo pill chime.
+  engine.envOsc("sine", 880, at(OPEN_SOURCE.start + 1.4), 0.18, 0.13, 0.01);
+  engine.envOsc("sine", 1320, at(OPEN_SOURCE.start + 1.46), 0.28, 0.10, 0.02);
+  // Three quick chip ticks as the proof chips slide in.
+  engine.playTypeClick(at(OPEN_SOURCE.start + 2.20));
+  engine.playTypeClick(at(OPEN_SOURCE.start + 2.55));
+  engine.playTypeClick(at(OPEN_SOURCE.start + 2.90));
+  // Soft confirming chime when the footer line lands.
+  engine.envOsc("sine", 660, at(OPEN_SOURCE.start + 3.4), 0.32, 0.10, 0.04);
+
   // outro chime + sparkles
-  engine.playOutroChime(audioStart + OUTRO.start + 0.3);
+  engine.playOutroChime(at(OUTRO.start + 0.3));
   for (let i = 0; i < 4; i++) {
-    engine.playSparkle(audioStart + OUTRO.start + 0.6 + i * 0.7);
+    engine.playSparkle(at(OUTRO.start + 0.6 + i * 0.7));
   }
 }
 
@@ -4328,10 +4689,13 @@ export function IntroAdSection() {
 
     const start = performance.now();
     const tick = () => {
-      const t = (performance.now() - start) / 1000;
-      drawFrame(ctx, Math.min(t, DURATION_SEC));
-      setProgress(clamp01(t / DURATION_SEC));
-      if (t < DURATION_SEC) {
+      const tReal = (performance.now() - start) / 1000;
+      // Visuals advance at SPEED× of real time so the timeline finishes
+      // in REAL_DURATION_SEC wall-clock seconds.
+      const t = Math.min(tReal * SPEED, DURATION_SEC);
+      drawFrame(ctx, t);
+      setProgress(clamp01(tReal / REAL_DURATION_SEC));
+      if (tReal < REAL_DURATION_SEC) {
         rafRef.current = requestAnimationFrame(tick);
       } else {
         rafRef.current = null;
@@ -4478,7 +4842,7 @@ export function IntroAdSection() {
       <div className="mx-auto max-w-6xl">
         <div className="text-center mb-12 sm:mb-16">
           <div className="inline-flex items-center gap-2 text-[12px] font-semibold tracking-wide uppercase text-[#2E6F40] bg-[#CFFFDC] border border-[#68BA7F]/40 rounded-full px-3 py-1.5">
-            New · Vault-grade intro · 25s with sound
+            New · Vault-grade intro · ~{Math.round(REAL_DURATION_SEC)}s with sound
           </div>
           <h2
             className="mt-5 text-[32px] sm:text-[42px] md:text-[52px] font-semibold tracking-[-0.02em] leading-[1.05] text-[#253D2C]"
@@ -4493,12 +4857,13 @@ export function IntroAdSection() {
             </span>
           </h2>
           <p className="mt-4 text-[16px] sm:text-[18px] text-[#3C5A47] max-w-2xl mx-auto leading-[1.55]">
-            Watch a 60-second cinematic product tour of VeilChat —
+            Watch a snappy ~{Math.round(REAL_DURATION_SEC)}-second cinematic product tour of VeilChat —
             identity-scanned and vault-sealed, with voice on the wire,
             screenshots blocked, a self-destructing photo that burns
             into pixel-dust, notes that vanish in 24 hours, a long-press
-            unsend, scheduled messages, and a guided walk through the
-            settings panel.
+            unsend, scheduled messages, a guided walk through the
+            settings panel, and a closing open-source proof beat with
+            the AGPL-3.0 licence and the public GitHub repo.
             Generated fresh on your device with a custom soundtrack,
             ready to download as a real video file with sound.
           </p>
@@ -4597,6 +4962,8 @@ export function IntroAdSection() {
                 "Animated toggles",
                 "Storage cleanup",
                 "Linked devices",
+                "Open source · AGPL-3.0",
+                "GitHub repo on screen",
                 "Brand soundtrack",
               ].map((chip) => (
                 <span
@@ -4620,8 +4987,9 @@ export function IntroAdSection() {
             <p className="mt-2 text-[15px] sm:text-[16px] text-[#3C5A47] leading-relaxed">
               Every frame is rendered fresh on your device, so the file
               you download is brand-new — no servers, no watermarks. A
-              cinematic 60-second product tour of privacy, ready for your reels,
-              your pitch, or your own site.
+              brisk ~{Math.round(REAL_DURATION_SEC)}-second cinematic tour of privacy — capped with an
+              open-source proof beat — ready for your reels, your pitch,
+              or your own site.
             </p>
 
             <div className="mt-6 flex flex-col sm:flex-row gap-3">
@@ -4687,7 +5055,7 @@ export function IntroAdSection() {
                     Your intro is sealed and ready
                   </div>
                   <div className="text-[12px] text-[#3C5A47]">
-                    veilchat-intro.{download.ext} · {DURATION_SEC}s ·
+                    veilchat-intro.{download.ext} · ~{Math.round(REAL_DURATION_SEC)}s ·
                     720×1280 · with sound
                   </div>
                 </div>

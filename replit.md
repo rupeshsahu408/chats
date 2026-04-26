@@ -386,7 +386,7 @@ New **Watch the explainer** section on the landing page, inserted between `<Feat
 
 This is a real, full 5-minute (300 s) animated explainer video — typography-driven motion graphics, drawn live to a 1280×720 landscape `<canvas>` at 30 fps, with a synchronised Web Audio score (long ambient pad in G major + per-chapter chimes + glints/heartbeats/lock-clicks). The user can press **Play** to watch it inline or **Record** to capture it via `MediaRecorder` (canvas.captureStream + audio destination stream) into a real downloadable `.mp4` (or `.webm` fallback) file with sound.
 
-Architecture mirrors the existing `<IntroAdSection />` (the 60-second product tour) but at landscape 16:9, ~5×longer, and explainer-style instead of chat illustration. No celebrity, no avatar, no human face.
+Architecture mirrors the existing `<IntroAdSection />` (the cinematic product tour, currently a 62 s timeline that plays in ~38 s real time at SPEED = 1.6 — the timeline now ends with an open-source proof scene before the outro) but at landscape 16:9, ~5×longer, and explainer-style instead of chat illustration. No celebrity, no avatar, no human face.
 
 Seven chapters (`CHAPTERS` const drives both visuals and audio):
 
