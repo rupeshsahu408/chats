@@ -52,8 +52,9 @@ export default defineConfig({
     },
     proxy: {
       "/api": {
-        target: "http://127.0.0.1:3001",
+        target: process.env.VITE_API_PROXY_TARGET ?? "https://chats-fk6e.onrender.com",
         changeOrigin: true,
+        secure: true,
         rewrite: (path) => path.replace(/^\/api/, ""),
       },
     },

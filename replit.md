@@ -23,7 +23,7 @@ veil/
 - `pnpm dev` — runs client + server concurrently via `concurrently`.
 - Client: http://localhost:5000.
 - Server: http://localhost:3001 (`/health` is public; `/trpc/*` for the API).
-- Vite dev proxy: `/api/*` → `http://127.0.0.1:3001/*` (rewrites away the `/api` prefix).
+- Vite dev proxy: `/api/*` → `https://chats-fk6e.onrender.com/*` by default (rewrites away the `/api` prefix). Override with `VITE_API_PROXY_TARGET=http://127.0.0.1:3001` when running the server locally.
 - `pnpm typecheck` and `pnpm build` are green.
 - DB: `pnpm --filter @veil/server db:push` to sync schema to Neon.
   Optional: `db:generate` to write SQL migration files; `db:studio` for the Drizzle Studio UI.
