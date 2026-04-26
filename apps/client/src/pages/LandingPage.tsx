@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
 import peopleUsingPhones from "../assets/landing/people-using-phones.jpg";
 import smilingWithPhone from "../assets/landing/smiling-with-phone.jpg";
@@ -27,6 +27,7 @@ export function LandingPage() {
       <Hero />
       <TrustBar />
       <Features />
+      <VideoShowcase />
       <DeviceShowcase />
       <Lifestyle />
       <SecurityBond />
@@ -128,6 +129,329 @@ function FloatingScrollToggle() {
         <path d="M19 12l-7 7-7-7" />
       </svg>
     </button>
+  );
+}
+
+/* ───────────────────────── Video Showcase ─────────────────────────
+ *
+ * Premium frame for the long-form (5+ min) explainer video.
+ *
+ * Behaviour:
+ *  - Renders a beautiful 16:9 video player styled to match the
+ *    brand (cream + green palette, soft shadow, browser-style chrome).
+ *  - Lazy-loads the actual video file from /videos/veilchat-explainer.mp4
+ *    once the user clicks the play overlay. If the file is missing we
+ *    show a graceful "Video coming soon" state — the section still
+ *    looks intentional and the script download is always available.
+ *  - Chapter markers underneath act as a chapter scrubber: clicking
+ *    a chapter seeks the video to that timestamp and starts playback.
+ *  - Two download buttons below: the MP4 itself, and the full
+ *    narrated script (markdown).
+ */
+
+const VIDEO_SRC = "/videos/veilchat-explainer.mp4";
+const VIDEO_POSTER = "/videos/veilchat-explainer-poster.jpg";
+const SCRIPT_SRC = "/docs/veilchat-explainer-script.md";
+
+type Chapter = { startSec: number; timestamp: string; title: string };
+
+const VIDEO_CHAPTERS: Chapter[] = [
+  { startSec: 0, timestamp: "0:00", title: "Cold open" },
+  { startSec: 25, timestamp: "0:25", title: "The privacy problem" },
+  { startSec: 65, timestamp: "1:05", title: "Introducing VeilChat" },
+  { startSec: 100, timestamp: "1:40", title: "Core features" },
+  { startSec: 205, timestamp: "3:25", title: "How it works" },
+  { startSec: 270, timestamp: "4:30", title: "The experience" },
+  { startSec: 320, timestamp: "5:20", title: "Honest analysis" },
+  { startSec: 360, timestamp: "6:00", title: "Get VeilChat" },
+];
+
+function VideoShowcase() {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [hasStarted, setHasStarted] = useState(false);
+  const [hasError, setHasError] = useState(false);
+  const [activeChapter, setActiveChapter] = useState(0);
+
+  const handlePlay = () => {
+    setHasStarted(true);
+    setHasError(false);
+    requestAnimationFrame(() => {
+      const v = videoRef.current;
+      if (!v) return;
+      v.play().catch(() => {
+        setHasError(true);
+        setIsPlaying(false);
+      });
+    });
+  };
+
+  const seekTo = (sec: number, idx: number) => {
+    setActiveChapter(idx);
+    setHasStarted(true);
+    setHasError(false);
+    requestAnimationFrame(() => {
+      const v = videoRef.current;
+      if (!v) return;
+      try {
+        v.currentTime = sec;
+        v.play().catch(() => setHasError(true));
+      } catch {
+        setHasError(true);
+      }
+    });
+  };
+
+  const onTimeUpdate = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    const t = v.currentTime;
+    let idx = 0;
+    for (let i = 0; i < VIDEO_CHAPTERS.length; i++) {
+      const ch = VIDEO_CHAPTERS[i];
+      if (ch && t >= ch.startSec) idx = i;
+    }
+    if (idx !== activeChapter) setActiveChapter(idx);
+  };
+
+  return (
+    <section
+      id="watch"
+      className="relative py-20 sm:py-28 overflow-hidden"
+      style={{ backgroundColor: "#FCF5EB" }}
+    >
+      {/* Soft ambient backdrop matching the hero */}
+      <div aria-hidden className="pointer-events-none absolute inset-0 -z-0 overflow-hidden">
+        <div
+          className="absolute -top-40 -left-40 w-[520px] h-[520px] rounded-full"
+          style={{
+            background:
+              "radial-gradient(circle, rgba(207,255,220,0.65), rgba(207,255,220,0) 65%)",
+          }}
+        />
+        <div
+          className="absolute bottom-0 -right-32 w-[480px] h-[480px] rounded-full"
+          style={{
+            background:
+              "radial-gradient(circle, rgba(104,186,127,0.18), rgba(104,186,127,0) 65%)",
+          }}
+        />
+      </div>
+
+      <div className="relative mx-auto max-w-6xl px-5 sm:px-8">
+        <div className="text-center max-w-3xl mx-auto">
+          <SectionLabel>Watch the explainer</SectionLabel>
+          <SectionHeading
+            title={
+              <>
+                The full story of VeilChat,{" "}
+                <span className="italic" style={{ color: "#2E6F40" }}>
+                  in six minutes.
+                </span>
+              </>
+            }
+            subtitle="A complete walkthrough of what VeilChat is, why we built it, how it works under the hood, and an honest look at where we are today."
+          />
+        </div>
+
+        {/* Premium video frame */}
+        <div className="mt-12 relative">
+          <div
+            className="relative rounded-[28px] overflow-hidden border border-[#253D2C]/15 bg-[#0F1B14] shadow-[0_50px_100px_-40px_rgba(37,61,44,0.5),0_20px_40px_-20px_rgba(17,27,33,0.25)]"
+            style={{ aspectRatio: "16 / 9" }}
+          >
+            {/* Browser-style chrome */}
+            <div className="absolute top-0 left-0 right-0 z-20 flex items-center gap-1.5 px-4 py-3 bg-gradient-to-b from-[#0F1B14] to-transparent">
+              <span className="w-3 h-3 rounded-full bg-[#FF5F57]/80" />
+              <span className="w-3 h-3 rounded-full bg-[#FEBC2E]/80" />
+              <span className="w-3 h-3 rounded-full bg-[#28C840]/80" />
+              <span className="ml-3 text-[11px] font-medium tracking-wide text-white/55">
+                veilchat — official explainer
+              </span>
+            </div>
+
+            {/* Video element (always rendered so chapter clicks can seek) */}
+            <video
+              ref={videoRef}
+              className={[
+                "absolute inset-0 w-full h-full object-cover transition-opacity duration-500",
+                hasStarted && !hasError ? "opacity-100" : "opacity-0",
+              ].join(" ")}
+              poster={VIDEO_POSTER}
+              preload="metadata"
+              controls={hasStarted && !hasError}
+              playsInline
+              onPlay={() => setIsPlaying(true)}
+              onPause={() => setIsPlaying(false)}
+              onEnded={() => setIsPlaying(false)}
+              onTimeUpdate={onTimeUpdate}
+              onError={() => {
+                setHasError(true);
+                setIsPlaying(false);
+              }}
+            >
+              <source src={VIDEO_SRC} type="video/mp4" />
+            </video>
+
+            {/* Custom poster + play overlay (shown until user clicks play) */}
+            {(!hasStarted || hasError) && (
+              <button
+                type="button"
+                onClick={handlePlay}
+                aria-label="Play the VeilChat explainer video"
+                className="group absolute inset-0 z-10 flex items-center justify-center w-full h-full bg-gradient-to-br from-[#253D2C] via-[#1A2E20] to-[#0F1B14] cursor-pointer"
+              >
+                {/* Decorative pattern */}
+                <div
+                  aria-hidden
+                  className="absolute inset-0 opacity-[0.07]"
+                  style={{
+                    backgroundImage: `url("data:image/svg+xml;utf8,${encodeURIComponent(
+                      `<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'><g fill='none' stroke='%23CFFFDC' stroke-width='1'><circle cx='15' cy='15' r='6'/><path d='M55 22l8 8-8 8-8-8z'/><circle cx='80' cy='65' r='4'/><path d='M25 70l6 0 0 6'/></g></svg>`,
+                    )}")`,
+                    backgroundSize: "140px 140px",
+                  }}
+                />
+                {/* Soft glows */}
+                <div
+                  aria-hidden
+                  className="absolute -top-20 -left-20 w-[400px] h-[400px] rounded-full opacity-50"
+                  style={{
+                    background:
+                      "radial-gradient(circle, rgba(46,111,64,0.55), rgba(46,111,64,0) 65%)",
+                  }}
+                />
+                <div
+                  aria-hidden
+                  className="absolute bottom-0 right-0 w-[360px] h-[360px] rounded-full opacity-40"
+                  style={{
+                    background:
+                      "radial-gradient(circle, rgba(207,255,220,0.35), rgba(207,255,220,0) 65%)",
+                  }}
+                />
+
+                <div className="relative flex flex-col items-center text-center px-6">
+                  <span className="grid place-items-center w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-white/95 text-[#2E6F40] shadow-[0_20px_50px_-12px_rgba(0,0,0,0.5)] group-hover:scale-110 transition-transform duration-300">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                      <path d="M8 5v14l11-7z" />
+                    </svg>
+                  </span>
+                  <div
+                    className="mt-6 text-[22px] sm:text-[28px] font-semibold tracking-tight text-white"
+                    style={{ fontFamily: "'Fraunces', serif" }}
+                  >
+                    {hasError ? "Video coming soon" : "Watch the full explainer"}
+                  </div>
+                  <div className="mt-2 text-[13px] text-[#CFFFDC]/80 font-medium tracking-wide">
+                    {hasError
+                      ? "We're putting the finishing touches on it. The script is ready below."
+                      : "6 minutes · Full product walkthrough · With voiceover"}
+                  </div>
+                </div>
+
+                {/* Subtle bottom gradient + label */}
+                <div
+                  aria-hidden
+                  className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-[#0F1B14] to-transparent"
+                />
+                <div className="absolute bottom-4 left-5 right-5 flex items-center justify-between text-[11px] font-medium tracking-wide text-white/55">
+                  <span className="inline-flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#68BA7F]" />
+                    Official film
+                  </span>
+                  <span>HD · Closed captions available</span>
+                </div>
+              </button>
+            )}
+
+            {/* Subtle "playing" indicator overlay */}
+            {isPlaying && hasStarted && !hasError && (
+              <div className="absolute top-3 right-4 z-30 inline-flex items-center gap-1.5 text-[10px] font-bold tracking-[0.18em] uppercase text-white/80">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#68BA7F] animate-pulse" />
+                Live
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Chapter timeline */}
+        <div className="mt-10">
+          <div className="text-[11px] font-bold tracking-[0.2em] uppercase text-[#3C5A47]/70 mb-4">
+            Chapters
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5">
+            {VIDEO_CHAPTERS.map((c, i) => {
+              const active = i === activeChapter && hasStarted && !hasError;
+              return (
+                <button
+                  key={c.timestamp}
+                  type="button"
+                  onClick={() => seekTo(c.startSec, i)}
+                  className={[
+                    "group text-left rounded-2xl px-4 py-3 border transition-all",
+                    active
+                      ? "bg-[#253D2C] border-transparent shadow-[0_10px_24px_-12px_rgba(37,61,44,0.45)]"
+                      : "bg-white border-[#253D2C]/10 hover:border-[#2E6F40]/30 hover:shadow-[0_10px_24px_-12px_rgba(46,111,64,0.25)]",
+                  ].join(" ")}
+                >
+                  <div
+                    className={[
+                      "text-[10.5px] font-bold tracking-[0.18em] uppercase",
+                      active ? "text-[#CFFFDC]" : "text-[#2E6F40]",
+                    ].join(" ")}
+                  >
+                    {c.timestamp}
+                  </div>
+                  <div
+                    className={[
+                      "mt-1 text-[14px] font-semibold leading-tight",
+                      active ? "text-white" : "text-[#253D2C]",
+                    ].join(" ")}
+                  >
+                    {c.title}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Download buttons */}
+        <div className="mt-10 flex flex-col sm:flex-row gap-3 items-center justify-center">
+          <a
+            href={VIDEO_SRC}
+            download="VeilChat-Explainer.mp4"
+            className="group inline-flex items-center justify-center gap-2.5 bg-gradient-to-b from-[#3A8550] to-[#2E6F40] hover:from-[#2E6F40] hover:to-[#253D2C] text-white font-semibold text-[15px] px-6 py-3.5 rounded-full shadow-[0_18px_36px_-14px_rgba(46,111,64,0.55),inset_0_1px_0_rgba(255,255,255,0.22)] hover:shadow-[0_22px_44px_-14px_rgba(46,111,64,0.65),inset_0_1px_0_rgba(255,255,255,0.25)] transition-all"
+          >
+            <span className="grid place-items-center w-6 h-6 rounded-full bg-white/15 group-hover:bg-white/25 transition-colors">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 4v12" />
+                <path d="M6 12l6 6 6-6" />
+                <path d="M5 20h14" />
+              </svg>
+            </span>
+            Download video (MP4)
+          </a>
+          <a
+            href={SCRIPT_SRC}
+            download="VeilChat-Explainer-Script.md"
+            className="group inline-flex items-center justify-center gap-2.5 bg-white/70 hover:bg-white border border-[#253D2C]/12 hover:border-[#2E6F40]/35 text-[#253D2C] hover:text-[#2E6F40] font-semibold text-[15px] px-6 py-3.5 rounded-full shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_2px_8px_-4px_rgba(17,27,33,0.08)] hover:shadow-[inset_0_1px_0_rgba(255,255,255,1),0_12px_28px_-12px_rgba(46,111,64,0.3)] backdrop-blur-sm transition-all"
+          >
+            <span className="grid place-items-center w-6 h-6 rounded-full bg-[#CFFFDC] text-[#2E6F40] group-hover:bg-[#2E6F40] group-hover:text-white transition-colors">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <path d="M14 2v6h6" />
+              </svg>
+            </span>
+            Download script
+          </a>
+        </div>
+
+        <div className="mt-5 text-center text-[12.5px] text-[#3C5A47]/70">
+          The full narration script is available so you can read along, share, or translate it.
+        </div>
+      </div>
+    </section>
   );
 }
 

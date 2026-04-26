@@ -379,3 +379,17 @@ One-shot responsive sweep (no redesign, no removed features) so the existing UI 
 
 - User manages their own database (Neon) and all third-party API keys; will store them in `.env` files. Do not provision external services for them or use platform-managed keys.
 - Build phase-by-phase per the plan in `attached_assets/Pasted-Veil-Complete-Finalized-Plan-Summary-...txt`.
+
+## Long-form explainer video showcase (Apr 2026)
+
+New **Watch the explainer** section on the landing page, inserted between `<Features />` and `<DeviceShowcase />` in `apps/client/src/pages/LandingPage.tsx` (component `VideoShowcase`, anchor `#watch`).
+
+- Premium 16:9 video frame: dark-green chrome with macOS-style dots, soft ambient backdrop using brand greens (#CFFFDC + #68BA7F glows on cream).
+- Until the user clicks play, a custom poster is shown — gradient, decorative SVG pattern, big white play button, "6 minutes · Full product walkthrough · With voiceover" caption. On click, the real `<video>` fades in and starts playing. If the file is missing, the poster swaps to a graceful "Video coming soon — script available below" state.
+- 8-chapter scrubber grid (cold open → CTA) with active-chapter highlight (white card → dark-green pill) that auto-syncs to the video's `currentTime`. Click any chapter to seek and play.
+- Two download buttons: green-gradient pill **Download video (MP4)** → `/videos/veilchat-explainer.mp4`, and frosted-white pill **Download script** → `/docs/veilchat-explainer-script.md`.
+- Full ~6:20-minute narration script written and saved to `apps/client/public/docs/veilchat-explainer-script.md` (8 chapters with cue sheet, voiceover direction, music notes, production checklist, ~1,150 words).
+- Drop-in path for the user's final film: `apps/client/public/videos/veilchat-explainer.mp4` (optional poster: `veilchat-explainer-poster.jpg`).
+- This is intentionally separate from the existing `<IntroAdSection />` (which is the canvas-rendered 60-second built-in product tour with sound).
+
+`pnpm --filter @veil/client typecheck` is green.
