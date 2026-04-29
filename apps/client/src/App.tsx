@@ -46,6 +46,7 @@ import { WhyOpenSourcePage } from "./pages/WhyOpenSourcePage";
 import { HowToChooseEncryptedMessengerPage } from "./pages/HowToChooseEncryptedMessengerPage";
 import { MessengerMetadataLeaksPage } from "./pages/MessengerMetadataLeaksPage";
 import { MessengerWithoutPhoneNumberPage } from "./pages/MessengerWithoutPhoneNumberPage";
+import { BlogIndexPage } from "./pages/BlogIndexPage";
 import { PrivacyPolicyPage } from "./pages/PrivacyPolicyPage";
 import { TermsPage } from "./pages/TermsPage";
 import { AboutPage } from "./pages/AboutPage";
@@ -131,6 +132,7 @@ export function App() {
           <Route path="/sound" element={<SoundPage />} />
           <Route path="/promises" element={<PromisesPage />} />
           <Route path="/encryption" element={<EncryptionPage />} />
+          <Route path="/blog" element={<BlogIndexPage />} />
           <Route path="/blog/whatsapp-privacy-truth" element={<WhatsappPrivacyPage />} />
           <Route path="/blog/signal-vs-whatsapp" element={<SignalVsWhatsappPage />} />
           <Route path="/blog/best-encrypted-messengers-2026" element={<BestEncryptedMessengersPage />} />

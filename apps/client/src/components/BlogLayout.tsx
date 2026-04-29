@@ -267,6 +267,7 @@ export function BlogLayout({
           </div>
           <div className="flex flex-wrap gap-x-5 gap-y-2">
             <Link to="/" className="hover:text-[#2E6F40]">Home</Link>
+            <Link to="/blog" className="hover:text-[#2E6F40]">Blog</Link>
             <Link to="/about" className="hover:text-[#2E6F40]">About</Link>
             <Link to="/encryption" className="hover:text-[#2E6F40]">Encryption</Link>
             <Link to="/open-source" className="hover:text-[#2E6F40]">Open source</Link>
