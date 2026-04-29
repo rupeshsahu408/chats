@@ -22,10 +22,12 @@ import { ReportDialog } from "../components/ReportDialog";
 import { bytesToBase64 } from "../lib/crypto";
 import type { Peer } from "@veil/shared";
 import { peerLabel, peerSubLabel } from "../lib/peerLabel";
+import { useNoindex } from "../lib/useDocumentMeta";
 
 type Tab = "people" | "incoming" | "outgoing" | "find";
 
 export function ConnectionsPage() {
+  useNoindex("Connections · VeilChat");
   const navigate = useNavigate();
   const accessToken = useAuthStore((s) => s.accessToken);
   const utils = trpc.useUtils();

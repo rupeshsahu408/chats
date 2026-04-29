@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { trpc } from "../lib/trpc";
 import { useAuthStore } from "../lib/store";
+import { useNoindex } from "../lib/useDocumentMeta";
 import {
   ScreenShell,
   Logo,
@@ -30,6 +31,7 @@ import {
  *   short fingerprint as a stable identifier.
  */
 export function InviteRedeemPage() {
+  useNoindex("Accept invite · VeilChat");
   const navigate = useNavigate();
   const { token = "" } = useParams<{ token: string }>();
   const accessToken = useAuthStore((s) => s.accessToken);

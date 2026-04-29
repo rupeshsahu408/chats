@@ -21,8 +21,10 @@ import {
 import { MainShell } from "../components/MainShell";
 import { UnlockGate } from "../components/UnlockGate";
 import { db } from "../lib/db";
+import { useNoindex } from "../lib/useDocumentMeta";
 
 export function GroupsPage() {
+  useNoindex("Groups · VeilChat");
   const navigate = useNavigate();
   const accessToken = useAuthStore((s) => s.accessToken);
   const identity = useUnlockStore((s) => s.identity);

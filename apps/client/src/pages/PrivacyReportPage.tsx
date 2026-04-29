@@ -4,6 +4,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../lib/db";
 import { useAuthStore } from "../lib/store";
 import { AppBar, Pill } from "../components/Layout";
+import { useNoindex } from "../lib/useDocumentMeta";
 import {
   computeDailyPrivacyReport,
   type PrivacyReport,
@@ -19,6 +20,7 @@ import {
  * reports on.
  */
 export function PrivacyReportPage() {
+  useNoindex("Privacy report · VeilChat");
   const navigate = useNavigate();
   const accessToken = useAuthStore((s) => s.accessToken);
   const [report, setReport] = useState<PrivacyReport | null>(null);

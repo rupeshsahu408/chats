@@ -32,8 +32,10 @@ import { useTypingStore, typingLabel } from "../lib/typingStore";
 import { MoodSheet } from "../components/MoodSheet";
 import { moodCountdownLabel, getActiveMyMood } from "../lib/moodSync";
 import { useFocusState, focusReasonLabel } from "../lib/focusMode";
+import { useNoindex } from "../lib/useDocumentMeta";
 
 export function ChatsPage() {
+  useNoindex("Chats · VeilChat");
   const navigate = useNavigate();
   const accessToken = useAuthStore((s) => s.accessToken);
   const identity = useUnlockStore((s) => s.identity);

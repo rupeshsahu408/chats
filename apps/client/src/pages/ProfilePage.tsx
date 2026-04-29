@@ -7,8 +7,10 @@ import { AppBar, Avatar, Spinner } from "../components/Layout";
 import { peerLabel } from "../lib/peerLabel";
 import { db } from "../lib/db";
 import { ChatContactSettings } from "../components/ChatContactSettings";
+import { useNoindex } from "../lib/useDocumentMeta";
 
 export function ProfilePage() {
+  useNoindex("Profile · VeilChat");
   const { peerId = "" } = useParams<{ peerId: string }>();
   const navigate = useNavigate();
   const accessToken = useAuthStore((s) => s.accessToken);

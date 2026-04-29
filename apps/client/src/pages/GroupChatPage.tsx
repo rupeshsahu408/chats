@@ -75,6 +75,7 @@ import {
   firstUrl,
 } from "../lib/messageEnvelope";
 import { pollAndDecrypt } from "../lib/messageSync";
+import { useNoindex } from "../lib/useDocumentMeta";
 import {
   uploadEncryptedMedia,
   downscaleImage,
@@ -106,6 +107,7 @@ import {
 /* ─────────── Public page shell ─────────── */
 
 export function GroupChatPage() {
+  useNoindex("Group chat · VeilChat");
   const { groupId } = useParams<{ groupId: string }>();
   const navigate = useNavigate();
   const accessToken = useAuthStore((s) => s.accessToken);

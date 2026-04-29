@@ -18,10 +18,12 @@ import {
 } from "../lib/firebase";
 import type { ConfirmationResult, RecaptchaVerifier } from "firebase/auth";
 import { postAuthLandingPath } from "../lib/inviteRedirect";
+import { useNoindex } from "../lib/useDocumentMeta";
 
 type Step = "phone" | "code";
 
 export function PhoneLoginPage() {
+  useNoindex("Sign in with phone · VeilChat");
   const navigate = useNavigate();
   const setAuth = useAuthStore((s) => s.setAuth);
 

@@ -5,6 +5,7 @@ import { trpc } from "../lib/trpc";
 import { useAuthStore } from "../lib/store";
 import { AppBar, Avatar, Spinner } from "../components/Layout";
 import { toast } from "../lib/toast";
+import { useNoindex } from "../lib/useDocumentMeta";
 
 /**
  * Public profile page reached by tapping a row in /discover.
@@ -21,6 +22,7 @@ import { toast } from "../lib/toast";
  * can review / accept / block / report from the connections inbox.
  */
 export function DiscoverProfilePage() {
+  useNoindex("Discover profile · VeilChat");
   const { userId } = useParams<{ userId: string }>();
   const navigate = useNavigate();
   const accessToken = useAuthStore((s) => s.accessToken);

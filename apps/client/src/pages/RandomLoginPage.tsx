@@ -28,6 +28,7 @@ import type {
   RiskLevel,
 } from "@veil/shared";
 import { toast } from "../lib/toast";
+import { useNoindex } from "../lib/useDocumentMeta";
 
 /**
  * Premium login flow.
@@ -115,6 +116,7 @@ function clearPasskeySnooze(): void {
 }
 
 export function RandomLoginPage() {
+  useNoindex("Sign in with private ID · VeilChat");
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const setAuth = useAuthStore((s) => s.setAuth);

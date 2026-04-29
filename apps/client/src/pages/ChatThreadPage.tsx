@@ -100,6 +100,7 @@ import { VeilKeyboard } from "../components/VeilKeyboard";
 import { useKeyboardPrefs, isCoarsePointerDevice } from "../lib/keyboardPrefs";
 import { verifyBiometric } from "../lib/biometric";
 import { MessageText } from "../lib/markdown";
+import { useNoindex } from "../lib/useDocumentMeta";
 
 const POLL_MS = 3000;
 export const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
@@ -112,6 +113,7 @@ export const TTL_OPTIONS: { label: string; seconds: number }[] = [
 ];
 
 export function ChatThreadPage() {
+  useNoindex("Conversation · VeilChat");
   const { peerId } = useParams<{ peerId: string }>();
   const navigate = useNavigate();
   const accessToken = useAuthStore((s) => s.accessToken);

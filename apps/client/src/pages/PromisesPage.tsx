@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import type { ReactNode } from "react";
 import { AppBar, PrimaryButton } from "../components/Layout";
+import { useDocumentMeta } from "../lib/useDocumentMeta";
 
 /**
  * "Our promises" — the manifesto page (Principles #7 + #8).
@@ -18,6 +19,13 @@ import { AppBar, PrimaryButton } from "../components/Layout";
  */
 export function PromisesPage() {
   const navigate = useNavigate();
+  useDocumentMeta({
+    title: "Our promises — VeilChat's privacy commitments",
+    description:
+      "VeilChat's promises, stated plainly: end-to-end encryption by default, no ads, no tracking, no data sales. The principles we hold ourselves to, and how we keep them.",
+    canonical: "/promises",
+    ogType: "article",
+  });
 
   return (
     <div className="min-h-screen bg-bg flex flex-col">

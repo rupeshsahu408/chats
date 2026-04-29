@@ -27,10 +27,12 @@ import {
   sendPhoneOtp,
 } from "../lib/firebase";
 import type { ConfirmationResult, RecaptchaVerifier } from "firebase/auth";
+import { useNoindex } from "../lib/useDocumentMeta";
 
 type Step = "phone" | "code" | "pin" | "done";
 
 export function PhoneSignupPage() {
+  useNoindex("Sign up with phone · VeilChat");
   const navigate = useNavigate();
   const setAuth = useAuthStore((s) => s.setAuth);
   const setUnlocked = useUnlockStore((s) => s.setIdentity);

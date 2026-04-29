@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { trpc } from "../lib/trpc";
 import { useAuthStore } from "../lib/store";
 import { AppBar, Avatar, Spinner } from "../components/Layout";
+import { useNoindex } from "../lib/useDocumentMeta";
 
 /**
  * Public "Discover people" directory.
@@ -17,6 +18,7 @@ import { AppBar, Avatar, Spinner } from "../components/Layout";
  *   - Empty state nudges the viewer to enable their own listing.
  */
 export function DiscoverPage() {
+  useNoindex("Discover · VeilChat");
   const accessToken = useAuthStore((s) => s.accessToken);
   const navigate = useNavigate();
   const [rawQuery, setRawQuery] = useState("");

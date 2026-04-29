@@ -143,3 +143,14 @@ export function useDocumentMeta(meta: MetaInput) {
 export const SEO_SITE_URL = SITE_URL;
 export const SEO_DEFAULT_DESCRIPTION = DEFAULT_DESCRIPTION;
 export const SEO_DEFAULT_OG_IMAGE = DEFAULT_OG_IMAGE;
+
+/**
+ * Convenience wrapper for private/authenticated app screens that
+ * should never appear in search results. Sets a per-route title and
+ * forces `robots: noindex, nofollow` so even if the URL leaks, search
+ * engines drop it from the index instead of falling back to the
+ * default `index, follow` from `index.html`.
+ */
+export function useNoindex(title: string) {
+  useDocumentMeta({ title, noindex: true });
+}

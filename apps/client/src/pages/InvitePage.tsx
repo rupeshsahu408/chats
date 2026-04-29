@@ -19,8 +19,10 @@ import {
 import type { InviteSummary } from "@veil/shared";
 import { loadIdentity } from "../lib/db";
 import { base64ToBytes, publicKeyFingerprint } from "../lib/crypto";
+import { useNoindex } from "../lib/useDocumentMeta";
 
 export function InvitePage() {
+  useNoindex("Invite · VeilChat");
   const navigate = useNavigate();
   const accessToken = useAuthStore((s) => s.accessToken);
   const utils = trpc.useUtils();

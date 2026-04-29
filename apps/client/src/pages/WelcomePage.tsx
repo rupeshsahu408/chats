@@ -9,6 +9,7 @@ import {
 import { fetchHealth } from "../api";
 import { isFirebaseConfigured } from "../lib/firebase";
 import { feedback } from "../lib/feedback";
+import { useNoindex } from "../lib/useDocumentMeta";
 
 type ServerStatus =
   | { kind: "loading" }
@@ -16,6 +17,7 @@ type ServerStatus =
   | { kind: "error"; message: string };
 
 export function WelcomePage() {
+  useNoindex("Welcome · VeilChat");
   const [status, setStatus] = useState<ServerStatus>({ kind: "loading" });
   const firebaseReady = isFirebaseConfigured();
 

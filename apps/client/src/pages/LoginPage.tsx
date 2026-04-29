@@ -6,6 +6,7 @@ import {
   SecondaryButton,
 } from "../components/Layout";
 import { isPasskeySupported } from "../lib/passkey";
+import { useNoindex } from "../lib/useDocumentMeta";
 
 /**
  * Method picker for the sign-in screen.
@@ -20,6 +21,7 @@ import { isPasskeySupported } from "../lib/passkey";
  * sign-in story: see `/login/random` for the canonical path.
  */
 export function LoginPage() {
+  useNoindex("Sign in · VeilChat");
   const navigate = useNavigate();
   const [passkeySupported, setPasskeySupported] = useState(false);
 

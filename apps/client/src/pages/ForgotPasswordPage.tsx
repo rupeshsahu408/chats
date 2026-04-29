@@ -19,6 +19,7 @@ import {
 } from "../lib/crypto";
 import { humanizeErrorMessage } from "../lib/humanizeError";
 import { toast } from "../lib/toast";
+import { useNoindex } from "../lib/useDocumentMeta";
 
 /**
  * Forgot-password flow for username accounts.
@@ -38,6 +39,7 @@ type Step = "username" | "key" | "password" | "done";
 type KeyMode = "paste" | "upload";
 
 export function ForgotPasswordPage() {
+  useNoindex("Reset access · VeilChat");
   const navigate = useNavigate();
 
   const [step, setStep] = useState<Step>("username");

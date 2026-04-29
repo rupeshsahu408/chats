@@ -5,6 +5,7 @@ import { useAuthStore, getStoredRefreshExpiresAt } from "../lib/store";
 import { useUnlockStore } from "../lib/unlockStore";
 import { AppBar, Pill } from "../components/Layout";
 import { loadIdentity } from "../lib/db";
+import { useNoindex } from "../lib/useDocumentMeta";
 
 /**
  * Under the hood — radical transparency about the live cryptographic
@@ -14,6 +15,7 @@ import { loadIdentity } from "../lib/db";
  * machine they're running.
  */
 export function UnderTheHoodPage() {
+  useNoindex("Under the hood · VeilChat");
   const navigate = useNavigate();
   const accessToken = useAuthStore((s) => s.accessToken);
   const user = useAuthStore((s) => s.user);

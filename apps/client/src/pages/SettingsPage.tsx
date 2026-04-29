@@ -40,6 +40,7 @@ import { PasskeySetupCard } from "../components/PasskeySetupCard";
 import { isPasskeySupported } from "../lib/passkey";
 import { humanizeErrorMessage } from "../lib/humanizeError";
 import { encryptRecoveryPhraseForServer } from "../lib/unlock";
+import { useNoindex } from "../lib/useDocumentMeta";
 
 /**
  * Wireframe of the Settings surface.
@@ -88,6 +89,7 @@ interface SettingsSection {
 }
 
 export function SettingsPage() {
+  useNoindex("Settings · VeilChat");
   const navigate = useNavigate();
   const location = useLocation();
   const accessToken = useAuthStore((s) => s.accessToken);

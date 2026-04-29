@@ -9,8 +9,6 @@ Allow: /encryption
 Allow: /open-source
 Allow: /privacy-policy
 Allow: /terms
-Allow: /under-the-hood
-Allow: /what-we-store
 Allow: /promises
 Allow: /focus-mode
 Allow: /sound
@@ -29,6 +27,8 @@ Disallow: /settings
 Disallow: /settings/
 Disallow: /vault
 Disallow: /privacy-report
+Disallow: /under-the-hood
+Disallow: /what-we-store
 Disallow: /signup/
 Disallow: /login
 Disallow: /login/
@@ -36,8 +36,5 @@ Disallow: /forgot-password
 Disallow: /welcome
 Disallow: /invite
 Disallow: /i/
-
-# Tell well-behaved crawlers to take it slow.
-Crawl-delay: 5
 
 Sitemap: https://veil.app/sitemap.xml

@@ -8,6 +8,7 @@ import {
   focusReasonLabel,
 } from "../lib/focusMode";
 import { feedback } from "../lib/feedback";
+import { useDocumentMeta } from "../lib/useDocumentMeta";
 
 /**
  * Focus Mode (Principle #4 — calm by default).
@@ -27,6 +28,13 @@ import { feedback } from "../lib/feedback";
  */
 export function FocusModePage() {
   const navigate = useNavigate();
+  useDocumentMeta({
+    title: "Focus Mode — quiet messaging on your terms · VeilChat",
+    description:
+      "Focus Mode in VeilChat: snooze notifications, set quiet hours, and choose calm by default. A messenger that respects your attention instead of demanding it.",
+    canonical: "/focus-mode",
+    ogType: "article",
+  });
   const prefs = useStealthPrefs((s) => s.prefs);
   const setPrefs = useStealthPrefs((s) => s.set);
 

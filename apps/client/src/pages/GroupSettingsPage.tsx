@@ -20,8 +20,10 @@ import {
 } from "../components/Layout";
 import { UnlockGate } from "../components/UnlockGate";
 import { resetLocalGroup } from "../lib/groupSync";
+import { useNoindex } from "../lib/useDocumentMeta";
 
 export function GroupSettingsPage() {
+  useNoindex("Group settings · VeilChat");
   const { groupId } = useParams<{ groupId: string }>();
   const navigate = useNavigate();
   const accessToken = useAuthStore((s) => s.accessToken);

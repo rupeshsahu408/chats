@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../lib/store";
 import { AppBar } from "../components/Layout";
+import { useNoindex } from "../lib/useDocumentMeta";
 
 /**
  * What we store — radical transparency about exactly what fields exist
@@ -16,6 +17,7 @@ import { AppBar } from "../components/Layout";
  * schema changes.
  */
 export function WhatWeStorePage() {
+  useNoindex("What we store · VeilChat");
   const navigate = useNavigate();
   const accessToken = useAuthStore((s) => s.accessToken);
 

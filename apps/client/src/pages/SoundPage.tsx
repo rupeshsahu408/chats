@@ -19,6 +19,7 @@ import {
   type ToneRecipe,
 } from "../lib/tones";
 import { feedback } from "../lib/feedback";
+import { useDocumentMeta } from "../lib/useDocumentMeta";
 
 /**
  * Sound preferences (Principle #2 — sound as identity, not alarm).
@@ -40,6 +41,13 @@ import { feedback } from "../lib/feedback";
  */
 export function SoundPage() {
   const navigate = useNavigate();
+  useDocumentMeta({
+    title: "Sound — VeilChat's calm audio identity",
+    description:
+      "Pick from 10 calm send tones and 10 receive tones, set master volume, toggle haptics. VeilChat's sound is meant to feel alive, not alarm you.",
+    canonical: "/sound",
+    ogType: "article",
+  });
   const prefs = useStealthPrefs((s) => s.prefs);
   const setPrefs = useStealthPrefs((s) => s.set);
 

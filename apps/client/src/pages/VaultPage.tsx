@@ -27,6 +27,7 @@ import {
 } from "../lib/biometric";
 import { hashVaultPin, verifyVaultPin } from "../lib/vaultPin";
 import { usePeersPresence } from "../lib/usePeersPresence";
+import { useNoindex } from "../lib/useDocumentMeta";
 
 /**
  * The Vault — a biometric-locked private space for hidden chats.
@@ -44,6 +45,7 @@ import { usePeersPresence } from "../lib/usePeersPresence";
  * unlocked flag lives only in `vaultStore`, never persisted).
  */
 export function VaultPage() {
+  useNoindex("Vault · VeilChat");
   const navigate = useNavigate();
   const accessToken = useAuthStore((s) => s.accessToken);
   const identity = useUnlockStore((s) => s.identity);

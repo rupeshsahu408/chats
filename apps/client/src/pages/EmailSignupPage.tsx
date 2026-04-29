@@ -21,10 +21,12 @@ import { saveIdentity } from "../lib/db";
 import { buildPrekeyBundle } from "../lib/prekeys";
 import { useUnlockStore } from "../lib/unlockStore";
 import { postAuthLandingPath } from "../lib/inviteRedirect";
+import { useNoindex } from "../lib/useDocumentMeta";
 
 type Step = "email" | "code" | "pin" | "done";
 
 export function EmailSignupPage() {
+  useNoindex("Sign up with email · VeilChat");
   const navigate = useNavigate();
   const setAuth = useAuthStore((s) => s.setAuth);
 

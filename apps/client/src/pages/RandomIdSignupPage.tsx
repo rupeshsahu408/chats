@@ -29,6 +29,7 @@ import { postAuthLandingPath } from "../lib/inviteRedirect";
 import { resizeAvatarToDataUrl } from "../lib/avatar";
 import { markDailyVerified } from "../lib/dailyVerification";
 import { encryptRecoveryPhraseForServer } from "../lib/unlock";
+import { useNoindex } from "../lib/useDocumentMeta";
 
 type Step =
   | "username"
@@ -56,6 +57,7 @@ function localUsernameError(value: string): string | null {
 }
 
 export function RandomIdSignupPage() {
+  useNoindex("Create a private ID · VeilChat");
   const navigate = useNavigate();
   const setAuth = useAuthStore((s) => s.setAuth);
   const setUnlocked = useUnlockStore((s) => s.setIdentity);
