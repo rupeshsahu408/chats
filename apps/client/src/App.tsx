@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { trpc, makeTrpcClient } from "./lib/trpc";
@@ -10,48 +10,8 @@ import {
 import { installSystemThemeListener } from "./lib/themeStore";
 import { ensurePushSubscription } from "./lib/push";
 import { readPendingInvite, clearPendingInvite } from "./lib/inviteRedirect";
+// Landing page is the entry point — keep it eager so first paint is instant.
 import { LandingPage } from "./pages/LandingPage";
-import { WelcomePage } from "./pages/WelcomePage";
-import { EmailSignupPage } from "./pages/EmailSignupPage";
-import { PhoneSignupPage } from "./pages/PhoneSignupPage";
-import { RandomIdSignupPage } from "./pages/RandomIdSignupPage";
-import { LoginPage } from "./pages/LoginPage";
-import { RandomLoginPage } from "./pages/RandomLoginPage";
-import { PhoneLoginPage } from "./pages/PhoneLoginPage";
-import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
-import { ChatsPage } from "./pages/ChatsPage";
-import { ChatThreadPage } from "./pages/ChatThreadPage";
-import { ProfilePage } from "./pages/ProfilePage";
-import { GroupsPage } from "./pages/GroupsPage";
-import { GroupChatPage } from "./pages/GroupChatPage";
-import { GroupSettingsPage } from "./pages/GroupSettingsPage";
-import { InvitePage } from "./pages/InvitePage";
-import { InviteRedeemPage } from "./pages/InviteRedeemPage";
-import { ConnectionsPage } from "./pages/ConnectionsPage";
-import { DiscoverPage } from "./pages/DiscoverPage";
-import { DiscoverProfilePage } from "./pages/DiscoverProfilePage";
-import { SettingsPage } from "./pages/SettingsPage";
-import { VaultPage } from "./pages/VaultPage";
-import { PrivacyReportPage } from "./pages/PrivacyReportPage";
-import { UnderTheHoodPage } from "./pages/UnderTheHoodPage";
-import { WhatWeStorePage } from "./pages/WhatWeStorePage";
-import { FocusModePage } from "./pages/FocusModePage";
-import { SoundPage } from "./pages/SoundPage";
-import { PromisesPage } from "./pages/PromisesPage";
-import { EncryptionPage } from "./pages/EncryptionPage";
-import { WhatsappPrivacyPage } from "./pages/WhatsappPrivacyPage";
-import { SignalVsWhatsappPage } from "./pages/SignalVsWhatsappPage";
-import { BestEncryptedMessengersPage } from "./pages/BestEncryptedMessengersPage";
-import { WhyOpenSourcePage } from "./pages/WhyOpenSourcePage";
-import { HowToChooseEncryptedMessengerPage } from "./pages/HowToChooseEncryptedMessengerPage";
-import { MessengerMetadataLeaksPage } from "./pages/MessengerMetadataLeaksPage";
-import { MessengerWithoutPhoneNumberPage } from "./pages/MessengerWithoutPhoneNumberPage";
-import { BlogIndexPage } from "./pages/BlogIndexPage";
-import { PrivacyPolicyPage } from "./pages/PrivacyPolicyPage";
-import { TermsPage } from "./pages/TermsPage";
-import { AboutPage } from "./pages/AboutPage";
-import { OpenSourcePage } from "./pages/OpenSourcePage";
-import { NotFoundPage } from "./pages/NotFoundPage";
 import { SessionSync } from "./lib/SessionSync";
 import { SessionGuard } from "./components/SessionGuard";
 import { useStealthPrefs } from "./lib/stealthPrefs";
@@ -61,6 +21,74 @@ import { PushPermissionPrompt } from "./components/PushPermissionPrompt";
 import { DailyVerificationGate } from "./components/DailyVerificationGate";
 import { AppErrorBoundary } from "./components/ErrorBoundary";
 import { ToastViewport } from "./lib/toast";
+
+// All non-landing routes are code-split. Each chunk only downloads when
+// the user navigates there, so the initial JS bundle stays tiny and the
+// landing page becomes interactive much faster on slow networks.
+const WelcomePage = lazy(() => import("./pages/WelcomePage").then((m) => ({ default: m.WelcomePage })));
+const EmailSignupPage = lazy(() => import("./pages/EmailSignupPage").then((m) => ({ default: m.EmailSignupPage })));
+const PhoneSignupPage = lazy(() => import("./pages/PhoneSignupPage").then((m) => ({ default: m.PhoneSignupPage })));
+const RandomIdSignupPage = lazy(() => import("./pages/RandomIdSignupPage").then((m) => ({ default: m.RandomIdSignupPage })));
+const LoginPage = lazy(() => import("./pages/LoginPage").then((m) => ({ default: m.LoginPage })));
+const RandomLoginPage = lazy(() => import("./pages/RandomLoginPage").then((m) => ({ default: m.RandomLoginPage })));
+const PhoneLoginPage = lazy(() => import("./pages/PhoneLoginPage").then((m) => ({ default: m.PhoneLoginPage })));
+const ForgotPasswordPage = lazy(() => import("./pages/ForgotPasswordPage").then((m) => ({ default: m.ForgotPasswordPage })));
+const ChatsPage = lazy(() => import("./pages/ChatsPage").then((m) => ({ default: m.ChatsPage })));
+const ChatThreadPage = lazy(() => import("./pages/ChatThreadPage").then((m) => ({ default: m.ChatThreadPage })));
+const ProfilePage = lazy(() => import("./pages/ProfilePage").then((m) => ({ default: m.ProfilePage })));
+const GroupsPage = lazy(() => import("./pages/GroupsPage").then((m) => ({ default: m.GroupsPage })));
+const GroupChatPage = lazy(() => import("./pages/GroupChatPage").then((m) => ({ default: m.GroupChatPage })));
+const GroupSettingsPage = lazy(() => import("./pages/GroupSettingsPage").then((m) => ({ default: m.GroupSettingsPage })));
+const InvitePage = lazy(() => import("./pages/InvitePage").then((m) => ({ default: m.InvitePage })));
+const InviteRedeemPage = lazy(() => import("./pages/InviteRedeemPage").then((m) => ({ default: m.InviteRedeemPage })));
+const ConnectionsPage = lazy(() => import("./pages/ConnectionsPage").then((m) => ({ default: m.ConnectionsPage })));
+const DiscoverPage = lazy(() => import("./pages/DiscoverPage").then((m) => ({ default: m.DiscoverPage })));
+const DiscoverProfilePage = lazy(() => import("./pages/DiscoverProfilePage").then((m) => ({ default: m.DiscoverProfilePage })));
+const SettingsPage = lazy(() => import("./pages/SettingsPage").then((m) => ({ default: m.SettingsPage })));
+const VaultPage = lazy(() => import("./pages/VaultPage").then((m) => ({ default: m.VaultPage })));
+const PrivacyReportPage = lazy(() => import("./pages/PrivacyReportPage").then((m) => ({ default: m.PrivacyReportPage })));
+const UnderTheHoodPage = lazy(() => import("./pages/UnderTheHoodPage").then((m) => ({ default: m.UnderTheHoodPage })));
+const WhatWeStorePage = lazy(() => import("./pages/WhatWeStorePage").then((m) => ({ default: m.WhatWeStorePage })));
+const FocusModePage = lazy(() => import("./pages/FocusModePage").then((m) => ({ default: m.FocusModePage })));
+const SoundPage = lazy(() => import("./pages/SoundPage").then((m) => ({ default: m.SoundPage })));
+const PromisesPage = lazy(() => import("./pages/PromisesPage").then((m) => ({ default: m.PromisesPage })));
+const EncryptionPage = lazy(() => import("./pages/EncryptionPage").then((m) => ({ default: m.EncryptionPage })));
+const WhatsappPrivacyPage = lazy(() => import("./pages/WhatsappPrivacyPage").then((m) => ({ default: m.WhatsappPrivacyPage })));
+const SignalVsWhatsappPage = lazy(() => import("./pages/SignalVsWhatsappPage").then((m) => ({ default: m.SignalVsWhatsappPage })));
+const BestEncryptedMessengersPage = lazy(() => import("./pages/BestEncryptedMessengersPage").then((m) => ({ default: m.BestEncryptedMessengersPage })));
+const WhyOpenSourcePage = lazy(() => import("./pages/WhyOpenSourcePage").then((m) => ({ default: m.WhyOpenSourcePage })));
+const HowToChooseEncryptedMessengerPage = lazy(() => import("./pages/HowToChooseEncryptedMessengerPage").then((m) => ({ default: m.HowToChooseEncryptedMessengerPage })));
+const MessengerMetadataLeaksPage = lazy(() => import("./pages/MessengerMetadataLeaksPage").then((m) => ({ default: m.MessengerMetadataLeaksPage })));
+const MessengerWithoutPhoneNumberPage = lazy(() => import("./pages/MessengerWithoutPhoneNumberPage").then((m) => ({ default: m.MessengerWithoutPhoneNumberPage })));
+const BlogIndexPage = lazy(() => import("./pages/BlogIndexPage").then((m) => ({ default: m.BlogIndexPage })));
+const PrivacyPolicyPage = lazy(() => import("./pages/PrivacyPolicyPage").then((m) => ({ default: m.PrivacyPolicyPage })));
+const TermsPage = lazy(() => import("./pages/TermsPage").then((m) => ({ default: m.TermsPage })));
+const AboutPage = lazy(() => import("./pages/AboutPage").then((m) => ({ default: m.AboutPage })));
+const OpenSourcePage = lazy(() => import("./pages/OpenSourcePage").then((m) => ({ default: m.OpenSourcePage })));
+const NotFoundPage = lazy(() => import("./pages/NotFoundPage").then((m) => ({ default: m.NotFoundPage })));
+
+// Quiet, branded fallback shown while a route chunk is fetched. Sized
+// like the app shell so layout doesn't visibly jump when it appears.
+function RouteFallback() {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      aria-label="Loading"
+      style={{
+        minHeight: "100vh",
+        display: "grid",
+        placeItems: "center",
+        backgroundColor: "#FCF5EB",
+        color: "#2E6F40",
+        fontFamily:
+          "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+      }}
+    >
+      <span style={{ opacity: 0.6, fontSize: 14 }}>Loading…</span>
+    </div>
+  );
+}
 
 export function App() {
   const [queryClient] = useState(
@@ -103,54 +131,56 @@ export function App() {
           <SessionBootstrap />
           <SessionSync />
           <SessionGuard />
-          <Routes>
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/welcome" element={<WelcomePage />} />
-          <Route path="/signup/email" element={<EmailSignupPage />} />
-          <Route path="/signup/phone" element={<PhoneSignupPage />} />
-          <Route path="/signup/random" element={<RandomIdSignupPage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/login/phone" element={<PhoneLoginPage />} />
-          <Route path="/login/random" element={<RandomLoginPage />} />
-          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-          <Route path="/chats" element={<ChatsPage />} />
-          <Route path="/chats/:peerId" element={<ChatThreadPage />} />
-          <Route path="/profile/:peerId" element={<ProfilePage />} />
-          <Route path="/groups" element={<GroupsPage />} />
-          <Route path="/groups/:groupId" element={<GroupChatPage />} />
-          <Route path="/groups/:groupId/settings" element={<GroupSettingsPage />} />
-          <Route path="/invite" element={<InvitePage />} />
-          <Route path="/connections" element={<ConnectionsPage />} />
-          <Route path="/discover" element={<DiscoverPage />} />
-          <Route path="/discover/:userId" element={<DiscoverProfilePage />} />
-          <Route path="/settings/*" element={<SettingsPage />} />
-          <Route path="/vault" element={<VaultPage />} />
-          <Route path="/privacy-report" element={<PrivacyReportPage />} />
-          <Route path="/under-the-hood" element={<UnderTheHoodPage />} />
-          <Route path="/what-we-store" element={<WhatWeStorePage />} />
-          <Route path="/focus-mode" element={<FocusModePage />} />
-          <Route path="/sound" element={<SoundPage />} />
-          <Route path="/promises" element={<PromisesPage />} />
-          <Route path="/encryption" element={<EncryptionPage />} />
-          <Route path="/blog" element={<BlogIndexPage />} />
-          <Route path="/blog/whatsapp-privacy-truth" element={<WhatsappPrivacyPage />} />
-          <Route path="/blog/signal-vs-whatsapp" element={<SignalVsWhatsappPage />} />
-          <Route path="/blog/best-encrypted-messengers-2026" element={<BestEncryptedMessengersPage />} />
-          <Route path="/blog/why-open-source-matters-in-messaging" element={<WhyOpenSourcePage />} />
-          <Route path="/blog/how-to-choose-encrypted-messenger-2026" element={<HowToChooseEncryptedMessengerPage />} />
-          <Route path="/blog/messenger-metadata-leaks" element={<MessengerMetadataLeaksPage />} />
-          <Route path="/blog/messenger-without-phone-number" element={<MessengerWithoutPhoneNumberPage />} />
-          <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
-          <Route path="/terms" element={<TermsPage />} />
-          <Route path="/about" element={<AboutPage />} />
-          <Route path="/open-source" element={<OpenSourcePage />} />
-          <Route path="/i/:token" element={<InviteRedeemPage />} />
-          <Route path="*" element={<NotFoundPage />} />
-        </Routes>
-        <InstallPrompt />
-        <PushPermissionPrompt />
-        <DailyVerificationGate />
-        <ToastViewport />
+          <Suspense fallback={<RouteFallback />}>
+            <Routes>
+              <Route path="/" element={<LandingPage />} />
+              <Route path="/welcome" element={<WelcomePage />} />
+              <Route path="/signup/email" element={<EmailSignupPage />} />
+              <Route path="/signup/phone" element={<PhoneSignupPage />} />
+              <Route path="/signup/random" element={<RandomIdSignupPage />} />
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/login/phone" element={<PhoneLoginPage />} />
+              <Route path="/login/random" element={<RandomLoginPage />} />
+              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+              <Route path="/chats" element={<ChatsPage />} />
+              <Route path="/chats/:peerId" element={<ChatThreadPage />} />
+              <Route path="/profile/:peerId" element={<ProfilePage />} />
+              <Route path="/groups" element={<GroupsPage />} />
+              <Route path="/groups/:groupId" element={<GroupChatPage />} />
+              <Route path="/groups/:groupId/settings" element={<GroupSettingsPage />} />
+              <Route path="/invite" element={<InvitePage />} />
+              <Route path="/connections" element={<ConnectionsPage />} />
+              <Route path="/discover" element={<DiscoverPage />} />
+              <Route path="/discover/:userId" element={<DiscoverProfilePage />} />
+              <Route path="/settings/*" element={<SettingsPage />} />
+              <Route path="/vault" element={<VaultPage />} />
+              <Route path="/privacy-report" element={<PrivacyReportPage />} />
+              <Route path="/under-the-hood" element={<UnderTheHoodPage />} />
+              <Route path="/what-we-store" element={<WhatWeStorePage />} />
+              <Route path="/focus-mode" element={<FocusModePage />} />
+              <Route path="/sound" element={<SoundPage />} />
+              <Route path="/promises" element={<PromisesPage />} />
+              <Route path="/encryption" element={<EncryptionPage />} />
+              <Route path="/blog" element={<BlogIndexPage />} />
+              <Route path="/blog/whatsapp-privacy-truth" element={<WhatsappPrivacyPage />} />
+              <Route path="/blog/signal-vs-whatsapp" element={<SignalVsWhatsappPage />} />
+              <Route path="/blog/best-encrypted-messengers-2026" element={<BestEncryptedMessengersPage />} />
+              <Route path="/blog/why-open-source-matters-in-messaging" element={<WhyOpenSourcePage />} />
+              <Route path="/blog/how-to-choose-encrypted-messenger-2026" element={<HowToChooseEncryptedMessengerPage />} />
+              <Route path="/blog/messenger-metadata-leaks" element={<MessengerMetadataLeaksPage />} />
+              <Route path="/blog/messenger-without-phone-number" element={<MessengerWithoutPhoneNumberPage />} />
+              <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+              <Route path="/terms" element={<TermsPage />} />
+              <Route path="/about" element={<AboutPage />} />
+              <Route path="/open-source" element={<OpenSourcePage />} />
+              <Route path="/i/:token" element={<InviteRedeemPage />} />
+              <Route path="*" element={<NotFoundPage />} />
+            </Routes>
+          </Suspense>
+          <InstallPrompt />
+          <PushPermissionPrompt />
+          <DailyVerificationGate />
+          <ToastViewport />
         </QueryClientProvider>
       </trpc.Provider>
     </AppErrorBoundary>

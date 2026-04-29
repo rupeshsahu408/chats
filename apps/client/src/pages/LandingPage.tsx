@@ -1,11 +1,29 @@
 import { Link } from "react-router-dom";
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
 import peopleUsingPhones from "../assets/landing/people-using-phones.jpg";
 import smilingWithPhone from "../assets/landing/smiling-with-phone.jpg";
-import { IntroAdSection } from "../components/IntroAdSection";
-import { ExplainerVideo } from "../components/ExplainerVideo";
 import { useDocumentMeta } from "../lib/useDocumentMeta";
+
+// Below-the-fold heavy media components are lazy-loaded so the
+// initial paint of the landing page only ships the bytes needed to
+// render the hero — a big win for FCP / LCP on slow networks.
+const IntroAdSection = lazy(() =>
+  import("../components/IntroAdSection").then((m) => ({
+    default: m.IntroAdSection,
+  })),
+);
+const ExplainerVideo = lazy(() =>
+  import("../components/ExplainerVideo").then((m) => ({
+    default: m.ExplainerVideo,
+  })),
+);
+
+// Lightweight placeholder so the page layout stays stable while a
+// below-the-fold chunk is fetched (no CLS).
+function LandingSectionPlaceholder({ minHeight = 360 }: { minHeight?: number }) {
+  return <div style={{ minHeight }} aria-hidden="true" />;
+}
 
 /**
  * Public marketing landing page.
@@ -33,22 +51,30 @@ export function LandingPage() {
       }}
     >
       <NavBar />
-      <Hero />
-      <TrustBar />
-      <Features />
-      <ExplainerVideo />
-      <DeviceShowcase />
-      <Lifestyle />
-      <SecurityBond />
-      <PressStrip />
-      <Testimonials />
-      <HowItWorks />
-      <Security />
-      <Comparison />
-      <GetTheApp />
-      <IntroAdSection />
-      <FAQ />
-      <FinalCTA />
+      {/* Wrap the page content in a `<main>` landmark so screen readers
+          and Lighthouse can identify the primary content region. */}
+      <main id="main">
+        <Hero />
+        <TrustBar />
+        <Features />
+        <Suspense fallback={<LandingSectionPlaceholder minHeight={520} />}>
+          <ExplainerVideo />
+        </Suspense>
+        <DeviceShowcase />
+        <Lifestyle />
+        <SecurityBond />
+        <PressStrip />
+        <Testimonials />
+        <HowItWorks />
+        <Security />
+        <Comparison />
+        <GetTheApp />
+        <Suspense fallback={<LandingSectionPlaceholder minHeight={520} />}>
+          <IntroAdSection />
+        </Suspense>
+        <FAQ />
+        <FinalCTA />
+      </main>
       <Footer />
       <FloatingScrollToggle />
       <FloatingInstallChip />
@@ -222,15 +248,19 @@ function FloatingInstallChip() {
     setVisible(false);
   };
 
+  // When the chip is hidden we render nothing at all. The previous
+  // implementation kept the markup mounted with `aria-hidden={true}`,
+  // which Lighthouse flags because the inner <Link> + <button> are
+  // still focusable for keyboard / screen reader users — a classic
+  // a11y conflict between an aria-hidden ancestor and focusable
+  // descendants.
+  if (!visible) return null;
+
   return (
     <div
-      aria-hidden={!visible}
       className={[
         "fixed z-50 bottom-5 left-1/2 -translate-x-1/2 sm:left-auto sm:translate-x-0 sm:right-6 sm:bottom-6",
-        "transition-all duration-200",
-        visible
-          ? "opacity-100 translate-y-0 pointer-events-auto"
-          : "opacity-0 translate-y-3 pointer-events-none",
+        "transition-all duration-200 opacity-100 translate-y-0",
       ].join(" ")}
     >
       <Link
@@ -253,7 +283,7 @@ function FloatingInstallChip() {
           aria-label="Dismiss install prompt"
           className="ml-1 grid place-items-center w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 text-white/80 hover:text-white transition-colors"
         >
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" aria-hidden="true">
             <path d="M6 6l12 12" />
             <path d="M18 6L6 18" />
           </svg>
@@ -612,7 +642,12 @@ function CheckDot() {
 
 function PhoneMockup() {
   return (
-    <div className="relative mx-auto w-full max-w-[360px]">
+    // The whole phone is a decorative illustration of what the app
+    // looks like — no real interactive controls — so we hide it from
+    // assistive tech (the surrounding <h1>/<p> already describe the
+    // product). This also stops Lighthouse from auditing contrast
+    // inside the fake chat bubbles.
+    <div className="relative mx-auto w-full max-w-[360px]" aria-hidden="true" role="presentation">
       <div
         className="absolute -inset-8 rounded-full"
         style={{
@@ -644,11 +679,11 @@ function PhoneMockup() {
             className="px-4 py-3 flex items-center gap-3"
             style={{ backgroundColor: "#2E6F40" }}
           >
-            <button className="text-white/90" aria-label="back">
+            <span className="text-white/90" aria-hidden="true">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M15 18l-6-6 6-6" />
               </svg>
-            </button>
+            </span>
             <div className="w-9 h-9 rounded-full bg-white/15 grid place-items-center text-white text-sm font-semibold">
               A
             </div>
@@ -692,14 +727,15 @@ function PhoneMockup() {
             <div className="flex-1 h-10 rounded-full bg-white border border-[#253D2C]/10 px-4 flex items-center text-[13px] text-[#3C5A47]/70">
               Message
             </div>
-            <button
+            <span
               className="w-10 h-10 rounded-full grid place-items-center text-white"
               style={{ backgroundColor: "#2E6F40" }}
+              aria-hidden="true"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M2 21l21-9L2 3v7l15 2-15 2z" />
               </svg>
-            </button>
+            </span>
           </div>
         </div>
       </div>
@@ -785,8 +821,10 @@ function DeviceShowcase() {
           />
         </div>
 
-        {/* Desktop / tablet layout — overlapping marketing composition */}
-        <div className="hidden md:block relative">
+        {/* Desktop / tablet layout — overlapping marketing composition.
+            Marked decorative: the surrounding heading + subtitle already
+            explain the product, and the inner mock chats are illustrative. */}
+        <div className="hidden md:block relative" aria-hidden="true" role="presentation">
           <div className="relative max-w-5xl mx-auto">
             {/* Laptop sits centered, the hero of the composition */}
             <div className="relative z-10">
@@ -815,8 +853,9 @@ function DeviceShowcase() {
           <div className="h-24 lg:h-32" />
         </div>
 
-        {/* Mobile layout — clean vertical stack so each device stays legible */}
-        <div className="md:hidden space-y-10">
+        {/* Mobile layout — clean vertical stack so each device stays legible.
+            Same decorative-only treatment as the desktop composition above. */}
+        <div className="md:hidden space-y-10" aria-hidden="true" role="presentation">
           <div className="mx-auto max-w-md">
             <LaptopFrame />
           </div>
@@ -1645,7 +1684,7 @@ function PressStrip() {
             {marks.map((m) => (
               <span
                 key={m.name}
-                className="text-[#253D2C]/45 hover:text-[#253D2C]/70 transition-colors whitespace-nowrap select-none"
+                className="text-[#253D2C]/70 hover:text-[#253D2C] transition-colors whitespace-nowrap select-none"
                 style={m.style}
               >
                 {m.name}
@@ -1919,7 +1958,7 @@ function SecurityRow({ title, body }: { title: string; body: string }) {
       </div>
       <div>
         <h4 className="font-semibold text-[#FCF5EB] text-[17px]">{title}</h4>
-        <p className="text-[15px] text-[#FCF5EB]/65 mt-1 leading-relaxed">{body}</p>
+        <p className="text-[15px] text-[#FCF5EB]/80 mt-1 leading-relaxed">{body}</p>
       </div>
     </li>
   );
@@ -2370,7 +2409,7 @@ function Footer() {
                 VeilChat
               </span>
             </a>
-            <p className="mt-4 text-[14.5px] text-[#FCF5EB]/65 max-w-sm leading-relaxed">
+            <p className="mt-4 text-[14.5px] text-[#FCF5EB]/80 max-w-sm leading-relaxed">
               The privacy-first messenger. End-to-end encrypted,
               independently audited, and built for everyone who believes
               their conversations are no one else's business.
@@ -2385,7 +2424,7 @@ function Footer() {
                 <path d="m3 6 9 7 9-7" />
               </svg>
               <span>
-                <span className="text-[#FCF5EB]/55 mr-1.5">Support:</span>
+                <span className="text-[#FCF5EB]/75 mr-1.5">Support:</span>
                 hello@sendora.me
               </span>
             </a>
@@ -2442,7 +2481,7 @@ function Footer() {
           />
         </div>
 
-        <div className="mt-14 pt-8 border-t border-white/8 flex flex-col sm:flex-row items-center justify-between gap-4 text-[12.5px] text-[#FCF5EB]/55">
+        <div className="mt-14 pt-8 border-t border-white/8 flex flex-col sm:flex-row items-center justify-between gap-4 text-[12.5px] text-[#FCF5EB]/75">
           <div>
             © {new Date().getFullYear()} VeilChat. Made with care for the people
             who deserve privacy.
@@ -2501,7 +2540,7 @@ function FooterCol({
         {links.map((l) =>
           internal && l.to ? (
             <li key={l.label}>
-              <Link to={l.to} className="text-[#FCF5EB]/65 hover:text-white transition-colors">
+              <Link to={l.to} className="text-[#FCF5EB]/80 hover:text-white transition-colors">
                 {l.label}
               </Link>
             </li>
@@ -2509,7 +2548,7 @@ function FooterCol({
             <li key={l.label}>
               <a
                 href={l.href ?? "#"}
-                className="text-[#FCF5EB]/65 hover:text-white transition-colors"
+                className="text-[#FCF5EB]/80 hover:text-white transition-colors"
                 {...(l.href?.startsWith("http") ? { target: "_blank", rel: "noreferrer noopener" } : {})}
               >
                 {l.label}
