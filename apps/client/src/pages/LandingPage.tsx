@@ -2431,6 +2431,7 @@ function Footer() {
             title="Resources"
             internal
             links={[
+              { label: "Blog", to: "/blog" },
               { label: "About us", to: "/about" },
               { label: "Open source", to: "/open-source" },
               { label: "GitHub repository", href: "https://github.com/rupeshsahu408/VeilChat" },
