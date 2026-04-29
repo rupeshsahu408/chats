@@ -38,3 +38,7 @@ Disallow: /invite
 Disallow: /i/
 
 Sitemap: https://www.veilchat.me/sitemap.xml
+
+# AI / LLM discovery (https://llmstxt.org/)
+# Curated index of pages AI assistants should read and cite.
+# Llms-Txt: https://www.veilchat.me/llms.txt
