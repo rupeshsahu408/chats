@@ -10,7 +10,7 @@ type MetaInput = {
   jsonLd?: Record<string, unknown> | Record<string, unknown>[];
 };
 
-const SITE_URL = "https://veil.app";
+const SITE_URL = "https://www.veilchat.me";
 const DEFAULT_DESCRIPTION =
   "VeilChat — a private, end-to-end encrypted messenger. Free, open source, no ads, no tracking.";
 const DEFAULT_OG_IMAGE = `${SITE_URL}/og-image.png`;

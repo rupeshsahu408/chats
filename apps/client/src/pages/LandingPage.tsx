@@ -2017,7 +2017,7 @@ function GetTheApp() {
     const url =
       typeof window !== "undefined"
         ? window.location.origin + "/welcome"
-        : "https://veil.app/welcome";
+        : "https://www.veilchat.me/welcome";
     setInstallUrl(url);
     QRCode.toDataURL(url, {
       errorCorrectionLevel: "M",

@@ -37,4 +37,4 @@ Disallow: /welcome
 Disallow: /invite
 Disallow: /i/
 
-Sitemap: https://veil.app/sitemap.xml
+Sitemap: https://www.veilchat.me/sitemap.xml

@@ -464,7 +464,7 @@ export function BestEncryptedMessengersPage() {
         account: <strong>install VeilChat</strong>{" "}
         (
         <a href="/welcome" className="text-[#2E6F40] underline">
-          veil.app/welcome
+          veilchat.me/welcome
         </a>
         ). You'll get a private ID, a recovery phrase that exists only on
         your device, and a server that genuinely cannot read your messages.

@@ -2,136 +2,136 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
         xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
   <url>
-    <loc>https://veil.app/</loc>
+    <loc>https://www.veilchat.me/</loc>
     <lastmod>2026-04-29</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
     <image:image>
-      <image:loc>https://veil.app/og-image.png</image:loc>
+      <image:loc>https://www.veilchat.me/og-image.png</image:loc>
       <image:title>VeilChat — Private messaging, beautifully simple</image:title>
       <image:caption>End-to-end encrypted messenger for the people you actually trust.</image:caption>
     </image:image>
   </url>
   <url>
-    <loc>https://veil.app/about</loc>
+    <loc>https://www.veilchat.me/about</loc>
     <lastmod>2026-04-29</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://veil.app/encryption</loc>
+    <loc>https://www.veilchat.me/encryption</loc>
     <lastmod>2026-04-29</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://veil.app/open-source</loc>
+    <loc>https://www.veilchat.me/open-source</loc>
     <lastmod>2026-04-29</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://veil.app/promises</loc>
+    <loc>https://www.veilchat.me/promises</loc>
     <lastmod>2026-04-29</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://veil.app/focus-mode</loc>
+    <loc>https://www.veilchat.me/focus-mode</loc>
     <lastmod>2026-04-29</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://veil.app/sound</loc>
+    <loc>https://www.veilchat.me/sound</loc>
     <lastmod>2026-04-29</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
-    <loc>https://veil.app/blog</loc>
+    <loc>https://www.veilchat.me/blog</loc>
     <lastmod>2026-04-29</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://veil.app/blog/whatsapp-privacy-truth</loc>
+    <loc>https://www.veilchat.me/blog/whatsapp-privacy-truth</loc>
     <lastmod>2026-04-29</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.9</priority>
     <image:image>
-      <image:loc>https://veil.app/og-image.png</image:loc>
+      <image:loc>https://www.veilchat.me/og-image.png</image:loc>
       <image:title>WhatsApp &amp; Privacy — A Documentary-Style Investigation</image:title>
     </image:image>
   </url>
   <url>
-    <loc>https://veil.app/blog/signal-vs-whatsapp</loc>
+    <loc>https://www.veilchat.me/blog/signal-vs-whatsapp</loc>
     <lastmod>2026-04-29</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.9</priority>
     <image:image>
-      <image:loc>https://veil.app/og-image.png</image:loc>
+      <image:loc>https://www.veilchat.me/og-image.png</image:loc>
       <image:title>Signal vs WhatsApp — Which messenger is actually private in 2026?</image:title>
     </image:image>
   </url>
   <url>
-    <loc>https://veil.app/blog/best-encrypted-messengers-2026</loc>
+    <loc>https://www.veilchat.me/blog/best-encrypted-messengers-2026</loc>
     <lastmod>2026-04-29</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.9</priority>
     <image:image>
-      <image:loc>https://veil.app/og-image.png</image:loc>
+      <image:loc>https://www.veilchat.me/og-image.png</image:loc>
       <image:title>Best end-to-end encrypted messengers in 2026</image:title>
     </image:image>
   </url>
   <url>
-    <loc>https://veil.app/blog/why-open-source-matters-in-messaging</loc>
+    <loc>https://www.veilchat.me/blog/why-open-source-matters-in-messaging</loc>
     <lastmod>2026-04-29</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
     <image:image>
-      <image:loc>https://veil.app/og-image.png</image:loc>
+      <image:loc>https://www.veilchat.me/og-image.png</image:loc>
       <image:title>Why open source matters in private messaging</image:title>
     </image:image>
   </url>
   <url>
-    <loc>https://veil.app/blog/how-to-choose-encrypted-messenger-2026</loc>
+    <loc>https://www.veilchat.me/blog/how-to-choose-encrypted-messenger-2026</loc>
     <lastmod>2026-04-29</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.9</priority>
     <image:image>
-      <image:loc>https://veil.app/og-image.png</image:loc>
+      <image:loc>https://www.veilchat.me/og-image.png</image:loc>
       <image:title>How to choose an end-to-end encrypted messenger in 2026</image:title>
     </image:image>
   </url>
   <url>
-    <loc>https://veil.app/blog/messenger-metadata-leaks</loc>
+    <loc>https://www.veilchat.me/blog/messenger-metadata-leaks</loc>
     <lastmod>2026-04-29</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.9</priority>
     <image:image>
-      <image:loc>https://veil.app/og-image.png</image:loc>
+      <image:loc>https://www.veilchat.me/og-image.png</image:loc>
       <image:title>What metadata your messenger leaks (and what to do about it)</image:title>
     </image:image>
   </url>
   <url>
-    <loc>https://veil.app/blog/messenger-without-phone-number</loc>
+    <loc>https://www.veilchat.me/blog/messenger-without-phone-number</loc>
     <lastmod>2026-04-29</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.9</priority>
     <image:image>
-      <image:loc>https://veil.app/og-image.png</image:loc>
+      <image:loc>https://www.veilchat.me/og-image.png</image:loc>
       <image:title>How to use a private messenger without a phone number</image:title>
     </image:image>
   </url>
   <url>
-    <loc>https://veil.app/privacy-policy</loc>
+    <loc>https://www.veilchat.me/privacy-policy</loc>
     <lastmod>2026-04-29</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
-    <loc>https://veil.app/terms</loc>
+    <loc>https://www.veilchat.me/terms</loc>
     <lastmod>2026-04-29</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
