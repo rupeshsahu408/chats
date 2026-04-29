@@ -194,59 +194,100 @@ export async function decryptFromPeer(
   const { header: wire, bytes: headerBytes } = decodeHeader(headerB64);
   const ciphertext = base64ToBytes(ciphertextB64);
 
-  let state = await loadState(peerId);
+  const headerForRatchet: MessageHeader = {
+    ratchetPub: base64ToBytes(wire.dh),
+    n: wire.n,
+    pn: wire.pn,
+  };
 
-  if (!state && wire.init) {
-    // First-ever message in this session — run X3DH responder.
-    const spk = await lookups.spk(wire.init.spkId);
+  /**
+   * Run the X3DH responder for the given init block and return a fresh
+   * Bob-side ratchet state. Used both for first-ever sessions AND for
+   * the re-bootstrap path below (when the peer signs in on a new device
+   * and starts a brand-new X3DH handshake while we still hold a stale
+   * ratchet state for them).
+   */
+  const bootstrapFromInit = async (
+    init: NonNullable<WireHeader["init"]>,
+  ): Promise<{ state: RatchetState; opkIdToConsume: number | null }> => {
+    const spk = await lookups.spk(init.spkId);
     if (!spk) {
       throw new Error(
-        `Initial message references signed prekey id ${wire.init.spkId} which we no longer have.`,
+        `Initial message references signed prekey id ${init.spkId} which we no longer have.`,
       );
     }
-    const opk =
-      wire.init.opkId !== null ? await lookups.opk(wire.init.opkId) : null;
-    if (wire.init.opkId !== null && !opk) {
+    const opk = init.opkId !== null ? await lookups.opk(init.opkId) : null;
+    if (init.opkId !== null && !opk) {
       throw new Error(
-        `Initial message references one-time prekey id ${wire.init.opkId} which we no longer have.`,
+        `Initial message references one-time prekey id ${init.opkId} which we no longer have.`,
       );
     }
     const x3dh = await x3dhRespond({
       myIdentityX25519: identity.x25519,
       mySignedPreKey: spk,
       myOneTimePreKey: opk,
-      peerIdentityX25519Pub: base64ToBytes(wire.init.ikX),
-      peerEphemeralPub: base64ToBytes(wire.init.ek),
+      peerIdentityX25519Pub: base64ToBytes(init.ikX),
+      peerEphemeralPub: base64ToBytes(init.ek),
     });
-    state = initRatchetBob({
+    const fresh = initRatchetBob({
       rootKey: x3dh.sharedSecret,
       mySignedPreKey: spk,
       associatedData: x3dh.associatedData,
     });
-    // Forward secrecy: drop the OPK private key so nobody can replay this.
-    if (wire.init.opkId !== null) {
-      await lookups.consumeOpk(wire.init.opkId);
-    }
-  }
+    return { state: fresh, opkIdToConsume: init.opkId };
+  };
+
+  let state = await loadState(peerId);
+  let pendingOpkConsume: number | null = null;
 
   if (!state) {
-    throw new Error(
-      "No session for this peer and message lacks an X3DH init block.",
-    );
+    if (!wire.init) {
+      throw new Error(
+        "No session for this peer and message lacks an X3DH init block.",
+      );
+    }
+    // First-ever message in this session — run X3DH responder.
+    const boot = await bootstrapFromInit(wire.init);
+    state = boot.state;
+    pendingOpkConsume = boot.opkIdToConsume;
   }
 
-  const headerForRatchet: MessageHeader = {
-    ratchetPub: base64ToBytes(wire.dh),
-    n: wire.n,
-    pn: wire.pn,
-  };
-  const plaintext = await ratchetDecrypt(
-    state,
-    headerForRatchet,
-    ciphertext,
-    headerBytes,
-  );
+  let plaintext: Uint8Array;
+  try {
+    plaintext = await ratchetDecrypt(
+      state,
+      headerForRatchet,
+      ciphertext,
+      headerBytes,
+    );
+  } catch (err) {
+    // Recovery path: the peer may have signed in on a new device and
+    // bootstrapped a brand-new X3DH session while our local store still
+    // holds the previous ratchet state. In that case the wire header
+    // carries an `init` block describing the fresh handshake — replace
+    // our stale state with one derived from that init and retry decrypt.
+    // Without this branch the two devices stay deadlocked: the new device
+    // can never decrypt anything we send (we have no init to give it),
+    // and we can never decrypt anything it sends (we ignore its init).
+    if (!wire.init) throw err;
+    const boot = await bootstrapFromInit(wire.init);
+    plaintext = await ratchetDecrypt(
+      boot.state,
+      headerForRatchet,
+      ciphertext,
+      headerBytes,
+    );
+    state = boot.state;
+    pendingOpkConsume = boot.opkIdToConsume;
+  }
+
   await saveState(peerId, state);
+  // Forward secrecy: drop the OPK private key only after a successful
+  // decrypt, so a malformed or forged init block can never burn a still-
+  // valid one-time prekey.
+  if (pendingOpkConsume !== null) {
+    await lookups.consumeOpk(pendingOpkConsume);
+  }
   return dec.decode(plaintext);
 }
 
