@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import type { ReactNode } from "react";
 import { AppBar, PrimaryButton } from "../components/Layout";
+import { useDocumentMeta } from "../lib/useDocumentMeta";
 
 /**
  * "End-to-end encryption" — the explainer reached from the yellow
@@ -15,6 +16,13 @@ import { AppBar, PrimaryButton } from "../components/Layout";
  */
 export function EncryptionPage() {
   const navigate = useNavigate();
+  useDocumentMeta({
+    title: "End-to-end encryption explained · VeilChat",
+    description:
+      "How VeilChat keeps your messages private: end-to-end encryption, on-device keys, and what we genuinely cannot see — written in plain English.",
+    canonical: "/encryption",
+    ogType: "article",
+  });
 
   return (
     <div className="min-h-screen bg-bg flex flex-col">

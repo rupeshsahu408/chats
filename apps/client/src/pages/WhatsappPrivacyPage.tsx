@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
+import { useDocumentMeta, SEO_SITE_URL } from "../lib/useDocumentMeta";
 
 /**
  * Long-form, bilingual (English / हिन्दी), heavily-sourced
@@ -5142,26 +5143,44 @@ export function WhatsappPrivacyPage() {
     return () => { document.documentElement.removeAttribute("dir"); };
   }, [lang]);
 
-  useEffect(() => {
-    const title =
-      lang === "hi"
-        ? "WhatsApp और आपकी प्राइवेसी — एक डॉक्युमेंट्री-स्तर की जाँच | VeilChat"
-        : "WhatsApp & Privacy — A Documentary-Style Investigation | VeilChat";
-    document.title = title;
-    const desc =
-      lang === "hi"
-        ? "WhatsApp की प्राइवेसी पॉलिसी, terms, ads, सरकारी एक्सेस, spyware मामलों, क़ानूनी जुर्मानों और आपके data के साथ असल में क्या होता है — सब एक जगह, स्रोतों के साथ।"
-        : "A long-form, fully-sourced investigation into WhatsApp's privacy policy, terms, ads plans, government access, spyware incidents, regulatory fines, and what really happens to your data.";
-    let meta = document.querySelector('meta[name="description"]') as
-      | HTMLMetaElement
-      | null;
-    if (!meta) {
-      meta = document.createElement("meta");
-      meta.setAttribute("name", "description");
-      document.head.appendChild(meta);
-    }
-    meta.setAttribute("content", desc);
-  }, [lang]);
+  const articleTitle =
+    lang === "hi"
+      ? "WhatsApp और आपकी प्राइवेसी — एक डॉक्युमेंट्री-स्तर की जाँच | VeilChat"
+      : "WhatsApp & Privacy — A Documentary-Style Investigation | VeilChat";
+  const articleDesc =
+    lang === "hi"
+      ? "WhatsApp की प्राइवेसी पॉलिसी, terms, ads, सरकारी एक्सेस, spyware मामलों, क़ानूनी जुर्मानों और आपके data के साथ असल में क्या होता है — सब एक जगह, स्रोतों के साथ।"
+      : "A long-form, fully-sourced investigation into WhatsApp's privacy policy, terms, ads plans, government access, spyware incidents, regulatory fines, and what really happens to your data.";
+
+  useDocumentMeta({
+    title: articleTitle,
+    description: articleDesc,
+    canonical: "/blog/whatsapp-privacy-truth",
+    ogType: "article",
+    jsonLd: {
+      "@context": "https://schema.org",
+      "@type": "Article",
+      headline: articleTitle,
+      description: articleDesc,
+      image: `${SEO_SITE_URL}/og-image.png`,
+      mainEntityOfPage: {
+        "@type": "WebPage",
+        "@id": `${SEO_SITE_URL}/blog/whatsapp-privacy-truth`,
+      },
+      author: { "@type": "Organization", name: "VeilChat" },
+      publisher: {
+        "@type": "Organization",
+        name: "VeilChat",
+        logo: {
+          "@type": "ImageObject",
+          url: `${SEO_SITE_URL}/icon-512.svg`,
+        },
+      },
+      inLanguage: lang,
+      datePublished: "2025-06-20",
+      dateModified: "2025-12-15",
+    },
+  });
 
   const tocItems = TOC_MAP[lang] ?? TOC_EN;
 

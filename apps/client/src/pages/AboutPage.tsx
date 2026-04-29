@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
+import { useDocumentMeta } from "../lib/useDocumentMeta";
 
 /**
  * VeilChat — About Us.
@@ -11,13 +12,13 @@ import { useEffect, useState } from "react";
  */
 
 export function AboutPage() {
-  useEffect(() => {
-    const previous = document.title;
-    document.title = "About · VeilChat";
-    return () => {
-      document.title = previous;
-    };
-  }, []);
+  useDocumentMeta({
+    title: "About VeilChat — the people behind a private messenger",
+    description:
+      "Meet the team and the values behind VeilChat: a private, open-source messenger built so that no one — not even us — can read your conversations.",
+    canonical: "/about",
+    ogType: "website",
+  });
 
   return (
     <div

@@ -1,0 +1,43 @@
+# VeilChat — robots.txt
+# Allow public marketing & legal pages, keep the private app surface
+# out of search engines.
+
+User-agent: *
+Allow: /
+Allow: /about
+Allow: /encryption
+Allow: /open-source
+Allow: /privacy-policy
+Allow: /terms
+Allow: /under-the-hood
+Allow: /what-we-store
+Allow: /promises
+Allow: /focus-mode
+Allow: /sound
+Allow: /blog/
+
+# Private / authenticated app surfaces — do not index.
+Disallow: /chats
+Disallow: /chats/
+Disallow: /groups
+Disallow: /groups/
+Disallow: /profile/
+Disallow: /connections
+Disallow: /discover
+Disallow: /discover/
+Disallow: /settings
+Disallow: /settings/
+Disallow: /vault
+Disallow: /privacy-report
+Disallow: /signup/
+Disallow: /login
+Disallow: /login/
+Disallow: /forgot-password
+Disallow: /welcome
+Disallow: /invite
+Disallow: /i/
+
+# Tell well-behaved crawlers to take it slow.
+Crawl-delay: 5
+
+Sitemap: https://veil.app/sitemap.xml

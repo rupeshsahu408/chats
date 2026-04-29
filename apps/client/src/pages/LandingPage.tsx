@@ -5,6 +5,7 @@ import peopleUsingPhones from "../assets/landing/people-using-phones.jpg";
 import smilingWithPhone from "../assets/landing/smiling-with-phone.jpg";
 import { IntroAdSection } from "../components/IntroAdSection";
 import { ExplainerVideo } from "../components/ExplainerVideo";
+import { useDocumentMeta } from "../lib/useDocumentMeta";
 
 /**
  * Public marketing landing page.
@@ -14,6 +15,13 @@ import { ExplainerVideo } from "../components/ExplainerVideo";
  */
 export function LandingPage() {
   useTapToScroll();
+  useDocumentMeta({
+    title: "VeilChat — Private, end-to-end encrypted messenger",
+    description:
+      "VeilChat is a private, end-to-end encrypted messenger for the people you actually trust. Free, open source, no ads, no tracking. Works on every device.",
+    canonical: "/",
+    ogType: "website",
+  });
   return (
     <div
       className="min-h-screen antialiased"

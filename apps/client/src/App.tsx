@@ -44,6 +44,7 @@ import { PrivacyPolicyPage } from "./pages/PrivacyPolicyPage";
 import { TermsPage } from "./pages/TermsPage";
 import { AboutPage } from "./pages/AboutPage";
 import { OpenSourcePage } from "./pages/OpenSourcePage";
+import { NotFoundPage } from "./pages/NotFoundPage";
 import { SessionSync } from "./lib/SessionSync";
 import { SessionGuard } from "./components/SessionGuard";
 import { useStealthPrefs } from "./lib/stealthPrefs";
@@ -130,7 +131,7 @@ export function App() {
           <Route path="/about" element={<AboutPage />} />
           <Route path="/open-source" element={<OpenSourcePage />} />
           <Route path="/i/:token" element={<InviteRedeemPage />} />
-          <Route path="*" element={<WelcomePage />} />
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
         <InstallPrompt />
         <PushPermissionPrompt />

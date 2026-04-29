@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
+import { useDocumentMeta } from "../lib/useDocumentMeta";
 
 /**
  * VeilChat — Privacy Policy.
@@ -113,13 +114,13 @@ const TOC: SectionNode[] = [
 export function PrivacyPolicyPage() {
   // The browser tab title is set explicitly so the policy is easy to
   // identify in a tab strip and shows up cleanly in shared previews.
-  useEffect(() => {
-    const previous = document.title;
-    document.title = "Privacy Policy · VeilChat";
-    return () => {
-      document.title = previous;
-    };
-  }, []);
+  useDocumentMeta({
+    title: "Privacy Policy · VeilChat",
+    description:
+      "VeilChat's privacy policy: what we collect (almost nothing), how we protect it, who we share it with, and the rights you can exercise.",
+    canonical: "/privacy-policy",
+    ogType: "article",
+  });
 
   return (
     <div

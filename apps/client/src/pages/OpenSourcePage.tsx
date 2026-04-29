@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
+import { useDocumentMeta } from "../lib/useDocumentMeta";
 
 const REPO_URL = "https://github.com/rupeshsahu408/VeilChat";
 const REPO_API = "https://api.github.com/repos/rupeshsahu408/VeilChat";
@@ -22,6 +23,13 @@ const README_URL = `${REPO_URL}/blob/main/README.md`;
  * landing page so the two read as one continuous site.
  */
 export function OpenSourcePage() {
+  useDocumentMeta({
+    title: "Open source — every line, on GitHub · VeilChat",
+    description:
+      "VeilChat is open source: client, server, and crypto layer are on GitHub under a permissive license. Audit it, run it, or self-host the entire stack.",
+    canonical: "/open-source",
+    ogType: "website",
+  });
   return (
     <div
       className="min-h-screen antialiased"

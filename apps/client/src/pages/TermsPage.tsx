@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
+import { useDocumentMeta } from "../lib/useDocumentMeta";
 
 /**
  * VeilChat — Terms & Conditions.
@@ -126,13 +127,13 @@ export function TermsPage() {
   // The browser tab title is set explicitly so the document is easy
   // to identify in a tab strip and shows up cleanly in shared
   // previews.
-  useEffect(() => {
-    const previous = document.title;
-    document.title = "Terms & Conditions · VeilChat";
-    return () => {
-      document.title = previous;
-    };
-  }, []);
+  useDocumentMeta({
+    title: "Terms & Conditions · VeilChat",
+    description:
+      "VeilChat's terms of service: how the app may be used, what we promise, and the obligations on both sides — written in plain English.",
+    canonical: "/terms",
+    ogType: "article",
+  });
 
   return (
     <div

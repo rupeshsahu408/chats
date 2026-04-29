@@ -17,14 +17,18 @@ export default defineConfig({
       devOptions: { enabled: true, type: "module" },
       includeAssets: ["favicon.svg"],
       manifest: {
-        name: "Veil",
-        short_name: "Veil",
-        description: "Private by design. Visible to no one but you.",
-        theme_color: "#0b1437",
-        background_color: "#0b1437",
+        name: "VeilChat — Private messenger",
+        short_name: "VeilChat",
+        description:
+          "A calm, end-to-end encrypted messenger for the people you actually trust. Free, open source, no ads, no tracking.",
+        theme_color: "#2E6F40",
+        background_color: "#FCF5EB",
         display: "standalone",
+        orientation: "portrait",
         start_url: "/",
         scope: "/",
+        lang: "en",
+        categories: ["communication", "social", "productivity"],
         icons: [
           {
             src: "/icon-192.svg",
