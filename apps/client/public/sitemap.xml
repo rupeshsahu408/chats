@@ -54,7 +54,38 @@
   <url>
     <loc>https://veil.app/blog/whatsapp-privacy-truth</loc>
     <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+    <image:image>
+      <image:loc>https://veil.app/og-image.png</image:loc>
+      <image:title>WhatsApp &amp; Privacy — A Documentary-Style Investigation</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://veil.app/blog/signal-vs-whatsapp</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+    <image:image>
+      <image:loc>https://veil.app/og-image.png</image:loc>
+      <image:title>Signal vs WhatsApp — Which messenger is actually private in 2026?</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://veil.app/blog/best-encrypted-messengers-2026</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+    <image:image>
+      <image:loc>https://veil.app/og-image.png</image:loc>
+      <image:title>Best end-to-end encrypted messengers in 2026</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://veil.app/blog/why-open-source-matters-in-messaging</loc>
+    <changefreq>monthly</changefreq>
     <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://veil.app/og-image.png</image:loc>
+      <image:title>Why open source matters in private messaging</image:title>
+    </image:image>
   </url>
   <url>
     <loc>https://veil.app/privacy-policy</loc>
