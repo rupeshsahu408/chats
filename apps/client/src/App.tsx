@@ -43,6 +43,9 @@ import { WhatsappPrivacyPage } from "./pages/WhatsappPrivacyPage";
 import { SignalVsWhatsappPage } from "./pages/SignalVsWhatsappPage";
 import { BestEncryptedMessengersPage } from "./pages/BestEncryptedMessengersPage";
 import { WhyOpenSourcePage } from "./pages/WhyOpenSourcePage";
+import { HowToChooseEncryptedMessengerPage } from "./pages/HowToChooseEncryptedMessengerPage";
+import { MessengerMetadataLeaksPage } from "./pages/MessengerMetadataLeaksPage";
+import { MessengerWithoutPhoneNumberPage } from "./pages/MessengerWithoutPhoneNumberPage";
 import { PrivacyPolicyPage } from "./pages/PrivacyPolicyPage";
 import { TermsPage } from "./pages/TermsPage";
 import { AboutPage } from "./pages/AboutPage";
@@ -132,6 +135,9 @@ export function App() {
           <Route path="/blog/signal-vs-whatsapp" element={<SignalVsWhatsappPage />} />
           <Route path="/blog/best-encrypted-messengers-2026" element={<BestEncryptedMessengersPage />} />
           <Route path="/blog/why-open-source-matters-in-messaging" element={<WhyOpenSourcePage />} />
+          <Route path="/blog/how-to-choose-encrypted-messenger-2026" element={<HowToChooseEncryptedMessengerPage />} />
+          <Route path="/blog/messenger-metadata-leaks" element={<MessengerMetadataLeaksPage />} />
+          <Route path="/blog/messenger-without-phone-number" element={<MessengerWithoutPhoneNumberPage />} />
           <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
           <Route path="/terms" element={<TermsPage />} />
           <Route path="/about" element={<AboutPage />} />

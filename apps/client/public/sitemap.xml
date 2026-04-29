@@ -89,6 +89,36 @@
     </image:image>
   </url>
   <url>
+    <loc>https://veil.app/blog/how-to-choose-encrypted-messenger-2026</loc>
+    <lastmod>2026-04-29</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+    <image:image>
+      <image:loc>https://veil.app/og-image.png</image:loc>
+      <image:title>How to choose an end-to-end encrypted messenger in 2026</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://veil.app/blog/messenger-metadata-leaks</loc>
+    <lastmod>2026-04-29</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+    <image:image>
+      <image:loc>https://veil.app/og-image.png</image:loc>
+      <image:title>What metadata your messenger leaks (and what to do about it)</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://veil.app/blog/messenger-without-phone-number</loc>
+    <lastmod>2026-04-29</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+    <image:image>
+      <image:loc>https://veil.app/og-image.png</image:loc>
+      <image:title>How to use a private messenger without a phone number</image:title>
+    </image:image>
+  </url>
+  <url>
     <loc>https://veil.app/privacy-policy</loc>
     <lastmod>2026-04-29</lastmod>
     <changefreq>monthly</changefreq>
