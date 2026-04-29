@@ -127,7 +127,7 @@ export function useDocumentMeta(meta: MetaInput) {
 
     return () => {
       // Run cleanups in reverse so we restore in the order we mutated.
-      for (let i = cleanup.length - 1; i >= 0; i--) cleanup[i]();
+      for (let i = cleanup.length - 1; i >= 0; i--) cleanup[i]?.();
     };
   }, [
     meta.title,
