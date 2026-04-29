@@ -75,6 +75,8 @@ const TRUSTED_CLIENT_HOST_PATTERNS = [
   /\.replit\.app$/,        // Replit deployments
   /\.replit\.dev$/,        // Replit dev
   /\.repl\.co$/,           // Replit (legacy)
+  /^veilchat\.me$/,        // Production custom domain (apex)
+  /\.veilchat\.me$/,       // Production custom domain (any subdomain, e.g. www)
 ];
 
 const corsStrict = process.env.CORS_STRICT === "true";
